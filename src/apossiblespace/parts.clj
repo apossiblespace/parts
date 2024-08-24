@@ -13,6 +13,7 @@
    [reitit.coercion.spec]
    [reitit.swagger :as swagger]
    [reitit.swagger-ui :as swagger-ui]
+   [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [apossiblespace.parts.db :as db]
    [apossiblespace.parts.auth :as auth]))
 
@@ -38,7 +39,9 @@
        ["/logout"
         {:post {:handler auth/logout
                 :middleware [auth/jwt-auth]}}]]
-      ]])
+      ]]
+    {:data {:middleware [[wrap-json-body {:keywords? true}]
+                         wrap-json-response]}})
    (ring/routes
     (swagger-ui/create-swagger-ui-handler
      {:path "/"

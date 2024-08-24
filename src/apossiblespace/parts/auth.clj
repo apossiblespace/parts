@@ -61,12 +61,13 @@
         {:success "User registered successfully"}))))
 
 (defn login
-  [{:keys [email password]}]
-  (if-let [token (authenticate {:email email :password password})]
-    (-> (response/response {:token token})
-        (response/status 200))
-    (-> (response/response {:error "Invalid credentials"})
-        (response/status 401))))
+  [request]
+  (let [{:keys [email password]} (:body request)]
+    (if-let [token (authenticate {:email email :password password})]
+      (-> (response/response {:token token})
+          (response/status 200))
+      (-> (response/response {:error "Invalid credentials"})
+          (response/status 401)))))
 
 ;; In a stateless JWT setup, we don't need to do anything server-side for logout
 ;; The client should discard the token
