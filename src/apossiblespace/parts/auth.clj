@@ -5,8 +5,9 @@
    [buddy.auth.backends :as backends]
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
    [buddy.hashers :as hashers]
+   [ring.util.response :as response]
    [apossiblespace.parts.db :as db]
-   [ring.util.response :as response])
+   [com.brunobonacci.mulog :as mulog])
   (:import
    [java.time Instant]))
 
@@ -64,10 +65,14 @@
   [request]
   (let [{:keys [email password]} (:body request)]
     (if-let [token (authenticate {:email email :password password})]
-      (-> (response/response {:token token})
-          (response/status 200))
-      (-> (response/response {:error "Invalid credentials"})
-          (response/status 401)))))
+      (do
+        (mulog/log ::login :email email :status :success)
+        (-> (response/response {:token token})
+            (response/status 200)))
+      (do
+        (mulog/log ::login :email email :status :failure)
+        (-> (response/response {:error "Invalid credentials"})
+            (response/status 401))))))
 
 ;; In a stateless JWT setup, we don't need to do anything server-side for logout
 ;; The client should discard the token
