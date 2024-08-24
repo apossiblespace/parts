@@ -13,7 +13,8 @@
    [reitit.coercion.spec]
    [reitit.swagger :as swagger]
    [reitit.swagger-ui :as swagger-ui]
-   [apossiblespace.parts.db :as db]))
+   [apossiblespace.parts.db :as db]
+   [apossiblespace.parts.auth :as auth]))
 
 ;; ---------------------------------------------------------
 ;; Application
@@ -29,6 +30,14 @@
      ["/api"
       ["/health-check"
        {:get {:handler (fn [_] {:status 200 :body {:message "Service is up"}})}}]
+      ["/auth"
+       ["/register"
+        {:post {:handler auth/register}}]
+       ["/login"
+        {:post {:handler auth/login}}]
+       ["/logout"
+        {:post {:handler auth/logout
+                :middleware [auth/jwt-auth]}}]]
       ]])
    (ring/routes
     (swagger-ui/create-swagger-ui-handler

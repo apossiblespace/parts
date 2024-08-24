@@ -25,6 +25,11 @@
   (migratus/init migration-config)
   (migratus/migrate migration-config))
 
+(defn sql-format
+  "Convert a HoneySQL map to a vector of [sql & params]"
+  [sql-map]
+  (sql/format sql-map))
+
 (defn query
   [q]
   (jdbc/execute! datasource q {:builder-fn rs/as-unqualified-maps}))
