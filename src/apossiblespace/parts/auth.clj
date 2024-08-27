@@ -13,9 +13,11 @@
 
 ;; FIXME: Move this into an env variable or something
 ;; .env file?
-(def secret "some-secret-key")
+(defn get-secret []
+  (or (System/getenv "JWT_SECRET")
+      "b961d6a135c25fcb69764e2fe7dbd05676cc748b0a41d8b996a1c8be424e15d41104291615240f7585a6d5f62090e073a6fce95f7ffdb3c8619ac5bb109c527c"))
 
-(def auth-backend (backends/jws {:secret secret}))
+(def auth-backend (backends/jws {:secret get-secret}))
 
 (defn create-token
   "Create a JWT token that will expire on 1 hour"
@@ -23,7 +25,7 @@
   (let [now (Instant/now)
         claims {:user-id user-id
                 :exp (.plusSeconds now 3600)}]
-    (jwt/sign claims secret)))
+    (jwt/sign claims get-secret)))
 
 (defn hash-password
   [password]
