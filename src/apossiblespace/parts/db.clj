@@ -4,13 +4,14 @@
    [next.jdbc.result-set :as rs]
    [migratus.core :as migratus]
    [honey.sql :as sql]
-   [com.brunobonacci.mulog :as mulog])
+   [com.brunobonacci.mulog :as mulog]
+   [apossiblespace.parts.config :as conf])
   (:import
    [java.util UUID]))
 
 (def db-spec
   {:dbtype "sqlite"
-   :dbname "db/parts.db"})
+   :dbname (conf/database-file (conf/config))})
 
 (def datasource
   (jdbc/get-datasource db-spec))

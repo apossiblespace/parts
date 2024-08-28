@@ -4,10 +4,11 @@
             [migratus.core :as migratus]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [apossiblespace.parts.config :as conf]
             [apossiblespace.parts.db]
             [apossiblespace.parts.auth]))
 
-(def test-db-file "db/parts_test.db")
+(def test-db-file (conf/database-file (conf/config :test)))
 
 (def test-db-spec
   {:dbtype "sqlite" :dbname test-db-file})
