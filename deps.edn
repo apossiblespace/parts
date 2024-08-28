@@ -19,11 +19,10 @@
   com.github.seancorfield/honeysql {:mvn/version "2.6.1147"}
   ring/ring-json {:mvn/version "0.5.1"}
   ;; Simple logging implementation using by Buddy for ex
-  org.slf4j/slf4j-simple {:mvn/version "2.0.16"}}
-
- ;; TODO: Configuration
- ;; We can use https://github.com/juxt/aero for managing configuration.
- ;; ---------------------------------------------------------
+  org.slf4j/slf4j-simple {:mvn/version "2.0.16"}
+  ;; Configuration management
+  ;; https://github.com/juxt/aero
+  aero/aero {:mvn/version "1.1.6"}}
 
  ;; ---------------------------------------------------------
  :aliases
