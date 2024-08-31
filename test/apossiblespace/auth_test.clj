@@ -3,7 +3,8 @@
              [apossiblespace.parts.auth :as auth]
              [apossiblespace.parts.db :as db]
              [buddy.sign.jwt :as jwt]
-             [apossiblespace.test-helpers :refer [with-test-db test-secret]]
+             [apossiblespace.test-helpers :refer [with-test-db]]
+             [apossiblespace.test-factory :as factory]
              [next.jdbc.result-set :as rs])
   (:import [java.time Instant]))
 
@@ -13,9 +14,12 @@
   (testing "create-token generates a valid JWT"
     (let [user-id 1
           token (auth/create-token user-id)
-          decoded (jwt/unsign token test-secret)]
+          secret auth/secret
+          decoded (jwt/unsign token secret)
+          now-seconds (.getEpochSecond (Instant/now))]
       (is (= user-id (:user-id decoded)))
-      (is (> (:exp decoded) (.. Instant now toEpochMilli))))))
+      (is (> (:exp decoded) now-seconds))
+      (is (< (:exp decoded) (+ now-seconds 3601))))))
 
 (deftest test-hash-password
   (testing "hash-password creates a valid hash"
@@ -37,27 +41,17 @@
 
 (deftest test-authenticate
   (testing "authenticate succeeds with correct credentials"
-    (let [email "test1@example.com"
-          password "password123"
-          hashed-password (auth/hash-password password)]
-      (db/insert! :users {:email email
-                          :password_hash hashed-password
-                          :display_name "Test User 1"
-                          :username "testuser1"
-                          :role "client"})
+    (let [user-data (factory/create-test-user)
+          {:keys [email password]} user-data]
+      (db/insert! :users (auth/prepare-user-record user-data))
       (let [token (auth/authenticate {:email email :password password})]
         (is (string? token))
-        (is (jwt/unsign token test-secret)))))
+        (is (jwt/unsign token auth/secret)))))
 
   (testing "authenticate fails with incorrect password"
-    (let [email "test2@example.com"
-          password "password123"
-          hashed-password (auth/hash-password password)]
-      (db/insert! :users {:email email
-                          :password_hash hashed-password
-                          :display_name "Test User 2"
-                          :username "testuser2"
-                          :role "client"})
+    (let [user-data (factory/create-test-user)
+          {:keys [email]} user-data]
+      (db/insert! :users (auth/prepare-user-record user-data))
       (is (nil? (auth/authenticate {:email email :password "wrongpassword"})))))
 
   (testing "authenticate fails with non-existent user"
@@ -65,65 +59,45 @@
 
 (deftest test-register
   (testing "register creates a new user successfully"
-    (let [user-data {:email "new@example.com"
-                     :username "newuser"
-                     :display_name "New User"
-                     :password "newpassword123"
-                     :role "client"}
+    (let [user-data (factory/create-test-user )
+          {:keys [email password username display_name role]} user-data
           result (auth/register user-data)]
       (is (= {:success "User registered successfully"} result))
       (let [user (db/query-one (db/sql-format {:select [:*]
                                                :from [:users]
-                                               :where [:= :email "new@example.com"]}))]
-        (is (= "new@example.com" (:email user)))
-        (is (= "newuser" (:username user)))
-        (is (= "New User" (:display_name user)))
-        (is (= "client" (:role user)))
-        (is (auth/check-password "newpassword123" (:password_hash user))))))
+                                               :where [:= :email email]}))]
+        (is (= email (:email user)))
+        (is (= username (:username user)))
+        (is (= display_name (:display_name user)))
+        (is (= role (:role user)))
+        (is (auth/check-password password (:password_hash user))))))
 
   (testing "register fails with duplicate email"
-    (let [user-data {:email "duplicate@example.com"
-                     :username "duplicateuser"
-                     :display_name "Duplicate User"
-                     :password "password123"
-                     :role "client"}]
+    (let [user-data (factory/create-test-user)]
       (auth/register user-data)
       (let [result (auth/register (assoc user-data :username "anotheruser"))]
         (is (= {:error "User with this email or username already exists"} result)))))
 
   (testing "register fails with duplicate username"
-    (let [user-data {:email "user1@example.com"
-                     :username "duplicateusername"
-                     :display_name "Duplicate User Display Name"
-                     :password "password123"
-                     :role "client"}]
+    (let [user-data (factory/create-test-user)
+          {:keys [email]} user-data]
       (auth/register user-data)
-      (let [result (auth/register (assoc user-data :email "user2@example.com"))]
+      (let [result (auth/register (assoc user-data :email (str "dup" email)))]
         (is (= {:error "User with this email or username already exists"} result))))))
 
 (deftest test-login
   (testing "login succeeds with correct credentials"
-    (let [email "logintest@example.com"
-          password "loginpassword123"
-          user-data {:email email
-                     :username "loginuser"
-                     :display_name "Login User"
-                     :password password
-                     :role "client"}]
+    (let [user-data (factory/create-test-user)
+          {:keys [email password]} user-data]
       (auth/register user-data)
       (let [response (auth/login {:body {:email email :password password}})]
         (is (= 200 (:status response)))
         (is (:token (:body response)))
-        (is (jwt/unsign (:token (:body response)) test-secret)))))
+        (is (jwt/unsign (:token (:body response)) auth/secret)))))
 
   (testing "login fails with incorrect password"
-    (let [email "logintest@example.com"
-          password "loginpassword123"
-          user-data {:email email
-                     :username "loginuser"
-                     :display_name "Login User"
-                     :password password
-                     :role "client"}]
+    (let [user-data (factory/create-test-user)
+          {:keys [email]} user-data]
       (auth/register user-data)
       (let [response (auth/login {:body {:email email :password "wrongpassword"}})]
         (is (= 401 (:status response)))

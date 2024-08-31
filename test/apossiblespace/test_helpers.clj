@@ -1,71 +1,35 @@
 (ns apossiblespace.test-helpers
   (:require [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]
             [migratus.core :as migratus]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
             [apossiblespace.parts.config :as conf]
-            [apossiblespace.parts.db]
-            [apossiblespace.parts.auth]))
-
-(def test-db-file (conf/database-file (conf/config :test)))
-
-(def test-db-spec
-  {:dbtype "sqlite" :dbname test-db-file})
-
-(def test-secret "test-secret-key-for-jwt-in-unit-tests-only")
+            [clojure.tools.logging :as log]
+            [clojure.java.io :as io]))
 
 (defn setup-test-db []
-  (let [ds (jdbc/get-datasource test-db-spec)]
+  (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config))}
+        ds (jdbc/get-datasource db-spec)]
     (let [migration-config {:store :database
                             :migration-dir "migrations"
-                            :db test-db-spec}]
+                            :db db-spec}]
       (migratus/init migration-config)
       (migratus/migrate migration-config))
     ds))
 
-(defn clear-test-db [ds]
-  (let [tables (jdbc/execute! ds ["SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"])]
-    ;; FIXME: Remove debug print
-    (println "Tables to clear:" tables)
-    (when (seq tables)
-      (jdbc/with-transaction [tx ds]
-        (jdbc/execute! tx ["PRAGMA foreign_keys = OFF"])
-        (doseq [{:keys [name]} tables]
-          (when (not (str/blank? name))
-            ;; FIXME: Remove debug print
-            (println "Clearing table:" name)
-            (jdbc/execute! tx [(str "DELETE FROM " name)])))
-        (jdbc/execute! tx ["PRAGMA foreign_keys = ON"])))))
-
-(defn sqlite-friendly-sql [sql params]
-  (if (string? sql)
-    [sql params]
-    (let [sql-map (apossiblespace.parts.db/sql-format sql)
-          parameterized-sql (str/replace (:sql sql-map) #":(\w+)" "?")
-          ordered-params (map #(get params (keyword %)) (re-seq #":(\w+)" (:sql sql-map)))]
-      [parameterized-sql ordered-params])))
+(defn drop-all-tables [ds]
+  (try
+    (jdbc/with-transaction [tx ds]
+      (jdbc/execute! tx ["PRAGMA foreign_keys = OFF"])
+      (let [tables (jdbc/execute! tx ["SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"])]
+        (doseq [{name :sqlite_master/name} tables]
+          (jdbc/execute! tx [(str "DROP TABLE IF EXISTS " name)])))
+      (jdbc/execute! tx ["PRAGMA foreign_keys = ON"]))
+    (catch Exception e
+      (log/error "Failed to drop tables from test database")
+      (throw e))))
 
 (defn with-test-db [f]
   (let [ds (setup-test-db)]
     (try
-      (with-redefs [apossiblespace.parts.db/query-one (fn [query]
-                                                        (let [[sql params] (sqlite-friendly-sql query {})]
-                                                          (jdbc/execute-one! ds query {:parameters params
-                                                                                       :return-keys true
-                                                                                       :builder-fn rs/as-unqualified-maps})))
-                    apossiblespace.parts.db/insert! (fn [table data]
-                                                      (let [columns (keys data)
-                                                            values (vals data)
-                                                            sql (str "INSERT INTO " (name table) " ("
-                                                                     (str/join ", " (map name columns))
-                                                                     ") VALUES ("
-                                                                     (str/join ", " (repeat (count values) "?"))
-                                                                     ")")]
-                                                        (jdbc/execute-one! ds [sql values]
-                                                                           {:return-keys true
-                                                                            :builder-fn rs/as-unqualified-maps})))
-                    apossiblespace.parts.auth/get-secret (constantly test-secret)]
-        (f))
+      (f)
       (finally
-        (clear-test-db ds)))))
+        (drop-all-tables ds)))))

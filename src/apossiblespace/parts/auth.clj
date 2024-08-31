@@ -7,25 +7,24 @@
    [buddy.hashers :as hashers]
    [ring.util.response :as response]
    [apossiblespace.parts.db :as db]
+   [apossiblespace.parts.config :as conf]
    [com.brunobonacci.mulog :as mulog])
   (:import
    [java.time Instant]))
 
-;; FIXME: Move this into an env variable or something
-;; .env file?
-(defn get-secret []
-  (or (System/getenv "JWT_SECRET")
-      "b961d6a135c25fcb69764e2fe7dbd05676cc748b0a41d8b996a1c8be424e15d41104291615240f7585a6d5f62090e073a6fce95f7ffdb3c8619ac5bb109c527c"))
+(def secret
+  (conf/jwt-secret (conf/config)))
 
-(def auth-backend (backends/jws {:secret get-secret}))
+(def auth-backend (backends/jws {:secret secret}))
 
 (defn create-token
-  "Create a JWT token that will expire on 1 hour"
+  "Create a JWT token that will expire in 1 hour"
   [user-id]
   (let [now (Instant/now)
+        exp (.plusSeconds now 3600)
         claims {:user-id user-id
-                :exp (.plusSeconds now 3600)}]
-    (jwt/sign claims get-secret)))
+                :exp (.getEpochSecond exp)}]
+    (jwt/sign claims secret)))
 
 (defn hash-password
   [password]
@@ -44,11 +43,21 @@
     (when (check-password password (:password_hash user))
       (create-token (:id user)))))
 
+(defn prepare-user-record
+  "Prepares a User record for database writing by removing the PASSWORD key and
+  replacing it with a PASSWORD_HASH key containing a hashed password."
+  [user-data]
+  (let [{:keys [password]} user-data
+        hashed-password (hash-password password)]
+    (-> user-data
+        (dissoc :password)
+        (assoc :password-hash hashed-password))))
+
 ;; TODO: Probably need to set up some kind of rate limiting so that we don't get
 ;; flooded with spam registrations once this is public
 (defn register
   "Creates a record for a new user"
-  [{:keys [email username display-name password role] :as user-data}]
+  [{:keys [email username] :as user-data}]
   (let [existing-user (db/query-one (db/sql-format {:select [*]
                                                     :from [:users]
                                                     :where [:or
@@ -56,11 +65,8 @@
                                                             [:= :username username]]}))]
     (if existing-user
       {:error "User with this email or username already exists"}
-      (let [hashed-password (hash-password password)
-            new-user (-> user-data
-                         (dissoc :password)
-                         (assoc :password-hash hashed-password))]
-        (db/insert! :users new-user)
+      (do
+        (db/insert! :users (prepare-user-record user-data))
         {:success "User registered successfully"}))))
 
 (defn login

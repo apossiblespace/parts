@@ -25,6 +25,7 @@
 !resources/
 !src/
 !test/
+!config.edn
 
 # ------------------------
 # Include Clojure tools

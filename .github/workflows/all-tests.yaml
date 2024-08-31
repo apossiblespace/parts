@@ -1,4 +1,4 @@
-name: Clojure CI
+name: All tests
 
 on:
   push:
@@ -31,5 +31,14 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
         restore-keys: ${{ runner.os }}-m2
 
+    - name: Create database directory
+      run: |
+        mkdir -p db
+        chmod 777 db
+
     - name: Run tests
-      run: clojure -X:test/run
+      run: |
+        export PARTS_DB_PATH="$GITHUB_WORKSPACE/db/parts_test.db"
+        clojure -X:test/run
+      env:
+        GITHUB_WORKSPACE: ${{ github.workspace }}

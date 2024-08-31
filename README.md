@@ -1,5 +1,7 @@
 # apossiblespace/parts
 
+[![Clojure CI](https://github.com/apossiblespace/parts/actions/workflows/all-tests.yaml/badge.svg)](https://github.com/apossiblespace/parts/actions/workflows/all-tests.yaml)
+
 ## Project Status
 
 TODO: add status badges for <https://github.com/apossiblespace/parts> workflows and issues
