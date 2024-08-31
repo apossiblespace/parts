@@ -5,7 +5,8 @@
    [migratus.core :as migratus]
    [honey.sql :as sql]
    [com.brunobonacci.mulog :as mulog]
-   [apossiblespace.parts.config :as conf])
+   [apossiblespace.parts.config :as conf]
+   [clojure.string :as str])
   (:import
    [java.util UUID]))
 
@@ -13,8 +14,27 @@
   {:dbtype "sqlite"
    :dbname (conf/database-file (conf/config))})
 
-(def datasource
-  (jdbc/get-datasource db-spec))
+;; NOTE: Optimisations in this file are following this tweet:
+;; https://x.com/meln1k/status/1813314113705062774
+(def pragmas
+  ["PRAGMA journal_mode = WAL;"
+   "PRAGMA busy_timeout = 5000;"
+   "PRAGMA synchronous = NORMAL;"
+   "PRAGMA cache_size = -20000;"
+   "PRAGMA foreign_keys = true;"
+   "PRAGMA temp_store = memory;"])
+
+(defn- create-datasource [read-only?]
+  (let [url (str "jdbc:sqlite:" (:dbname db-spec))
+        ds-opts (cond-> {:jdbcUrl url
+                         :connectionInitSql (str/join " " pragmas)
+                         :foreign_keys true}
+                  read-only? (assoc :mode "ro")
+                  (not read-only?) (assoc :mode "rwc" :_txlock "immediate"))]
+    (jdbc/get-datasource ds-opts)))
+
+(def read-datasource (create-datasource true))
+(def write-datasource (create-datasource false))
 
 (def migration-config
   {:store :database
@@ -33,7 +53,7 @@
 
 (defn query
   [q]
-  (jdbc/execute! datasource q {:builder-fn rs/as-unqualified-maps}))
+  (jdbc/execute! read-datasource q {:builder-fn rs/as-unqualified-maps}))
 
 (defn query-one
   [q]
@@ -45,16 +65,34 @@
 (defn insert!
   [table data]
   (let [data-with-uuid (assoc data :id (generate-uuid))]
-    (query (sql/format {:insert-into table
-                        :values [data-with-uuid]}))))
+    (jdbc/execute! write-datasource
+                   (sql/format {:insert-into table
+                                :values [data-with-uuid]})
+                   {:builder-fn rs/as-unqualified-maps})))
 
-(defn udpate!
+(defn update!
   [table data where-clause]
-  (query (sql/format {:update table
-                      :set data
-                      :where where-clause})))
+  (jdbc/execute! write-datasource
+                 (sql/format {:update table
+                              :set data
+                              :where where-clause})
+                 {:builder-fn rs/as-unqualified-maps}))
 
 (defn delete!
   [table where-clause]
-  (query (sql/format {:delete-from table
-                      :where where-clause})))
+  (jdbc/execute! write-datasource
+                 (sql/format {:delete-from table
+                              :where where-clause})
+                 {:builder-fn rs/as-unqualified-maps}))
+
+;; Connection pool configuration
+(def read-pool-spec
+  {:datasource read-datasource
+   :maximum-pool-size (max 4 (.availableProcessors (Runtime/getRuntime)))})
+
+(def write-pool-spec
+  {:datasource write-datasource
+   :maximum-pool-size 1})
+
+(def read-pool (jdbc/get-datasource read-pool-spec))
+(def write-pool (jdbc/get-datasource write-pool-spec))
