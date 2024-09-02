@@ -24,7 +24,8 @@
    "PRAGMA foreign_keys = true;"
    "PRAGMA temp_store = memory;"])
 
-(defn- create-datasource [read-only?]
+(defn- create-datasource
+  [read-only?]
   (let [url (str "jdbc:sqlite:" (:dbname db-spec))
         ds-opts (cond-> {:jdbcUrl url
                          :connectionInitSql (str/join " " pragmas)
@@ -41,7 +42,8 @@
    :migration-dir "migrations"
    :db db-spec})
 
-(defn init-db []
+(defn init-db
+  []
   (mulog/log ::initializing-database)
   (migratus/init migration-config)
   (migratus/migrate migration-config))
@@ -59,7 +61,8 @@
   [q]
   (first (query q)))
 
-(defn generate-uuid []
+(defn generate-uuid
+  []
   (str (UUID/randomUUID)))
 
 (defn insert!

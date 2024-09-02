@@ -6,7 +6,7 @@
 
 (ns apossiblespace.parts
   (:gen-class)
-  (:require 
+  (:require
    [com.brunobonacci.mulog :as mulog]
    [org.httpkit.server :as server]
    [reitit.ring :as ring]
@@ -25,9 +25,9 @@
    (ring/router
     [["/swagger.json"
       {:get {:no-doc true
-              :swagger {:info {:title "Parts API"
-                               :description "API for Parts"}}
-              :handler (swagger/create-swagger-handler)}}]
+             :swagger {:info {:title "Parts API"
+                              :description "API for Parts"}}
+             :handler (swagger/create-swagger-handler)}}]
      ["/api"
       ["/health-check"
        {:get {:handler (fn [_] {:status 200 :body {:message "Service is up"}})}}]
@@ -38,8 +38,7 @@
         {:post {:handler auth/login}}]
        ["/logout"
         {:post {:handler auth/logout
-                :middleware [auth/jwt-auth]}}]]
-      ]]
+                :middleware [auth/jwt-auth]}}]]]]
     {:data {:middleware [[wrap-json-body {:keywords? true}]
                          wrap-json-response]}})
    (ring/routes

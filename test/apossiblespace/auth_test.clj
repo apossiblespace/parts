@@ -59,7 +59,7 @@
 
 (deftest test-register
   (testing "register creates a new user successfully"
-    (let [user-data (factory/create-test-user )
+    (let [user-data (factory/create-test-user)
           {:keys [email password username display_name role]} user-data
           result (auth/register user-data)]
       (is (= {:success "User registered successfully"} result))

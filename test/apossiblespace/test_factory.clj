@@ -2,7 +2,8 @@
 
 (def ^:private counter (atom 0))
 
-(defn- generate-unique-id []
+(defn- generate-unique-id
+  []
   (swap! counter inc))
 
 (defn create-test-user
@@ -18,5 +19,6 @@
        :role "client"}
       attrs))))
 
-(defn create-test-users [n]
+(defn create-test-users
+  [n]
   (repeatedly n create-test-user))
