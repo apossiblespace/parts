@@ -7,7 +7,7 @@
              [apossiblespace.test-factory :as factory])
   (:import [java.time Instant]))
 
-(use-fixtures :each with-test-db)
+(use-fixtures :once with-test-db)
 
 (deftest test-create-token
   (testing "create-token generates a valid JWT"
