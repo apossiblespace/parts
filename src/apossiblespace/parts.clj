@@ -33,18 +33,19 @@
       ["/ping"
        {:get {:handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
       ["/auth"
-       ["/register"
-        {:post {:handler auth/register}}]
        ["/login"
         {:post {:handler auth/login}}]
        ["/logout"
         {:post {:handler auth/logout
                 :middleware [auth/jwt-auth]}}]]
       ["/account"
-       {:get {:handler account/get-account}
-        :put {:handler account/update-account}
-        :delete {:handler account/delete-account}
-        :middleware [auth/jwt-auth]}]]]
+       [""
+        {:get {:handler account/get-account}
+         :patch {:handler account/update-account}
+         :delete {:handler account/delete-account}
+         :middleware [auth/jwt-auth]}]
+       ["/register"
+        {:post {:handler auth/register}}]]]]
     {:data {:middleware [[wrap-json-body {:keywords? true}]
                          wrap-json-response]}})
    (ring/routes
