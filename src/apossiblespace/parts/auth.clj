@@ -64,8 +64,11 @@
                                                             [:= :email email]
                                                             [:= :username username]]}))]
     (if existing-user
-      {:error "User with this email or username already exists"}
       (do
+        (mulog/log ::register :email email :username username :status :failure)
+        {:error "User with this email or username already exists"})
+      (do
+        (mulog/log ::register :email email :username username :status :success)
         (db/insert! :users (prepare-user-record user-data))
         {:success "User registered successfully"}))))
 

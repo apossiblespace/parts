@@ -4,8 +4,7 @@
              [apossiblespace.parts.db :as db]
              [buddy.sign.jwt :as jwt]
              [apossiblespace.test-helpers :refer [with-test-db]]
-             [apossiblespace.test-factory :as factory]
-             [next.jdbc.result-set :as rs])
+             [apossiblespace.test-factory :as factory])
   (:import [java.time Instant]))
 
 (use-fixtures :each with-test-db)
