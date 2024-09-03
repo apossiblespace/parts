@@ -43,6 +43,7 @@
     (when (check-password password (:password_hash user))
       (create-token (:id user)))))
 
+;; NOTE: This might need to be moved to the account namespace?
 (defn prepare-user-record
   "Prepares a User record for database writing by removing the PASSWORD key and
   replacing it with a PASSWORD_HASH key containing a hashed password."
@@ -52,25 +53,6 @@
     (-> user-data
         (dissoc :password)
         (assoc :password-hash hashed-password))))
-
-;; TODO: Probably need to set up some kind of rate limiting so that we don't get
-;; flooded with spam registrations once this is public
-(defn register
-  "Creates a record for a new user"
-  [{:keys [email username] :as user-data}]
-  (let [existing-user (db/query-one (db/sql-format {:select [*]
-                                                    :from [:users]
-                                                    :where [:or
-                                                            [:= :email email]
-                                                            [:= :username username]]}))]
-    (if existing-user
-      (do
-        (mulog/log ::register :email email :username username :status :failure)
-        {:error "User with this email or username already exists"})
-      (do
-        (mulog/log ::register :email email :username username :status :success)
-        (db/insert! :users (prepare-user-record user-data))
-        {:success "User registered successfully"}))))
 
 (defn login
   [request]

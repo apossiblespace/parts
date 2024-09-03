@@ -45,7 +45,7 @@
          :delete {:handler account/delete-account}
          :middleware [auth/jwt-auth]}]
        ["/register"
-        {:post {:handler auth/register}}]]]]
+        {:post {:handler account/register-account}}]]]]
     {:data {:middleware [[wrap-json-body {:keywords? true}]
                          wrap-json-response]}})
    (ring/routes

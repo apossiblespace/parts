@@ -2,6 +2,7 @@
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
              [apossiblespace.parts.auth :as auth]
              [apossiblespace.parts.db :as db]
+             [apossiblespace.parts.account :as account]
              [buddy.sign.jwt :as jwt]
              [apossiblespace.test-helpers :refer [with-test-db]]
              [apossiblespace.test-factory :as factory])
@@ -56,39 +57,11 @@
   (testing "authenticate fails with non-existent user"
     (is (nil? (auth/authenticate {:email "nonexistent@example.com" :password "anypassword"})))))
 
-(deftest test-register
-  (testing "register creates a new user successfully"
-    (let [user-data (factory/create-test-user)
-          {:keys [email password username display_name role]} user-data
-          result (auth/register user-data)]
-      (is (= {:success "User registered successfully"} result))
-      (let [user (db/query-one (db/sql-format {:select [:*]
-                                               :from [:users]
-                                               :where [:= :email email]}))]
-        (is (= email (:email user)))
-        (is (= username (:username user)))
-        (is (= display_name (:display_name user)))
-        (is (= role (:role user)))
-        (is (auth/check-password password (:password_hash user))))))
-
-  (testing "register fails with duplicate email"
-    (let [user-data (factory/create-test-user)]
-      (auth/register user-data)
-      (let [result (auth/register (assoc user-data :username "anotheruser"))]
-        (is (= {:error "User with this email or username already exists"} result)))))
-
-  (testing "register fails with duplicate username"
-    (let [user-data (factory/create-test-user)
-          {:keys [email]} user-data]
-      (auth/register user-data)
-      (let [result (auth/register (assoc user-data :email (str "dup" email)))]
-        (is (= {:error "User with this email or username already exists"} result))))))
-
 (deftest test-login
   (testing "login succeeds with correct credentials"
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data]
-      (auth/register user-data)
+      (account/register-account user-data)
       (let [response (auth/login {:body {:email email :password password}})]
         (is (= 200 (:status response)))
         (is (:token (:body response)))
@@ -97,7 +70,7 @@
   (testing "login fails with incorrect password"
     (let [user-data (factory/create-test-user)
           {:keys [email]} user-data]
-      (auth/register user-data)
+      (account/register-account user-data)
       (let [response (auth/login {:body {:email email :password "wrongpassword"}})]
         (is (= 401 (:status response)))
         (is (= {:error "Invalid credentials"} (:body response))))))
