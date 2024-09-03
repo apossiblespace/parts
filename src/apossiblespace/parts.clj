@@ -29,8 +29,8 @@
                               :description "API for Parts"}}
              :handler (swagger/create-swagger-handler)}}]
      ["/api"
-      ["/health-check"
-       {:get {:handler (fn [_] {:status 200 :body {:message "Service is up"}})}}]
+      ["/ping"
+       {:get {:handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
       ["/auth"
        ["/register"
         {:post {:handler auth/register}}]
