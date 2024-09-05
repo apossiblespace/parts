@@ -42,6 +42,11 @@
    :migration-dir "migrations"
    :db db-spec})
 
+(def sensitive-columns #{:password_hash})
+
+(defn- remove-sensitive-data [data]
+  (apply dissoc data sensitive-columns))
+
 (defn init-db
   []
   (mulog/log ::initializing-database)
@@ -68,10 +73,13 @@
 (defn insert!
   [table data]
   (let [data-with-uuid (assoc data :id (generate-uuid))]
-    (jdbc/execute! write-datasource
+    (-> (jdbc/execute! write-datasource
                    (sql/format {:insert-into table
-                                :values [data-with-uuid]})
-                   {:builder-fn rs/as-unqualified-maps})))
+                                :values [data-with-uuid]
+                                :returning :*})
+                   {:builder-fn rs/as-unqualified-maps})
+        first
+        remove-sensitive-data)))
 
 (defn update!
   [table data where-clause]
