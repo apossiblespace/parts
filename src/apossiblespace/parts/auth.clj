@@ -32,7 +32,10 @@
   [user-id]
   (let [now (Instant/now)
         exp (.plusSeconds now 3600)
-        claims {:user-id user-id
+        claims {:iss "http://localhost:3000/api" ;; TODO: Set this from configuration?
+                :sub user-id
+                :aud "http://localhost:3000"
+                :iat (.getEpochSecond now)
                 :exp (.getEpochSecond exp)}]
     (jwt/sign claims secret {:alg :hs256})))
 

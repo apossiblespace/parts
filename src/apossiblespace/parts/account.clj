@@ -20,7 +20,7 @@
   "Retrieve own account info"
   [request]
   (mulog/log ::get-account :request request)
-  (let [user-id (get-in request [:identity :user-id])
+  (let [user-id (get-in request [:identity :sub])
         user-record (fetch-user user-id)]
     (if user-record
       (-> (response/response user-record)

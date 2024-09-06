@@ -11,7 +11,7 @@
 (deftest test-get-account
   (testing "returns currently signed in user's information"
     (let [user (register-test-user)
-          mock-request {:identity {:user-id (:id user)}}
+          mock-request {:identity {:sub (:id user)}}
           response (account/get-account mock-request)]
       (is (= 200 (:status response)))
       (is (= {:email (:email user)
