@@ -47,7 +47,8 @@
        ["/register"
         {:post {:handler account/register-account}}]]]]
     {:data {:middleware [[wrap-json-body {:keywords? true}]
-                         wrap-json-response]}})
+                         wrap-json-response
+                         auth/wrap-jwt-authentication]}})
    (ring/routes
     (swagger-ui/create-swagger-ui-handler
      {:path "/"

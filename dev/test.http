@@ -8,8 +8,8 @@ POST http://localhost:3000/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "bob@bobson.com",
-  "password": "test1234"
+  "email": "test9@example.com",
+  "password": "password9"
 }
 
 # Failing login
@@ -20,3 +20,8 @@ Content-Type: application/json
   "email": "bob@bobson.com",
   "password": "4321tset"
 }
+
+# Get account info
+GET http://localhost:3000/api/account
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyLWlkIjoiY2M1YTVkMTYtYjgzYS00OTZkLTk5M2EtOTM2ZjQxOGUxZDNlIiwiZXhwIjoxNzI1NjE4NzIwfQ.NpBrduSxGICyTryLbuDQyOBK9VR4Wg-V23F_kRKrPMI
+Content-Type: application/json

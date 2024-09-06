@@ -15,7 +15,17 @@
 (def secret
   (conf/jwt-secret (conf/config)))
 
-(def auth-backend (backends/jws {:secret secret}))
+(def auth-backend
+  (backends/jws
+   {:secret secret
+    :options {:alg :hs256}
+    :on-error (fn [_request ex]
+                (mulog/log ::auth-backend :error (.getMessage ex))
+                nil)
+    :token-name "Bearer"
+    :auth-fn (fn [claims]
+               (mulog/log ::auth-backend-auth-fn :claims claims)
+               claims)}))
 
 (defn create-token
   "Create a JWT token that will expire in 1 hour"
@@ -24,7 +34,7 @@
         exp (.plusSeconds now 3600)
         claims {:user-id user-id
                 :exp (.getEpochSecond exp)}]
-    (jwt/sign claims secret)))
+    (jwt/sign claims secret {:alg :hs256})))
 
 (defn hash-password
   [password]
