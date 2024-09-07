@@ -74,7 +74,7 @@
   [table data]
   (let [data-with-uuid (assoc data :id (generate-uuid))]
     (-> (jdbc/execute! write-datasource
-                   (sql/format {:insert-into table
+                   (sql/format {:insert-into (keyword table)
                                 :values [data-with-uuid]
                                 :returning :*})
                    {:builder-fn rs/as-unqualified-maps})
@@ -84,7 +84,7 @@
 (defn update!
   [table data where-clause]
   (jdbc/execute! write-datasource
-                 (sql/format {:update table
+                 (sql/format {:update (keyword table)
                               :set data
                               :where where-clause})
                  {:builder-fn rs/as-unqualified-maps}))
@@ -92,7 +92,7 @@
 (defn delete!
   [table where-clause]
   (jdbc/execute! write-datasource
-                 (sql/format {:delete-from table
+                 (sql/format {:delete-from (keyword table)
                               :where where-clause})
                  {:builder-fn rs/as-unqualified-maps}))
 
