@@ -1,7 +1,7 @@
-(ns apossiblespace.account-test
+(ns apossiblespace.parts.account-test
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
-             [apossiblespace.test-helpers :refer [with-test-db register-test-user]]
-             [apossiblespace.test-factory :as factory]
+             [apossiblespace.helpers.test-helpers :refer [with-test-db register-test-user]]
+             [apossiblespace.helpers.test-factory :as factory]
              [apossiblespace.parts.db :as db]
              [apossiblespace.parts.auth :as auth]
              [apossiblespace.parts.account :as account]))
@@ -22,9 +22,19 @@
       (is (not (contains? response :password_hash))))))
 
 (deftest test-update-account
-  (testing "disallows access without a valid token" (is true))
-  (testing "allows access with a valid token" (is true))
-  (testing "correctly updates the user data" (is true))
+  (testing "correctly updates the user data"
+    (let [user (register-test-user)
+          mock-request {:identity {:sub (:id user)}
+                        :body {:email (str "added" (:email user))
+                               :display_name "Updated"}}
+          response (account/update-account mock-request)
+          updated-fields (select-keys (:body response) [:email :display_name])]
+      (is (= 200 (:status response)))
+      (is (= {:email (str "added" (:email user))
+              :display_name "Updated"}
+             updated-fields)
+      (is (not (contains? response :password_hash))))))
+
   (testing "returns updated user information" (is true)))
 
 (deftest test-delete-account

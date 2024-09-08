@@ -14,6 +14,7 @@
    [reitit.swagger :as swagger]
    [reitit.swagger-ui :as swagger-ui]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
+   [apossiblespace.parts.api.middleware :as middleware]
    [apossiblespace.parts.db :as db]
    [apossiblespace.parts.auth :as auth]
    [apossiblespace.parts.account :as account]))
@@ -46,7 +47,8 @@
          :middleware [auth/jwt-auth]}]
        ["/register"
         {:post {:handler account/register-account}}]]]]
-    {:data {:middleware [[wrap-json-body {:keywords? true}]
+    {:data {:middleware [middleware/exception
+                         [wrap-json-body {:keywords? true}]
                          wrap-json-response
                          auth/wrap-jwt-authentication]}})
    (ring/routes

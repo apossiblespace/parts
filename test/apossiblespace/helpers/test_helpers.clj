@@ -1,9 +1,9 @@
-(ns apossiblespace.test-helpers
+(ns apossiblespace.helpers.test-helpers
   (:require [next.jdbc :as jdbc]
             [migratus.core :as migratus]
             [apossiblespace.parts.config :as conf]
             [apossiblespace.parts.auth :as auth]
-            [apossiblespace.test-factory :as factory]
+            [apossiblespace.helpers.test-factory :as factory]
             [clojure.tools.logging :as log]
             [apossiblespace.parts.db :as db]))
 

@@ -44,7 +44,7 @@
 
 (def sensitive-columns #{:password_hash})
 
-(defn- remove-sensitive-data [data]
+(defn remove-sensitive-data [data]
   (apply dissoc data sensitive-columns))
 
 (defn init-db
@@ -86,7 +86,8 @@
   (jdbc/execute! write-datasource
                  (sql/format {:update (keyword table)
                               :set data
-                              :where where-clause})
+                              :where where-clause
+                              :returning :* })
                  {:builder-fn rs/as-unqualified-maps}))
 
 (defn delete!

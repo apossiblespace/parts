@@ -1,4 +1,4 @@
-(ns apossiblespace.test-factory)
+(ns apossiblespace.helpers.test-factory)
 
 (def ^:private counter (atom 0))
 
