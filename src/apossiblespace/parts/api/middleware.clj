@@ -44,3 +44,11 @@
        {:status 500
         :body {:error "Internal server error"}})
      })))
+
+(defn logging
+  [handler]
+  (fn [request]
+    (let [user-id (get-in request [:identity :sub])
+          authenticated? (boolean user-id)]
+      (mulog/log ::request :request request, :authenticated? authenticated? :user-id user-id)
+      (handler request))))

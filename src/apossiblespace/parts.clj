@@ -48,6 +48,7 @@
        ["/register"
         {:post {:handler account/register-account}}]]]]
     {:data {:middleware [middleware/exception
+                         middleware/logging
                          [wrap-json-body {:keywords? true}]
                          wrap-json-response
                          auth/wrap-jwt-authentication]}})
