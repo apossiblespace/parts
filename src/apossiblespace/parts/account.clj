@@ -20,40 +20,45 @@
 (defn get-account
   "Retrieve own account info"
   [request]
-  (mulog/log ::get-account :request request)
   (let [user-id (get-in request [:identity :sub])
         user-record (fetch-user user-id)]
     (if user-record
       (-> (response/response user-record)
           (response/status 200))
-      (-> (response/response {:error "User not found"})
-          (response/status 404)))))
+      (do
+        (mulog/log ::update-account-not-found :user-id user-id)
+        (throw (ex-info "User not found" {:type :not-found}))))))
 
 (def allowed-update-fields #{:email :display_name :password})
 
 (defn- validate-password
   [password password-confirmation]
   (when (or (str/blank? password) (not= password password-confirmation))
-    (throw (ex-info "Password and confirmation do not match" {:type :validation-error}))))
+    (throw (ex-info "Password and confirmation do not match" {:type :validation}))))
 
-(defn- prepare-update-data
+(defn- remove-disallowed-update-fields
+  [user-data]
+  (select-keys user-data allowed-update-fields))
+
+(defn prepare-user-data
   [body]
-  (let [update-data (select-keys body allowed-update-fields)]
-    (if (:password update-data)
+  (let [password (:password body)]
+    (if (:password body)
       (do
-        (validate-password (:password update-data) (:password_confirmation body))
-        (-> update-data
-            (dissoc :password)
-            (assoc :password_hash (auth/hash-password (:password update-data)))))
-      update-data)))
+        (validate-password (:password body) (:password_confirmation body))
+        (-> body
+            (dissoc :password :password_confirmation)
+            (assoc :password_hash (auth/hash-password password))))
+      body)))
 
 (defn update-account
   "Update own account info"
   [request]
-  (mulog/log ::update-account :request request)
   (let [user-id (get-in request [:identity :sub])
         body (:body request)
-        update-data (prepare-update-data body)
+        update-data (-> body
+                        remove-disallowed-update-fields
+                        prepare-user-data)
         updated-user (first (db/update! :users update-data [:= :id user-id]))]
     (if updated-user
       (do
@@ -64,27 +69,16 @@
         (mulog/log ::update-account-not-found :user-id user-id)
         (throw (ex-info "User not found" {:type :not-found}))))))
 
+;; TODO: To implement
 (defn delete-account
   "Delete own account"
   [confirm]
   {:success "DELETE account"})
 
-;; FIXME: This needs to be returning a Ring response!
-;; FIXME: Maybe this should rely on exception handling instead of doing two SQL queries
 (defn register-account
   "Creates a record for a new user account"
-  [{:keys [email username] :as user-data}]
-  (let [existing-user (db/query-one (db/sql-format {:select [*]
-                                                    :from [:users]
-                                                    :where [:or
-                                                            [:= :email email]
-                                                            [:= :username username]]}))]
-    (if existing-user
-      (do
-        (mulog/log ::register :email email :username username :status :failure)
-        {:error "User with this email or username already exists"})
-      (do
-        (mulog/log ::register :email email :username username :status :success)
-        (db/insert! :users (auth/prepare-user-record user-data))
-        {:success "User registered successfully"}))))
-
+  [request]
+  (let [account (db/insert! :users (prepare-user-data (:body request)))]
+    (mulog/log ::register :email (:email account) :username (:username account) :status :success)
+    (-> (response/response account)
+        (response/status 201))))

@@ -16,6 +16,7 @@
        :username (str "username" id)
        :display_name (str "Test User " id)
        :password (str "password" id)
+       :password_confirmation (str "password" id)
        :role "client"}
       attrs))))
 

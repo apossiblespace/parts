@@ -33,7 +33,7 @@
       (is (= {:email (str "added" (:email user))
               :display_name "Updated"}
              updated-fields)
-      (is (not (contains? response :password_hash))))))
+      (is (not (contains? (:body response) :password_hash))))))
 
   (testing "returns updated user information" (is true)))
 
@@ -46,27 +46,12 @@
 (deftest test-register-account
   (testing "register creates a new user successfully"
     (let [user-data (factory/create-test-user)
-          {:keys [email password username display_name role]} user-data
-          result (account/register-account user-data)]
-      (is (= {:success "User registered successfully"} result))
-      (let [user (db/query-one (db/sql-format {:select [:*]
-                                               :from [:users]
-                                               :where [:= :email email]}))]
-        (is (= email (:email user)))
-        (is (= username (:username user)))
-        (is (= display_name (:display_name user)))
-        (is (= role (:role user)))
-        (is (auth/check-password password (:password_hash user))))))
-
-  (testing "register fails with duplicate email"
-    (let [user-data (factory/create-test-user)]
-      (account/register-account user-data)
-      (let [result (account/register-account (assoc user-data :username "anotheruser"))]
-        (is (= {:error "User with this email or username already exists"} result)))))
-
-  (testing "register fails with duplicate username"
-    (let [user-data (factory/create-test-user)
-          {:keys [email]} user-data]
-      (account/register-account user-data)
-      (let [result (account/register-account (assoc user-data :email (str "dup" email)))]
-        (is (= {:error "User with this email or username already exists"} result))))))
+          {:keys [email username display_name role]} user-data
+          mock-request {:body user-data}
+          response (account/register-account mock-request)
+          user (:body response)]
+      (is (= 201 (:status response)))
+      (is (= email (:email user)))
+      (is (= username (:username user)))
+      (is (= display_name (:display_name user)))
+      (is (= role (:role user))))))

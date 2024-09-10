@@ -2,7 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [migratus.core :as migratus]
             [apossiblespace.parts.config :as conf]
-            [apossiblespace.parts.auth :as auth]
+            [apossiblespace.parts.account :as account]
             [apossiblespace.helpers.test-factory :as factory]
             [clojure.tools.logging :as log]
             [apossiblespace.parts.db :as db]))
@@ -45,4 +45,4 @@
    (register-test-user {}))
   ([attrs]
    (let [user-data (factory/create-test-user attrs)]
-     (db/insert! :users (auth/prepare-user-record user-data)))))
+     (db/insert! :users (account/prepare-user-data user-data)))))

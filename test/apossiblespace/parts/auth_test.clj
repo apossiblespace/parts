@@ -43,7 +43,7 @@
   (testing "authenticate succeeds with correct credentials"
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data]
-      (db/insert! :users (auth/prepare-user-record user-data))
+      (db/insert! :users (account/prepare-user-data user-data))
       (let [token (auth/authenticate {:email email :password password})]
         (is (string? token))
         (is (jwt/unsign token auth/secret)))))
@@ -51,7 +51,7 @@
   (testing "authenticate fails with incorrect password"
     (let [user-data (factory/create-test-user)
           {:keys [email]} user-data]
-      (db/insert! :users (auth/prepare-user-record user-data))
+      (db/insert! :users (account/prepare-user-data user-data))
       (is (nil? (auth/authenticate {:email email :password "wrongpassword"})))))
 
   (testing "authenticate fails with non-existent user"
@@ -60,8 +60,9 @@
 (deftest test-login
   (testing "login succeeds with correct credentials"
     (let [user-data (factory/create-test-user)
-          {:keys [email password]} user-data]
-      (account/register-account user-data)
+          {:keys [email password]} user-data
+          mock-request {:body user-data}]
+      (account/register-account mock-request)
       (let [response (auth/login {:body {:email email :password password}})]
         (is (= 200 (:status response)))
         (is (:token (:body response)))
@@ -69,8 +70,9 @@
 
   (testing "login fails with incorrect password"
     (let [user-data (factory/create-test-user)
-          {:keys [email]} user-data]
-      (account/register-account user-data)
+          {:keys [email]} user-data
+          mock-request {:body user-data}]
+      (account/register-account mock-request)
       (let [response (auth/login {:body {:email email :password "wrongpassword"}})]
         (is (= 401 (:status response)))
         (is (= {:error "Invalid credentials"} (:body response))))))

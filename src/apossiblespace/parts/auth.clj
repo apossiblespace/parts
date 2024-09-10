@@ -56,17 +56,6 @@
     (when (check-password password (:password_hash user))
       (create-token (:id user)))))
 
-;; NOTE: This might need to be moved to the account namespace?
-(defn prepare-user-record
-  "Prepares a User record for database writing by removing the PASSWORD key and
-  replacing it with a PASSWORD_HASH key containing a hashed password."
-  [user-data]
-  (let [{:keys [password]} user-data
-        hashed-password (hash-password password)]
-    (-> user-data
-        (dissoc :password)
-        (assoc :password-hash hashed-password))))
-
 (defn login
   [request]
   (let [{:keys [email password]} (:body request)]
