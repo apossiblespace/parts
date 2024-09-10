@@ -6,26 +6,26 @@
 
 (defn exception-handler
   [message status]
-  (fn [^Exception _e _request]
-    {:status status
-     :body {:error message}}))
+  (fn [^Exception e _request]
+    (let [error-message (.getMessage e)]
+      {:status status
+       :body {:error (or error-message message)}})))
+
+(def sqlite-errors
+  {"UNIQUE constraint failed" "A resource with this unique identifier already exists"
+   "CHECK constraint failed" "The provided data does not meet the required constraints"
+   "NOT NULL constraint failed" "A required field was missing"
+   "FOREIGN KEY constraint failed" "The referenced resource does not exist"})
 
 (defn sqlite-constraint-violation-handler
   [^SQLiteException e _request]
   (let [error-message (.getMessage e)]
     (mulog/log ::sqlite-exception :error error-message)
     {:status 409
-     :body {:error (cond
-                     (str/includes? error-message "UNIQUE constraint failed")
-                     "A resource with this unique identifier already exists"
-
-                     (str/includes? error-message "CHECK constraint failed")
-                     "The provided data does not meet the required constraints"
-
-                     (str/includes? error-message "FOREIGN KEY constraint failed")
-                     "The referenced resource does not exist"
-
-                     :else "A database constraint was violated")}}))
+     :body {:error (or (some
+                        (fn [[k, v]] (when (str/includes? error-message k) v))
+                        sqlite-errors)
+                       "A database constraint was violated")}}))
 
 (def exception
   (exception/create-exception-middleware
@@ -33,6 +33,8 @@
     exception/default-handlers
     {;; ex-info with :type :validation
      :validation (exception-handler "Invalid data" 400)
+
+     :not-found (exception-handler "Resource not found" 404)
 
      ;; SQLite exceptions
      SQLiteException sqlite-constraint-violation-handler

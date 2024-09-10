@@ -26,14 +26,22 @@
           request (mock/request :get "/test")
           response (app request)]
       (is (= 400 (:status response)))
-      (is (= {:error "Invalid data"} (:body response)))))
+      (is (= {:error "Validation failed"} (:body response)))))
 
-  (testing "handles SQLite constraint violation"
-    (let [app (create-app (fn [_] (throw (SQLiteException. "UNIQUE constraint failed" SQLiteErrorCode/SQLITE_CONSTRAINT))))
+  (testing "handles not found errors"
+    (let [app (create-app (fn [_] (throw (ex-info "User not found" {:type :not-found}))))
           request (mock/request :get "/test")
           response (app request)]
-      (is (= 409 (:status response)))
-      (is (= {:error "A resource with this unique identifier already exists"} (:body response))))))
+      (is (= 404 (:status response)))
+      (is (= {:error "User not found"} (:body response)))))
+
+  (doseq [[sqlite-error expected-message] middleware/sqlite-errors]
+    (testing (str "handles SQLite constraint violation:" sqlite-error)
+      (let [app (create-app (fn [_] (throw (SQLiteException. sqlite-error SQLiteErrorCode/SQLITE_CONSTRAINT))))
+            request (mock/request :get "/test")
+            response (app request)]
+        (is (= 409 (:status response)))
+        (is (= {:error expected-message} (:body response)))))))
 
 ;; FIXME: This test suite fails in CI becasue of Mulog's asynchronous nature.
 ;; The solution seems to be to create a custom publisher that will take the
