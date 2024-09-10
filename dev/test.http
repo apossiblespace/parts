@@ -1,7 +1,7 @@
 # Test requests for restclient.el
 
 # Health check
-GET http://localhost:3000/api/health-check
+GET http://localhost:3000/api/ping
 
 # Working login
 POST http://localhost:3000/api/auth/login
