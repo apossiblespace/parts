@@ -32,15 +32,19 @@
 (def allowed-update-fields #{:email :display_name :password})
 
 (defn- validate-password
+  "PRIVATE: Validate password and confirmation matching"
   [password password-confirmation]
   (when (or (str/blank? password) (not= password password-confirmation))
     (throw (ex-info "Password and confirmation do not match" {:type :validation}))))
 
 (defn- remove-disallowed-update-fields
+  "PRIVATE: Strip keys that cannot be updated fom user data"
   [user-data]
   (select-keys user-data allowed-update-fields))
 
 (defn prepare-user-data
+  "Prepare a user record to be persisted by removing the password attribute and
+  inserting a password hash instead."
   [body]
   (let [password (:password body)]
     (if (:password body)
@@ -72,7 +76,7 @@
 ;; TODO: To implement
 (defn delete-account
   "Delete own account"
-  [confirm]
+  [request]
   {:success "DELETE account"})
 
 (defn register-account
