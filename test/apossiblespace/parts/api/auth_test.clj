@@ -1,8 +1,8 @@
-(ns apossiblespace.parts.auth-test
+(ns apossiblespace.parts.api.auth-test
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
-             [apossiblespace.parts.auth :as auth]
+             [apossiblespace.parts.api.auth :as auth]
              [apossiblespace.parts.db :as db]
-             [apossiblespace.parts.account :as account]
+             [apossiblespace.parts.api.account :as account]
              [buddy.sign.jwt :as jwt]
              [apossiblespace.helpers.test-helpers :refer [with-test-db]]
              [apossiblespace.helpers.test-factory :as factory])

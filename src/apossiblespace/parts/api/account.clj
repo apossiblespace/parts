@@ -1,10 +1,9 @@
-(ns apossiblespace.parts.account
+(ns apossiblespace.parts.api.account
   (:require
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]
    [clojure.string :as str]
    [apossiblespace.parts.db :as db]
-   [apossiblespace.parts.auth :as auth]))
 
 ;; TODO: Should this be in a users namespace?
 (defn- fetch-user
@@ -13,6 +12,7 @@
   (db/query-one (db/sql-format {:select [:id :email :username :display_name :role]
                                 :from [:users]
                                 :where [:= :id id]})))
+   [apossiblespace.parts.api.auth :as auth]
 
 (defn get-account
   "Retrieve own account info"

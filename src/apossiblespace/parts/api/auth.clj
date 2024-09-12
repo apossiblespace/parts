@@ -1,4 +1,4 @@
-(ns apossiblespace.parts.auth
+(ns apossiblespace.parts.api.auth
   (:require
    [buddy.sign.jwt :as jwt]
    [buddy.auth :refer [authenticated?]]

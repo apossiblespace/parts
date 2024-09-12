@@ -17,8 +17,8 @@
    [ring.middleware.params :refer [wrap-params]]
    [apossiblespace.parts.api.middleware :as middleware]
    [apossiblespace.parts.db :as db]
-   [apossiblespace.parts.auth :as auth]
-   [apossiblespace.parts.account :as account]))
+   [apossiblespace.parts.api.auth :as auth]
+   [apossiblespace.parts.api.account :as account]))
 
 ;; ---------------------------------------------------------
 ;; Application

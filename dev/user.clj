@@ -20,10 +20,10 @@
    [portal]
    [portal.api :as inspect]                          ; Data inspector
    [apossiblespace.parts :as parts]
-   [apossiblespace.parts.auth :as auth]
    [apossiblespace.parts.config :as config]
    [apossiblespace.parts.db :as db]
-   [apossiblespace.parts.account :as account]
+   [apossiblespace.parts.api.auth :as auth]
+   [apossiblespace.parts.api.account :as account]
    [apossiblespace.parts.api.middleware :as middleware]
    [clojure.tools.namespace.repl :as namespace]))
 

@@ -2,7 +2,7 @@
   (:require [next.jdbc :as jdbc]
             [migratus.core :as migratus]
             [apossiblespace.parts.config :as conf]
-            [apossiblespace.parts.account :as account]
+            [apossiblespace.parts.api.account :as account]
             [apossiblespace.helpers.test-factory :as factory]
             [clojure.tools.logging :as log]
             [apossiblespace.parts.db :as db]))
