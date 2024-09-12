@@ -4,27 +4,16 @@
    [ring.util.response :as response]
    [clojure.string :as str]
    [apossiblespace.parts.db :as db]
-
-;; TODO: Should this be in a users namespace?
-(defn- fetch-user
-  "Retrieve a user record from the database"
-  [id]
-  (db/query-one (db/sql-format {:select [:id :email :username :display_name :role]
-                                :from [:users]
-                                :where [:= :id id]})))
    [apossiblespace.parts.api.auth :as auth]
+   [apossiblespace.parts.entity.user :as user]))
 
 (defn get-account
   "Retrieve own account info"
   [request]
   (let [user-id (get-in request [:identity :sub])
-        user-record (fetch-user user-id)]
-    (if user-record
-      (-> (response/response user-record)
-          (response/status 200))
-      (do
-        (mulog/log ::update-account-not-found :user-id user-id)
-        (throw (ex-info "User not found" {:type :not-found}))))))
+        user-record (user/fetch user-id)]
+    (-> (response/response user-record)
+        (response/status 200))))
 
 (def allowed-update-fields #{:email :display_name :password})
 
@@ -78,7 +67,7 @@
   "Delete own account"
   [request]
   (let [user-id (get-in request [:identity :sub])
-        user (fetch-user user-id)
+        user (user/fetch user-id)
         confirm (get-in request [:query-params "confirm"])]
     (if user
       (if (= (:username user) confirm)
