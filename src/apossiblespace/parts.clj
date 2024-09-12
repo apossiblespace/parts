@@ -32,14 +32,15 @@
              :handler (swagger/create-swagger-handler)}}]
      ["/api"
       ["/ping"
-       {:get {:handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
-      ["/auth"
+       {:get {:swagger {:tags ["Utility"]}
+              :handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
+      ["/auth" {:swagger {:tags ["Authentication"]}}
        ["/login"
         {:post {:handler auth/login}}]
        ["/logout"
         {:post {:handler auth/logout
                 :middleware [auth/jwt-auth]}}]]
-      ["/account"
+      ["/account" {:swagger {:tags ["Account"]}}
        [""
         {:get {:handler account/get-account}
          :patch {:handler account/update-account}
