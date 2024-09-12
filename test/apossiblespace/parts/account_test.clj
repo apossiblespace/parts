@@ -51,13 +51,13 @@
 
   (testing "does not delete with a confirmation param that does not match the username"
     (let [user (register-test-user)
-          mock-request {:identity {:sub (:id user)} :confirm "random"}]
+          mock-request {:identity {:sub (:id user)} :query-params {"confirm" "random"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
                             (account/delete-account mock-request)))))
 
   (testing "deletes the account with a confirmation param"
     (let [user (register-test-user)
-          mock-request {:identity {:sub (:id user)} :confirm (:username user)}
+          mock-request {:identity {:sub (:id user)} :query-params {"confirm" (:username user)}}
           response (account/delete-account mock-request)
           db-user (db/query-one (db/sql-format {:select [:id]
                                                 :from [:users]

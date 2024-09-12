@@ -79,7 +79,7 @@
   [request]
   (let [user-id (get-in request [:identity :sub])
         user (fetch-user user-id)
-        confirm (:confirm request)]
+        confirm (get-in request [:query-params "confirm"])]
     (if user
       (if (= (:username user) confirm)
         (do
