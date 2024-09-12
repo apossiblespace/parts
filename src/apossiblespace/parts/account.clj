@@ -59,16 +59,20 @@
         body (:body request)
         update-data (-> body
                         remove-disallowed-update-fields
-                        prepare-user-data)
-        updated-user (first (db/update! :users update-data [:= :id user-id]))]
-    (if updated-user
+                        prepare-user-data)]
+    (if (= {} update-data)
       (do
-        (mulog/log ::update-account-success :user-id user-id)
-        (-> (response/response (db/remove-sensitive-data updated-user))
-            (response/status 200)))
-      (do
-        (mulog/log ::update-account-not-found :user-id user-id)
-        (throw (ex-info "User not found" {:type :not-found}))))))
+        (mulog/log ::update-account-nothing-to-update :user-id user-id)
+        (throw (ex-info "Nothing to update" {:type :validation})))
+      (let [updated-user (first (db/update! :users update-data [:= :id user-id]))]
+        (if updated-user
+          (do
+            (mulog/log ::update-account-success :user-id user-id)
+            (-> (response/response (db/remove-sensitive-data updated-user))
+                (response/status 200)))
+          (do
+            (mulog/log ::update-account-not-found :user-id user-id)
+            (throw (ex-info "User not found" {:type :not-found}))))))))
 
 (defn delete-account
   "Delete own account"

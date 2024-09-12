@@ -35,7 +35,12 @@
              updated-fields)
       (is (not (contains? (:body response) :password_hash))))))
 
-  (testing "returns updated user information" (is true)))
+  (testing "does not update where no updatable data is passed"
+    (let [user (register-test-user)
+          mock-request {:identity {:sub (:id user)}
+                        :body {:username "something"}}]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
+                            (account/update-account mock-request))))))
 
 (deftest test-delete-account
   (testing "does not delete without a confirmation param"
