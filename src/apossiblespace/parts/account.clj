@@ -14,9 +14,6 @@
                                 :from [:users]
                                 :where [:= :id id]})))
 
-;; TODO: It would be good to have an api namespace to do things like handling
-;; standard errors (404, 403, etc) and whatever else code ends up being
-;; boilerplate.
 (defn get-account
   "Retrieve own account info"
   [request]
@@ -73,11 +70,21 @@
         (mulog/log ::update-account-not-found :user-id user-id)
         (throw (ex-info "User not found" {:type :not-found}))))))
 
-;; TODO: To implement
 (defn delete-account
   "Delete own account"
   [request]
-  {:success "DELETE account"})
+  (let [user-id (get-in request [:identity :sub])
+        user (fetch-user user-id)
+        confirm (:confirm request)]
+    (if user
+      (if (= (:username user) confirm)
+        (do
+          (db/delete! :users [:= :id user-id])
+          (response/status 204))
+        (throw (ex-info "Confirmation needed" {:type :validation})))
+      (do
+        (mulog/log ::update-account-not-found :user-id user-id)
+        (throw (ex-info "User not found" {:type :not-found}))))))
 
 (defn register-account
   "Creates a record for a new user account"

@@ -38,10 +38,27 @@
   (testing "returns updated user information" (is true)))
 
 (deftest test-delete-account
-  (testing "disallows access without a valid token" (is true))
-  (testing "allows access with a valid token" (is true))
-  (testing "does not delete account without confirmation param" (is true))
-  (testing "deletes account with confirmation param" (is true)))
+  (testing "does not delete without a confirmation param"
+    (let [user (register-test-user)
+          mock-request {:identity {:sub (:id user)}}]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
+                            (account/delete-account mock-request)))))
+
+  (testing "does not delete with a confirmation param that does not match the username"
+    (let [user (register-test-user)
+          mock-request {:identity {:sub (:id user)} :confirm "random"}]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
+                            (account/delete-account mock-request)))))
+
+  (testing "deletes the account with a confirmation param"
+    (let [user (register-test-user)
+          mock-request {:identity {:sub (:id user)} :confirm (:username user)}
+          response (account/delete-account mock-request)
+          db-user (db/query-one (db/sql-format {:select [:id]
+                                                :from [:users]
+                                                :where [:= :id (:id user)]}))]
+      (is (= 204 (:status response)))
+      (is (= nil db-user)))))
 
 (deftest test-register-account
   (testing "register creates a new user successfully"
