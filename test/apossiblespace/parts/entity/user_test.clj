@@ -16,3 +16,11 @@
   (testing "throws when an invalid ID is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
                           (user/fetch "random")))))
+
+(deftest test-update!
+  (testing "saves the user entity to the database"
+    (let [db-user (register-test-user)
+          updated-user (user/update!
+                        {:id (:id db-user)
+                         :display_name "Bobby"})]
+      (is (= (:display_name updated-user) "Bobby")))))
