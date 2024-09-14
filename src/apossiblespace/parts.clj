@@ -40,13 +40,13 @@
         {:post {:handler auth/login}}]
        ["/logout"
         {:post {:handler auth/logout
-                :middleware [auth/jwt-auth]}}]]
+                :middleware [middleware/jwt-auth]}}]]
       ["/account" {:swagger {:tags ["Account"]}}
        [""
         {:get {:handler account/get-account}
          :patch {:handler account/update-account}
          :delete {:handler account/delete-account}
-         :middleware [auth/jwt-auth]}]
+         :middleware [middleware/jwt-auth]}]
        ["/register"
         {:post {:handler account/register-account}}]]]]
     {:data {:middleware [wrap-params
@@ -54,7 +54,7 @@
                          middleware/logging
                          [wrap-json-body {:keywords? true}]
                          wrap-json-response
-                         auth/wrap-jwt-authentication]}})
+                         middleware/wrap-jwt-authentication]}})
    (ring/routes
     (swagger-ui/create-swagger-ui-handler
      {:path "/"

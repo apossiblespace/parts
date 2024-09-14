@@ -1,7 +1,11 @@
 (ns apossiblespace.parts.api.middleware
   (:require [reitit.ring.middleware.exception :as exception]
             [com.brunobonacci.mulog :as mulog]
-            [clojure.string :as str])
+            [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
+            [buddy.auth :refer [authenticated?]]
+            [ring.util.response :as response]
+            [clojure.string :as str]
+            [apossiblespace.parts.auth :as auth])
   (:import (org.sqlite SQLiteException)))
 
 (defn exception-handler
@@ -54,3 +58,19 @@
           authenticated? (boolean user-id)]
       (mulog/log ::request :request request, :authenticated? authenticated? :user-id user-id)
       (handler request))))
+
+(defn wrap-jwt-authentication
+  "Middleware adding JWT authentication to a route"
+  [handler]
+  (-> handler
+      (wrap-authentication auth/backend)
+      (wrap-authorization auth/backend)))
+
+(defn jwt-auth
+  "Middleware ensuring a route is only accessible to authenticated users"
+  [handler]
+  (fn [request]
+    (if (authenticated? request)
+      (handler request)
+      (-> (response/response {:error "Unauthorized"})
+          (response/status 401)))))

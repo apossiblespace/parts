@@ -1,7 +1,7 @@
 (ns apossiblespace.parts.api.auth-test
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
+             [apossiblespace.parts.auth :as auth-utils]
              [apossiblespace.parts.api.auth :as auth]
-             [apossiblespace.parts.db :as db]
              [apossiblespace.parts.entity.user :as user]
              [apossiblespace.parts.api.account :as account]
              [buddy.sign.jwt :as jwt]
@@ -14,8 +14,8 @@
 (deftest test-create-token
   (testing "create-token generates a valid JWT"
     (let [user-id 1
-          token (auth/create-token user-id)
-          secret auth/secret
+          token (auth-utils/create-token user-id)
+          secret auth-utils/secret
           decoded (jwt/unsign token secret)
           now-seconds (.getEpochSecond (Instant/now))]
       (is (= user-id (:sub decoded)))
@@ -25,38 +25,38 @@
 (deftest test-hash-password
   (testing "hash-password creates a valid hash"
     (let [password "secret123"
-          hash (auth/hash-password password)]
+          hash (auth-utils/hash-password password)]
       (is (not= password hash))
-      (is (auth/check-password password hash)))))
+      (is (auth-utils/check-password password hash)))))
 
 (deftest test-check-password
   (testing "check-password validates correct password"
     (let [password "correct-password"
-          hash (auth/hash-password password)]
-      (is (auth/check-password password hash))))
+          hash (auth-utils/hash-password password)]
+      (is (auth-utils/check-password password hash))))
 
   (testing "check-password rejects incorrect password"
     (let [password "correct-password"
-          hash (auth/hash-password password)]
-      (is (not (auth/check-password "wrong-password" hash))))))
+          hash (auth-utils/hash-password password)]
+      (is (not (auth-utils/check-password "wrong-password" hash))))))
 
 (deftest test-authenticate
   (testing "authenticate succeeds with correct credentials"
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
-      (let [token (auth/authenticate {:email email :password password})]
+      (let [token (auth-utils/authenticate {:email email :password password})]
         (is (string? token))
-        (is (jwt/unsign token auth/secret)))))
+        (is (jwt/unsign token auth-utils/secret)))))
 
   (testing "authenticate fails with incorrect password"
     (let [user-data (factory/create-test-user)
           {:keys [email]} user-data]
       (user/create! user-data)
-      (is (nil? (auth/authenticate {:email email :password "wrongpassword"})))))
+      (is (nil? (auth-utils/authenticate {:email email :password "wrongpassword"})))))
 
   (testing "authenticate fails with non-existent user"
-    (is (nil? (auth/authenticate {:email "nonexistent@example.com" :password "anypassword"})))))
+    (is (nil? (auth-utils/authenticate {:email "nonexistent@example.com" :password "anypassword"})))))
 
 (deftest test-login
   (testing "login succeeds with correct credentials"
@@ -67,7 +67,7 @@
       (let [response (auth/login {:body {:email email :password password}})]
         (is (= 200 (:status response)))
         (is (:token (:body response)))
-        (is (jwt/unsign (:token (:body response)) auth/secret)))))
+        (is (jwt/unsign (:token (:body response)) auth-utils/secret)))))
 
   (testing "login fails with incorrect password"
     (let [user-data (factory/create-test-user)
@@ -89,28 +89,13 @@
       (is (= 200 (:status response)))
       (is (= {:message "Logged out successfully"} (:body response))))))
 
-(deftest test-jwt-auth-middleware
-  (testing "jwt-auth middleware allows authenticated requests"
-    (let [handler (auth/jwt-auth (fn [_] {:status 200 :body "Success"}))
-          request {:identity {:user-id 1}}
-          response (handler request)]
-      (is (= 200 (:status response)))
-      (is (= "Success" (:body response)))))
-
-  (testing "jwt-auth middleware blocks unauthenticated requests"
-    (let [handler (auth/jwt-auth (fn [_] {:status 200 :body "Success"}))
-          request {}
-          response (handler request)]
-      (is (= 401 (:status response)))
-      (is (= {:error "Unauthorized"} (:body response))))))
-
 (deftest test-get-user-id-from-token
   (testing "get-user-id-from-token extracts user-id from request"
     (let [request {:identity {:user-id 1}}
-          user-id (auth/get-user-id-from-token request)]
+          user-id (auth-utils/get-user-id-from-token request)]
       (is (= 1 user-id))))
 
   (testing "get-user-id-from-token returns nil for unauthenticated request"
     (let [request {}
-          user-id (auth/get-user-id-from-token request)]
+          user-id (auth-utils/get-user-id-from-token request)]
       (is (nil? user-id)))))

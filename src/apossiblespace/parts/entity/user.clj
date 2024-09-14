@@ -1,6 +1,6 @@
 (ns apossiblespace.parts.entity.user
   (:require
-   [apossiblespace.parts.api.auth :as auth]
+   [apossiblespace.parts.auth :as auth]
    [apossiblespace.parts.db :as db]))
 
 (def allowed-update-fields #{:email :display_name :password})
