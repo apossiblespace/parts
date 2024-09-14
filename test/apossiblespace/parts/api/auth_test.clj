@@ -2,6 +2,7 @@
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
              [apossiblespace.parts.api.auth :as auth]
              [apossiblespace.parts.db :as db]
+             [apossiblespace.parts.entity.user :as user]
              [apossiblespace.parts.api.account :as account]
              [buddy.sign.jwt :as jwt]
              [apossiblespace.helpers.test-helpers :refer [with-test-db]]
@@ -43,7 +44,7 @@
   (testing "authenticate succeeds with correct credentials"
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data]
-      (db/insert! :users (account/prepare-user-data user-data))
+      (user/create! user-data)
       (let [token (auth/authenticate {:email email :password password})]
         (is (string? token))
         (is (jwt/unsign token auth/secret)))))
@@ -51,7 +52,7 @@
   (testing "authenticate fails with incorrect password"
     (let [user-data (factory/create-test-user)
           {:keys [email]} user-data]
-      (db/insert! :users (account/prepare-user-data user-data))
+      (user/create! user-data)
       (is (nil? (auth/authenticate {:email email :password "wrongpassword"})))))
 
   (testing "authenticate fails with non-existent user"
