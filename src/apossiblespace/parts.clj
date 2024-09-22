@@ -17,6 +17,7 @@
    [ring.middleware.params :refer [wrap-params]]
    [apossiblespace.parts.api.middleware :as middleware]
    [apossiblespace.parts.db :as db]
+   [apossiblespace.parts.pages :as pages]
    [apossiblespace.parts.api.auth :as auth]
    [apossiblespace.parts.api.account :as account]))
 
@@ -24,43 +25,45 @@
 ;; Application
 
 (def app
-  (ring/ring-handler
-   (ring/router
-    [["/swagger.json"
-      {:get {:no-doc true
-             :swagger {:info {:title "Parts API"
-                              :description "API for Parts"}}
-             :handler (swagger/create-swagger-handler)}}]
-     ["/api"
-      ["/ping"
-       {:get {:swagger {:tags ["Utility"]}
-              :handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
-      ["/auth" {:swagger {:tags ["Authentication"]}}
-       ["/login"
-        {:post {:handler auth/login}}]
-       ["/logout"
-        {:post {:handler auth/logout
-                :middleware [middleware/jwt-auth]}}]]
-      ["/account" {:swagger {:tags ["Account"]}}
-       [""
-        {:get {:handler account/get-account}
-         :patch {:handler account/update-account}
-         :delete {:handler account/delete-account}
-         :middleware [middleware/jwt-auth]}]
-       ["/register"
-        {:post {:handler account/register-account}}]]]]
-    {:data {:middleware [wrap-params
-                         middleware/exception
-                         middleware/logging
-                         [wrap-json-body {:keywords? true}]
-                         wrap-json-response
-                         middleware/wrap-jwt-authentication]}})
-   (ring/routes
-    (swagger-ui/create-swagger-ui-handler
-     {:path "/"
-      :config {:validatorUrl nil
-               :operationsSorter "alpha"}})
-    (ring/create-default-handler))))
+  (middleware/wrap-default-middlewares
+   (ring/ring-handler
+    (ring/router
+     [["/swagger.json"
+       {:get {:no-doc true
+              :swagger {:info {:title "Parts API"
+                               :description "API for Parts"}}
+              :handler (swagger/create-swagger-handler)}}]
+      ["/api"
+       ["/ping"
+        {:get {:swagger {:tags ["Utility"]}
+               :handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
+       ["/auth" {:swagger {:tags ["Authentication"]}}
+        ["/login"
+         {:post {:handler auth/login}}]
+        ["/logout"
+         {:post {:handler auth/logout
+                 :middleware [middleware/jwt-auth]}}]]
+       ["/account" {:swagger {:tags ["Account"]}}
+        [""
+         {:get {:handler account/get-account}
+          :patch {:handler account/update-account}
+          :delete {:handler account/delete-account}
+          :middleware [middleware/jwt-auth]}]
+        ["/register"
+         {:post {:handler account/register-account}}]]]
+      ["/home" {:get pages/home-page}]]
+     {:data {:middleware [wrap-params
+                          middleware/exception
+                          middleware/logging
+                          [wrap-json-body {:keywords? true}]
+                          wrap-json-response
+                          middleware/wrap-jwt-authentication]}})
+    (ring/routes
+     (swagger-ui/create-swagger-ui-handler
+      {:path "/"
+       :config {:validatorUrl nil
+                :operationsSorter "alpha"}})
+     (ring/create-default-handler)))))
 
 (defn start-server
   "Starts the web server"
