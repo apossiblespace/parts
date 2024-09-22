@@ -5,7 +5,12 @@
             [buddy.auth :refer [authenticated?]]
             [ring.util.response :as response]
             [clojure.string :as str]
-            [apossiblespace.parts.auth :as auth])
+            [apossiblespace.parts.auth :as auth]
+            [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
+            [ring.middleware.resource :refer [wrap-resource]]
+            [ring.middleware.content-type :refer [wrap-content-type]]
+            [ring.middleware.session :refer [wrap-session]]
+            [ring.middleware.session.cookie :refer [cookie-store]])
   (:import (org.sqlite SQLiteException)))
 
 (defn exception-handler
@@ -74,3 +79,12 @@
       (handler request)
       (-> (response/response {:error "Unauthorized"})
           (response/status 401)))))
+
+
+(defn wrap-default-middlewares
+  [handler]
+  (-> handler
+      (wrap-defaults (-> site-defaults
+                         (assoc-in [:session :store] (cookie-store))))
+      (wrap-resource "public")
+      (wrap-content-type)))
