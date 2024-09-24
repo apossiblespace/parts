@@ -1,6 +1,6 @@
 {;; ---------------------------------------------------------
  :paths
- ["src" "resources"]
+ ["src" "resources" "cljs"]
  ;; ---------------------------------------------------------
 
  ;; ---------------------------------------------------------
@@ -21,7 +21,8 @@
   ring/ring-mock {:mvn/version "0.4.0"}
   ;; Simple logging implementation using by Buddy for ex
   org.slf4j/slf4j-simple {:mvn/version "2.0.16"}
-  ;; Configuration management
+  ;;
+  ;; A small library for explicit, intentful configuration.
   ;; https://github.com/juxt/aero
   aero/aero {:mvn/version "1.1.6"}
   ;;
@@ -34,7 +35,11 @@
   ;; Hiccup is a library for representing HTML in Clojure. It uses vectors to
   ;; represent elements, and maps to represent an element's attributes.
   ;; https://github.com/weavejester/hiccup
-  hiccup/hiccup {:mvn/version "2.0.0-RC3"}}
+  hiccup/hiccup {:mvn/version "2.0.0-RC3"}
+  ;;
+  ;; Clojurescript
+  ;; https://github.com/clojure/clojurescript
+  org.clojure/clojurescript {:mvn/version "1.11.132"}}
 
  ;; ---------------------------------------------------------
  :aliases

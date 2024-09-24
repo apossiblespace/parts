@@ -6,5 +6,8 @@
    [:head
     [:title title]
     (include-css "/css/style.css")
-    (include-js "/js/app.js")]
-   [:body content]))
+    (include-js "/js/main.js")]
+   [:body
+    [:div#app content]
+    [:script
+     "window.addEventListener('load', function () { apossiblespace.parts.core.init(); });"]]))

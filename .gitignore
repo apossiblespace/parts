@@ -22,10 +22,14 @@
 !pom.xml
 !dev/
 !docs/
-!resources/
 !src/
 !test/
 !config.edn
+
+# Don't ignore resources
+!resources/
+# ...but ignore shadow-cljs build artifacts
+resources/public/js
 
 # ------------------------
 # Include Clojure tools
@@ -36,6 +40,12 @@
 !.dockerignore
 !Makefile
 !tests.edn
+
+# ------------------------
+# Frontend things
+!shadow-cljs.edn
+!package.json
+!bun.lockb
 
 # ------------------------
 # Include Git & CI workflow

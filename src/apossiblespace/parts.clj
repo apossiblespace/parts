@@ -81,10 +81,10 @@
     (mulog/log ::application-startup :arguments args :port port)
     (db/init-db)
     (let [stop-fn (start-server port)]
-      (println "Server started on port " port)
+      (println "Parts: Server started on port" port)
       (fn []
         (stop-fn)
-        (println "Server stopped.")))))
+        (println "Parts: Server stopped.")))))
 
 ;; ---------------------------------------------------------
 
