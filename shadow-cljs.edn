@@ -1,0 +1,16 @@
+{
+ :source-paths
+ ["cljs"]
+
+ :dependencies
+ [[thheller/shadow-cljs "2.28.15"]]
+
+ :builds
+ {:app
+  {:target :browser
+   :output-dir "resources/public/js"
+   :asset-path "/js"
+   :modules {:main {:init-fn apossiblespace.parts.core/init}}
+   :devtools {:http-root "resources/public"
+              :http-port 8020}}}
+ }

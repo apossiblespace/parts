@@ -12,5 +12,6 @@
                    [:div
                     [:h2 "Hello this is a test"]
                     [:p "This page is rendered using Hiccup 2.0"]]
+                   [:div#chart]
                    (footer))))
       (response/content-type "text/html")))

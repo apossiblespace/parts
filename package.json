@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "d3": "^7.9.0",
+    "htmx.org": "^2.0.2",
+    "shadow-cljs": "^2.28.15"
+  },
+  "scripts": {
+    "watch": "shadow-cljs watch app"
+  }
+}
