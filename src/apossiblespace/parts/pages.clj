@@ -4,7 +4,9 @@
             [apossiblespace.parts.layouts.partials :refer [header footer]]
             [ring.util.response :as response]))
 
-(defn home-page [_]
+(defn home-page
+  "Page rendered for GET /"
+  [_]
   (-> (response/response
        (html
            (layout "Home Page"
