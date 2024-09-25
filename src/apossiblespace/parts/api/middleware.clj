@@ -14,6 +14,7 @@
   (:import (org.sqlite SQLiteException)))
 
 (defn exception-handler
+  "Generic exceptions handler"
   [message status]
   (fn [^Exception e _request]
     (let [error-message (.getMessage e)]
@@ -27,6 +28,7 @@
    "FOREIGN KEY constraint failed" "The referenced resource does not exist"})
 
 (defn sqlite-constraint-violation-handler
+  "Handler for SQLite-specific exceptions"
   [^SQLiteException e _request]
   (let [error-message (.getMessage e)]
     (mulog/log ::sqlite-exception :error error-message)
@@ -37,6 +39,7 @@
                        "A database constraint was violated")}}))
 
 (def exception
+  "Middleware handling exceptions"
   (exception/create-exception-middleware
    (merge
     exception/default-handlers
@@ -57,6 +60,7 @@
      })))
 
 (defn logging
+  "Middleware logging each incoming request"
   [handler]
   (fn [request]
     (let [user-id (get-in request [:identity :sub])
@@ -82,8 +86,10 @@
 
 
 (defn wrap-default-middlewares
+  "Wrap in the middlewares defined by ring-defaults"
   [handler]
   (-> handler
+      ;; TODO: Use secure-site-defaults for production
       (wrap-defaults (-> site-defaults
                          (assoc-in [:session :store] (cookie-store))))
       (wrap-resource "public")

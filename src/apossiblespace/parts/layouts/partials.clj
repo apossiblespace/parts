@@ -1,9 +1,13 @@
 (ns apossiblespace.parts.layouts.partials)
 
-(defn header []
+(defn header
+  "Site header"
+  []
   [:header
    [:h1 "This is partials/header"]])
 
-(defn footer []
+(defn footer
+  "Site footer"
+  []
   [:footer
    [:p "This is partials/footer"]])
