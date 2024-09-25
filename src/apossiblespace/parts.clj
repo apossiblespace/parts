@@ -51,7 +51,7 @@
           :middleware [middleware/jwt-auth]}]
         ["/register"
          {:post {:handler account/register-account}}]]]
-      ["/home" {:get pages/home-page}]]
+      ["/" {:get pages/home-page}]]
      {:data {:middleware [wrap-params
                           middleware/exception
                           middleware/logging
@@ -60,7 +60,7 @@
                           middleware/wrap-jwt-authentication]}})
     (ring/routes
      (swagger-ui/create-swagger-ui-handler
-      {:path "/"
+      {:path "/swagger-ui"
        :config {:validatorUrl nil
                 :operationsSorter "alpha"}})
      (ring/create-default-handler)))))
