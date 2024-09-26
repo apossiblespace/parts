@@ -1,11 +1,11 @@
-(ns apossiblespace.parts.db
+(ns tools.ifs.parts.db
   (:require
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]
    [migratus.core :as migratus]
    [honey.sql :as sql]
    [com.brunobonacci.mulog :as mulog]
-   [apossiblespace.parts.config :as conf]
+   [tools.ifs.parts.config :as conf]
    [clojure.string :as str])
   (:import
    [java.util UUID]))

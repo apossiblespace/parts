@@ -1,4 +1,4 @@
-(ns apossiblespace.parts.layouts.main
+(ns tools.ifs.parts.layouts.main
   (:require [hiccup.page :refer [html5 include-css include-js]]))
 
 (defn layout
@@ -12,4 +12,4 @@
    [:body
     [:div#app content]
     [:script
-     "window.addEventListener('load', function () { apossiblespace.parts.core.init(); });"]]))
+     "window.addEventListener('load', function () { tools.ifs.parts.core.init(); });"]]))

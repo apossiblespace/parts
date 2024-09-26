@@ -1,4 +1,4 @@
-(ns apossiblespace.parts.config
+(ns tools.ifs.parts.config
   (:require
    [aero.core :as aero]
    [clojure.java.io :as io]))

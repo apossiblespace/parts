@@ -1,9 +1,9 @@
-(ns apossiblespace.helpers.test-helpers
+(ns tools.ifs.helpers.test-helpers
   (:require [next.jdbc :as jdbc]
             [migratus.core :as migratus]
-            [apossiblespace.parts.config :as conf]
-            [apossiblespace.parts.entity.user :as user]
-            [apossiblespace.helpers.test-factory :as factory]
+            [tools.ifs.parts.config :as conf]
+            [tools.ifs.parts.entity.user :as user]
+            [tools.ifs.helpers.test-factory :as factory]
             [clojure.tools.logging :as log]))
 
 (defn setup-test-db

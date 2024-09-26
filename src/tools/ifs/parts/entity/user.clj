@@ -1,7 +1,7 @@
-(ns apossiblespace.parts.entity.user
+(ns tools.ifs.parts.entity.user
   (:require
-   [apossiblespace.parts.auth :as auth]
-   [apossiblespace.parts.db :as db]))
+   [tools.ifs.parts.auth :as auth]
+   [tools.ifs.parts.db :as db]))
 
 (def allowed-update-fields #{:email :display_name :password})
 (def sensitive-fields #{:password_hash})

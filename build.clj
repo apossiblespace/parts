@@ -30,9 +30,9 @@
 (def project-config
   "Project configuration to support all tasks"
   {:class-directory "target/classes"
-   :main-namespace  'apossiblespace/parts
+   :main-namespace  'tools.ifs/parts
    :project-basis   (build-api/create-basis)
-   :uberjar-file    "target/apossiblespace-parts-standalone.jar"})
+   :uberjar-file    "target/tools-ifs-parts-standalone.jar"})
 
 (defn config
   "Display build configuration"

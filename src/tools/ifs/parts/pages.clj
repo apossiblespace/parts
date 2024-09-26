@@ -1,7 +1,7 @@
-(ns apossiblespace.parts.pages
+(ns tools.ifs.parts.pages
   (:require [hiccup.core :refer [html]]
-            [apossiblespace.parts.layouts.main :refer [layout]]
-            [apossiblespace.parts.layouts.partials :refer [header footer]]
+            [tools.ifs.parts.layouts.main :refer [layout]]
+            [tools.ifs.parts.layouts.partials :refer [header footer]]
             [ring.util.response :as response]))
 
 (defn home-page

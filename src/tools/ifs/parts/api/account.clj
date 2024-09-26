@@ -1,8 +1,8 @@
-(ns apossiblespace.parts.api.account
+(ns tools.ifs.parts.api.account
   (:require
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]
-   [apossiblespace.parts.entity.user :as user]))
+   [tools.ifs.parts.entity.user :as user]))
 
 (defn get-account
   "Retrieve own account info"

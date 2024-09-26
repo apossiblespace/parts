@@ -9,10 +9,10 @@
 ;; ---------------------------------------------------------
 
 
-(ns apossiblespace.parts-test
+(ns tools.ifs.parts-test
   (:require
    [clojure.test :refer [deftest is testing]]
-   [apossiblespace.parts :as parts]))
+   [tools.ifs.parts :as parts]))
 
 
 ;; (deftest application-test

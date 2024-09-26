@@ -1,10 +1,10 @@
 ;; ---------------------------------------------------------
-;; apossiblespace.parts
+;; tools.ifs.parts
 ;;
 ;; TODO: Provide a meaningful description of the project
 ;; ---------------------------------------------------------
 
-(ns apossiblespace.parts
+(ns tools.ifs.parts
   (:gen-class)
   (:require
    [com.brunobonacci.mulog :as mulog]
@@ -15,11 +15,11 @@
    [reitit.swagger-ui :as swagger-ui]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.params :refer [wrap-params]]
-   [apossiblespace.parts.api.middleware :as middleware]
-   [apossiblespace.parts.db :as db]
-   [apossiblespace.parts.pages :as pages]
-   [apossiblespace.parts.api.auth :as auth]
-   [apossiblespace.parts.api.account :as account]))
+   [tools.ifs.parts.api.middleware :as middleware]
+   [tools.ifs.parts.db :as db]
+   [tools.ifs.parts.pages :as pages]
+   [tools.ifs.parts.api.auth :as auth]
+   [tools.ifs.parts.api.account :as account]))
 
 ;; ---------------------------------------------------------
 ;; Application

@@ -1,6 +1,6 @@
-(ns apossiblespace.parts.api.auth
+(ns tools.ifs.parts.api.auth
   (:require
-   [apossiblespace.parts.auth :as auth]
+   [tools.ifs.parts.auth :as auth]
    [ring.util.response :as response]
    [com.brunobonacci.mulog :as mulog]))
 

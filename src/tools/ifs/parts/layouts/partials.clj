@@ -1,4 +1,4 @@
-(ns apossiblespace.parts.layouts.partials)
+(ns tools.ifs.parts.layouts.partials)
 
 (defn header
   "Site header"

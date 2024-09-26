@@ -19,12 +19,12 @@
    [com.brunobonacci.mulog :as mulog]  ; Global context & Tap publisher
    [portal]
    [portal.api :as inspect]                          ; Data inspector
-   [apossiblespace.parts :as parts]
-   [apossiblespace.parts.config :as config]
-   [apossiblespace.parts.db :as db]
-   [apossiblespace.parts.api.auth :as auth]
-   [apossiblespace.parts.api.account :as account]
-   [apossiblespace.parts.api.middleware :as middleware]
+   [tools.ifs.parts :as parts]
+   [tools.ifs.parts.config :as config]
+   [tools.ifs.parts.db :as db]
+   [tools.ifs.parts.api.auth :as auth]
+   [tools.ifs.parts.api.account :as account]
+   [tools.ifs.parts.api.middleware :as middleware]
    [clojure.tools.namespace.repl :as namespace]))
 
 ;; ---------------------------------------------------------

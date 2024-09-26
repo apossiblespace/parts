@@ -1,9 +1,9 @@
-(ns apossiblespace.parts.api.account-test
+(ns tools.ifs.parts.api.account-test
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
-             [apossiblespace.helpers.test-helpers :refer [with-test-db register-test-user]]
-             [apossiblespace.helpers.test-factory :as factory]
-             [apossiblespace.parts.db :as db]
-             [apossiblespace.parts.api.account :as account]))
+             [tools.ifs.helpers.test-helpers :refer [with-test-db register-test-user]]
+             [tools.ifs.helpers.test-factory :as factory]
+             [tools.ifs.parts.db :as db]
+             [tools.ifs.parts.api.account :as account]))
 
 (use-fixtures :once with-test-db)
 

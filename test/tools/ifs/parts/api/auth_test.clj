@@ -1,12 +1,12 @@
-(ns apossiblespace.parts.api.auth-test
+(ns tools.ifs.parts.api.auth-test
   (:require  [clojure.test :refer [deftest is testing use-fixtures]]
-             [apossiblespace.parts.auth :as auth-utils]
-             [apossiblespace.parts.api.auth :as auth]
-             [apossiblespace.parts.entity.user :as user]
-             [apossiblespace.parts.api.account :as account]
+             [tools.ifs.parts.auth :as auth-utils]
+             [tools.ifs.parts.api.auth :as auth]
+             [tools.ifs.parts.entity.user :as user]
+             [tools.ifs.parts.api.account :as account]
              [buddy.sign.jwt :as jwt]
-             [apossiblespace.helpers.test-helpers :refer [with-test-db]]
-             [apossiblespace.helpers.test-factory :as factory])
+             [tools.ifs.helpers.test-helpers :refer [with-test-db]]
+             [tools.ifs.helpers.test-factory :as factory])
   (:import [java.time Instant]))
 
 (use-fixtures :once with-test-db)

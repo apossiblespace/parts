@@ -1,11 +1,11 @@
-(ns apossiblespace.parts.api.middleware
+(ns tools.ifs.parts.api.middleware
   (:require [reitit.ring.middleware.exception :as exception]
             [com.brunobonacci.mulog :as mulog]
             [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
             [buddy.auth :refer [authenticated?]]
             [ring.util.response :as response]
             [clojure.string :as str]
-            [apossiblespace.parts.auth :as auth]
+            [tools.ifs.parts.auth :as auth]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]

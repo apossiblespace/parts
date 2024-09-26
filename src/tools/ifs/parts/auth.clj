@@ -1,10 +1,10 @@
-(ns apossiblespace.parts.auth
+(ns tools.ifs.parts.auth
   (:require
    [buddy.sign.jwt :as jwt]
    [buddy.auth.backends :as backends]
    [buddy.hashers :as hashers]
-   [apossiblespace.parts.db :as db]
-   [apossiblespace.parts.config :as conf]
+   [tools.ifs.parts.db :as db]
+   [tools.ifs.parts.config :as conf]
    [com.brunobonacci.mulog :as mulog])
   (:import
    [java.time Instant]))

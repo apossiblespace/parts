@@ -46,11 +46,11 @@
  {;; ------------
   ;; Clojure.main execution of application
   :run/app
-  {:main-opts ["-m" "apossiblespace.parts"]}
+  {:main-opts ["-m" "tools.ifs.parts"]}
 
   ;; Clojure.exec execution of specified function
   :run/greet
-  {:exec-fn apossiblespace.parts/greet
+  {:exec-fn tools.ifs.parts/greet
    :exec-args {:name "Clojure"}}
   ;; ------------
 
