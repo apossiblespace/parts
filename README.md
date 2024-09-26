@@ -1,14 +1,11 @@
-# apossiblespace/parts
+# 🌀 Parts
 
 [![Clojure CI](https://github.com/apossiblespace/parts/actions/workflows/all-tests.yaml/badge.svg)](https://github.com/apossiblespace/parts/actions/workflows/all-tests.yaml)
+[![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
 
-## Project Status
+## About
 
-TODO: add status badges for <https://github.com/apossiblespace/parts> workflows and issues
-
-TODO: Provide a meaningful description of the project
-
-Project created with [deps-new](https://github.com/seancorfield/deps-new) and the [practicalli/application template](https://github.com/practicalli/project-templates)
+[Parts](https://parts.ifs.tools) is a toolkit for therapists working with the [Internal Family Systems model](https://en.wikipedia.org/wiki/Internal_Family_Systems_Model). It provides a tool for easy, collaborative parts mapping, which can be used to facilitate conversations with clients during sessions.
 
 ## Run the service
 
@@ -53,7 +50,7 @@ make repl
 
 The local nREPL server port will be printed, along with a help menu showing the REPL Reloaded tools available.
 
-Evaluate the apossiblespace.parts namespace and a mulog publisher will start, sending pretty printed events to the console. Evaluate `(mulog-publisher)` to stop the mulog publisher.
+Evaluate the tools.ifs.parts namespace and a mulog publisher will start, sending pretty printed events to the console. Evaluate `(mulog-publisher)` to stop the mulog publisher.
 
 Call the `-main` function with or without an argument, or call the `greet` function directly passing an optional key and value pair.
 
@@ -134,3 +131,5 @@ Or build and run the service via the multi-stage `Dockerfile` configuration as p
 Copyright © 2024 Gosha Tcherednitchenko / A Possible Space Ltd
 
 [The GNU General Public License v3](https://www.gnu.org/licenses/gpl.html)
+
+[badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
