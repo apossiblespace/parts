@@ -1,4 +1,8 @@
-# 🌀 Parts
+<p>
+  <img src="https://raw.github.com/apossiblespace/parts/main/resources/public/images/parts-logo-horizontal.svg" alt="Parts Logo"/>
+</p>
+
+-----
 
 [![Clojure CI](https://github.com/apossiblespace/parts/actions/workflows/all-tests.yaml/badge.svg)](https://github.com/apossiblespace/parts/actions/workflows/all-tests.yaml)
 [![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
