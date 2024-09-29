@@ -51,7 +51,7 @@
           :middleware [middleware/jwt-auth]}]
         ["/register"
          {:post {:handler account/register-account}}]]]
-      ["/" {:get pages/home-page}]]
+      ["/" {:get {:handler #(pages/home-page %)}}]]
      {:data {:middleware [wrap-params
                           middleware/exception
                           middleware/logging

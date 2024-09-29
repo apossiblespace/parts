@@ -24,10 +24,10 @@
        (html
            (layout "Home Page"
                    (header)
-                   [:div
+                   [:div#home
                     [:h1
                      {:align "center"}
-                     "Have better conversations with your clients"]
+                     "Understand your client's parts and their relationships"]
                     [:h3.hook
                      {:align "center"}
                      [:strong "Parts"]
