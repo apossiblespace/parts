@@ -94,3 +94,17 @@
                          (assoc-in [:session :store] (cookie-store))))
       (wrap-resource "public")
       (wrap-content-type)))
+
+;; FIXME: This feels like it shouldn't need a custom middleware, right? Is there
+;; a middleware supplied by either httpkit or hiccup2 already?
+(defn wrap-html-response
+  "Set content type to text/html and convert response to string"
+  [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (if (and (map? response)
+               (not (get-in response [:headers "Content-Type"])))
+        (-> response
+            (update :body str)
+            (assoc-in [:headers "Content-Type"] "text/html"))
+        response))))

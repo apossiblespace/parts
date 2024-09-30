@@ -1,4 +1,5 @@
 CREATE TABLE waitlist_signups (
-  email TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
