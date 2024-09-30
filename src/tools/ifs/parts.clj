@@ -1,7 +1,11 @@
 ;; ---------------------------------------------------------
 ;; tools.ifs.parts
 ;;
-;; TODO: Provide a meaningful description of the project
+;; Parts is a toolkit for therapists working with the Internal Family Systems
+;; model (https://en.wikipedia.org/wiki/Internal_Family_Systems_Model). It
+;; provides a tool for easy, collaborative parts mapping, which can be used to
+;; facilitate conversations with clients during sessions.
+
 ;; ---------------------------------------------------------
 
 (ns tools.ifs.parts
@@ -19,11 +23,34 @@
    [tools.ifs.parts.db :as db]
    [tools.ifs.parts.pages :as pages]
    [tools.ifs.parts.api.auth :as auth]
-   [tools.ifs.parts.api.account :as account]))
+   [tools.ifs.parts.api.account :as account]
+   [tools.ifs.parts.waitlist :as waitlist]))
 
 ;; ---------------------------------------------------------
 ;; Application
 
+(def prelaunch-app
+  (middleware/wrap-default-middlewares
+   (ring/ring-handler
+    (ring/router
+     [["/" {:get {:handler #(pages/home-page %)}}]
+      ["/waitlist-signup" {:post {:handler #(waitlist/signup %)}}]]
+     {:data {:middleware [wrap-params
+                          middleware/exception
+                          middleware/logging
+                          middleware/wrap-html-response]}}))))
+
+;; TODO: We need to later figure out a way to combine HTML routes and API
+;; routes.
+;;
+;; Currently, the main issue is that I cannot figure out a way to combine API
+;; namespaces with different sets of middleware for each.
+;;
+;; For example, I want the /api namespace to have JSON-related middlewares, but
+;; not the root namespace, which serves text/html instead.
+;;
+;; It is also entirely possible that API routes will be removed, and only HTML
+;; routes will remain.
 (def app
   (middleware/wrap-default-middlewares
    (ring/ring-handler
@@ -69,8 +96,7 @@
   "Starts the web server"
   [port]
   (mulog/log ::starting-server :port port)
-  (server/run-server #'app {:port port}))
-
+  (server/run-server #'prelaunch-app {:port port}))
 
 (defn -main
   "Entry point into the application via clojure.main -M"
