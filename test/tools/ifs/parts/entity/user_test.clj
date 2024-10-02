@@ -2,8 +2,7 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [tools.ifs.helpers.test-helpers :refer [with-test-db register-test-user]]
             [tools.ifs.helpers.test-factory :as factory]
-            [tools.ifs.parts.entity.user :as user]
-            [tools.ifs.parts.db :as db]))
+            [tools.ifs.parts.entity.user :as user]))
 
 (use-fixtures :once with-test-db)
 

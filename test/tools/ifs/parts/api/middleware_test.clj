@@ -1,8 +1,6 @@
 (ns tools.ifs.parts.api.middleware-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [tools.ifs.parts.api.middleware :as middleware]
-            [com.brunobonacci.mulog :as mulog]
-            [com.brunobonacci.mulog.buffer :as rb]
             [ring.mock.request :as mock]
             [reitit.ring :as ring])
   (:import (org.sqlite SQLiteException SQLiteErrorCode)))

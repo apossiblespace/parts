@@ -64,7 +64,6 @@
              :display-name "Test User"
              :password "password123"
              :role "client"})
-  (register user)
 
   (def token (authenticate {:email "test@example.com" :password "password123"}))
 

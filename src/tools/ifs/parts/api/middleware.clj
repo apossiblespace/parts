@@ -93,6 +93,7 @@
       (wrap-defaults (-> site-defaults
                          (assoc-in [:session :store] (cookie-store))))
       (wrap-resource "public")
+      (wrap-session)
       (wrap-content-type)))
 
 ;; FIXME: This feels like it shouldn't need a custom middleware, right? Is there
