@@ -1,7 +1,7 @@
 (ns tools.ifs.parts.pages
   (:require [hiccup2.core :refer [html]]
             [tools.ifs.parts.layouts.main :refer [layout]]
-            [tools.ifs.parts.layouts.partials :refer [header footer]]
+            [tools.ifs.parts.layouts.partials :refer [header footer waitlist-signup-form]]
             [ring.util.response :as response]))
 
 (defn system-graph
@@ -30,5 +30,6 @@
              [:h3.hook
               {:align "center"}
               [:strong "Parts"]
-              " is a tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]]
+              " is a tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
+             (waitlist-signup-form "#signup-form")]
             (footer))))))
