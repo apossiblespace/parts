@@ -1,14 +1,17 @@
 :root {
-    --color-bg: #ffffff;
+    --color-bg: #FFFFFF;
     --color-text: #444444;
     --color-text-subdued: #666666;
     --color-primary: #62A294;
     --color-secondary: #F2BE56;
     --color-tertiary: #D1B43C;
+    --color-callout: #FFEECE;
+    --color-input-border: #CCCCCC;
 }
 
 body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 18px;
     line-height: 1.8em;
     background-color: var(--color-bg);
     color: var(--color-text);
@@ -31,7 +34,61 @@ footer {
     gap: 1rem;
 }
 
-#home {
+.container {
+    width: 100%;
+    margin: 1rem auto;
+    max-width: 1200px;
+}
+
+.signup {
+    margin: 2rem auto;
+    width: 100%;
+    max-width: 500px;
+
+    form {
+        display: flex;
+        margin-bottom: 0px;
+    }
+    input {
+        padding: 0.5rem;
+        border-radius: 10px;
+        font-size: 1.5rem;
+        box-sizing: border-box;
+    }
+    input[type="email"] {
+        flex: 2;
+        border: 2px solid var(--color-input-border);
+    }
+    input[type="submit"] {
+        flex: 1;
+        margin-left: 0.5rem;
+        border: 2px solid var(--color-primary);
+        background-color: var(--color-primary);
+        color: white;
+    }
+    .error {
+        p {
+            &::before {
+                content: '⤴︎';
+                transform: scaleX(-1);
+                position: absolute;
+                left: -1.1rem;
+                top: -0.3rem;
+            }
+            margin-top: 0.2rem;
+            margin-left: 1.5rem;
+            position: relative;
+        }
+    }
+    .success {
+        background-color: var(--color-callout);
+        padding: 0.1rem 1rem;
+        border-radius: 1rem;
+        text-align: center;
+    }
+}
+
+.hero {
     h1 {
         font-family: Georgia, Times, 'Times New Roman', serif;
         color: var(--color-primary);

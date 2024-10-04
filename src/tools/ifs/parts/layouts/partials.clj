@@ -34,7 +34,7 @@
   [:div#signup-form
    [:form {:hx-post "/waitlist-signup"
            :hx-target target
-           :hx-swap "outerHTML"}
+           :hx-swap "innerHTML"}
     [:input {:type "email"
              :id "email"
              :name "email"

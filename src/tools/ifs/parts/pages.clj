@@ -23,13 +23,14 @@
            (layout
             "Home Page"
             (header)
-            [:div#home
+            [:section.hero
              [:h1
               {:align "center"}
               "Understand your client's parts and their relationships"]
              [:h3.hook
               {:align "center"}
               [:strong "Parts"]
-              " is a tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
-             (waitlist-signup-form "#signup-form")]
+              " is a tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]]
+            [:section.signup
+             (waitlist-signup-form ".signup")]
             (footer))))))

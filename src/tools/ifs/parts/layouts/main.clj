@@ -15,4 +15,4 @@
     [:link {:rel "stylesheet" :href "/css/style.css"}]
     [:script {:src "/js/main.js"}]]
    [:body
-    [:secton#container content]]))
+    [:section.container content]]))
