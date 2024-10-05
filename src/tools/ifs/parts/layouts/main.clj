@@ -13,6 +13,9 @@
     [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
     [:title (str title " — Parts")]
     [:link {:rel "stylesheet" :href "/css/style.css"}]
-    [:script {:src "/js/main.js"}]]
+    [:script {:src "/js/main.js"}]
+    [:script {:defer true
+              :data-domain "parts.ifs.tools"
+              :src "https://plausible.io/js/script.outbound-links.tagged-events.js"}]]
    [:body
     [:section.container content]]))
