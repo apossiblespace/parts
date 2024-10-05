@@ -93,7 +93,17 @@ footer {
         font-family: Georgia, Times, 'Times New Roman', serif;
         color: var(--color-primary);
         font-weight: normal;
-        font-size: 3rem;
+        font-size: 2rem;
         line-height: 1.2em;
+    }
+}
+
+.illustration {
+    p {
+        text-align: center;
+    }
+    img {
+        width: 100%;
+        max-width: 400px;
     }
 }

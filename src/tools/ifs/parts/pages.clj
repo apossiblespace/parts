@@ -26,11 +26,15 @@
             [:section.hero
              [:h1
               {:align "center"}
-              "Understand your client's parts and their relationships"]
+              "Understand your clients’ parts and their relationships"]]
+            [:div.illustration
+             [:p
+              [:img {:src "/images/system-illustration.svg"}]]
              [:h3.hook
               {:align "center"}
               [:strong "Parts"]
               " is a tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]]
             [:section.signup
+             [:p "Please enter your email below to join the private beta test."]
              (waitlist-signup-form ".signup")]
             (footer))))))
