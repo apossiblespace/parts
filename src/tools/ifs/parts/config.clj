@@ -11,7 +11,7 @@
   ([]
    (config (get-environment)))
   ([profile]
-   (aero/read-config (io/file "config.edn") {:profile profile})))
+   (aero/read-config (io/resource "config.edn") {:profile profile})))
 
 (defn database-file
   [config]
