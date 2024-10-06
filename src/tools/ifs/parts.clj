@@ -34,6 +34,8 @@
    (ring/ring-handler
     (ring/router
      [["/" {:get {:handler #(pages/home-page %)}}]
+      ["/up"
+       {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
       ["/waitlist-signup" {:post {:handler #(waitlist/signup %)}}]]
      {:data {:middleware [wrap-params
                           middleware/exception
