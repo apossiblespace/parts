@@ -29,12 +29,16 @@ WORKDIR /build
 
 # Cache and install Clojure dependencies
 # Add before copying code to cache the layer even if code changes
-COPY deps.edn Makefile /build/
+COPY deps.edn Makefile shadow-cljs.edn package.json /build/
 RUN make deps
 
 # Copy project to working directory
 # .dockerignore file excludes all but essential files
 COPY ./ /build
+
+RUN apk add --no-cache nodejs npm
+
+RUN npm install
 
 
 # ------------------------
@@ -47,6 +51,8 @@ COPY ./ /build
 # - creates: /build/practicalli-gameboard-api-service.jar
 # - uses command `clojure -T:build uberjar`
 RUN make dist
+
+RUN npx shadow-cljs release app
 
 # End of Docker builder image
 # ------------------------------------------
