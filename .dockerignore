@@ -1,0 +1,25 @@
+# ------------------------
+# Docker Ignore file patterns
+# https://docs.docker.com/engine/reference/builder/#dockerignore-file
+#
+# Ignore local files that match any pattern when using the COPY command in Dockerfile
+# reducing the amount of time required to copy files
+# ------------------------
+
+
+# ------------------------
+# Ignore all files
+*
+
+# ------------------------
+# Include Clojure code and config
+!deps.edn
+!config.edn
+!build.clj
+!Makefile
+!src/
+!cljs/
+!db
+!test/
+!test-data/
+!resources/

@@ -39,7 +39,8 @@
 
 (def migration-config
   {:store :database
-   :migration-dir "migrations"
+   :migration-dir "migrations/"
+   :init-in-transaction? false
    :db db-spec})
 
 (defn init-db
