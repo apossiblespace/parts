@@ -58,3 +58,8 @@ resources/public/js
 # Include ClojureScript Figwheel
 !figwheel-main.edn
 !*.cljs.edn
+
+# ------------------------
+# Include deployment related files
+!config
+!.kamal
