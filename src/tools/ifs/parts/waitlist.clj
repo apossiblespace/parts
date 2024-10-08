@@ -25,7 +25,8 @@
                       [:p "You're already on the list! We'll be in touch soon."]]))
               (response/status 200))))
       (-> (response/response
-           (html (partials/waitlist-signup-form ".signup")
+           (html [:p "Please enter your email below to join the private beta test."]
+             (partials/waitlist-signup-form ".signup")
              [:div.error
               [:p "Please don't forget your email address!"]]))
           (response/status 200)))))
