@@ -46,13 +46,13 @@ RUN npm install
 # `make all` calls `deps`, `test-ci`, `dist` and `clean` tasks
 # using shared library cache mounted by pipeline process
 
+RUN npx shadow-cljs release app
 
 # `dist` task packages Clojure service as an uberjar
 # - creates: /build/practicalli-gameboard-api-service.jar
 # - uses command `clojure -T:build uberjar`
 RUN make dist
 
-RUN npx shadow-cljs release app
 
 # End of Docker builder image
 # ------------------------------------------
