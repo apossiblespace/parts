@@ -21,7 +21,6 @@
 !Makefile
 !src/
 !cljs/
-!db
 !test/
 !test-data/
 !resources/

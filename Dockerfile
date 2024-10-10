@@ -84,21 +84,21 @@ RUN apk add --no-cache \
     jq~=1.7.1-r0
 
 # Create Non-root group and user to run service securely
-RUN addgroup -S clojure && adduser -S clojure -G clojure
+RUN addgroup -g 1001 clojure && adduser -u 1001 -S clojure -G clojure
 
 # Create directory to contain service archive, owned by non-root user
-RUN mkdir -p /service && chown -R clojure. /service
+RUN mkdir -p /app && chown -R clojure. /app
 
 # Tell docker that all future commands should run as the appuser user
 USER clojure
 
 # Copy service archive file from Builder image
-WORKDIR /service
-COPY --from=builder /build/target/tools-ifs-parts-standalone.jar /service/
+WORKDIR /app
+COPY --from=builder /build/target/tools-ifs-parts-standalone.jar /app/
 
 # Optional: Add System Integration testing scripts
-# RUN mkdir -p /service/test-scripts
-# COPY --from=builder /build/test-scripts/curl--* /service/test-scripts/
+# RUN mkdir -p /app/test-scripts
+# COPY --from=builder /build/test-scripts/curl--* /app/test-scripts/
 
 
 # ------------------------
@@ -136,7 +136,7 @@ ENV JDK_JAVA_OPTIONS "-XshowSettings:system -XX:+UseContainerSupport -XX:MaxRAMP
 # Start service using dumb-init and java run-time
 # (overrides `jshell` entrypoint - default in eclipse-temuring image)
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["java", "-jar", "/service/tools-ifs-parts-standalone.jar"]
+CMD ["java", "-jar", "/app/tools-ifs-parts-standalone.jar"]
 
 
 # Docker Entrypoint documentation

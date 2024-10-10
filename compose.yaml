@@ -20,5 +20,8 @@ services:
       context: ./ # Use Dockerfile in project root
     environment: # host:container
       - COMPOSE_PROJECT_NAME
+      - PARTS_DB_PATH=/app/db/parts.db
     ports: # host:container
       - 3000:3000
+    volumes:
+      - ./db:/app/db
