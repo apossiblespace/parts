@@ -25,8 +25,7 @@
             (header)
             [:section.hero
              [:h1
-              {:align "center"}
-              "Understand your clients’ parts and their relationships"]]
+              "Understand your clients’ parts and their relationships."]]
             [:div.main
              [:section.illustration
               [:p

@@ -25,11 +25,17 @@ a {
     }
 }
 
+header {
+    img {
+        max-width: 200px;
+    }
+}
+
 footer {
     color: var(--color-text-subdued);
     font-size: 0.8em;
     line-height: 1.2em;
-    margin-top: 3rem;
+    margin-top: 6rem;
     width: 100%;
     display: flex;
     flex-direction: row;
@@ -49,7 +55,7 @@ footer {
     flex-direction: row;
     flex-wrap: nowrap;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 3rem;
 }
 
 .illustration {
@@ -112,11 +118,12 @@ footer {
 }
 
 .hero {
+    max-width: 800px;
     h1 {
-        font-family: Georgia, Times, 'Times New Roman', serif;
+        font-family: 'DM Serif Display', Georgia, Times, 'Times New Roman', serif;
         color: var(--color-primary);
         font-weight: normal;
-        font-size: 2rem;
+        font-size: 3rem;
         line-height: 1.2em;
     }
 }
@@ -124,6 +131,7 @@ footer {
 @media (max-width: 900px) {
    .main {
        flex-direction: column;
+       gap: 0;
    }
 
    .illustration, .signup {
@@ -138,6 +146,10 @@ footer {
 @media (max-width: 600px) {
     body {
         padding: 1rem;
+    }
+
+    .hero h1 {
+        font-size: 2rem;
     }
 
     .signup form {
@@ -156,5 +168,6 @@ footer {
         flex-direction: column;
         gap: 0;
         padding-bottom: 4rem;
+        margin-top: 3rem;
     }
 }

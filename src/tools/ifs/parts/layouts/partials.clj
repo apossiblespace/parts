@@ -6,7 +6,7 @@
   "Site header"
   []
   [:header
-   [:p {:align "center"}
+   [:p
     [:img {:src "/images/parts-logo-horizontal.svg"}]]])
 
 (defn footer
