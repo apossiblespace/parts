@@ -15,6 +15,7 @@ body {
     line-height: 1.8em;
     background-color: var(--color-bg);
     color: var(--color-text);
+    padding: 4rem 4rem 1rem 4rem;
 }
 
 a {
@@ -26,6 +27,9 @@ a {
 
 footer {
     color: var(--color-text-subdued);
+    font-size: 0.8em;
+    line-height: 1.2em;
+    margin-top: 3rem;
     width: 100%;
     display: flex;
     flex-direction: row;
@@ -36,13 +40,32 @@ footer {
 
 .container {
     width: 100%;
-    margin: 1rem auto;
+    margin: 0 auto;
     max-width: 1200px;
+}
+
+.main {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.illustration {
+    width: 50%;
+    p {
+        text-align: center;
+    }
+    img {
+        width: 100%;
+        max-width: 400px;
+    }
 }
 
 .signup {
     margin: 2rem auto;
-    width: 100%;
+    width: 50%;
     max-width: 500px;
 
     form {
@@ -98,17 +121,25 @@ footer {
     }
 }
 
-.illustration {
-    p {
-        text-align: center;
-    }
-    img {
-        width: 100%;
-        max-width: 400px;
-    }
+@media (max-width: 900px) {
+   .main {
+       flex-direction: column;
+   }
+
+   .illustration, .signup {
+       width: 100%;
+   }
+
+   .signup {
+       margin-top: 0;
+   }
 }
 
 @media (max-width: 600px) {
+    body {
+        padding: 1rem;
+    }
+
     .signup form {
         flex-direction: column;
     }

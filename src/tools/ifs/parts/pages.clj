@@ -21,20 +21,22 @@
   (-> (response/response
        (html
            (layout
-            "Home Page"
+            "Mapping tools for IFS practitioners and their clients"
             (header)
             [:section.hero
              [:h1
               {:align "center"}
               "Understand your clients’ parts and their relationships"]]
-            [:div.illustration
-             [:p
-              [:img {:src "/images/system-illustration.svg"}]]
-             [:h3.hook
-              {:align "center"}
-              [:strong "Parts"]
-              " is a tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]]
-            [:section.signup
-             [:p "Please enter your email below to join the private beta test."]
-             (waitlist-signup-form ".signup")]
+            [:div.main
+             [:section.illustration
+              [:p
+               [:img {:src "/images/system-illustration.svg"}]]]
+             [:section.signup
+              [:h3.hook
+               [:strong "Parts"]
+               " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
+              [:p
+               [:strong "Parts"]
+               " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]
+              (waitlist-signup-form ".signup")]]
             (footer))))))
