@@ -38,4 +38,15 @@
                [:strong "Parts"]
                " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]
               (waitlist-signup-form ".signup")]]
+            [:section.aboutus
+             [:h3
+              "Who made this?"]
+             [:div
+              [:img {:src "/images/avatars/tingyi.png"}]
+              [:h4 "Ting-yi Lai"]
+              [:p "An IFS Level 1 trained art psychotherapist focused on trauma"]]
+             [:div
+              [:img {:src "/images/avatars/gosha.png"}]
+              [:h4 "Gosha Tcherednitchenko"]
+              [:p "A software engineer with over 20 years of experience building software"]]]
             (footer))))))
