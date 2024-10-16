@@ -41,12 +41,15 @@
             [:section.aboutus
              [:h3
               "Who made this?"]
-             [:div
-              [:img {:src "/images/avatars/tingyi.png"}]
-              [:h4 "Ting-yi Lai"]
-              [:p "An IFS Level 1 trained art psychotherapist focused on trauma"]]
-             [:div
-              [:img {:src "/images/avatars/gosha.png"}]
-              [:h4 "Gosha Tcherednitchenko"]
-              [:p "A software engineer with over 20 years of experience building software"]]]
+             [:div.person-cards
+              [:div.person-card
+               [:img {:src "/images/avatars/tingyi.jpg"}]
+               [:p
+                [:strong "Ting-yi Lai"]
+                " is an IFS Level 1 trained art psychotherapist focused on trauma"]]
+              [:div.person-card
+               [:img {:src "/images/avatars/gosha.jpg"}]
+               [:p
+                [:strong "Gosha Tcherednitchenko"]
+                " is a software engineer who's been building Web applications for close to 20 years"]]]]
             (footer))))))
