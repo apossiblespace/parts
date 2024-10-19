@@ -2,22 +2,63 @@
   (:require ["d3" :as d3]
             ["htmx.org" :default htmx]))
 
+(def node-data
+  [{:type "exile"}
+   {:type "exile"}
+   {:type "exile"}
+   {:type "manager"}
+   {:type "firefighter"}
+   {:type "firefighter"}])
+
+(defn drag-start [event _d]
+  (js/console.log "Drag started")
+  (let [subject (d3/select (.-subject event))]
+    (.raise subject)))
+
+(defn drag [event _d]
+  (js/console.log "Dragging")
+  (let [subject (d3/select (.-subject event))]
+    (-> subject
+        (.attr "x" (.-x event))
+        (.attr "y" (.-y event)))))
+
+(defn drag-end [_event _d]
+  (js/console.log "Drag ended"))
+
 (defn create-visualization [el]
-  (js/console.log "Creating visualization")
-  (let [svg (-> d3
-                (.select el)
-                (.append "svg")
-                (.attr "width" 600)
-                (.attr "height" 400))]
-    (-> svg
-        (.append "circle")
-        (.attr "cx" 300)
-        (.attr "cy" 200)
-        (.attr "r" 100)
-        (.style "fill" "steelblue"))))
+  (js/console.log "Creating visualization" el)
+  (-> d3
+      (.select el)
+      (.append "svg")
+      (.attr "width" 600)
+      (.attr "height" 400)))
+
+(defn load-nodes [svg data]
+  (let [width 600
+        height 400
+        drag-behavior (-> d3
+                          (.drag)
+                          (.on "start" drag-start)
+                          (.on "drag" drag)
+                          (.on "end" drag-end))]
+    (doseq [node data]
+      (let [x (rand-int width)
+            y (rand-int height)
+            type (:type node)
+            img-path (str "/images/nodes/" type ".svg")]
+        (-> svg
+            (.append "image")
+            (.attr "xlink:href" img-path)
+            (.attr "x" x)
+            (.attr "y" y)
+            (.attr "width" 50)
+            (.attr "height" 50)
+            (.attr "class" type)
+            (.call drag-behavior))))))
 
 (defn ^:export init []
-  (create-visualization (.getElementById js/document "chart"))
   (.on htmx "htmx:load"
        (fn [_event]
-         (js/console.log "htmx loaded!"))))
+         (js/console.log "htmx loaded!")
+         (let [svg (create-visualization (.getElementById js/document "chart"))]
+           (load-nodes svg node-data)))))

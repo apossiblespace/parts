@@ -38,6 +38,7 @@
                [:strong "Parts"]
                " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]
               (waitlist-signup-form ".signup")]]
+            [:div#chart]
             [:section.aboutus
              [:h3
               "Who made this?"]
