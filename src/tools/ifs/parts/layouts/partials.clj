@@ -19,6 +19,9 @@
      [:a {:href "https://a.possible.space"} "A Possible Space Ltd"]
      [:br]
      "Company number 11617016"]]
+   [:div.heart
+    [:p
+     "Made with ❤️ in London, U.K."]]
    [:div.meta
     [:p
      [:strong "Parts"]
