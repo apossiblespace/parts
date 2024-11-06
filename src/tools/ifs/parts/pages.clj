@@ -1,26 +1,27 @@
 (ns tools.ifs.parts.pages
-  (:require [hiccup2.core :refer [html]]
-            [tools.ifs.parts.layouts.main :refer [layout]]
-            [tools.ifs.parts.layouts.partials :refer [header footer waitlist-signup-form]]
-            [ring.util.response :as response]))
+  (:require
+   [hiccup2.core :refer [html]]
+   [ring.util.response :as response]
+   [tools.ifs.parts.layouts.main :refer [layout]]
+   [tools.ifs.parts.layouts.partials :refer [footer header waitlist-signup-form]]))
 
 (defn system-graph
   "Page rendering the graph of a system"
   [system-id]
   (response/response
-   (html
-       (layout "System"
-               (header)
-               [:div [:h2 "System"]]
-               [:div#chart]
-               (footer)))))
+    (html
+      (layout "System"
+              (header)
+              [:div [:h2 "System"]]
+              [:div#chart]
+              (footer)))))
 
 (defn home-page
   "Page rendered for GET /"
   [_]
   (-> (response/response
-       (html
-           (layout
+        (html
+          (layout
             "Mapping tools for IFS practitioners and their clients"
             (header)
             [:section.hero

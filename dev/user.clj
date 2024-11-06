@@ -10,22 +10,21 @@
 ;; - alias included in the Emacs `.dir-locals.el` file
 ;; ---------------------------------------------------------
 
-
 (ns user
   "Tools for REPL Driven Development"
   (:require
+   [clojure.tools.namespace.repl :as namespace]
+   [com.brunobonacci.mulog :as mulog] ; Global context & Tap publisher
    ;; REPL Workflow
-   [mulog-events]                      ; Event Logging
-   [com.brunobonacci.mulog :as mulog]  ; Global context & Tap publisher
+   [mulog-events] ; Event Logging
    [portal]
-   [portal.api :as inspect]                          ; Data inspector
+   [portal.api :as inspect] ; Data inspector
    [tools.ifs.parts :as parts]
-   [tools.ifs.parts.config :as config]
-   [tools.ifs.parts.db :as db]
-   [tools.ifs.parts.api.auth :as auth]
    [tools.ifs.parts.api.account :as account]
+   [tools.ifs.parts.api.auth :as auth]
    [tools.ifs.parts.api.middleware :as middleware]
-   [clojure.tools.namespace.repl :as namespace]))
+   [tools.ifs.parts.config :as config]
+   [tools.ifs.parts.db :as db]))
 
 ;; ---------------------------------------------------------
 ;; Help
@@ -69,8 +68,8 @@
 ;; Avoid reloading `dev` code
 ;; - code in `dev` directory should be evaluated if changed to reload into repl
 (println
- "Set REPL refresh directories to "
- (namespace/set-refresh-dirs "src" "resources"))
+  "Set REPL refresh directories to "
+  (namespace/set-refresh-dirs "src" "resources"))
 ;; ---------------------------------------------------------
 
 ;; ---------------------------------------------------------

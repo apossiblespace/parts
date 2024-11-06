@@ -21,8 +21,8 @@
 
 (ns build
   (:require
-   [clojure.tools.build.api :as build-api]
-   [clojure.pprint :as pprint]))
+   [clojure.pprint :as pprint]
+   [clojure.tools.build.api :as build-api]))
 
 ;; ---------------------------------------------------------
 ;; Project configuration
@@ -53,9 +53,8 @@
   Checks that `.` and `/` directories are not deleted"
   [directory]
   (when
-   (not (contains? #{"." "/"} directory))
+    (not (contains? #{"." "/"} directory))
     (build-api/delete {:path (or (:path directory) "target")})))
-
 
 (defn uberjar
   "Create an archive containing Clojure and the build of the project

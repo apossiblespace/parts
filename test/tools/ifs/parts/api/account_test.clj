@@ -1,9 +1,10 @@
 (ns tools.ifs.parts.api.account-test
-  (:require  [clojure.test :refer [deftest is testing use-fixtures]]
-             [tools.ifs.helpers.test-helpers :refer [with-test-db register-test-user]]
-             [tools.ifs.helpers.test-factory :as factory]
-             [tools.ifs.parts.db :as db]
-             [tools.ifs.parts.api.account :as account]))
+  (:require
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [tools.ifs.helpers.test-factory :as factory]
+   [tools.ifs.helpers.test-helpers :refer [register-test-user with-test-db]]
+   [tools.ifs.parts.api.account :as account]
+   [tools.ifs.parts.db :as db]))
 
 (use-fixtures :once with-test-db)
 
@@ -32,7 +33,7 @@
       (is (= {:email (str "added" (:email user))
               :display_name "Updated"}
              updated-fields)
-      (is (not (contains? (:body response) :password_hash))))))
+        (is (not (contains? (:body response) :password_hash))))))
 
   (testing "does not update where no updatable data is passed"
     (let [user (register-test-user)

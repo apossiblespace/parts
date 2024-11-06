@@ -1,8 +1,9 @@
 (ns tools.ifs.parts.entity.user-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [tools.ifs.helpers.test-helpers :refer [with-test-db register-test-user]]
-            [tools.ifs.helpers.test-factory :as factory]
-            [tools.ifs.parts.entity.user :as user]))
+  (:require
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [tools.ifs.helpers.test-factory :as factory]
+   [tools.ifs.helpers.test-helpers :refer [register-test-user with-test-db]]
+   [tools.ifs.parts.entity.user :as user]))
 
 (use-fixtures :once with-test-db)
 
@@ -41,16 +42,16 @@
     (let [db-user (register-test-user)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/update!
-                             (:id db-user)
-                             {:password "password12345"
-                              :password_confirmation "wordpass54321"})))))
+                              (:id db-user)
+                              {:password "password12345"
+                               :password_confirmation "wordpass54321"})))))
 
   (testing "throws when no ID is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Missing User ID"
                           (user/update!
-                           nil
-                           {:password "password12345"
-                            :password_confirmation "password12345"})))))
+                            nil
+                            {:password "password12345"
+                             :password_confirmation "password12345"})))))
 
 (deftest test-create!
   (testing "creates the user entity in the database"
@@ -76,9 +77,9 @@
     (let [attrs (factory/create-test-user)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/create!
-                             (assoc attrs
-                                    :password "password12345"
-                                    :password_confirmation "wordpass54321")))))))
+                              (assoc attrs
+                                     :password "password12345"
+                                     :password_confirmation "wordpass54321")))))))
 
 (deftest test-delete!
   (testing "deletes the user entity from the database"

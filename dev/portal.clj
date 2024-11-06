@@ -3,7 +3,6 @@
    ;; Data inspector
    [portal.api :as inspect]))
 
-
 ;; ---------------------------------------------------------
 ;; Start Portal and capture all evaluation results
 

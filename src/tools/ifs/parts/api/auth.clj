@@ -1,8 +1,8 @@
 (ns tools.ifs.parts.api.auth
   (:require
-   [tools.ifs.parts.auth :as auth]
+   [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]
-   [com.brunobonacci.mulog :as mulog]))
+   [tools.ifs.parts.auth :as auth]))
 
 (defn login
   [request]

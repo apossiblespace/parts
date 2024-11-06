@@ -1,15 +1,17 @@
 (ns tools.ifs.parts.api.middleware-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [tools.ifs.parts.api.middleware :as middleware]
-            [ring.mock.request :as mock]
-            [reitit.ring :as ring])
-  (:import (org.sqlite SQLiteException SQLiteErrorCode)))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [reitit.ring :as ring]
+   [ring.mock.request :as mock]
+   [tools.ifs.parts.api.middleware :as middleware])
+  (:import
+   (org.sqlite SQLiteErrorCode SQLiteException)))
 
 (defn create-app [handler]
   (ring/ring-handler
-   (ring/router
-    [["/test" {:handler handler}]]
-    {:data {:middleware [middleware/exception]}})))
+    (ring/router
+      [["/test" {:handler handler}]]
+      {:data {:middleware [middleware/exception]}})))
 
 (deftest exception-middleware-test
   (testing "passes through successful responses"

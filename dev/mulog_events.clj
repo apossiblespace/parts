@@ -8,13 +8,13 @@
 
 (ns mulog-events
   (:require
-   [com.brunobonacci.mulog        :as mulog]
+   [com.brunobonacci.mulog :as mulog]
    [com.brunobonacci.mulog.buffer :as mulog-buffer]))
 
 ;; ---------------------------------------------------------
 ;; Set event global context
 ;; - information added to every event for REPL workflow
-(mulog/set-global-context! {:app-name "parts Service",
+(mulog/set-global-context! {:app-name "parts Service"
                             :version "0.1.0", :env "dev"})
 ;; ---------------------------------------------------------
 
@@ -23,13 +23,13 @@
 
 (deftype TapPublisher
          [buffer transform]
-  com.brunobonacci.mulog.publisher.PPublisher
-  (agent-buffer [_] buffer)
-  (publish-delay [_] 200)
-  (publish [_ buffer]
-    (doseq [item (transform (map second (mulog-buffer/items buffer)))]
-      (tap> item))
-    (mulog-buffer/clear buffer)))
+         com.brunobonacci.mulog.publisher.PPublisher
+         (agent-buffer [_] buffer)
+         (publish-delay [_] 200)
+         (publish [_ buffer]
+           (doseq [item (transform (map second (mulog-buffer/items buffer)))]
+             (tap> item))
+           (mulog-buffer/clear buffer)))
 
 #_{:clj-kondo/ignore [:unused-private-var]}
 (defn ^:private tap-events
@@ -41,7 +41,7 @@
   and other tap sources
   `mulog-tap-publisher` to stop publisher"
   (mulog/start-publisher!
-   {:type :custom, :fqn-function "mulog-events/tap-events"}))
+    {:type :custom, :fqn-function "mulog-events/tap-events"}))
 
 #_{:clj-kondo/ignore [:unused-public-var]}
 (defn stop

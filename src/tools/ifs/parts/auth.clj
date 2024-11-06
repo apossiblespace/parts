@@ -1,28 +1,28 @@
 (ns tools.ifs.parts.auth
   (:require
-   [buddy.sign.jwt :as jwt]
    [buddy.auth.backends :as backends]
    [buddy.hashers :as hashers]
-   [tools.ifs.parts.db :as db]
+   [buddy.sign.jwt :as jwt]
+   [com.brunobonacci.mulog :as mulog]
    [tools.ifs.parts.config :as conf]
-   [com.brunobonacci.mulog :as mulog])
+   [tools.ifs.parts.db :as db])
   (:import
-   [java.time Instant]))
+   (java.time Instant)))
 
 (def secret
   (conf/jwt-secret (conf/config)))
 
 (def backend
   (backends/jws
-   {:secret secret
-    :options {:alg :hs256}
-    :on-error (fn [_request ex]
-                (mulog/log ::auth-backend :error (.getMessage ex))
-                nil)
-    :token-name "Bearer"
-    :auth-fn (fn [claims]
-               (mulog/log ::auth-backend-auth-fn :claims claims)
-               claims)}))
+    {:secret secret
+     :options {:alg :hs256}
+     :on-error (fn [_request ex]
+                 (mulog/log ::auth-backend :error (.getMessage ex))
+                 nil)
+     :token-name "Bearer"
+     :auth-fn (fn [claims]
+                (mulog/log ::auth-backend-auth-fn :claims claims)
+                claims)}))
 
 (defn create-token
   "Create a JWT token that will expire in 1 hour"

@@ -1,11 +1,13 @@
 (ns tools.ifs.parts.auth-test
-  (:require  [clojure.test :refer [deftest is testing use-fixtures]]
-             [tools.ifs.parts.auth :as auth]
-             [tools.ifs.parts.entity.user :as user]
-             [buddy.sign.jwt :as jwt]
-             [tools.ifs.helpers.test-helpers :refer [with-test-db]]
-             [tools.ifs.helpers.test-factory :as factory])
-  (:import [java.time Instant]))
+  (:require
+   [buddy.sign.jwt :as jwt]
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [tools.ifs.helpers.test-factory :as factory]
+   [tools.ifs.helpers.test-helpers :refer [with-test-db]]
+   [tools.ifs.parts.auth :as auth]
+   [tools.ifs.parts.entity.user :as user])
+  (:import
+   (java.time Instant)))
 
 (use-fixtures :once with-test-db)
 

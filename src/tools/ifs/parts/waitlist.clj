@@ -1,11 +1,11 @@
 (ns tools.ifs.parts.waitlist
   (:require
-   [hiccup2.core :refer [html]]
+   [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
+   [hiccup2.core :refer [html]]
    [ring.util.response :as response]
    [tools.ifs.parts.db :as db]
-   [tools.ifs.parts.layouts.partials :as partials]
-   [clojure.string :as str]))
+   [tools.ifs.parts.layouts.partials :as partials]))
 
 (defn- valid-email?
   "Check if the email is valid"
@@ -27,12 +27,12 @@
     (cond
       (or (nil? email) (str/blank? email))
       (-> (response/response
-           (form-with-message "Please don't forget your email address!"))
+            (form-with-message "Please don't forget your email address!"))
           (response/status 200))
 
       (not (valid-email? email))
       (-> (response/response
-           (form-with-message "Sorry, that's not a valid email address."))
+            (form-with-message "Sorry, that's not a valid email address."))
           (response/status 200))
 
       :else
@@ -40,11 +40,11 @@
         (db/insert! :waitlist_signups {:email email})
         (mulog/log ::waitlist_signup :email email)
         (-> (response/response
-             (html [:div.success
-                    [:p "Thank you for your interest! We'll be in touch soon."]]))
+              (html [:div.success
+                     [:p "Thank you for your interest! We'll be in touch soon."]]))
             (response/status 201))
         (catch Exception _e
           (-> (response/response
-               (html [:div.success
-                      [:p "You're already on the list! We'll be in touch soon."]]))
+                (html [:div.success
+                       [:p "You're already on the list! We'll be in touch soon."]]))
               (response/status 200)))))))

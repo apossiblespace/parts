@@ -1,10 +1,11 @@
 (ns tools.ifs.helpers.test-helpers
-  (:require [next.jdbc :as jdbc]
-            [migratus.core :as migratus]
-            [tools.ifs.parts.config :as conf]
-            [tools.ifs.parts.entity.user :as user]
-            [tools.ifs.helpers.test-factory :as factory]
-            [clojure.tools.logging :as log]))
+  (:require
+   [clojure.tools.logging :as log]
+   [migratus.core :as migratus]
+   [next.jdbc :as jdbc]
+   [tools.ifs.helpers.test-factory :as factory]
+   [tools.ifs.parts.config :as conf]
+   [tools.ifs.parts.entity.user :as user]))
 
 (defn setup-test-db
   []

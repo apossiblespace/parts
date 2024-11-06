@@ -1,14 +1,14 @@
 (ns tools.ifs.parts.db
   (:require
+   [clojure.string :as str]
+   [com.brunobonacci.mulog :as mulog]
+   [honey.sql :as sql]
+   [migratus.core :as migratus]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]
-   [migratus.core :as migratus]
-   [honey.sql :as sql]
-   [com.brunobonacci.mulog :as mulog]
-   [tools.ifs.parts.config :as conf]
-   [clojure.string :as str])
+   [tools.ifs.parts.config :as conf])
   (:import
-   [java.util UUID]))
+   (java.util UUID)))
 
 (def db-spec
   {:dbtype "sqlite"
@@ -70,10 +70,10 @@
   [table data]
   (let [data-with-uuid (assoc data :id (generate-uuid))]
     (first (jdbc/execute! write-datasource
-                   (sql/format {:insert-into (keyword table)
-                                :values [data-with-uuid]
-                                :returning :*})
-                   {:builder-fn rs/as-unqualified-maps}))))
+             (sql/format {:insert-into (keyword table)
+                          :values [data-with-uuid]
+                          :returning :*})
+             {:builder-fn rs/as-unqualified-maps}))))
 
 (defn update!
   [table data where-clause]
@@ -81,7 +81,7 @@
                  (sql/format {:update (keyword table)
                               :set data
                               :where where-clause
-                              :returning :* })
+                              :returning :*})
                  {:builder-fn rs/as-unqualified-maps}))
 
 (defn delete!

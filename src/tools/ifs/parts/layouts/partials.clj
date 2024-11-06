@@ -45,5 +45,5 @@
     [:input {:type "hidden"
              :id "__anti-forgery-token"
              :name "__anti-forgery-token"
-             :value *anti-forgery-token* }]
+             :value *anti-forgery-token*}]
     [:input {:type "submit" :value "Sign me up!"}]]])

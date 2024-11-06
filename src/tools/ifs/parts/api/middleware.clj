@@ -1,17 +1,19 @@
 (ns tools.ifs.parts.api.middleware
-  (:require [reitit.ring.middleware.exception :as exception]
-            [com.brunobonacci.mulog :as mulog]
-            [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
-            [buddy.auth :refer [authenticated?]]
-            [ring.util.response :as response]
-            [clojure.string :as str]
-            [tools.ifs.parts.auth :as auth]
-            [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
-            [ring.middleware.resource :refer [wrap-resource]]
-            [ring.middleware.content-type :refer [wrap-content-type]]
-            [ring.middleware.session :refer [wrap-session]]
-            [ring.middleware.session.cookie :refer [cookie-store]])
-  (:import (org.sqlite SQLiteException)))
+  (:require
+   [buddy.auth :refer [authenticated?]]
+   [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
+   [clojure.string :as str]
+   [com.brunobonacci.mulog :as mulog]
+   [reitit.ring.middleware.exception :as exception]
+   [ring.middleware.content-type :refer [wrap-content-type]]
+   [ring.middleware.defaults :refer [site-defaults wrap-defaults]]
+   [ring.middleware.resource :refer [wrap-resource]]
+   [ring.middleware.session :refer [wrap-session]]
+   [ring.middleware.session.cookie :refer [cookie-store]]
+   [ring.util.response :as response]
+   [tools.ifs.parts.auth :as auth])
+  (:import
+   (org.sqlite SQLiteException)))
 
 (defn exception-handler
   "Generic exceptions handler"
@@ -34,30 +36,29 @@
     (mulog/log ::sqlite-exception :error error-message)
     {:status 409
      :body {:error (or (some
-                        (fn [[k, v]] (when (str/includes? error-message k) v))
-                        sqlite-errors)
+                         (fn [[k, v]] (when (str/includes? error-message k) v))
+                         sqlite-errors)
                        "A database constraint was violated")}}))
 
 (def exception
   "Middleware handling exceptions"
   (exception/create-exception-middleware
-   (merge
-    exception/default-handlers
-    {;; ex-info with :type :validation
-     :validation (exception-handler "Invalid data" 400)
+    (merge
+      exception/default-handlers
+      {;; ex-info with :type :validation
+       :validation (exception-handler "Invalid data" 400)
 
-     :not-found (exception-handler "Resource not found" 404)
+       :not-found (exception-handler "Resource not found" 404)
 
-     ;; SQLite exceptions
-     SQLiteException sqlite-constraint-violation-handler
+       ;; SQLite exceptions
+       SQLiteException sqlite-constraint-violation-handler
 
-     ;; Default
-     ::exception/default
-     (fn [^Exception e _request]
-       (mulog/log ::unhandled-exception :error (.getMessage e))
-       {:status 500
-        :body {:error "Internal server error"}})
-     })))
+       ;; Default
+       ::exception/default
+       (fn [^Exception e _request]
+         (mulog/log ::unhandled-exception :error (.getMessage e))
+         {:status 500
+          :body {:error "Internal server error"}})})))
 
 (defn logging
   "Middleware logging each incoming request"
@@ -83,7 +84,6 @@
       (handler request)
       (-> (response/response {:error "Unauthorized"})
           (response/status 401)))))
-
 
 (defn wrap-default-middlewares
   "Wrap in the middlewares defined by ring-defaults"
