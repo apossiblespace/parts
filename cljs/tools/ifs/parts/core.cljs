@@ -16,11 +16,13 @@
     (.raise subject)))
 
 (defn drag [event _d]
-  (js/console.log "Dragging")
-  (let [subject (d3/select (.-subject event))]
+  (js/console.log "Dragging" event _d)
+  (let [x (.-x event)
+        y (.-y event)
+        subject (d3/select (.-subject event))]
     (-> subject
-        (.attr "x" (.-x event))
-        (.attr "y" (.-y event)))))
+        (.attr "x" 10)
+        (.attr "y" 10))))
 
 (defn drag-end [_event _d]
   (js/console.log "Drag ended"))
