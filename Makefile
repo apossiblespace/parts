@@ -114,12 +114,12 @@ build-clean: ## Clean build assets or given directory
 pre-commit-check: format-check lint test  ## Run format, lint and test targets
 
 format-check: ## Run cljstyle to check the formatting of Clojure code
-	$(info --------- cljstyle Runner ---------)
-	cljstyle check
+	$(info --------- standard-clojure-style-js Runner ---------)
+	standard-clj check .
 
 format-fix:  ## Run cljstyle and fix the formatting of Clojure code
-	$(info --------- cljstyle Runner ---------)
-	cljstyle fix
+	$(info --------- standard-clojure-style-js Runner ---------)
+	standard-clj fix .
 
 lint:  ## Run MegaLinter with custom configuration (node.js required)
 	$(info --------- MegaLinter Runner ---------)
