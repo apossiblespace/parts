@@ -39,7 +39,6 @@
                [:strong "Parts"]
                " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]
               (waitlist-signup-form ".signup")]]
-            [:div#chart]
             [:section.aboutus
              [:h3
               "Who made this?"]
@@ -48,10 +47,16 @@
                [:img {:src "/images/avatars/tingyi.jpg"}]
                [:p
                 [:strong "Ting-yi Lai"]
-                " is an IFS Level 1 trained art psychotherapist focused on trauma"]]
+                " is an IFS Level 1 trained art psychotherapist, focusing on trauma."]]
               [:div.person-card
                [:img {:src "/images/avatars/gosha.jpg"}]
                [:p
                 [:strong "Gosha Tcherednitchenko"]
-                " is a software engineer who's been building Web applications for close to 20 years"]]]]
+                " is a software engineer with 20 years experience building for the Web."
+                [:br]
+                "Online: "
+                [:a {:href "https://gosha.net"} "Website"]
+                ", "
+                [:a {:href "https://bsky.app/profile/gosha.net"} "Bluesky"]
+                "."]]]]
             (footer))))))
