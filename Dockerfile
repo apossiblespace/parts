@@ -80,7 +80,7 @@ FROM eclipse-temurin:17-alpine
 # check for newer package versions: https://pkgs.alpinelinux.org/
 RUN apk add --no-cache \
     dumb-init~=1.2.5-r3 \
-    curl~=8.10.1-r0 \
+    curl~=8.11.0-r2 \
     jq~=1.7.1-r0
 
 # Create Non-root group and user to run service securely
@@ -131,7 +131,7 @@ HEALTHCHECK \
 # JDK_JAVA_OPTIONS environment variable for setting JVM options
 # Use JVM options that optomise running in a container
 # For very low latency, use the Z Garbage collector "-XX:+UseZGC"
-ENV JDK_JAVA_OPTIONS "-XshowSettings:system -XX:+UseContainerSupport -XX:MaxRAMPercentage=90"
+ENV JDK_JAVA_OPTIONS="-XshowSettings:system -XX:+UseContainerSupport -XX:MaxRAMPercentage=90"
 
 # Start service using dumb-init and java run-time
 # (overrides `jshell` entrypoint - default in eclipse-temuring image)
