@@ -1,5 +1,6 @@
 :root {
     --color-bg: #ffffff;
+    --color-bg-secondary: rgba(223, 236, 234, 0.75);
     --color-text: #444444;
     --color-text-subdued: #666666;
     --color-primary: #62a294;
@@ -7,6 +8,10 @@
     --color-tertiary: #d1b43c;
     --color-callout: #ffeece;
     --color-input-border: #cccccc;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 body {
@@ -24,9 +29,9 @@ body {
         sans-serif;
     font-size: 18px;
     line-height: 1.8em;
+    margin: 0px;
     background-color: var(--color-bg);
     color: var(--color-text);
-    padding: 4rem 4rem 1rem 4rem;
 }
 
 a {
@@ -43,22 +48,32 @@ header {
             fill: black;
         }
     }
+    .content {
+        padding-top: 2rem;
+    }
 }
 
 footer {
-    color: var(--color-text-subdued);
+    background-color: var(--color-text);
+    color: var(--color-bg);
     font-size: 0.8em;
     line-height: 1.2em;
-    margin-top: 6rem;
     width: 100%;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: space-between;
     gap: 1rem;
+    .content {
+        padding: 4rem 0rem;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+    }
 }
 
 .container {
+    padding: 0rem 4rem;
+}
+
+.content {
     width: 100%;
     margin: 0 auto;
     max-width: 1200px;
@@ -80,6 +95,13 @@ footer {
     img {
         width: 100%;
         max-width: 400px;
+    }
+}
+
+.aboutus {
+    background-color: var(--color-bg-secondary);
+    .content {
+        padding: 2rem 0 4rem 0;
     }
 }
 
@@ -189,10 +211,6 @@ footer {
 }
 
 @media (max-width: 600px) {
-    body {
-        padding: 1rem;
-    }
-
     .hero h1 {
         font-size: 2rem;
     }
@@ -209,10 +227,14 @@ footer {
         margin-bottom: 0.5rem;
     }
 
-    footer {
+    .container {
+        padding: 0rem 1rem;
+    }
+
+    footer .content {
         flex-direction: column;
         gap: 0;
+        padding-top: 2rem;
         padding-bottom: 4rem;
-        margin-top: 3rem;
     }
 }

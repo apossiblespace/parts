@@ -1,6 +1,7 @@
 (ns tools.ifs.parts.layouts.main
   (:require
-   [hiccup2.core :refer [html]]))
+   [hiccup2.core :refer [html]]
+   [tools.ifs.parts.layouts.partials :refer [footer header]]))
 
 (defn layout
   "Fundamental application layout"
@@ -22,4 +23,6 @@
                :data-domain "parts.ifs.tools"
                :src "https://plausible.io/js/script.outbound-links.tagged-events.js"}]]
     [:body
-     [:section.container content]]))
+     (header)
+     content
+     (footer)]))
