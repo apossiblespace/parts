@@ -1,16 +1,27 @@
 :root {
-    --color-bg: #FFFFFF;
+    --color-bg: #ffffff;
     --color-text: #444444;
     --color-text-subdued: #666666;
-    --color-primary: #62A294;
-    --color-secondary: #F2BE56;
-    --color-tertiary: #D1B43C;
-    --color-callout: #FFEECE;
-    --color-input-border: #CCCCCC;
+    --color-primary: #62a294;
+    --color-secondary: #f2be56;
+    --color-tertiary: #d1b43c;
+    --color-callout: #ffeece;
+    --color-input-border: #cccccc;
 }
 
 body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Oxygen,
+        Ubuntu,
+        Cantarell,
+        "Open Sans",
+        "Helvetica Neue",
+        sans-serif;
     font-size: 18px;
     line-height: 1.8em;
     background-color: var(--color-bg);
@@ -26,8 +37,11 @@ a {
 }
 
 header {
-    img {
+    svg.logo {
         max-width: 200px;
+        #parts-text {
+            fill: black;
+        }
     }
 }
 
@@ -98,7 +112,7 @@ footer {
     .error {
         p {
             &::before {
-                content: '⤴︎';
+                content: "⤴︎";
                 transform: scaleX(-1);
                 position: absolute;
                 left: -1.1rem;
@@ -120,7 +134,8 @@ footer {
 .hero {
     max-width: 800px;
     h1 {
-        font-family: 'DM Serif Display', Georgia, Times, 'Times New Roman', serif;
+        font-family: "DM Serif Display", Georgia, Times, "Times New Roman",
+            serif;
         color: var(--color-primary);
         font-weight: normal;
         font-size: 3rem;
@@ -153,23 +168,24 @@ footer {
 }
 
 @media (max-width: 900px) {
-   .main {
-       flex-direction: column;
-       gap: 0;
-   }
+    .main {
+        flex-direction: column;
+        gap: 0;
+    }
 
-   .person-cards {
-       flex-direction: column;
-       gap: 1rem;
-   }
+    .person-cards {
+        flex-direction: column;
+        gap: 1rem;
+    }
 
-   .illustration, .signup {
-       width: 100%;
-   }
+    .illustration,
+    .signup {
+        width: 100%;
+    }
 
-   .signup {
-       margin-top: 0;
-   }
+    .signup {
+        margin-top: 0;
+    }
 }
 
 @media (max-width: 600px) {

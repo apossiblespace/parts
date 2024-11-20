@@ -1,8 +1,7 @@
 (ns tools.ifs.parts.core
   (:require
    ["d3" :as d3]
-   ["htmx.org"]
-   [htmx]))
+   ["htmx.org" :default htmx]))
 
 (def node-data
   [{:type "exile"}
