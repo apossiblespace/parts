@@ -11,6 +11,7 @@
      [:meta {:charset "utf-8"}]
      [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
      [:meta {:name "description" :content "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."}]
+     [:meta {:name "theme-color" :content "#62a294"}]
      [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
      [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
      [:title (str title " — Parts")]

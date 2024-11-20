@@ -14,7 +14,14 @@
     box-sizing: border-box;
 }
 
+html,
 body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
     font-family:
         system-ui,
         -apple-system,
@@ -42,10 +49,10 @@ a {
 }
 
 header {
-    svg.logo {
-        max-width: 200px;
-        #parts-text {
-            fill: black;
+    .logo {
+        color: black;
+        img {
+            max-width: 200px;
         }
     }
     .content {
@@ -54,18 +61,26 @@ header {
 }
 
 footer {
-    background-color: var(--color-text);
+    background-color: var(--color-primary);
     color: var(--color-bg);
     font-size: 0.8em;
     line-height: 1.2em;
     width: 100%;
     gap: 1rem;
+    flex: 1;
     .content {
         padding: 4rem 0rem;
         display: flex;
         flex-direction: row;
         flex-wrap: nowrap;
         justify-content: space-between;
+    }
+
+    a,
+    a:visited,
+    a:hover {
+        color: var(--color-bg);
+        font-weight: bold;
     }
 }
 
@@ -234,7 +249,6 @@ footer {
     footer .content {
         flex-direction: column;
         gap: 0;
-        padding-top: 2rem;
-        padding-bottom: 4rem;
+        padding: 2rem 0rem;
     }
 }
