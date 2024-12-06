@@ -44,12 +44,7 @@
                "Who made this?"]
               [:div.person-cards
                [:div.person-card
-                [:img {:src "/images/avatars/tingyi.jpg"}]
-                [:p
-                 [:strong "Ting-yi Lai"]
-                 " is an IFS Level 1 trained art psychotherapist, focusing on trauma."]]
-               [:div.person-card
-                [:img {:src "/images/avatars/gosha.jpg"}]
+                [:img {:src "/images/avatars/gosha.svg"}]
                 [:p
                  [:strong "Gosha Tcherednitchenko"]
                  " is a software engineer with 20 years experience building for the Web."
@@ -58,4 +53,9 @@
                  [:a {:href "https://gosha.net"} "Website"]
                  ", "
                  [:a {:href "https://bsky.app/profile/gosha.net"} "Bluesky"]
-                 "."]]]]])))))
+                 "."]]
+               [:div.person-card
+                [:img {:src "/images/avatars/tingyi.svg"}]
+                [:p
+                 [:strong "Ting-yi Lai"]
+                 " is an IFS Level 1 trained art psychotherapist, focusing on trauma."]]]]])))))
