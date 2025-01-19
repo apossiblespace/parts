@@ -2,7 +2,7 @@
  ["cljs"]
 
  :dependencies
- [[cider/cider-nrepl "0.50.2"]
+ [[cider/cider-nrepl "0.51.1"]
   [refactor-nrepl/refactor-nrepl "3.10.0"]]
 
  :nrepl
