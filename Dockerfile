@@ -79,9 +79,9 @@ FROM eclipse-temurin:17-alpine
 # - Curl and jq binaries for manual running of system integration scripts
 # check for newer package versions: https://pkgs.alpinelinux.org/
 RUN apk add --no-cache \
-    dumb-init~=1.2.5-r3 \
-    curl~=8.11.0-r2 \
-    jq~=1.7.1-r0
+    dumb-init~=1.2.5 \
+    curl~=8.11 \
+    jq~=1.7
 
 # Create Non-root group and user to run service securely
 RUN addgroup -g 1001 clojure && adduser -u 1001 -S clojure -G clojure
