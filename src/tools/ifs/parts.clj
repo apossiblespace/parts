@@ -34,6 +34,7 @@
     (ring/ring-handler
       (ring/router
         [["/" {:get {:handler #(pages/home-page %)}}]
+         ["/system" {:get {:handler #(pages/system-graph %)}}]
          ["/up"
           {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
          ["/waitlist-signup" {:post {:handler #(waitlist/signup %)}}]]

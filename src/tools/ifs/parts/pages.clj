@@ -11,8 +11,10 @@
   (response/response
     (html
       (layout "System"
-              [:div [:h2 "System"]]
-              [:div#chart]))))
+              [:section.container
+               [:div.content
+                [:div [:h2 "System"]]
+                [:div#root]]]))))
 
 (defn home-page
   "Page rendered for GET /"
