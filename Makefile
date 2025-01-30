@@ -10,7 +10,6 @@
 #   - `:env/dev` to include `dev` directory on class path
 #   - `:env/test` to include `test` directory and libraries to support testing
 #   - `:test/run` to run kaocha kaocha test runner and supporting paths and dependencies
-#   - `:repl/rebel` to start a Rebel terminal UI
 #   - `:package/uberjar` to create an uberjar for the service
 # - docker
 # - mega-linter-runner
@@ -28,7 +27,8 @@
 HELP-DESCRIPTION-SPACING := 24
 
 # Tool variables
-MEGALINTER_RUNNER = npx mega-linter-runner --flavor java --env "'MEGALINTER_CONFIG=.github/config/megalinter.yaml'" --remove-container
+FORMATTER_RUNNER = bunx @chrisoakman/standard-clojure-style
+MEGALINTER_RUNNER = bunx mega-linter-runner --flavor java --env "'MEGALINTER_CONFIG=.github/config/megalinter.yaml'" --remove-container
 CLOJURE_TEST_RUNNER = clojure -M:test/env:test/run
 CLOJURE_EXEC_TEST_RUNNER = clojure -X:test/env:test/run
 
@@ -48,16 +48,20 @@ help:  ## Describe available tasks in Makefile
 # ------------------------------------ #
 
 # ------- Clojure Development -------- #
-repl:  ## Run Clojure REPL with rich terminal UI (Rebel Readline)
-	$(info --------- Run Rebel REPL ---------)
-	clojure -M:test/env:repl/reloaded
+repl:  ## Run Clojure REPL
+	$(info --------- Run REPL with Shadow ---------)
+	clojure -M -m shadow.cljs.devtools.cli clj-repl
 
 deps: deps.edn  ## Prepare dependencies for test and dist targets
 	$(info --------- Download test and service libraries ---------)
 	clojure -P -X:build
 
-dist: build-uberjar ## Build and package Clojure service
+dist: build-frontend build-uberjar ## Build and package Clojure service
 	$(info --------- Build and Package Clojure service ---------)
+
+deploy:
+	$(info --------- Deploy to production ---------)
+	kamal deploy
 
 # Remove files and directories after build tasks
 # `-` before the command ignores any errors returned
@@ -101,6 +105,10 @@ build-jar: ## Build a jar archive of Clojure project
 	$(info --------- Build library jar ---------)
 	clojure -T:build/task jar
 
+build-frontend: ## Build shadow-cljs frontend app
+	$(info --------- Build frontend ---------)
+	clojure -M -m shadow.cljs.devtools.cli release frontend
+
 build-uberjar: ## Build a uberjar archive of Clojure project & Clojure runtime
 	$(info --------- Build service Uberjar  ---------)
 	clojure -T:build/task uberjar
@@ -111,16 +119,17 @@ build-clean: ## Clean build assets or given directory
 # ------------------------------------ #
 
 # ------- Code Quality --------------- #
-pre-commit-check: format-check lint test  ## Run format, lint and test targets
+pre-commit-check: format lint test  ## Run format, lint and test targets
 
-format-check: ## Run cljstyle to check the formatting of Clojure code
+format: ## Run cljstyle to check the formatting of Clojure code
 	$(info --------- standard-clojure-style-js Runner ---------)
-	standard-clj check .
+	$(FORMATTER_RUNNER) check .
 
 format-fix:  ## Run cljstyle and fix the formatting of Clojure code
 	$(info --------- standard-clojure-style-js Runner ---------)
-	standard-clj fix .
+	$(FORMATTER_RUNNER) fix .
 
+# TODO: Reconsider how useful this is
 lint:  ## Run MegaLinter with custom configuration (node.js required)
 	$(info --------- MegaLinter Runner ---------)
 	$(MEGALINTER_RUNNER)

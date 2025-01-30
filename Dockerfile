@@ -1,25 +1,4 @@
-# ------------------------------------------
-# Build and run Practicalli Gameboard API Service
-#
-# Author: Practicalli
-#
-# Builder image:
-# Official Clojure Docker image with Java 17 (eclipse-temurin) and Clojure CLI
-# https://hub.docker.com/_/clojure/
-#
-# Run-time image:
-# Official Java Docker image with Java 17 (eclipse-temurin)
-# https://hub.docker.com/_/eclipse-temurin
-# ------------------------------------------
-
-
-# ------------------------
-# Setup Builder container
-
 FROM clojure:temurin-17-alpine AS builder
-
-# Set Clojure CLI version (defaults to latest release)
-# ENV CLOJURE_VERSION=1.11.1.1413
 
 # Create directory for project code (working directory)
 RUN mkdir -p /build
@@ -39,14 +18,6 @@ COPY ./ /build
 RUN apk add --no-cache nodejs npm
 
 RUN npm install
-
-
-# ------------------------
-# Test and Package application via Makefile
-# `make all` calls `deps`, `test-ci`, `dist` and `clean` tasks
-# using shared library cache mounted by pipeline process
-
-RUN npx shadow-cljs release app
 
 # `dist` task packages Clojure service as an uberjar
 # - creates: /build/practicalli-gameboard-api-service.jar
@@ -94,7 +65,7 @@ USER clojure
 
 # Copy service archive file from Builder image
 WORKDIR /app
-COPY --from=builder /build/target/tools-ifs-parts-standalone.jar /app/
+COPY --from=builder /build/target/parts-standalone.jar /app/
 
 # Optional: Add System Integration testing scripts
 # RUN mkdir -p /app/test-scripts
@@ -136,7 +107,7 @@ ENV JDK_JAVA_OPTIONS="-XshowSettings:system -XX:+UseContainerSupport -XX:MaxRAMP
 # Start service using dumb-init and java run-time
 # (overrides `jshell` entrypoint - default in eclipse-temuring image)
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["java", "-jar", "/app/tools-ifs-parts-standalone.jar"]
+CMD ["java", "-jar", "/app/parts-standalone.jar"]
 
 
 # Docker Entrypoint documentation

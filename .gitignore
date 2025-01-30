@@ -1,22 +1,10 @@
-# ------------------------
-# Clojure Project Git Ignore file patterns
-# 
-# Ignore all except patterns starting with !
-# Add comments on separate lines, not same line as pattern
-# ------------------------
-
-# ------------------------
 # Ignore everthing in root directory
 /*
 
-# ------------------------
-# Common project files
 !CHANGELOG.md
 !README.md
 !LICENSE
 
-# ------------------------
-# Include Clojure project & config
 !build.clj
 !deps.edn
 !pom.xml
@@ -24,8 +12,6 @@
 !docs/
 !src/
 !test/
-!config.edn
-
 # Don't ignore resources
 !resources/
 # ...but ignore shadow-cljs build artifacts
@@ -43,7 +29,6 @@ resources/public/js
 
 # ------------------------
 # Frontend things
-!cljs
 !shadow-cljs.edn
 !package.json
 !bun.lockb
@@ -53,11 +38,6 @@ resources/public/js
 !.gitattributes
 !.gitignore
 !.github/
-
-# ------------------------
-# Include ClojureScript Figwheel
-!figwheel-main.edn
-!*.cljs.edn
 
 # ------------------------
 # Include deployment related files

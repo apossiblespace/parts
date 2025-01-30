@@ -15,3 +15,4 @@ FOR EACH ROW
 BEGIN
   UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
+--;;

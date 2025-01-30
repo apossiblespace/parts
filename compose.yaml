@@ -13,7 +13,7 @@ name: "parts"
 
 services:
   # --- Clojure Service --- #
-  parts-ifs-tools:
+  parts:
     platform: linux/amd64
     # Build using Dockerfile - relative path or Git repository
     build:

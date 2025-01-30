@@ -20,7 +20,5 @@
 !build.clj
 !Makefile
 !src/
-!cljs/
 !test/
-!test-data/
 !resources/

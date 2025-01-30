@@ -1,20 +1,9 @@
-{:source-paths
- ["cljs"]
-
- :dependencies
- [[cider/cider-nrepl "0.51.1"]
-  [refactor-nrepl/refactor-nrepl "3.10.0"]]
-
- :nrepl
- {:middleware [cider.nrepl/cider-middleware
-               refactor-nrepl.middleware/wrap-refactor]
-  :port 50655}
-
+{:deps true
+ :nrepl {:init-ns repl}
  :builds
- {:app
+ {:frontend
   {:target :browser
    :output-dir "resources/public/js"
-   :asset-path "/js"
-   :modules {:main {:init-fn tools.ifs.parts.core/init}}
-   :devtools {:http-root "resources/public"
-              :http-port 8020}}}}
+   :modules {:main {:init-fn parts.frontend.app/init}}
+   :devtools {:watch-dir "resources/public"}
+   :optimizations :advanced}}}

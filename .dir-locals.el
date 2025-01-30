@@ -1,5 +1,5 @@
 ((clojure-mode . ((cider-preferred-build-tool . clojure-cli)
                   (cider-default-cljs-repl . shadow)
-                  (cider-shadow-default-options . "app")
+                  (cider-shadow-default-options . "frontend")
                   (cider-offer-to-open-cljs-app-in-browser . nil)
-                  (cider-clojure-cli-aliases . ":test/env:dev/reloaded"))))
+                  (cider-clojure-cli-aliases . ":test/env"))))

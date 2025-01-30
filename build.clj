@@ -30,9 +30,9 @@
 (def project-config
   "Project configuration to support all tasks"
   {:class-directory "target/classes"
-   :main-namespace  'tools.ifs/parts
+   :main-namespace  'parts/server
    :project-basis   (build-api/create-basis)
-   :uberjar-file    "target/tools-ifs-parts-standalone.jar"})
+   :uberjar-file    "target/parts-standalone.jar"})
 
 (defn config
   "Display build configuration"
@@ -63,7 +63,7 @@
   (let [config (merge project-config options)
         {:keys [class-directory main-namespace project-basis uberjar-file]} config]
     (clean "target")
-    (build-api/copy-dir {:src-dirs   ["src" "resources"]
+    (build-api/copy-dir {:src-dirs   ["src/main" "resources"]
                          :target-dir class-directory})
 
     (build-api/compile-clj {:basis     project-basis
@@ -74,6 +74,3 @@
                      :class-dir class-directory
                      :main      main-namespace
                      :uber-file uberjar-file})))
-
-;; End of Build tasks
-;; ---------------------------------------------------------
