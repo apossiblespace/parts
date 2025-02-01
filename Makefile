@@ -121,11 +121,11 @@ build-clean: ## Clean build assets or given directory
 # ------- Code Quality --------------- #
 pre-commit-check: format lint test  ## Run format, lint and test targets
 
-format: ## Run cljstyle to check the formatting of Clojure code
+format: ## Run standard-clojure-style to check the formatting of Clojure code
 	$(info --------- standard-clojure-style-js Runner ---------)
 	$(FORMATTER_RUNNER) check .
 
-format-fix:  ## Run cljstyle and fix the formatting of Clojure code
+format-fix:  ## Run standard-clojure-style and fix the formatting of Clojure code
 	$(info --------- standard-clojure-style-js Runner ---------)
 	$(FORMATTER_RUNNER) fix .
 
