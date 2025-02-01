@@ -24,3 +24,6 @@
 (defn go []
   (stop)
   (start))
+
+(defn cljs-repl []
+  (shadow.cljs.devtools.api/repl :frontend))
