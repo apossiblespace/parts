@@ -3,22 +3,38 @@
    [hiccup2.core :refer [html]]
    [parts.views.partials :as partials]))
 
+(def default-options
+  {:header true
+   :footer true
+   :description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."})
+
+(defn- base-layout
+  "Generic layout renderer based on options.
+   Options map can include:
+   :title       - page title
+   :description - meta description
+   :styles      - additional stylesheets
+   :scripts     - additional scripts
+   :header      - whether header should be rendered
+   :footer      - whether footer should be rendered"
+  [options & content]
+  (let [options (merge default-options options)]
+    (html
+      (partials/head options)
+      [:body
+       (when (:header options) (partials/header))
+       content
+       (when (:footer options) (partials/footer))
+       (partials/scripts options)])))
+
 (defn main
   "Fundamental application layout"
   [options & content]
-  (html
-   (partials/head options)
-    [:body
-     (partials/header)
-     content
-     (partials/footer)
-     (partials/scripts options)]))
+  (base-layout options content))
 
 (defn fullscreen
   "Full-screen layout without header or footer"
   [options & content]
-  (html
-   (partials/head options)
-   [:body
-    content
-    (partials/scripts options)]))
+  (base-layout
+   (merge options {:header false :footer false})
+   content))

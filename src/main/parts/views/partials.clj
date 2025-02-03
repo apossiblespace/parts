@@ -16,8 +16,7 @@
    :description - meta description
    :styles      - additional stylesheets"
   ([] (head {}))
-  ([{:keys [title description styles]
-     :or   {description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."}}]
+  ([{:keys [title description styles]}]
     [:head
      [:meta {:charset "utf-8"}]
      [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
