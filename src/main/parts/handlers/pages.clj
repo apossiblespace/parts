@@ -13,9 +13,8 @@
       (layouts/fullscreen
        {:title "System"
         :styles ["/css/flow.css"]}
-       [:section.container
-        [:div.content
-         [:div#root]]]))))
+       [:div.content
+        [:div#root]]))))
 
 (defn home-page
   "Page rendered for GET /"
