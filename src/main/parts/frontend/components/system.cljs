@@ -34,7 +34,7 @@
 ;; https://marvl.infotech.monash.edu/webcola/
 
 (defui system []
-  (let [node-types (clj->js node-types)
+  (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
         [nodes setNodes onNodesChange] (useNodesState (clj->js initial-nodes))
         [edges setEdges onEdgesChange] (useEdgesState (clj->js initial-edges))
         on-connect (uix.core/use-callback
