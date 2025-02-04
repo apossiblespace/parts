@@ -258,17 +258,22 @@ footer {
     display: block;
     height: 100px;
     width: 100px;
-    border: 1px solid red;
+    /* border: 1px solid red; */
     background-repeat: no-repeat;
     background-size: 100% 100%;
+    background-position: center center;
 
     &.manager {
+        height: 108px;
+        width: 100px;
         background-image: url('/images/nodes/manager.svg')
     }
     &.exile {
         background-image: url('/images/nodes/exile.svg')
     }
     &.firefighter {
+        height: 120px;
+        width: 120px;
         background-image: url('/images/nodes/firefighter.svg')
     }
 }
