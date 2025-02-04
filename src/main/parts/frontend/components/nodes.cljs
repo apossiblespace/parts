@@ -1,34 +1,30 @@
 (ns parts.frontend.components.nodes
   (:require
    ["reactflow" :refer [Handle Position]]
-   [uix.core :refer [defui $]]))
+   [uix.core :refer [defui $]]
+   [clojure.pprint :refer [pprint]]))
 
-(defui manager-node [{:keys [data is-connectable]}]
-  ($ :div {:class "node manager"}
+(defui parts-node [{:keys [type data is-connectable]}]
+  (pprint type)
+  (pprint data)
+  (pprint is-connectable)
+  ($ :div {:class (str "node " type)}
      ($ Handle {:type "target"
                 :position (.-Top Position)
                 :isConnectable is-connectable})
-     ($ :div "Manager")
+     ($ :div (get data "label"))
      ($ Handle {:type "source"
                 :position (.-Bottom Position)
                 :isConnectable is-connectable})))
 
-(defui firefighter-node [{:keys [data is-connectable]}]
-  ($ :div {:class "node firefighter"}
-     ($ Handle {:type "target"
-                :position (.-Top Position)
-                :isConnectable is-connectable})
-     ($ :div "Firefighter")
-     ($ Handle {:type "source"
-                :position (.-Bottom Position)
-                :isConnectable is-connectable})))
+(def PartsNode
+  (uix.core/as-react
+   (fn [{:keys [type data isConnectable]}]
+     ($ parts-node {:type type
+                   :data (js->clj data)
+                   :is-connectable isConnectable}))))
 
-(defui exile-node [{:keys [data is-connectable]}]
-  ($ :div {:class "node exile"}
-     ($ Handle {:type "target"
-                :position (.-Top Position)
-                :isConnectable is-connectable})
-     ($ :div "Exile")
-     ($ Handle {:type "source"
-                :position (.-Bottom Position)
-                :isConnectable is-connectable})))
+(def node-types
+  {:manager PartsNode
+   :firefighter PartsNode
+   :exile PartsNode})

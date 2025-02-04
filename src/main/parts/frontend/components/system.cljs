@@ -8,9 +8,7 @@
                         useEdgesState
                         addEdge]]
    [uix.core :refer [defui $]]
-   [parts.frontend.components.nodes :refer [manager-node
-                                            firefighter-node
-                                            exile-node]]))
+   [parts.frontend.components.nodes :refer [node-types]]))
 
 (def initial-nodes
   [
@@ -22,11 +20,6 @@
 (def initial-edges
   [{:id "e1-2" :source "1" :target "2"}
    {:id "e3-2" :source "3" :target "2"}])
-
-(def node-types
-  {:manager manager-node
-   :firefighter firefighter-node
-   :exile exile-node})
 
 ;; NOTE: Layouting
 ;; https://reactflow.dev/learn/layouting/layouting
