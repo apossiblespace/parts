@@ -9,12 +9,11 @@
   "Page rendering the graph of a system"
   [_]
   (response/response
-    (html
-      (layouts/fullscreen
-       {:title "System"
-        :styles ["/css/flow.css"]}
-       [:div.content
-        [:div#root]]))))
+   (html
+    (layouts/fullscreen
+     {:title "System"
+      :styles ["/css/flow.css"]}
+     [:div#root]))))
 
 (defn home-page
   "Page rendered for GET /"

@@ -252,3 +252,23 @@ footer {
         padding: 2rem 0rem;
     }
 }
+
+/* Nodes */
+.node {
+    display: block;
+    height: 100px;
+    width: 100px;
+    border: 1px solid red;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+
+    &.manager {
+        background-image: url('/images/nodes/manager.svg')
+    }
+    &.exile {
+        background-image: url('/images/nodes/exile.svg')
+    }
+    &.firefighter {
+        background-image: url('/images/nodes/firefighter.svg')
+    }
+}

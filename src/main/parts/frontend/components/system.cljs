@@ -7,14 +7,26 @@
                         useNodesState
                         useEdgesState
                         addEdge]]
-   [uix.core :refer [defui $]]))
+   [uix.core :refer [defui $]]
+   [parts.frontend.components.nodes :refer [manager-node
+                                            firefighter-node
+                                            exile-node]]))
 
 (def initial-nodes
-  [{:id "1" :position {:x 0 :y 0} :data {:label "1"}}
-   {:id "2" :position {:x 0 :y 100} :data {:label "2"}}])
+  [
+   {:id "1" :position {:x 200 :y 30} :type "manager" :data {:label "1"}}
+   {:id "2" :position {:x 100 :y 200} :type "exile" :data {:label "2"}}
+   {:id "3" :position {:x 30 :y 30} :type "firefighter" :data {:label "3"}}
+   ])
 
 (def initial-edges
-  [{:id "e1-2" :source "1" :target "2"}])
+  [{:id "e1-2" :source "1" :target "2"}
+   {:id "e3-2" :source "3" :target "2"}])
+
+(def node-types
+  {:manager manager-node
+   :firefighter firefighter-node
+   :exile exile-node})
 
 ;; NOTE: Layouting
 ;; https://reactflow.dev/learn/layouting/layouting
@@ -22,7 +34,8 @@
 ;; https://marvl.infotech.monash.edu/webcola/
 
 (defui system []
-  (let [[nodes setNodes onNodesChange] (useNodesState (clj->js initial-nodes))
+  (let [node-types (clj->js node-types)
+        [nodes setNodes onNodesChange] (useNodesState (clj->js initial-nodes))
         [edges setEdges onEdgesChange] (useEdgesState (clj->js initial-edges))
         on-connect (uix.core/use-callback
                    (fn [params]
@@ -33,7 +46,8 @@
                      :edges edges
                      :onNodesChange onNodesChange
                      :onEdgesChange onEdgesChange
-                     :onConnect on-connect}
+                     :onConnect on-connect
+                     :nodeTypes node-types}
           ($ MiniMap)
           ($ Controls)
           ($ Background {:variant "dots"
