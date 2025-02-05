@@ -66,7 +66,7 @@ make deploy
 
 ## License
 
-Copyright © 2024 Gosha Tcherednitchenko / A Possible Space Ltd
+Copyright © 2025 Gosha Tcherednitchenko / A Possible Space Ltd
 
 [The GNU General Public License v3](https://www.gnu.org/licenses/gpl.html)
 
