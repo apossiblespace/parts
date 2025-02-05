@@ -255,13 +255,15 @@ footer {
 
 /* Nodes */
 .node {
-    display: block;
+    display: flex;
     height: 100px;
     width: 100px;
-    /* border: 1px solid red; */
     background-repeat: no-repeat;
     background-size: 100% 100%;
     background-position: center center;
+    padding: 1rem;
+    justify-content: center;
+    align-items: center;
 
     &.manager {
         height: 108px;

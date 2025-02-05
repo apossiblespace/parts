@@ -12,9 +12,9 @@
 
 (def initial-nodes
   [
-   {:id "1" :position {:x 200 :y 30} :type "manager" :data {:label "1"}}
-   {:id "2" :position {:x 100 :y 200} :type "exile" :data {:label "2"}}
-   {:id "3" :position {:x 30 :y 30} :type "firefighter" :data {:label "3"}}
+   {:id "1" :position {:x 200 :y 30} :type "manager" :data {:label "Manager"}}
+   {:id "2" :position {:x 100 :y 200} :type "exile" :data {:label "Exile"}}
+   {:id "3" :position {:x 30 :y 30} :type "firefighter" :data {:label "Firefighter"}}
    ])
 
 (def initial-edges

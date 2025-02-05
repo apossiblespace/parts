@@ -5,9 +5,6 @@
    [clojure.pprint :refer [pprint]]))
 
 (defui parts-node [{:keys [type data is-connectable]}]
-  (pprint type)
-  (pprint data)
-  (pprint is-connectable)
   ($ :div {:class (str "node " type)}
      ($ Handle {:type "target"
                 :position (.-Top Position)
