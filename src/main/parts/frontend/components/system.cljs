@@ -13,9 +13,9 @@
 
 (def initial-nodes
   [
-   {:id "1" :position {:x 200 :y 30} :type "manager" :data {:label "Manager"}}
-   {:id "2" :position {:x 100 :y 200} :type "exile" :data {:label "Exile"}}
-   {:id "3" :position {:x 30 :y 30} :type "firefighter" :data {:label "Firefighter"}}
+   {:id "1" :position {:x 300 :y 130} :type "manager" :data {:label "Manager"}}
+   {:id "2" :position {:x 200 :y 300} :type "exile" :data {:label "Exile"}}
+   {:id "3" :position {:x 100 :y 130} :type "firefighter" :data {:label "Firefighter"}}
    ])
 
 (def initial-edges
@@ -28,8 +28,8 @@
 (defn- new-node [type _opts]
   #js{:id (str (random-uuid))
    :type type
-   :position #js{:x 0 :y 0}
-   :data #js{:label "New Node"}})
+   :position #js{:x 390 :y 290}
+   :data #js{:label type}})
 
 (defn- add-node
   ([type]
@@ -52,7 +52,7 @@
                    (fn [params]
                      (setEdges (fn [eds] (addEdge params eds))))
                    [setEdges])]
-    ($ :div {:style {:width "100vw" :height "100vh"}}
+    ($ :div {:style {:width "100vw" :height "100vh"} :class "system-view"}
        ($ ReactFlow {:nodes nodes
                      :edges edges
                      :onNodesChange onNodesChange
@@ -61,7 +61,9 @@
                      :nodeTypes node-types}
           ($ MiniMap)
           ($ Controls)
-          ($ Panel {:position "top-right"}
+          ($ Panel {:position "top-left" :class "logo"}
+             ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
+          ($ Panel {:position "top-right" :class "toolbar"}
              ($ :span "Add: ")
              ($ :button
                 {:on-click
