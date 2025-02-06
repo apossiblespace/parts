@@ -4,5 +4,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "reactflow": "^11.11.4"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.28.20"
   }
 }
