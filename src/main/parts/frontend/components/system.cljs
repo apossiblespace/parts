@@ -6,6 +6,7 @@
                         Background
                         useNodesState
                         useEdgesState
+                        Panel
                         addEdge]]
    [uix.core :refer [defui $]]
    [parts.frontend.components.nodes :refer [node-types]]))
@@ -20,6 +21,23 @@
 (def initial-edges
   [{:id "e1-2" :source "1" :target "2"}
    {:id "e3-2" :source "3" :target "2"}])
+
+;; FIXME: This shouldn't be returning a javascript object.
+;; Ideally, we would not be manipulating JS outside of the React component at
+;; all -- it should all be Clojure.
+(defn- new-node [type _opts]
+  #js{:id (str (random-uuid))
+   :type type
+   :position #js{:x 0 :y 0}
+   :data #js{:label "New Node"}})
+
+(defn- add-node
+  ([type]
+   (add-node type {}))
+  ([type opts]
+   (fn [current-nodes]
+     (.concat current-nodes
+              #js[(new-node type opts)]))))
 
 ;; NOTE: Layouting
 ;; https://reactflow.dev/learn/layouting/layouting
@@ -43,6 +61,23 @@
                      :nodeTypes node-types}
           ($ MiniMap)
           ($ Controls)
+          ($ Panel {:position "top-right"}
+             ($ :span "Add: ")
+             ($ :button
+                {:on-click
+                 (fn []
+                   (setNodes (add-node "exile")))}
+                "Exile")
+             ($ :button
+                {:on-click
+                 (fn []
+                   (setNodes (add-node "firefighter")))}
+                "Firefighter")
+             ($ :button
+                {:on-click
+                 (fn []
+                   (setNodes (add-node "manager")))}
+                "Manager"))
           ($ Background {:variant "dots"
                         :gap 12
                         :size 1})))))
