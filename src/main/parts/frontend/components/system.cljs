@@ -11,17 +11,6 @@
    [uix.core :refer [defui $]]
    [parts.frontend.components.nodes :refer [node-types]]))
 
-(def initial-nodes
-  [
-   {:id "1" :position {:x 300 :y 130} :type "manager" :data {:label "Manager"}}
-   {:id "2" :position {:x 200 :y 300} :type "exile" :data {:label "Exile"}}
-   {:id "3" :position {:x 100 :y 130} :type "firefighter" :data {:label "Firefighter"}}
-   ])
-
-(def initial-edges
-  [{:id "e1-2" :source "1" :target "2"}
-   {:id "e3-2" :source "3" :target "2"}])
-
 ;; FIXME: This shouldn't be returning a javascript object.
 ;; Ideally, we would not be manipulating JS outside of the React component at
 ;; all -- it should all be Clojure.
@@ -44,10 +33,10 @@
 ;; https://d3js.org/d3-force
 ;; https://marvl.infotech.monash.edu/webcola/
 
-(defui system []
+(defui system [{:keys [nodes edges]}]
   (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
-        [nodes setNodes onNodesChange] (useNodesState (clj->js initial-nodes))
-        [edges setEdges onEdgesChange] (useEdgesState (clj->js initial-edges))
+        [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
+        [edges setEdges onEdgesChange] (useEdgesState (clj->js edges))
         on-connect (uix.core/use-callback
                    (fn [params]
                      (setEdges (fn [eds] (addEdge params eds))))

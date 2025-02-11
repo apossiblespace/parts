@@ -1,8 +1,7 @@
 (ns parts.frontend.components.nodes
   (:require
    ["reactflow" :refer [Handle Position]]
-   [uix.core :refer [defui $]]
-   [clojure.pprint :refer [pprint]]))
+   [uix.core :refer [defui $]]))
 
 (defui parts-node [{:keys [type data is-connectable]}]
   ($ :div {:class (str "node " type)}
