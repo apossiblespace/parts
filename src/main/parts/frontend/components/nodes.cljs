@@ -5,7 +5,7 @@
    [parts.frontend.components.node-form :refer [node-form]]
    [parts.common.part-types :refer [part-types]]))
 
-(defui parts-node [{:keys [type data is-connectable]}]
+(defui parts-node [{:keys [id type data is-connectable]}]
   (let [[editing? set-editing] (use-state false)]
     ($ :div {:class (str "node " type)}
        ($ Handle {:type "target"
@@ -17,7 +17,7 @@
             ($ :button {:onClick #(set-editing true)}
                "✏️")))
        (when editing?
-         ($ node-form {:node {:type type :data data}
+         ($ node-form {:node {:id id :type type :data data}
                        :on-save (fn [id form-data]
                                   ;; FIXME: Implement actual handler
                                   (println id form-data)
@@ -29,10 +29,11 @@
 
 (def PartsNode
   (uix.core/as-react
-   (fn [{:keys [type data isConnectable]}]
-     ($ parts-node {:type type
-                   :data (js->clj data)
-                   :is-connectable isConnectable}))))
+   (fn [{:keys [id type data isConnectable] :as ^js props}]
+     ($ parts-node {:id id
+                    :type type
+                    :data (js->clj data)
+                    :is-connectable isConnectable}))))
 
 (def node-types
   (->> part-types

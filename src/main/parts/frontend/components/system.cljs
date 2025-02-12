@@ -16,9 +16,9 @@
 ;; all -- it should all be Clojure.
 (defn- new-node [type _opts]
   #js{:id (str (random-uuid))
-   :type type
-   :position #js{:x 390 :y 290}
-   :data #js{:label type}})
+      :type type
+      :position #js{:x 390 :y 290}
+      :data #js{:label type}})
 
 (defn- add-node
   ([type]

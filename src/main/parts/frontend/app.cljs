@@ -26,3 +26,7 @@
          (uix.dom/render-root ($ app) root)
          (let [version (.-version htmx)]
            (js/console.log "HTMX loaded! Version:" version)))))
+
+(defn ^:dev/after-load reload! []
+  (js/console.log "Reloading app...")
+  (uix.dom/render-root ($ app) root))
