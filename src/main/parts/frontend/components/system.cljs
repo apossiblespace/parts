@@ -10,6 +10,7 @@
                         addEdge]]
    [uix.core :refer [defui $]]
    [parts.frontend.components.nodes :refer [node-types]]
+   [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [parts.frontend.context :as ctx]))
 
 ;; FIXME: This shouldn't be returning a javascript object.
@@ -41,9 +42,7 @@
       (map (fn [node]
              (let [node-map (js->clj node :keywordize-keys true)]
                (if (= (:id node-map) id)
-                 (-> node-map
-                     (assoc :type (:type form-data))
-                     (assoc :data {"label" (:label form-data)}))
+                 (build-updated-part node-map form-data)
                  node-map)))
            (js->clj nodes :keywordize-keys true))))))
 
