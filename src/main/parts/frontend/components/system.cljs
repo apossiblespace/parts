@@ -9,6 +9,7 @@
                         Panel
                         addEdge]]
    [uix.core :refer [defui $]]
+   [clojure.string :as str]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [parts.frontend.context :as ctx]))
@@ -20,7 +21,7 @@
   #js{:id (str (random-uuid))
       :type type
       :position #js{:x 390 :y 290}
-      :data #js{:label type}})
+      :data #js{:label (str/capitalize type)}})
 
 (defn- add-node
   ([type]
