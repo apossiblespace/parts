@@ -265,6 +265,7 @@ footer {
         justify-content: center;
         align-items: center;
         font-size: 14px;
+        background-image: url('/images/nodes/unknown.svg');
 
         &.manager {
             height: 108px;

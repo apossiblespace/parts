@@ -1,7 +1,7 @@
 (ns parts.common.part-types)
 
 (def part-types
-  {:undefined {:label "Undefined"}
+  {:unknown {:label "Unknown"}
    :manager {:label "Manager"}
    :firefighter {:label "Firefighter"}
    :exile {:label "Exile"}})
