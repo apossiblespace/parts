@@ -19,6 +19,14 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install Node dependencies
+      run: npm install ws
+
     - name: Install Clojure Tools
       uses: DeLaGuardo/setup-clojure@12.5
       with:
