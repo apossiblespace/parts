@@ -34,26 +34,31 @@
 ;; https://d3js.org/d3-force
 ;; https://marvl.infotech.monash.edu/webcola/
 
+(defn- update-node-callback [setNodes id form-data]
+  (setNodes
+   (fn [nodes]
+     (clj->js
+      (map (fn [node]
+             (let [node-map (js->clj node :keywordize-keys true)]
+               (if (= (:id node-map) id)
+                 (-> node-map
+                     (assoc :type (:type form-data))
+                     (assoc :data {"label" (:label form-data)}))
+                 node-map)))
+           (js->clj nodes :keywordize-keys true))))))
+
+(defn- on-connect-callback [setEdges params]
+  (setEdges #(addEdge params %)))
+
 (defui system [{:keys [nodes edges]}]
   (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
         [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
         [edges setEdges onEdgesChange] (useEdgesState (clj->js edges))
         update-node (uix.core/use-callback
-                     (fn [id form-data]
-                       (setNodes (fn [nodes]
-                                   (clj->js
-                                    (map (fn [node]
-                                           (let [node-map (js->clj node :keywordize-keys true)]
-                                             (if (= (:id node-map) id)
-                                               (-> node-map
-                                                   (assoc :type (:type form-data))
-                                                   (assoc :data {"label" (:label form-data)}))
-                                               node-map)))
-                                         (js->clj nodes :keywordize-keys true))))))
+                     #(update-node-callback setNodes %1 %2)
                      [setNodes])
         on-connect (uix.core/use-callback
-                   (fn [params]
-                     (setEdges (fn [eds] (addEdge params eds))))
+                   #(on-connect-callback setEdges %)
                    [setEdges])]
     ($ :div {:style {:width "100vw" :height "100vh"} :class "system-view"}
        ($ (.-Provider ctx/update-node-context) {:value update-node}
