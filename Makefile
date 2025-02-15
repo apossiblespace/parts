@@ -83,6 +83,10 @@ test:  ## Run unit tests - stoping on first error
 		$(info --------- Runner for unit tests ---------)
 		$(CLOJURE_EXEC_TEST_RUNNER)
 
+test-cljs:
+		$(info --------- Runner for ClojureScript unit tests ---------)
+		$(CLOJURE_TEST_RUNNER) --focus :cljs
+
 test-all:  ## Run all unit tests regardless of failing tests
 		$(info --------- Runner for all unit tests ---------)
 		$(CLOJURE_EXEC_TEST_RUNNER) :fail-fast? false
