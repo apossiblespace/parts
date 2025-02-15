@@ -77,6 +77,11 @@
                 ($ :button
                    {:on-click
                     (fn []
+                      (setNodes (add-node "unknown")))}
+                   "Unknown")
+                ($ :button
+                   {:on-click
+                    (fn []
                       (setNodes (add-node "exile")))}
                    "Exile")
                 ($ :button
