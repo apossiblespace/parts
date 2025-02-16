@@ -73,7 +73,7 @@
              ($ Panel {:position "top-left" :class "logo"}
                 ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
              ($ Panel {:position "top-right" :class "toolbar"}
-                ($ :span "Add: ")
+                ($ :span "Add part: ")
                 ($ :button
                    {:on-click
                     (fn []
