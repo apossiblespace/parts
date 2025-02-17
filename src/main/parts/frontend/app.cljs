@@ -20,16 +20,34 @@
 ;; (defonce root
 ;;   (uix.dom/create-root (js/document.getElementById "root")))
 
+(def system-data
+  [{:group "nodes"
+    :data {:id "1" :label "Manager"}
+    :position {:x 300 :y 130}
+    :classes "manager"}
+   {:group "nodes"
+    :data {:id "2" :label "Exile"}
+    :position {:x 200 :y 300}
+    :classes "exile"}
+   {:group "nodes"
+    :data {:id "3" :label "Firefighter"}
+    :position {:x 100 :y 130}
+    :classes "firefighter"}
+   {:group "edges"
+    :data {:id "e1-2" :source "1" :target "2"}}
+   {:group "edges"
+    :data {:id "e3-2" :source "3" :target "2"}}])
+
 (defn ^:export init []
   (.on htmx "htmx:load"
        (fn [_]
          ;; (uix.dom/render-root ($ app) root)
-         (reset! cy-instance (graph/init))
+         (reset! cy-instance (graph/init system-data))
          (let [version (.-version htmx)]
            (js/console.log "HTMX loaded! Version:" version)))))
 
 (defn ^:dev/after-load reload! []
   (js/console.log "Reloading app...")
-  (reset! cy-instance (graph/init)))
+  (reset! cy-instance (graph/init system-data)))
 
   ;; (uix.dom/render-root ($ app) root))
