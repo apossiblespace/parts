@@ -1,8 +1,10 @@
 (ns parts.frontend.graph
   (:require ["cytoscape" :as cytoscape]
+            ["cytoscape-edgehandles" :as edgehandles]
             [parts.frontend.graph.styles :as s]
             [parts.common.part-types :refer [part-types]]))
 
+(.use cytoscape edgehandles)
 
 (defn create-controls []
   (let [controls (js/document.createElement "div")]
@@ -32,6 +34,7 @@
                   :position {:x 100 :y 100}  ;; Default position
                   :classes type}]
     (.add cy (clj->js [new-node]))))
+
 
 (defn setup-toolbar! [toolbar cy]
   (let [buttons (.querySelectorAll toolbar "button")]
@@ -76,8 +79,16 @@
                        :layout #js {:name "preset"}
                        :minZoom 0.1
                        :maxZoom 10
-                       :wheelSensitivity 0.1})]
+                       :wheelSensitivity 0.1})
+              eh (.edgehandles cy #js {:snap true
+                                       :snapThreshold 20
+                                       :handleNodes "node"
+                                       :handlePosition "middle top"})]
+
+          (.enable eh)
           (setup-toolbar! toolbar cy)
+
           (js/console.log "Nodes:" (.nodes cy))
           (js/console.log "Styles:" (.style cy))
+          (js/console.log "Edge handles initialized:" eh)
           cy)))))

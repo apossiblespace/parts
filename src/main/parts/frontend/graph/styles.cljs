@@ -33,8 +33,12 @@
             "text-valign" "center"
             "text-halign" "center"
             "label" "data(label)"}}
+   {:selector "node.dragging"
+    :style {"border-width" "3px"
+            "border-color" "#00FF00"
+            "border-style" "dashed"}}
    {:selector "edge"
-    :style {"width" 2
+    :style {"width" 1
             "line-color" "#666"
             "target-arrow-color" "#666"
             "target-arrow-shape" "triangle"
