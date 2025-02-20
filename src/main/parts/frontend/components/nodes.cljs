@@ -3,7 +3,7 @@
    ["reactflow" :refer [Handle Position]]
    [uix.core :refer [defui $ use-state]]
    [parts.frontend.components.node-form :refer [node-form]]
-   [parts.common.part-types :refer [part-types]]
+   [parts.common.constants :refer [part-labels]]
    [parts.frontend.context :as ctx]))
 
 (defui parts-node [{:keys [id type data is-connectable]}]
@@ -38,7 +38,7 @@
                     :is-connectable isConnectable}))))
 
 (def node-types
-  (->> part-types
+  (->> part-labels
        keys
        (map #(vector % PartsNode))
        (into {})))

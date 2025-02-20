@@ -1,7 +1,7 @@
 (ns parts.frontend.components.node-form
   (:require
    [uix.core :refer [defui $]]
-   [parts.common.part-types :refer [part-types]]))
+   [parts.common.constants :refer [part-labels]]))
 
 (defui node-form [{:keys [node on-save on-cancel]}]
   (let [{:keys [id type data]} node
@@ -12,7 +12,7 @@
           ($ :label "Type:")
           ($ :select {:value (:type form-data)
                      :onChange #(set-form-data assoc :type (.. % -target -value))}
-             (->> part-types
+             (->> part-labels
                   (map (fn [[k {:keys [label]}]]
                          ($ :option {:key k :value k}
                             label))))))

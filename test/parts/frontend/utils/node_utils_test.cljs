@@ -1,7 +1,6 @@
 (ns parts.frontend.utils.node-utils-test
   (:require [clojure.test :refer [deftest testing is]]
-            [parts.frontend.utils.node-utils :as nu]
-            [parts.common.part-types :refer [part-types]]))
+            [parts.frontend.utils.node-utils :as nu]))
 
 (deftest build-updated-part-test
   (testing "when changing type with default label"
