@@ -2,8 +2,9 @@
   (:require
    [com.brunobonacci.mulog :as mulog]
    [org.httpkit.server :as server]
-   [parts.api.account :as account]
-   [parts.api.auth :as auth]
+   [parts.api.account :as api.account]
+   [parts.api.auth :as api.auth]
+   [parts.api.systems :as api.systems]
    [parts.db :as db]
    [parts.handlers.pages :as pages]
    [parts.handlers.waitlist :as waitlist]
@@ -64,20 +65,41 @@
           ["/ping"
            {:get {:swagger {:tags ["Utility"]}
                   :handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
+
+          ;; Authentication routes
           ["/auth" {:swagger {:tags ["Authentication"]}}
            ["/login"
-            {:post {:handler auth/login}}]
+            {:post {:handler api.auth/login}}]
            ["/logout"
-            {:post {:handler auth/logout
+            {:post {:handler api.auth/logout
                     :middleware [middleware/jwt-auth]}}]]
+
+          ;; Account management routes
           ["/account" {:swagger {:tags ["Account"]}}
            [""
-            {:get {:handler account/get-account}
-             :patch {:handler account/update-account}
-             :delete {:handler account/delete-account}
+            {:get {:handler api.account/get-account}
+             :patch {:handler api.account/update-account}
+             :delete {:handler api.account/delete-account}
              :middleware [middleware/jwt-auth]}]
            ["/register"
-            {:post {:handler account/register-account}}]]]
+            {:post {:handler api.account/register-account}}]]
+
+          ;; Systems routes
+          ["/systems" {:swagger {:tags ["Systems"]}
+                      :middleware [middleware/jwt-auth]}
+           ["" {:get {:summary "List all systems for current user"
+                     :handler api.systems/list-systems}
+                :post {:summary "Create new system"
+                      :handler api.systems/create-system}}]
+           ["/:id" {:parameters {:path {:id string?}}}
+            ["" {:get {:summary "Get system by ID"
+                      :handler api.systems/get-system}
+                 :put {:summary "Update entire system"
+                      :handler api.systems/update-system}
+                 :delete {:summary "Delete system"
+                         :handler api.systems/delete-system}}]
+            ["/pdf" {:get {:summary "Generate PDF export of system"
+                          :handler api.systems/export-pdf}}]]]]
          ["/" {:get {:handler #(pages/home-page %)}}]]
         {:data {:middleware [wrap-params
                              middleware/exception
