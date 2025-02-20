@@ -52,7 +52,7 @@
                      :from [:users]
                      :where [:= :id id]}))]
     (remove-sensitive-data user)
-    (throw (ex-info "User not found" {:type :not-found}))))
+    (throw (ex-info "User not found" {:type :not-found :id id}))))
 
 (defn update!
   "Update a user record with provided attributes"
