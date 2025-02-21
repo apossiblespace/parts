@@ -1,6 +1,10 @@
 {:database
- {:file #profile {:default #or [#env PARTS_DB_PATH "db/parts.db"]
-                  :test #or [#env PARTS_DB_PATH "db/parts_test.db"]}}
+ {:file
+  #profile {:development #or [#env PARTS_DB_PATH "db/parts.db"]
+            :test        #or [#env PARTS_DB_PATH "db/parts_test.db"]
+            :production  #or [#env PARTS_DB_PATH "db/parts.db"]}}
  :auth
- {:secret #profile {:default #or [#env PARTS_JWT_SECRET "basic-secret-change-me"]
-                    :test "test-secret"}}}
+ {:secret
+  #profile {:development #or [#env PARTS_JWT_SECRET "dev-secret"]
+            :test        #or [#env PARTS_JWT_SECRET "test-secret"]
+            :production  #env PARTS_JWT_SECRET}}}

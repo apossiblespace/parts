@@ -78,7 +78,7 @@ COPY --from=builder /build/target/parts-standalone.jar /app/
 # optional over-rides for Integrant configuration
 # ENV HTTP_SERVER_PORT=
 # ENV MYSQL_DATABASE=
-ENV SERVICE_PROFILE=prod
+ENV PARTS_ENV=production
 
 # Expose port of HTTP Server
 EXPOSE 3000
