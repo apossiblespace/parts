@@ -4,10 +4,11 @@
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
+   [parts.config :as conf]
    [parts.auth :as auth]
    [reitit.ring.middleware.exception :as exception]
    [ring.middleware.content-type :refer [wrap-content-type]]
-   [ring.middleware.defaults :refer [site-defaults wrap-defaults]]
+   [ring.middleware.defaults :refer [site-defaults secure-site-defaults wrap-defaults]]
    [ring.middleware.resource :refer [wrap-resource]]
    [ring.middleware.session :refer [wrap-session]]
    [ring.middleware.session.cookie :refer [cookie-store]]
@@ -89,8 +90,9 @@
   "Wrap in the middlewares defined by ring-defaults"
   [handler]
   (-> handler
-      ;; TODO: Use secure-site-defaults for production
-      (wrap-defaults (-> site-defaults
+      (wrap-defaults (-> (if (conf/prod?)
+                           secure-site-defaults
+                           site-defaults)
                          (assoc-in [:session :store] (cookie-store))))
       (wrap-resource "public")
       (wrap-session)

@@ -78,7 +78,11 @@ COPY --from=builder /build/target/parts-standalone.jar /app/
 # optional over-rides for Integrant configuration
 # ENV HTTP_SERVER_PORT=
 # ENV MYSQL_DATABASE=
-ENV PARTS_ENV=production
+ENV PARTS_ENV="production"
+ENV PARTS_PROTOCOL="https"
+ENV PARTS_HOSTNAME="parts.ifs.tools"
+# TODO: Figure out a way to store PARTS_JWT_SECRET without exposing it in the
+# Dockerfile
 
 # Expose port of HTTP Server
 EXPOSE 3000

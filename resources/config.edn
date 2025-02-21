@@ -1,4 +1,13 @@
-{:database
+{:app
+ {:host
+  #profile {:development #or [#env PARTS_HOSTNAME "localhost:3000"]
+            :test        #or [#env PARTS_HOSTNAME "localhost:3000"]
+            :production  #env PARTS_HOSTNAME}
+  :protocol
+  #profile {:development #or [#env PARTS_PROTOCOL "http"]
+            :test        #or [#env PARTS_PROTOCOL "http"]
+            :production  #or [#env PARTS_PROTOCOL "https"]}}
+ :database
  {:file
   #profile {:development #or [#env PARTS_DB_PATH "db/parts.db"]
             :test        #or [#env PARTS_DB_PATH "db/parts_test.db"]

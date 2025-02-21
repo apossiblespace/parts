@@ -44,3 +44,11 @@
   "Are we in the DEVELOPMENT environment?"
   []
   (= (get-environment) :development))
+
+(defn host-uri
+  "Get the full qualified application host uri based on the configuration and
+  environment, eg: http://localhost:3000"
+  [config]
+  (str (get-in config [:app :protocol])
+       "://"
+       (get-in config [:app :host])))

@@ -19,6 +19,8 @@
           decoded (jwt/unsign token secret)
           now-seconds (.getEpochSecond (Instant/now))]
       (is (= user-id (:sub decoded)))
+      (is (= "http://localhost:3000" (:aud decoded)))
+      (is (= "http://localhost:3000/api" (:iss decoded)))
       (is (> (:exp decoded) now-seconds))
       (is (< (:exp decoded) (+ now-seconds 3601))))))
 
