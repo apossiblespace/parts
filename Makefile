@@ -56,7 +56,7 @@ deps: deps.edn  ## Prepare dependencies for test and dist targets
 	$(info --------- Download test and service libraries ---------)
 	clojure -P -X:build
 
-dist: build-frontend build-uberjar ## Build and package Clojure service
+dist: build-css build-frontend build-uberjar ## Build and package Clojure service
 	$(info --------- Build and Package Clojure service ---------)
 
 deploy:
@@ -100,6 +100,12 @@ test-watch-all:  ## Run all tests when changes saved, regardless of failing test
 		$(CLOJURE_EXEC_TEST_RUNNER) :fail-fast? false :watch? true
 # ------------------------------------ #
 
+# -------- CSS tasks ----------------- #
+css-watch:
+	$(info --------- Build CSS for development ---------)
+	bunx postcss resources/styles/*.css -o resources/public/css/style.css --watch
+# ------------------------------------ #
+
 # -------- Build tasks --------------- #
 build-config: ## Pretty print build configuration
 	$(info --------- View current build config ---------)
@@ -112,6 +118,10 @@ build-jar: ## Build a jar archive of Clojure project
 build-frontend: ## Build shadow-cljs frontend app
 	$(info --------- Build frontend ---------)
 	clojure -M -m shadow.cljs.devtools.cli release frontend
+
+build-css:
+	$(info --------- Build CSS (Tailwind) ---------)
+	NODE_ENV=production bunx postcss resources/styles/*.css -o resources/public/css/style.css
 
 build-uberjar: ## Build a uberjar archive of Clojure project & Clojure runtime
 	$(info --------- Build service Uberjar  ---------)
