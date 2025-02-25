@@ -18,21 +18,27 @@
 HELP_SPACING := 20
 CLOJURE_TEST_RUNNER = clojure -X:test/env:test/run
 
-help:  ## This blessed text
+help: ## This blessed text
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
 
-repl:  ## Start a Clojure REPL
+repl: ## Start a Clojure REPL
 	bun i
 	clojure -M -m shadow.cljs.devtools.cli clj-repl
 
-css-watch:  ## Watch and build CSS
+css-watch: ## Watch and build CSS
 	bunx postcss resources/styles/*.css -o resources/public/css/style.css --watch
 
-test:  ## Run clj/cljs unit tests
+test: ## Run clj/cljs unit tests
 	$(CLOJURE_TEST_RUNNER)
 
-test-watch:  ## Run clj/cljs unit tests in watch mode
+test-watch: ## Run clj/cljs unit tests in watch mode
 	$(CLOJURE_TEST_RUNNER) :watch? true
+
+format-check: ## Check formatting of clj/cljs files
+	clojure -M:cljfmt check
+
+format-fix: ## Fix formatting of clj/cljs files
+	clojure -M:cljfmt fix
 
 dist: build-css build-frontend build-uberjar  ## Build project
 
@@ -48,13 +54,13 @@ build-config: ## Pretty print build configuration
 build-uberjar: ## Build uberjar for deployment
 	clojure -T:build/task uberjar
 
-run-dist:  ## Test dist locally before deploying
+run-dist: ## Test dist locally before deploying
 	java -jar target/parts-standalone.jar
 
-deploy:  ## Deploy to production
+deploy: ## Deploy to production
 	kamal deploy
 
-clean:  ## Clean build files
+clean: ## Clean build files
 	rm -rf 	./.cpcache \
 			./.clj-kondo \
 			./.cljs_node_repl \

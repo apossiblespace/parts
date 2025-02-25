@@ -73,6 +73,10 @@
    :replace-deps  {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
    :ns-default    build}
 
+  :cljfmt
+  {:deps {dev.weavejester/cljfmt {:mvn/version "0.13.0"}}
+   :main-opts ["-m" "cljfmt.main"]}
+
   ;; Updating dependencies with clojure -M:antq --upgrade
   :antq
   {:deps {com.github.liquidz/antq {:mvn/version "2.11.1264"}}
