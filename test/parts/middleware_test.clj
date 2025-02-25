@@ -9,9 +9,9 @@
 
 (defn create-app [handler]
   (ring/ring-handler
-    (ring/router
-      [["/test" {:handler handler}]]
-      {:data {:middleware [middleware/exception]}})))
+   (ring/router
+    [["/test" {:handler handler}]]
+    {:data {:middleware [middleware/exception]}})))
 
 (deftest exception-middleware-test
   (testing "passes through successful responses"

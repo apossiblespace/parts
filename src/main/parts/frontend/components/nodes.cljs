@@ -26,8 +26,8 @@
                                   (set-editing false))
                        :on-cancel #(set-editing false)}))
        ($ Handle {:type "source"
-                :position (.-Bottom Position)
-                :isConnectable is-connectable}))))
+                  :position (.-Bottom Position)
+                  :isConnectable is-connectable}))))
 
 (def PartsNode
   (uix.core/as-react

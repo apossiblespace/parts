@@ -47,10 +47,10 @@
   "Retrieve a user record from the database"
   [id]
   (if-let [user (db/query-one
-                  (db/sql-format
-                    {:select [:id :email :username :display_name :role]
-                     :from [:users]
-                     :where [:= :id id]}))]
+                 (db/sql-format
+                  {:select [:id :email :username :display_name :role]
+                   :from [:users]
+                   :where [:= :id id]}))]
     (remove-sensitive-data user)
     (throw (ex-info "User not found" {:type :not-found :id id}))))
 
@@ -63,7 +63,7 @@
                             validate-attrs
                             set-password-hash)]
     (remove-sensitive-data
-      (first (db/update! :users sanitized-attrs [:= :id id])))))
+     (first (db/update! :users sanitized-attrs [:= :id id])))))
 
 (defn create!
   "Create a new user record with the provided attributes"
@@ -72,7 +72,7 @@
                             validate-attrs
                             set-password-hash)]
     (remove-sensitive-data
-      (db/insert! :users validated-attrs))))
+     (db/insert! :users validated-attrs))))
 
 ;; TODO: Don't forget to delete other data associated with this user
 (defn delete!

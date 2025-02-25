@@ -60,16 +60,16 @@
 
     (testing "updates system for owner"
       (let [request (make-request user
-                                 :params {:id (:id system)}
-                                 :body {:title "Updated"})
+                                  :params {:id (:id system)}
+                                  :body {:title "Updated"})
             response (api/update-system request)]
         (is (= 200 (:status response)))
         (is (= "Updated" (-> response :body :title)))))
 
     (testing "returns 403 for non-owner"
       (let [request (make-request other-user
-                                 :params {:id (:id system)}
-                                 :body {:title "Updated"})
+                                  :params {:id (:id system)}
+                                  :body {:title "Updated"})
             response (api/update-system request)]
         (is (= 403 (:status response)))
         (is (= "Not authorized" (-> response :body :error)))))))

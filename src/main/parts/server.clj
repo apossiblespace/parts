@@ -28,7 +28,7 @@
   [["/swagger.json"
     {:get {:no-doc true
            :swagger {:info {:title "Parts API"
-                          :description "API for Parts"}}
+                            :description "API for Parts"}}
            :handler (swagger/create-swagger-handler)}}]
    ["/api"
     ["/ping"
@@ -55,20 +55,20 @@
 
     ;; Systems routes
     ["/systems" {:swagger {:tags ["Systems"]}
-                :middleware [middleware/jwt-auth]}
+                 :middleware [middleware/jwt-auth]}
      ["" {:get {:summary "List all systems for current user"
                 :handler api.systems/list-systems}
           :post {:summary "Create new system"
-                :handler api.systems/create-system}}]
+                 :handler api.systems/create-system}}]
      ["/:id" {:parameters {:path {:id string?}}}
       ["" {:get {:summary "Get system by ID"
-                :handler api.systems/get-system}
+                 :handler api.systems/get-system}
            :put {:summary "Update entire system"
-                :handler api.systems/update-system}
+                 :handler api.systems/update-system}
            :delete {:summary "Delete system"
-                   :handler api.systems/delete-system}}]
+                    :handler api.systems/delete-system}}]
       ["/pdf" {:get {:summary "Generate PDF export of system"
-                    :handler api.systems/export-pdf}}]]]]])
+                     :handler api.systems/export-pdf}}]]]]])
 
 (defn create-handler [routes middleware-config swagger?]
   (ring/ring-handler
@@ -79,7 +79,7 @@
        {:path "/swagger-ui"
         :url "/swagger.json"
         :config {:validatorUrl nil
-                :operationsSorter "alpha"}})
+                 :operationsSorter "alpha"}})
       (ring/create-default-handler))
      (ring/create-default-handler))))
 
@@ -100,18 +100,17 @@
 
 (defn app []
   (let [routes (if (config/dev?)
-                (concat html-routes api-routes)
-                html-routes)
+                 (concat html-routes api-routes)
+                 html-routes)
         middleware (if (config/dev?)
-                    (-> html-middleware
-                        (update-in [:data :middleware] concat
-                                 (get-in api-middleware [:data :middleware]))
-                        (assoc-in [:data :coercion]
-                                (get-in api-middleware [:data :coercion])))
-                    html-middleware)]
+                     (-> html-middleware
+                         (update-in [:data :middleware] concat
+                                    (get-in api-middleware [:data :middleware]))
+                         (assoc-in [:data :coercion]
+                                   (get-in api-middleware [:data :coercion])))
+                     html-middleware)]
     (middleware/wrap-default-middlewares
      (create-handler routes middleware (config/dev?)))))
-
 
 (defn start-server
   "Starts the web server"
@@ -124,7 +123,7 @@
   [& args]
   (let [port (or (some-> (first args) Integer/parseInt) 3000)]
     (mulog/set-global-context!
-      {:app-name "Parts" :version "0.1.0-SNAPSHOT"})
+     {:app-name "Parts" :version "0.1.0-SNAPSHOT"})
     (mulog/log ::application-startup :arguments args :port port)
     (db/init-db)
     (let [stop-fn (start-server port)]

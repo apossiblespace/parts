@@ -70,10 +70,10 @@
   [table data]
   (let [data-with-uuid (assoc data :id (generate-uuid))]
     (first (jdbc/execute! write-datasource
-             (sql/format {:insert-into (keyword table)
-                          :values [data-with-uuid]
-                          :returning :*})
-             {:builder-fn rs/as-unqualified-maps}))))
+                          (sql/format {:insert-into (keyword table)
+                                       :values [data-with-uuid]
+                                       :returning :*})
+                          {:builder-fn rs/as-unqualified-maps}))))
 
 (defn update!
   [table data where-clause]

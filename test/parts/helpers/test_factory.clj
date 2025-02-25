@@ -12,13 +12,13 @@
   ([attrs]
    (let [id (generate-unique-id)]
      (merge
-       {:email (str "test" id "@example.com")
-        :username (str "username" id)
-        :display_name (str "Test User " id)
-        :password (str "password" id)
-        :password_confirmation (str "password" id)
-        :role "client"}
-       attrs))))
+      {:email (str "test" id "@example.com")
+       :username (str "username" id)
+       :display_name (str "Test User " id)
+       :password (str "password" id)
+       :password_confirmation (str "password" id)
+       :role "client"}
+      attrs))))
 
 (defn create-test-users
   [n]

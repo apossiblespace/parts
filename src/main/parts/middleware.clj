@@ -37,29 +37,29 @@
     (mulog/log ::sqlite-exception :error error-message)
     {:status 409
      :body {:error (or (some
-                         (fn [[k, v]] (when (str/includes? error-message k) v))
-                         sqlite-errors)
+                        (fn [[k, v]] (when (str/includes? error-message k) v))
+                        sqlite-errors)
                        "A database constraint was violated")}}))
 
 (def exception
   "Middleware handling exceptions"
   (exception/create-exception-middleware
-    (merge
-      exception/default-handlers
-      {;; ex-info with :type :validation
-       :validation (exception-handler "Invalid data" 400)
+   (merge
+    exception/default-handlers
+    {;; ex-info with :type :validation
+     :validation (exception-handler "Invalid data" 400)
 
-       :not-found (exception-handler "Resource not found" 404)
+     :not-found (exception-handler "Resource not found" 404)
 
        ;; SQLite exceptions
-       SQLiteException sqlite-constraint-violation-handler
+     SQLiteException sqlite-constraint-violation-handler
 
        ;; Default
-       ::exception/default
-       (fn [^Exception e _request]
-         (mulog/log ::unhandled-exception :error (.getMessage e))
-         {:status 500
-          :body {:error "Internal server error"}})})))
+     ::exception/default
+     (fn [^Exception e _request]
+       (mulog/log ::unhandled-exception :error (.getMessage e))
+       {:status 500
+        :body {:error "Internal server error"}})})))
 
 (defn logging
   "Middleware logging each incoming request"

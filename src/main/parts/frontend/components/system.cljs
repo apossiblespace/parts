@@ -58,8 +58,8 @@
                      #(update-node-callback setNodes %1 %2)
                      [setNodes])
         on-connect (uix.core/use-callback
-                   #(on-connect-callback setEdges %)
-                   [setEdges])]
+                    #(on-connect-callback setEdges %)
+                    [setEdges])]
     ($ :div {:style {:width "100vw" :height "100vh"} :class "system-view"}
        ($ (.-Provider ctx/update-node-context) {:value update-node}
           ($ ReactFlow {:nodes nodes

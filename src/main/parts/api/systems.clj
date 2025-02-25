@@ -41,7 +41,7 @@
         existing (system/get-system system-id)]
     (if (= user-id (:owner_id existing))
       (let [updated (system/update-system! system-id
-                                         (assoc body :owner_id (:owner_id existing)))]
+                                           (assoc body :owner_id (:owner_id existing)))]
         (-> (response/response updated)
             (response/status 200)))
       (-> (response/response {:error "Not authorized"})

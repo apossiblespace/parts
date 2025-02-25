@@ -20,12 +20,12 @@
   [options & content]
   (let [options (merge default-options options)]
     (html
-      (partials/head options)
-      [:body
-       (when (:header options) (partials/header))
-       content
-       (when (:footer options) (partials/footer))
-       (partials/scripts options)])))
+     (partials/head options)
+     [:body
+      (when (:header options) (partials/header))
+      content
+      (when (:footer options) (partials/footer))
+      (partials/scripts options)])))
 
 (defn main
   "Fundamental application layout"

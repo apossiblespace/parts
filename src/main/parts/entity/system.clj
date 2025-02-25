@@ -69,7 +69,6 @@
      :from [:systems]
      :where [:= :owner_id owner-id]})))
 
-
 (defn update-system!
   "Update a system"
   [id data]

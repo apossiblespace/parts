@@ -22,11 +22,11 @@
   [ds]
   (try
     (jdbc/with-transaction [tx ds]
-                           (jdbc/execute! tx ["PRAGMA foreign_keys = OFF"])
-                           (let [tables (jdbc/execute! tx ["SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'schema_migrations'"])]
-                             (doseq [{name :sqlite_master/name} tables]
-                               (jdbc/execute! tx [(str "DELETE FROM  " name)])))
-                           (jdbc/execute! tx ["PRAGMA foreign_keys = ON"]))
+      (jdbc/execute! tx ["PRAGMA foreign_keys = OFF"])
+      (let [tables (jdbc/execute! tx ["SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'schema_migrations'"])]
+        (doseq [{name :sqlite_master/name} tables]
+          (jdbc/execute! tx [(str "DELETE FROM  " name)])))
+      (jdbc/execute! tx ["PRAGMA foreign_keys = ON"]))
     (catch Exception e
       (log/error "Failed to truncate tables from test database")
       (throw e))))

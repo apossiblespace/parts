@@ -9,7 +9,7 @@
 (deftest test-system-crud
   (let [user (register-test-user)
         system-data {:title "Test System"
-                    :owner_id (:id user)}]
+                     :owner_id (:id user)}]
 
     (testing "create-system!"
       (let [created (system/create-system! system-data)]
@@ -36,7 +36,7 @@
     (testing "update-system!"
       (let [created (system/create-system! system-data)
             updated (system/update-system! (:id created) {:title "Updated Title"
-                                                        :owner_id (:id user)})]
+                                                          :owner_id (:id user)})]
         (is (= "Updated Title" (:title updated)))
         (is (= (:id created) (:id updated)))))
 
@@ -51,10 +51,10 @@
 (deftest test-system-validations
   (testing "creates fails with invalid data"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                         (system/create-system! {}))))
+                          (system/create-system! {}))))
 
   (testing "update fails with invalid data"
     (let [user (register-test-user)
           system (system/create-system! {:title "Test" :owner_id (:id user)})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                           (system/update-system! (:id system) {:title nil}))))))
+                            (system/update-system! (:id system) {:title nil}))))))

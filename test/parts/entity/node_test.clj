@@ -11,10 +11,10 @@
   (let [user (register-test-user)
         system (system/create-system! {:title "Test System" :owner_id (:id user)})
         node-data {:system_id (:id system)
-                  :type "manager"
-                  :label "Test Node"
-                  :position_x 100
-                  :position_y 100}]
+                   :type "manager"
+                   :label "Test Node"
+                   :position_x 100
+                   :position_y 100}]
 
     (testing "create-node!"
       (let [created (node/create-node! node-data)]
@@ -32,9 +32,9 @@
     (testing "update-node!"
       (let [created (node/create-node! node-data)
             updated (node/update-node! (:id created)
-                                     (assoc node-data
-                                            :label "Updated Label"
-                                            :position_x 200))]
+                                       (assoc node-data
+                                              :label "Updated Label"
+                                              :position_x 200))]
         (is (= "Updated Label" (:label updated)))
         (is (= 200 (:position_x updated)))
         (is (= (:id created) (:id updated)))))
@@ -45,31 +45,31 @@
         (is (:deleted result))
         (is (= (:id created) (:id result)))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Node not found"
-                             (node/get-node (:id created))))))))
+                              (node/get-node (:id created))))))))
 
 (deftest test-node-validations
   (testing "create fails with invalid data"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                         (node/create-node! {}))))
+                          (node/create-node! {}))))
 
   (testing "create fails with invalid type"
     (let [user (register-test-user)
           system (system/create-system! {:title "Test System" :owner_id (:id user)})
           node-data {:system_id (:id system)
-                    :type "invalid-type"
-                    :label "Test Node"
-                    :position_x 100
-                    :position_y 100}]
+                     :type "invalid-type"
+                     :label "Test Node"
+                     :position_x 100
+                     :position_y 100}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                           (node/create-node! node-data)))))
+                            (node/create-node! node-data)))))
 
   (testing "update fails with invalid data"
     (let [user (register-test-user)
           system (system/create-system! {:title "Test System" :owner_id (:id user)})
           node (node/create-node! {:system_id (:id system)
-                                 :type "manager"
-                                 :label "Test Node"
-                                 :position_x 100
-                                 :position_y 100})]
+                                   :type "manager"
+                                   :label "Test Node"
+                                   :position_x 100
+                                   :position_y 100})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                           (node/update-node! (:id node) {:type "invalid-type"}))))))
+                            (node/update-node! (:id node) {:type "invalid-type"}))))))

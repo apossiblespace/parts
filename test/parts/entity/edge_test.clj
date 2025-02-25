@@ -12,19 +12,19 @@
   (let [user (register-test-user)
         system (system/create-system! {:title "Test System" :owner_id (:id user)})
         node1 (node/create-node! {:system_id (:id system)
-                                :type "manager"
-                                :label "Source Node"
-                                :position_x 100
-                                :position_y 100})
+                                  :type "manager"
+                                  :label "Source Node"
+                                  :position_x 100
+                                  :position_y 100})
         node2 (node/create-node! {:system_id (:id system)
-                                :type "exile"
-                                :label "Target Node"
-                                :position_x 200
-                                :position_y 200})
+                                  :type "exile"
+                                  :label "Target Node"
+                                  :position_x 200
+                                  :position_y 200})
         edge-data {:system_id (:id system)
-                  :source_id (:id node1)
-                  :target_id (:id node2)
-                  :type "protective"}]
+                   :source_id (:id node1)
+                   :target_id (:id node2)
+                   :type "protective"}]
 
     (testing "create-edge!"
       (let [created (edge/create-edge! edge-data)]
@@ -41,9 +41,9 @@
     (testing "update-edge!"
       (let [created (edge/create-edge! edge-data)
             updated (edge/update-edge! (:id created)
-                                     (assoc edge-data
-                                            :type "alliance"
-                                            :notes "Updated notes"))]
+                                       (assoc edge-data
+                                              :type "alliance"
+                                              :notes "Updated notes"))]
         (is (= "alliance" (:type updated)))
         (is (= "Updated notes" (:notes updated)))
         (is (= (:id created) (:id updated)))))
@@ -54,49 +54,49 @@
         (is (:deleted result))
         (is (= (:id created) (:id result)))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Edge not found"
-                             (edge/get-edge (:id created))))))))
+                              (edge/get-edge (:id created))))))))
 
 (deftest test-edge-validations
   (testing "create fails with invalid data"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                         (edge/create-edge! {}))))
+                          (edge/create-edge! {}))))
 
   (testing "create fails with invalid type"
     (let [user (register-test-user)
           system (system/create-system! {:title "Test System" :owner_id (:id user)})
           node1 (node/create-node! {:system_id (:id system)
-                                  :type "manager"
-                                  :label "Source Node"
-                                  :position_x 100
-                                  :position_y 100})
+                                    :type "manager"
+                                    :label "Source Node"
+                                    :position_x 100
+                                    :position_y 100})
           node2 (node/create-node! {:system_id (:id system)
-                                  :type "exile"
-                                  :label "Target Node"
-                                  :position_x 200
-                                  :position_y 200})
+                                    :type "exile"
+                                    :label "Target Node"
+                                    :position_x 200
+                                    :position_y 200})
           edge-data {:system_id (:id system)
-                    :source_id (:id node1)
-                    :target_id (:id node2)
-                    :type "invalid-type"}]
+                     :source_id (:id node1)
+                     :target_id (:id node2)
+                     :type "invalid-type"}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                           (edge/create-edge! edge-data)))))
+                            (edge/create-edge! edge-data)))))
 
   (testing "update fails with invalid data"
     (let [user (register-test-user)
           system (system/create-system! {:title "Test System" :owner_id (:id user)})
           node1 (node/create-node! {:system_id (:id system)
-                                  :type "manager"
-                                  :label "Source Node"
-                                  :position_x 100
-                                  :position_y 100})
+                                    :type "manager"
+                                    :label "Source Node"
+                                    :position_x 100
+                                    :position_y 100})
           node2 (node/create-node! {:system_id (:id system)
-                                  :type "exile"
-                                  :label "Target Node"
-                                  :position_x 200
-                                  :position_y 200})
+                                    :type "exile"
+                                    :label "Target Node"
+                                    :position_x 200
+                                    :position_y 200})
           edge (edge/create-edge! {:system_id (:id system)
-                                 :source_id (:id node1)
-                                 :target_id (:id node2)
-                                 :type "protective"})]
+                                   :source_id (:id node1)
+                                   :target_id (:id node2)
+                                   :type "protective"})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
-                           (edge/update-edge! (:id edge) {:type "invalid-type"}))))))
+                            (edge/update-edge! (:id edge) {:type "invalid-type"}))))))
