@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* TODO: Uncomment Tailwind when we're ready for it! */
+/* @import "tailwindcss"; */
 
 :root {
     --color-bg: #ffffff;
@@ -173,8 +174,8 @@ footer {
 .hero {
     max-width: 800px;
     h1 {
-        font-family: "DM Serif Display", Georgia, Times, "Times New Roman",
-            serif;
+        font-family:
+            "DM Serif Display", Georgia, Times, "Times New Roman", serif;
         color: var(--color-primary);
         font-weight: normal;
         font-size: 3rem;
@@ -267,20 +268,20 @@ footer {
         justify-content: center;
         align-items: center;
         font-size: 14px;
-        background-image: url('/images/nodes/unknown.svg');
+        background-image: url("/images/nodes/unknown.svg");
 
         &.manager {
             height: 108px;
             width: 100px;
-            background-image: url('/images/nodes/manager.svg')
+            background-image: url("/images/nodes/manager.svg");
         }
         &.exile {
-            background-image: url('/images/nodes/exile.svg')
+            background-image: url("/images/nodes/exile.svg");
         }
         &.firefighter {
             height: 120px;
             width: 120px;
-            background-image: url('/images/nodes/firefighter.svg')
+            background-image: url("/images/nodes/firefighter.svg");
         }
     }
 
