@@ -55,6 +55,11 @@
  {:run/app
   {:main-opts ["-m" "parts.server"]}
 
+  :dev
+  {:extra-paths ["test"]
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}}}
+
   :test/env
   {:env-vars {"PARTS_ENV" "test"}}
 

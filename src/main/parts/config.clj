@@ -9,7 +9,9 @@
   "Get application environment from PARTS_ENV environment variable.
   Defaults to 'development' if not set or invalid.'"
   []
-  (let [env (or (System/getenv "PARTS_ENV") "development")]
+  (let [env (or (System/getProperty "PARTS_ENV")   ; Try Java property first
+                (System/getenv "PARTS_ENV")        ; Then environment variable
+                "development")]
     (if (contains? valid-environments env)
       (keyword env)
       :development)))

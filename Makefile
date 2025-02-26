@@ -23,7 +23,7 @@ help: ## This blessed text
 
 repl: ## Start a Clojure REPL
 	bun i
-	clojure -M -m shadow.cljs.devtools.cli clj-repl
+	clojure -M:dev -m shadow.cljs.devtools.cli clj-repl
 
 css-watch: ## Watch and build CSS
 	bunx postcss resources/styles/*.css -o resources/public/css/style.css --watch
