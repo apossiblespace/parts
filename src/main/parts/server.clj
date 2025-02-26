@@ -1,11 +1,13 @@
 (ns parts.server
   (:require
+   [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]
    [org.httpkit.server :as server]
-   [parts.config :as config]
    [parts.api.account :as api.account]
    [parts.api.auth :as api.auth]
    [parts.api.systems :as api.systems]
+   [parts.auth :as auth]
+   [parts.config :as config]
    [parts.db :as db]
    [parts.handlers.pages :as pages]
    [parts.handlers.waitlist :as waitlist]
@@ -39,6 +41,8 @@
     ["/auth" {:swagger {:tags ["Authentication"]}}
      ["/login"
       {:post {:handler api.auth/login}}]
+     ["/refresh"
+      {:post {:handler api.auth/refresh}}]
      ["/logout"
       {:post {:handler api.auth/logout
               :middleware [middleware/jwt-auth]}}]]
@@ -112,6 +116,28 @@
     (middleware/wrap-default-middlewares
      (create-handler routes middleware (config/dev?)))))
 
+(defn schedule-token-cleanup
+  "Schedule periodic cleanup of expired refresh tokens using core.async"
+  []
+  (let [stop-ch (async/chan)
+        interval-ms (* 6 60 60 1000) ; 6 hours in milliseconds
+        run-cleanup (fn []
+                      (try
+                        (let [tokens-removed (auth/cleanup-expired-tokens)]
+                          (mulog/log ::token-cleanup-success :tokens_removed (count tokens-removed)))
+                        (catch Exception e
+                          (mulog/log ::token-cleanup-error
+                                     :error (.getMessage e)
+                                     :error_type (.getName (class e))))))]
+    (run-cleanup)
+    (async/go-loop []
+      (let [timeout-ch (async/timeout interval-ms)
+            [_ ch] (async/alts! [stop-ch timeout-ch])]
+        (when (not= ch stop-ch)
+          (run-cleanup)
+          (recur))))
+    stop-ch))
+
 (defn start-server
   "Starts the web server"
   [port]
@@ -126,8 +152,10 @@
      {:app-name "Parts" :version "0.1.0-SNAPSHOT"})
     (mulog/log ::application-startup :arguments args :port port)
     (db/init-db)
-    (let [stop-fn (start-server port)]
+    (let [stop-fn (start-server port)
+          cleanup-stop-ch (schedule-token-cleanup)]
       (println "Parts: Server started on port" port)
       (fn []
         (stop-fn)
+        (async/close! cleanup-stop-ch) ; Signal the cleanup process to stop
         (println "Parts: Server stopped.")))))

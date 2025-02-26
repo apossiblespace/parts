@@ -11,18 +11,17 @@
 
 (use-fixtures :once with-test-db)
 
-(deftest test-create-token
-  (testing "create-token generates a valid JWT"
+(deftest test-create-access-token
+  (testing "create-access-token generates a valid JWT"
     (let [user-id 1
-          token (auth/create-token user-id)
+          token (auth/create-access-token user-id)
           secret auth/secret
           decoded (jwt/unsign token secret)
           now-seconds (.getEpochSecond (Instant/now))]
-      (is (= user-id (:sub decoded)))
-      (is (= "http://localhost:3000" (:aud decoded)))
-      (is (= "http://localhost:3000/api" (:iss decoded)))
+      (is (= (str user-id) (:sub decoded)))
+      (is (= "access" (:type decoded)))
       (is (> (:exp decoded) now-seconds))
-      (is (< (:exp decoded) (+ now-seconds 3601))))))
+      (is (< (:exp decoded) (+ now-seconds 901))))))
 
 (deftest test-hash-password
   (testing "hash-password creates a valid hash"
@@ -47,9 +46,15 @@
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
-      (let [token (auth/authenticate {:email email :password password})]
-        (is (string? token))
-        (is (jwt/unsign token auth/secret)))))
+      (let [tokens (auth/authenticate {:email email :password password})]
+        (is (map? tokens))
+        (is (:access_token tokens))
+        (is (:refresh_token tokens))
+        (is (= "Bearer" (:token_type tokens)))
+        (let [access-decoded (jwt/unsign (:access_token tokens) auth/secret)
+              refresh-decoded (jwt/unsign (:refresh_token tokens) auth/secret)]
+          (is (= "access" (:type access-decoded)))
+          (is (= "refresh" (:type refresh-decoded)))))))
 
   (testing "authenticate fails with incorrect password"
     (let [user-data (factory/create-test-user)
@@ -62,7 +67,7 @@
 
 (deftest test-get-user-id-from-token
   (testing "get-user-id-from-token extracts user-id from request"
-    (let [request {:identity {:user-id 1}}
+    (let [request {:identity {:sub 1}}
           user-id (auth/get-user-id-from-token request)]
       (is (= 1 user-id))))
 
@@ -70,3 +75,27 @@
     (let [request {}
           user-id (auth/get-user-id-from-token request)]
       (is (nil? user-id)))))
+
+(deftest test-refresh-auth-tokens
+  (testing "refresh-auth-tokens generates new tokens with valid refresh token"
+    (let [user-data (factory/create-test-user)
+          {:keys [email password]} user-data]
+      (user/create! user-data)
+      (let [tokens (auth/authenticate {:email email :password password})
+            refresh-token (:refresh_token tokens)
+            new-tokens (auth/refresh-auth-tokens refresh-token)]
+        (is (map? new-tokens))
+        (is (:access_token new-tokens))
+        (is (:refresh_token new-tokens))
+        (is (not= refresh-token (:refresh_token new-tokens)))
+        (is (= "Bearer" (:token_type new-tokens)))))))
+
+(deftest test-invalidate-refresh-token
+  (testing "invalidate-refresh-token invalidates a valid token"
+    (let [user-data (factory/create-test-user)
+          {:keys [email password]} user-data]
+      (user/create! user-data)
+      (let [tokens (auth/authenticate {:email email :password password})
+            refresh-token (:refresh_token tokens)]
+        (is (auth/invalidate-refresh-token refresh-token))
+        (is (nil? (auth/refresh-auth-tokens refresh-token)))))))

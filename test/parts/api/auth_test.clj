@@ -13,16 +13,17 @@
 
 (use-fixtures :once with-test-db)
 
-(deftest test-create-token
-  (testing "create-token generates a valid JWT"
+(deftest test-create-access-token
+  (testing "create-access-token generates a valid JWT"
     (let [user-id 1
-          token (auth-utils/create-token user-id)
+          token (auth-utils/create-access-token user-id)
           secret auth-utils/secret
           decoded (jwt/unsign token secret)
           now-seconds (.getEpochSecond (Instant/now))]
-      (is (= user-id (:sub decoded)))
+      (is (= (str user-id) (:sub decoded)))
+      (is (= "access" (:type decoded)))
       (is (> (:exp decoded) now-seconds))
-      (is (< (:exp decoded) (+ now-seconds 3601))))))
+      (is (< (:exp decoded) (+ now-seconds 901))))))
 
 (deftest test-hash-password
   (testing "hash-password creates a valid hash"
@@ -47,9 +48,15 @@
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
-      (let [token (auth-utils/authenticate {:email email :password password})]
-        (is (string? token))
-        (is (jwt/unsign token auth-utils/secret)))))
+      (let [tokens (auth-utils/authenticate {:email email :password password})]
+        (is (map? tokens))
+        (is (:access_token tokens))
+        (is (:refresh_token tokens))
+        (is (= "Bearer" (:token_type tokens)))
+        (let [access-decoded (jwt/unsign (:access_token tokens) auth-utils/secret)
+              refresh-decoded (jwt/unsign (:refresh_token tokens) auth-utils/secret)]
+          (is (= "access" (:type access-decoded)))
+          (is (= "refresh" (:type refresh-decoded)))))))
 
   (testing "authenticate fails with incorrect password"
     (let [user-data (factory/create-test-user)
@@ -68,8 +75,11 @@
       (account/register-account mock-request)
       (let [response (auth/login {:body {:email email :password password}})]
         (is (= 200 (:status response)))
-        (is (:token (:body response)))
-        (is (jwt/unsign (:token (:body response)) auth-utils/secret)))))
+        (is (:access_token (:body response)))
+        (is (:refresh_token (:body response)))
+        (is (= "Bearer" (:token_type (:body response))))
+        (is (jwt/unsign (:access_token (:body response)) auth-utils/secret))
+        (is (jwt/unsign (:refresh_token (:body response)) auth-utils/secret)))))
 
   (testing "login fails with incorrect password"
     (let [user-data (factory/create-test-user)
@@ -85,15 +95,47 @@
       (is (= 401 (:status response)))
       (is (= {:error "Invalid credentials"} (:body response))))))
 
+(deftest test-refresh
+  (testing "refresh token endpoint generates new tokens with valid refresh token"
+    (let [user-data (factory/create-test-user)
+          {:keys [email password]} user-data]
+      (user/create! user-data)
+      (let [tokens (auth-utils/authenticate {:email email :password password})
+            refresh-token (:refresh_token tokens)
+            response (auth/refresh {:body {:refresh_token refresh-token}})]
+        (is (= 200 (:status response)))
+        (is (:access_token (:body response)))
+        (is (:refresh_token (:body response)))
+        (is (not= refresh-token (:refresh_token (:body response))))
+        (is (= "Bearer" (:token_type (:body response)))))))
+
+  (testing "refresh token endpoint fails with invalid token"
+    (let [response (auth/refresh {:body {:refresh_token "invalid-token"}})]
+      (is (= 401 (:status response)))
+      (is (= {:error "Invalid refresh token"} (:body response))))))
+
 (deftest test-logout
-  (testing "logout always returns success message"
+  (testing "logout invalidates refresh token when provided"
+    (let [user-data (factory/create-test-user)
+          {:keys [email password]} user-data]
+      (user/create! user-data)
+      (let [tokens (auth-utils/authenticate {:email email :password password})
+            refresh-token (:refresh_token tokens)
+            response (auth/logout {:body {:refresh_token refresh-token}})]
+        (is (= 200 (:status response)))
+        (is (= {:message "Logged out successfully"} (:body response)))
+
+        ;; Verify the token no longer works
+        (is (= 401 (:status (auth/refresh {:body {:refresh_token refresh-token}})))))))
+
+  (testing "logout succeeds even without refresh token"
     (let [response (auth/logout {})]
       (is (= 200 (:status response)))
       (is (= {:message "Logged out successfully"} (:body response))))))
 
 (deftest test-get-user-id-from-token
   (testing "get-user-id-from-token extracts user-id from request"
-    (let [request {:identity {:user-id 1}}
+    (let [request {:identity {:sub 1}}
           user-id (auth-utils/get-user-id-from-token request)]
       (is (= 1 user-id))))
 
