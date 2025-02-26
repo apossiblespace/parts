@@ -42,6 +42,6 @@ jobs:
     - name: Run tests
       run: |
         export PARTS_DB_PATH="$GITHUB_WORKSPACE/db/parts_test.db"
-        clojure -X:test/run
+        clojure -X:test/env:test/run
       env:
         GITHUB_WORKSPACE: ${{ github.workspace }}

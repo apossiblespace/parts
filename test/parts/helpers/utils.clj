@@ -10,12 +10,13 @@
 (defn setup-test-db
   []
   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config))}
-        ds (jdbc/get-datasource db-spec)]
-    (let [migration-config {:store :database
-                            :migration-dir "migrations"
-                            :db db-spec}]
-      (migratus/init migration-config)
-      (migratus/migrate migration-config))
+        ds (jdbc/get-datasource db-spec)
+        migration-config {:store :database
+                          :migration-dir "migrations/"
+                          :db db-spec}]
+
+    (migratus/init migration-config)
+    (migratus/migrate migration-config)
     ds))
 
 (defn truncate-all-tables
