@@ -1,4 +1,4 @@
-{:paths ["src/main" "src/dev" "resources"]
+{:paths ["src/main" "src/dev" "resources" "test"]
  :deps
  {org.clojure/clojure {:mvn/version "1.12.0"}
   http-kit/http-kit {:mvn/version "2.8.0"}
@@ -49,16 +49,16 @@
   ;; UIx
   ;; https://github.com/pitch-io/uix
   com.pitch/uix.core {:mvn/version "1.3.1"}
-  com.pitch/uix.dom {:mvn/version "1.3.1"}}
+  com.pitch/uix.dom {:mvn/version "1.3.1"}
+  ;;
+  ;; Kaocha
+  ;; https://github.com/lambdaisland/kaocha
+  lambdaisland/kaocha {:mvn/version "1.91.1392"}
+  lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}}
 
  :aliases
  {:run/app
   {:main-opts ["-m" "parts.server"]}
-
-  :dev
-  {:extra-paths ["test"]
-   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}}}
 
   :test/env
   {:env-vars {"PARTS_ENV" "test"}}

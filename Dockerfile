@@ -16,8 +16,8 @@ RUN make deps
 COPY ./ /build
 
 RUN apk add --no-cache nodejs npm
-
-RUN npm install
+RUN npm install -g bun
+RUN bun install
 
 # `dist` task packages Clojure service as an uberjar
 # - creates: /build/practicalli-gameboard-api-service.jar
@@ -51,7 +51,7 @@ FROM eclipse-temurin:17-alpine
 # check for newer package versions: https://pkgs.alpinelinux.org/
 RUN apk add --no-cache \
     dumb-init~=1.2.5 \
-    curl~=8.11 \
+    curl~=8.12 \
     jq~=1.7
 
 # Create Non-root group and user to run service securely
