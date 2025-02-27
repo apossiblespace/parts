@@ -12,14 +12,6 @@
   [email]
   (re-matches #".+@.+\..+" email))
 
-(defn- form-with-message
-  "Re-render signup form with a message"
-  [message]
-  (html [:p "Please enter your email below to join the private beta test."]
-        (partials/waitlist-signup-form ".signup")
-        [:div.error
-         [:p message]]))
-
 (defn signup
   "Register email address in private beta waitlist"
   [request]
@@ -27,12 +19,14 @@
     (cond
       (or (nil? email) (str/blank? email))
       (-> (response/response
-           (form-with-message "Please don't forget your email address!"))
+           (html
+            (partials/waitlist-signup-form "Please don't forget your email address!")))
           (response/status 200))
 
       (not (valid-email? email))
       (-> (response/response
-           (form-with-message "Sorry, that's not a valid email address."))
+           (html
+            (partials/waitlist-signup-form "Sorry, that's not a valid email address.")))
           (response/status 200))
 
       :else
