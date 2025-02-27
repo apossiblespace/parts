@@ -9,6 +9,9 @@
   (for [src (into ["/js/main.js"] (or scripts []))]
     [:script {:src src}]))
 
+(def default-title
+  "Parts: IFS parts mapping for therapists & clients")
+
 (defn head
   "Head tag with configurable options.
    Options map can include:
@@ -25,8 +28,8 @@
     [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
     [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
     [:title (if title
-              (str title " — Parts")
-              "Parts")]
+              (str title " — " default-title)
+              default-title)]
     [:link {:rel "stylesheet" :href "/css/style.css"}]
     [:link {:rel "preconnect" :href "https://fonts.googleapis.com"}]
     [:link {:rel "preconnect" :href "https://fonts.gstatic.com" :crossorigin true}]
@@ -35,7 +38,8 @@
       [:link {:rel "stylesheet" :href href}])
     [:script {:defer       true
               :data-domain "parts.ifs.tools"
-              :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]]))
+              :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
+    [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]]))
 
 (defn header
   "Site header"
@@ -74,11 +78,13 @@
   [:div#signup-form
    [:form {:hx-post "/waitlist-signup"
            :hx-target target
-           :hx-swap "innerHTML"}
+           :hx-swap "innerHTML"
+           :hx-on:submit "plausible('Waitlist Signup'); return true;"}
     [:input {:type "email"
              :id "email"
              :name "email"
-             :placeholder "self@you.com"}]
+             :placeholder "self@you.com"
+             :hx-on:focus "plausible('Email Field Focus'); return true;"}]
     [:input {:type "hidden"
              :id "__anti-forgery-token"
              :name "__anti-forgery-token"
