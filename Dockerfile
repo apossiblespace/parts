@@ -96,11 +96,11 @@ EXPOSE 3000
 # Heathchck options:
 # --interval=30s --timeout=30s --start-period=10s --retries=3
 # Shell:
-# HEALTHCHECK \
-#   CMD curl --fail http://localhost:8080/system-admin/status || exit 1
-# Exec array:
 HEALTHCHECK \
-    CMD ["curl", "--fail", "http://localhost:3000/up"]
+  CMD curl --fail http://localhost:3000/up || exit 1
+# Exec array:
+# HEALTHCHECK \
+#     CMD ["curl", "--fail", "http://localhost:3000/up"]
 
 
 # JDK_JAVA_OPTIONS environment variable for setting JVM options
