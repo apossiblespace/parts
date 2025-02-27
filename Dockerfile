@@ -51,7 +51,7 @@ FROM eclipse-temurin:17-alpine
 # check for newer package versions: https://pkgs.alpinelinux.org/
 RUN apk add --no-cache \
     dumb-init~=1.2.5 \
-    curl~=8.12 \
+    curl~=8 \
     jq~=1.7
 
 # Create Non-root group and user to run service securely
