@@ -11,7 +11,7 @@
 
 .PHONY: help repl css-watch test test-watch test-config test-profile dist \
 		build-css build-frontend build-config build-uberjar run-dist deploy \
-		clean
+		clean deps npm-deps
 
 .DEFAULT_GOAL := help
 
@@ -21,8 +21,7 @@ CLOJURE_TEST_RUNNER = clojure -X:test/env:test/run
 help: ## This blessed text
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
 
-repl: ## Start a Clojure REPL
-	bun i
+repl: deps ## Start a Clojure REPL
 	clojure -M -m shadow.cljs.devtools.cli clj-repl
 
 css-watch: ## Watch and build CSS
@@ -40,8 +39,11 @@ format-check: ## Check formatting of clj/cljs files
 format-fix: ## Fix formatting of clj/cljs files
 	clojure -M:cljfmt fix
 
-deps: deps.edn ## Prepare dependencies for test and dist targets
-	clojure -P -X:build
+npm-deps: package.json
+	bun i
+
+deps: deps.edn npm-deps ## Prepare dependencies for test and dist targets
+	clojure -P
 
 dist: build-css build-frontend build-uberjar  ## Build project
 
