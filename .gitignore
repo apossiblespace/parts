@@ -22,6 +22,7 @@ resources/public/css/style.css
 # ------------------------
 # Include Clojure tools
 !.cljstyle
+!.clj-kondo/imports
 !.dir-locals.el
 !compose.yaml
 !Dockerfile

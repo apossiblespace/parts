@@ -67,7 +67,7 @@ deploy: ## Deploy to production
 
 clean: ## Clean build files
 	rm -rf 	./.cpcache \
-			./.clj-kondo \
+			./.clj-kondo/.cache \
 			./.cljs_node_repl \
 			./.lsp \
 			./.shadow-cljs \
