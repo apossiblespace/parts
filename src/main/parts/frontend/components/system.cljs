@@ -11,6 +11,7 @@
    [uix.core :refer [defui $]]
    [clojure.string :as str]
    [parts.frontend.components.nodes :refer [node-types]]
+   [parts.frontend.components.toolbar :refer [parts-toolbar]]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [parts.frontend.context :as ctx]))
 
@@ -73,27 +74,28 @@
              ($ Panel {:position "top-left" :class "logo"}
                 ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
              ($ Panel {:position "top-right" :class "toolbar"}
-                ($ :span "Add part: ")
-                ($ :button
-                   {:on-click
-                    (fn []
-                      (setNodes (add-node "unknown")))}
-                   "Unknown")
-                ($ :button
-                   {:on-click
-                    (fn []
-                      (setNodes (add-node "exile")))}
-                   "Exile")
-                ($ :button
-                   {:on-click
-                    (fn []
-                      (setNodes (add-node "firefighter")))}
-                   "Firefighter")
-                ($ :button
-                   {:on-click
-                    (fn []
-                      (setNodes (add-node "manager")))}
-                   "Manager"))
+                ($ parts-toolbar
+                  ($ :span "Add part: ")
+                  ($ :button
+                    {:on-click
+                      (fn []
+                        (setNodes (add-node "unknown")))}
+                    "Unknown")
+                  ($ :button
+                    {:on-click
+                      (fn []
+                        (setNodes (add-node "exile")))}
+                    "Exile")
+                  ($ :button
+                    {:on-click
+                      (fn []
+                        (setNodes (add-node "firefighter")))}
+                    "Firefighter")
+                  ($ :button
+                    {:on-click
+                      (fn []
+                        (setNodes (add-node "manager")))}
+                    "Manager")))
              ($ Background {:variant "dots"
                             :gap 12
                             :size 1}))))))
