@@ -25,6 +25,7 @@
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
     [:meta {:name "description" :content description}]
     [:meta {:name "theme-color" :content "#62a294"}]
+    [:meta {:name "csrf-token" :content *anti-forgery-token*}]
     [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
     [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
     [:title (if title
