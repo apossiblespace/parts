@@ -58,6 +58,7 @@
       {:post {:handler api.account/register-account}}]]
 
     ;; Systems routes
+    ;; TODO: Put these behind jwt-auth middleware once the UI is ready
     ["/systems" {:swagger {:tags ["Systems"]}
                  :middleware [middleware/jwt-auth]}
      ["" {:get {:summary "List all systems for current user"

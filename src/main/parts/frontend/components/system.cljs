@@ -8,10 +8,11 @@
                         useEdgesState
                         Panel
                         addEdge]]
-   [uix.core :refer [defui $]]
+   [uix.core :refer [defui $ use-state]]
    [clojure.string :as str]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar :refer [parts-toolbar]]
+   [parts.frontend.components.auth :refer [auth-provider login-modal]]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [parts.frontend.context :as ctx]))
 
@@ -51,6 +52,26 @@
 (defn- on-connect-callback [setEdges params]
   (setEdges #(addEdge params %)))
 
+(defui auth-status-bar []
+  (let [[show-login-modal set-show-login-modal] (use-state false)
+        {:keys [logged-in email logout]} (uix.core/use-context ctx/auth-context)]
+    ($ :div
+       (when show-login-modal
+         ($ login-modal
+            {:show true
+             :on-close #(set-show-login-modal false)}))
+
+       (if logged-in
+         ($ :span
+            ($ :span {:class "user-email"} (str "🟢 " email))
+            ($ :button {:on-click (fn []
+                                    (.then (logout) (fn [_] nil)))}
+               "Log out"))
+         ($ :span
+            ($ :span "🔴")
+            ($ :button {:on-click #(set-show-login-modal true)}
+               "Log in"))))))
+
 (defui system [{:keys [nodes edges]}]
   (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
         [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
@@ -61,41 +82,44 @@
         on-connect (uix.core/use-callback
                     #(on-connect-callback setEdges %)
                     [setEdges])]
-    ($ :div {:style {:width "100vw" :height "100vh"} :class "system-view"}
-       ($ (.-Provider ctx/update-node-context) {:value update-node}
-          ($ ReactFlow {:nodes nodes
-                        :edges edges
-                        :onNodesChange onNodesChange
-                        :onEdgesChange onEdgesChange
-                        :onConnect on-connect
-                        :nodeTypes node-types}
-             ($ MiniMap)
-             ($ Controls)
-             ($ Panel {:position "top-left" :class "logo"}
-                ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-             ($ Panel {:position "top-right" :class "toolbar"}
-                ($ parts-toolbar
-                  ($ :span "Add part: ")
-                  ($ :button
-                    {:on-click
-                      (fn []
-                        (setNodes (add-node "unknown")))}
-                    "Unknown")
-                  ($ :button
-                    {:on-click
-                      (fn []
-                        (setNodes (add-node "exile")))}
-                    "Exile")
-                  ($ :button
-                    {:on-click
-                      (fn []
-                        (setNodes (add-node "firefighter")))}
-                    "Firefighter")
-                  ($ :button
-                    {:on-click
-                      (fn []
-                        (setNodes (add-node "manager")))}
-                    "Manager")))
-             ($ Background {:variant "dots"
-                            :gap 12
-                            :size 1}))))))
+
+    ($ auth-provider {}
+       ($ :div {:style {:width "100vw" :height "100vh"} :class "system-view"}
+          ($ (.-Provider ctx/update-node-context) {:value update-node}
+             ($ ReactFlow {:nodes nodes
+                           :edges edges
+                           :onNodesChange onNodesChange
+                           :onEdgesChange onEdgesChange
+                           :onConnect on-connect
+                           :nodeTypes node-types}
+                ($ MiniMap)
+                ($ Controls)
+                ($ Panel {:position "top-left" :class "logo"}
+                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
+                ($ Panel {:position "top-right" :class "toolbar"}
+                   ($ parts-toolbar
+                      ($ auth-status-bar)
+                      ($ :span " Add part: ")
+                      ($ :button
+                         {:on-click
+                          (fn []
+                            (setNodes (add-node "unknown")))}
+                         "Unknown")
+                      ($ :button
+                         {:on-click
+                          (fn []
+                            (setNodes (add-node "exile")))}
+                         "Exile")
+                      ($ :button
+                         {:on-click
+                          (fn []
+                            (setNodes (add-node "firefighter")))}
+                         "Firefighter")
+                      ($ :button
+                         {:on-click
+                          (fn []
+                            (setNodes (add-node "manager")))}
+                         "Manager")))
+                ($ Background {:variant "dots"
+                               :gap 12
+                               :size 1})))))))
