@@ -54,7 +54,11 @@
   ;; Kaocha
   ;; https://github.com/lambdaisland/kaocha
   lambdaisland/kaocha {:mvn/version "1.91.1392"}
-  lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}}
+  lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}
+  ;;
+  ;; cljs-http
+  ;; https://github.com/r0man/cljs-http
+  cljs-http/cljs-http {:mvn/version "0.1.48"}}
 
  :aliases
  {:run/app
