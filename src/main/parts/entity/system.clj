@@ -4,7 +4,6 @@
    relationships (edges)."
   (:require
    [clojure.spec.alpha :as s]
-   [clojure.data.json :as json]
    [parts.utils :refer [validate-spec]]
    [parts.db :as db]))
 
