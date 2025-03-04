@@ -6,11 +6,13 @@
   (:require
    [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]
+   [muuntaja.core :as muuntaja]
    [org.httpkit.server :as server]
    [parts.api.account :as api.account]
    [parts.api.auth :as api.auth]
    [parts.api.systems :as api.systems]
    [parts.auth :as auth]
+   [parts.config :as conf]
    [parts.db :as db]
    [parts.handlers.pages :as pages]
    [parts.handlers.waitlist :as waitlist]
@@ -19,7 +21,6 @@
    [reitit.ring :as ring]
    [reitit.ring.coercion :as rrc]
    [reitit.ring.middleware.muuntaja :as muuntaja-middleware]
-   [muuntaja.core :as muuntaja]
    [ring.middleware.params :refer [wrap-params]])
   (:gen-class))
 
@@ -193,7 +194,7 @@
   (let [port (or (some-> (first args) Integer/parseInt) 3000)]
     ;; Set up global logging context
     (mulog/set-global-context!
-     {:app-name "Parts" :version "0.1.0-SNAPSHOT"})
+     {:app-name "Parts" :version "0.1.0-SNAPSHOT", :env (conf/get-environment)})
     (mulog/log ::application-startup :arguments args :port port)
 
     ;; Initialize database

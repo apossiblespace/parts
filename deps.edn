@@ -25,9 +25,11 @@
 
   ring/ring-mock {:mvn/version "0.4.0"}
 
-  ;; Logging
+  ;; Logging and observability
   org.slf4j/slf4j-simple {:mvn/version "2.0.16"}
   com.brunobonacci/mulog {:mvn/version "0.9.0"}
+  djblue/portal {:mvn/version "0.58.5"}
+
   ;;
   ;; A small library for explicit, intentful configuration.
   ;; https://github.com/juxt/aero

@@ -3,6 +3,8 @@
    [kaocha.repl :as k]
    [kaocha.watch :as watch]
    [migratus.core :as migratus]
+   [portal.api :as portal]
+   [mulog-events]
    [parts.config :as conf]
    [parts.db :as db]
    [parts.server :as server]
@@ -12,10 +14,20 @@
 (defn cljs-repl []
   (shadow.cljs.devtools.api/repl :frontend))
 
+(def portal-instance
+  "Open portal window if no portal sessions have been created.
+   A portal session is created when opening a portal window.
+
+   Opens in the default system browser."
+  (or (seq (portal/sessions))
+      (portal/open {:app false})))
+
+(add-tap #'portal.api/submit)
+
 ;; App server management
 
 (defonce server-ref (atom nil))
-;; TODO: Do we also want to open Inspector automatically?
+
 (defn start []
   (shadow-server/start!)
   (shadow/watch :frontend)
