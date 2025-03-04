@@ -1,3 +1,7 @@
+;;;
+;;; DEPRECATED: See parts.frontend.api.core instead
+;;;
+
 (ns parts.frontend.utils.api
   (:require
    [cljs.core.async :refer [chan put! <!]]
@@ -7,7 +11,6 @@
 
 (def ^:private token-storage-key "parts-auth-tokens")
 (def ^:private user-email-key "parts-user-email")
-(def csrf-token-name "__anti-forgery-token")
 
 (defn save-tokens
   "Save authentication tokens to local storage"
@@ -65,8 +68,8 @@
         _ (js/console.log "API request:", url, method, as-form?, "data:", data)]
     (go
       (try
-        (let [request-data (if data 
-                             data 
+        (let [request-data (if data
+                             data
                              {})
               fetch-opts (if as-form?
                            ;; For form data submission
@@ -76,18 +79,18 @@
                                (when v
                                  (js/console.log "Adding to form data:" (name k) v)
                                  (.append form-data (name k) v)))
-                             
+
                              ;; Set proper content type for form submissions
                              (aset headers "Content-Type" "application/x-www-form-urlencoded")
-                             
+
                              ;; Create fetch options
                              (clj->js {:method method
-                                      :headers headers
-                                      :body form-data}))
+                                       :headers headers
+                                       :body form-data}))
                            ;; For JSON, use the standard approach
                            (clj->js {:method method
-                                    :headers headers
-                                    :body (js/JSON.stringify (clj->js request-data))}))
+                                     :headers headers
+                                     :body (js/JSON.stringify (clj->js request-data))}))
               response (<p! (js/fetch url fetch-opts))
               status (.-status response)
               content-type (.get (.-headers response) "content-type")
@@ -117,7 +120,7 @@
    {:url "/api/auth/login"
     :method "POST"
     :as-form? true
-    :data {"email" email 
+    :data {"email" email
            "password" password
            "__anti-forgery-token" csrf-token}}))
 
