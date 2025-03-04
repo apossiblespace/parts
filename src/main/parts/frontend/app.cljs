@@ -1,6 +1,8 @@
 (ns parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
+   [parts.frontend.state :as state]
+   [parts.frontend.api.core :as api]
    [parts.frontend.components.system :refer [system]]
    [uix.core :refer [defui $]]
    [uix.dom]))
@@ -30,6 +32,9 @@
 (defn ^:export init []
   (.on htmx "htmx:load"
        (fn [_]
+         (state/init!)
+         (api/init!)
+
          (render-app)
          (let [version (.-version htmx)]
            (js/console.log "HTMX loaded! Version:" version)))))
