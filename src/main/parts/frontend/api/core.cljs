@@ -1,6 +1,7 @@
 (ns parts.frontend.api.core
   (:require [cljs.core.async :refer [chan put! <! go go-loop timeout]]
             [cljs-http.client :as http]
+            [cognitect.transit :as t]
             [parts.frontend.utils.api :as utils]
             [parts.frontend.state :as state]))
 
@@ -23,7 +24,7 @@
   (let [base-config (get request-types req-type)
         method (:method base-config)
         headers {"Authorization" (utils/get-auth-header)
-                 "Content-Type" "application/json"}]
+                 "Accept" "application/transit+json"}]
     {:method method
      :url (str "/api" endpoint)
      :headers headers
@@ -41,21 +42,21 @@
       (go
         (try
           (let [response (<! (case method
-                               :get (http/get url {:headers headers :query-params params})
-                               :post (http/post url {:headers headers :json-params params})
-                               :put (http/put url {:headers headers :json-params params})
-                               :patch (http/patch url {:headers headers :json-params params})
-                               :delete (http/delete url {:headers headers})))]
+                               :get (http/get url {:headers headers :query-params params :accept :transit+json})
+                               :post (http/post url {:headers headers :transit-params params :accept :transit+json})
+                               :put (http/put url {:headers headers :transit-params params :accept :transit+json})
+                               :patch (http/patch url {:headers headers :transit-params params :accept :transit+json})
+                               :delete (http/delete url {:headers headers :accept :transit+json})))]
             (if (< (:status response) 400)
               (put! response-channel {:type type
-                                     :request request
-                                     :response response
-                                     :status :success})
+                                      :request request
+                                      :response response
+                                      :status :success})
               (put! response-channel {:type type
-                                     :request request
-                                     :error {:message (str "HTTP Error: " (:status response))
-                                            :response response}
-                                     :status :error})))
+                                      :request request
+                                      :error {:message (str "HTTP Error: " (:status response))
+                                              :response response}
+                                      :status :error})))
           (catch js/Error e
             (put! response-channel {:type type
                                     :request request
