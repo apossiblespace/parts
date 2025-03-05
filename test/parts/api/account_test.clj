@@ -25,8 +25,8 @@
   (testing "correctly updates the user data"
     (let [user (register-test-user)
           mock-request {:identity {:sub (:id user)}
-                        :body {:email (str "added" (:email user))
-                               :display_name "Updated"}}
+                        :body-params {:email (str "added" (:email user))
+                                      :display_name "Updated"}}
           response (account/update-account mock-request)
           updated-fields (select-keys (:body response) [:email :display_name])]
       (is (= 200 (:status response)))
@@ -38,7 +38,7 @@
   (testing "does not update where no updatable data is passed"
     (let [user (register-test-user)
           mock-request {:identity {:sub (:id user)}
-                        :body {:username "something"}}]
+                        :body-params {:username "something"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (account/update-account mock-request))))))
 
@@ -69,7 +69,7 @@
   (testing "register creates a new user successfully"
     (let [user-data (factory/create-test-user)
           {:keys [email username display_name role]} user-data
-          mock-request {:body user-data}
+          mock-request {:body-params user-data}
           response (account/register-account mock-request)
           user (:body response)]
       (is (= 201 (:status response)))

@@ -2,7 +2,6 @@
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [parts.api.systems :as api]
-   [parts.auth :as auth]
    [parts.entity.system :as system]
    [parts.helpers.utils :refer [with-test-db register-test-user]]))
 
@@ -13,7 +12,7 @@
   [user & {:keys [params body]}]
   {:identity {:sub (:id user)}
    :parameters {:path params}
-   :body body})
+   :body-params body})
 
 (deftest test-list-systems
   (testing "returns systems for authenticated user"

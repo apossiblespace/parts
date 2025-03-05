@@ -65,7 +65,7 @@
           request {}
           response (wrapped-handler request)]
       (is (= 200 (:status response)))
-      (is (= "text/html" (get-in response [:headers "Content-Type"])))
+      (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (= "[:div \"Hello, World!\"]" (:body response)))))
   (testing "a response that has a content-type set is left as-is"
     (let [handler (fn [_] {:status 200 :body [:div "Hello, JSON!"] :headers {"Content-Type" "application/json"}})

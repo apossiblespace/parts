@@ -16,7 +16,7 @@
   "Update own account info"
   [request]
   (let [user-id (get-in request [:identity :sub])
-        body (:body request)
+        body (:body-params request)
         updated-user (user/update! user-id body)]
     (mulog/log ::update-account-success :user-id user-id)
     (-> (response/response updated-user)
@@ -25,7 +25,7 @@
 (defn register-account
   "Creates a record for a new user account"
   [request]
-  (let [account (user/create! (:body request))]
+  (let [account (user/create! (:body-params request))]
     (mulog/log ::register :email (:email account) :username (:username account) :status :success)
     (-> (response/response account)
         (response/status 201))))

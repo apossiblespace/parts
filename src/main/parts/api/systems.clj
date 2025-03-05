@@ -1,6 +1,5 @@
 (ns parts.api.systems
   (:require
-   [parts.auth :as auth]
    [parts.entity.system :as system]
    [ring.util.response :as response]))
 
@@ -14,9 +13,9 @@
 
 (defn create-system
   "Create a new system"
-  [{:keys [identity body] :as _request}]
+  [{:keys [identity body-params] :as _request}]
   (let [user-id (:sub identity)
-        system-data (assoc body :owner_id user-id)
+        system-data (assoc body-params :owner_id user-id)
         created (system/create-system! system-data)]
     (-> (response/response created)
         (response/status 201))))
@@ -35,13 +34,13 @@
 
 (defn update-system
   "Update an existing system"
-  [{:keys [identity parameters body] :as _request}]
+  [{:keys [identity parameters body-params] :as _request}]
   (let [user-id (:sub identity)
         system-id (get-in parameters [:path :id])
         existing (system/get-system system-id)]
     (if (= user-id (:owner_id existing))
       (let [updated (system/update-system! system-id
-                                           (assoc body :owner_id (:owner_id existing)))]
+                                           (assoc body-params :owner_id (:owner_id existing)))]
         (-> (response/response updated)
             (response/status 200)))
       (-> (response/response {:error "Not authorized"})

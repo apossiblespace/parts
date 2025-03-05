@@ -71,9 +71,9 @@
   (testing "login succeeds with correct credentials"
     (let [user-data (factory/create-test-user)
           {:keys [email password]} user-data
-          mock-request {:body user-data}]
+          mock-request {:body-params user-data}]
       (account/register-account mock-request)
-      (let [response (auth/login {:body {:email email :password password}})]
+      (let [response (auth/login {:body-params {:email email :password password}})]
         (is (= 200 (:status response)))
         (is (:access_token (:body response)))
         (is (:refresh_token (:body response)))
@@ -84,14 +84,14 @@
   (testing "login fails with incorrect password"
     (let [user-data (factory/create-test-user)
           {:keys [email]} user-data
-          mock-request {:body user-data}]
+          mock-request {:body-params user-data}]
       (account/register-account mock-request)
-      (let [response (auth/login {:body {:email email :password "wrongpassword"}})]
+      (let [response (auth/login {:body-params {:email email :password "wrongpassword"}})]
         (is (= 401 (:status response)))
         (is (= {:error "Invalid credentials"} (:body response))))))
 
   (testing "login fails with non-existent user"
-    (let [response (auth/login {:body {:email "nonexistent@example.com" :password "anypassword"}})]
+    (let [response (auth/login {:body-params {:email "nonexistent@example.com" :password "anypassword"}})]
       (is (= 401 (:status response)))
       (is (= {:error "Invalid credentials"} (:body response))))))
 
@@ -102,7 +102,7 @@
       (user/create! user-data)
       (let [tokens (auth-utils/authenticate {:email email :password password})
             refresh-token (:refresh_token tokens)
-            response (auth/refresh {:body {:refresh_token refresh-token}})]
+            response (auth/refresh {:body-params {:refresh_token refresh-token}})]
         (is (= 200 (:status response)))
         (is (:access_token (:body response)))
         (is (:refresh_token (:body response)))
@@ -110,7 +110,7 @@
         (is (= "Bearer" (:token_type (:body response)))))))
 
   (testing "refresh token endpoint fails with invalid token"
-    (let [response (auth/refresh {:body {:refresh_token "invalid-token"}})]
+    (let [response (auth/refresh {:body-params {:refresh_token "invalid-token"}})]
       (is (= 401 (:status response)))
       (is (= {:error "Invalid refresh token"} (:body response))))))
 
@@ -121,7 +121,7 @@
       (user/create! user-data)
       (let [tokens (auth-utils/authenticate {:email email :password password})
             refresh-token (:refresh_token tokens)
-            response (auth/logout {:body {:refresh_token refresh-token}})]
+            response (auth/logout {:body-params {:refresh_token refresh-token}})]
         (is (= 200 (:status response)))
         (is (= {:message "Logged out successfully"} (:body response)))
 

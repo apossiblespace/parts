@@ -5,8 +5,10 @@
    [ring.util.response :as response]))
 
 (defn login
+  "Handler for the POST /api/auth/login endpoint.
+  Generate new access and refresh tokens by authenticating via email/password"
   [request]
-  (let [{:keys [email password]} (:body request)]
+  (let [{:keys [email password]} (:body-params request)]
     (if-let [tokens (auth/authenticate {:email email :password password})]
       (do
         (mulog/log ::login :email email :status :success)
@@ -18,9 +20,10 @@
             (response/status 401))))))
 
 (defn refresh
-  "Generate new access and refresh tokens using a valid refresh token"
+  "Handler for the POST /api/auth/refresh endpoint.
+  Generate new access and refresh tokens using a valid refresh token"
   [request]
-  (let [refresh-token (get-in request [:body :refresh_token])]
+  (let [refresh-token (get-in request [:body-params :refresh_token])]
     (if-let [new-tokens (auth/refresh-auth-tokens refresh-token)]
       (do
         (mulog/log ::refresh :status :success)
@@ -32,9 +35,10 @@
             (response/status 401))))))
 
 (defn logout
-  "Invalidate the refresh token to prevent its future use"
+  "Handler for the POST /api/auth/logout endpoint.
+  Invalidate the refresh token to prevent its future use"
   [request]
-  (let [refresh-token (get-in request [:body :refresh_token])]
+  (let [refresh-token (get-in request [:body-params :refresh_token])]
     (if refresh-token
       (do
         (auth/invalidate-refresh-token refresh-token)
