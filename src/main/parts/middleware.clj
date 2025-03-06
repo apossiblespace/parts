@@ -7,6 +7,7 @@
    [parts.auth :as auth]
    [reitit.ring.middleware.exception :as exception]
    [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
+   [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.defaults :refer [api-defaults wrap-defaults site-defaults]]
    [ring.middleware.resource :refer [wrap-resource]]
    [ring.util.response :as response])
@@ -152,12 +153,14 @@
        (assoc-in [:security :xss-protection] {:mode :block}))))
 
 (defn wrap-core-middlewares
-  "Apply essential Ring middleware for the entire application. Currently, this
-  is only `wrap-resources`, which allows to download static files from
-  resources/public."
+  "Apply essential Ring middleware for the entire application.
+  - `wrap-resource`: Serves static files from resources/public
+  - `wrap-content-type`: Sets proper MIME types based on file extensions,
+    ensuring SVG files are served as image/svg+xml instead of text/plain"
   [handler]
   (-> handler
-      (wrap-resource "public")))
+      (wrap-resource "public")
+      (wrap-content-type)))
 
 (defn wrap-html-response
   "Middleware for properly formatting HTML responses.
