@@ -83,8 +83,7 @@
    ;; - Proper HTML content-type and string conversion
 
    ;; A form is present on the homepage, so we apply CSRF protection
-   ["/" {:middleware [middleware/anti-forgery
-                      middleware/wrap-html-defaults
+   ["/" {:middleware [middleware/wrap-html-defaults
                       middleware/wrap-html-response]
          :get {:handler pages/home-page}}]
 
@@ -95,8 +94,7 @@
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 
    ;; Form submission endpoint with CSRF protection
-   ["/waitlist-signup" {:middleware [middleware/anti-forgery
-                                     middleware/wrap-html-defaults
+   ["/waitlist-signup" {:middleware [middleware/wrap-html-defaults
                                      middleware/wrap-html-response]
                         :post {:handler waitlist/signup}}]
 

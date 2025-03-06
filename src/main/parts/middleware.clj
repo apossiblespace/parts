@@ -106,37 +106,23 @@
           (response/status 401)))))
 
 (defn wrap-html-defaults
-  "Middleware that applies a customized set of Ring defaults for HTML routes.
+  "Middleware that applies a set of Ring defaults for HTML routes.
+  Among other things, this middleware enables:
 
-  This middleware configures a subset of Ring's `site-defaults` that's
-  appropriate for server-rendered HTML pages.
+  - Anti-forgery protection
+  - Sessions (necessary for CSRF tokens to work)
 
-  Applied configurations:
-  - Parameters: Parses standard, nested, and keyword parameters
-  - Static resources: Enabled
-  - Security headers:
-    - X-Frame-Options
-    - X-Content-Type-Options
-    - X-XSS-Protection
-    - X-Permitted-Cross-Domain-Policies
-    - X-Download-Options
-  - Cookie response attributes
+  We disable wrapping static resources here because these resources need to be
+  available for all routes, and this middleware is set for certain routes only.
+  FIXME: This might be troublesome, review middleware order.
 
-  Explicitly disabled:
-  - Session handling: Disabled completely as we use stateless JWT auth
-  - Global anti-forgery: Disabled here but applied selectively to form-handling
-    routes, see `anti-forgery`
-
-  Usage: Apply this middleware to routes that serve HTML content, and separately
-  apply `anti-forgery` middleware only to routes that process form submissions."
+  And other defaults that are not immediately relevant to us. See
+  `site-defaults` for the full details."
   [handler]
   (wrap-defaults
    handler
    (-> site-defaults
-       (assoc :session false)
-       (assoc :security
-              (-> (:security site-defaults)
-                  (assoc :anti-forgery false))))))
+       (assoc :static false))))
 
 ;; TODO: Investigate whether Content Security Policy is needed:
 ;;  - https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
@@ -206,11 +192,3 @@
 (def anti-forgery
   "Anti-forgery middleware for HTML forms, see docs on `wrap-anti-forgery`"
   wrap-anti-forgery)
-
-;; File upload handling is commented out for now
-;; To enable file uploads, uncomment the following:
-;; (defn wrap-multipart-params
-;;   "Handle multipart form data including file uploads"
-;;   [handler]
-;;   (-> handler
-;;       (multipart-params/wrap-multipart-params)))
