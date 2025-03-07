@@ -13,6 +13,14 @@
 
 ## Development
 
+Before starting development, install dependencies with:
+
+```shell
+make deps
+```
+
+This will install both the Clojure and the NPM dependencies required.
+
 ### Run Clojure REPL
 
 ```shell
@@ -24,8 +32,16 @@ This will start a Clojure REPL that includes shadow-cljs (which we use to build 
 From that namespace:
 
 - The app server can be (re)started with `(go)`. This will also start the `shadow-cljs` process for building the frontend and watching for changes.
-- We can swtich to the ClojureScript REPL with `(cljs-repl)`
+- We can switch to the ClojureScript REPL with `(cljs-repl)`
 - Use `:cljs/quit` to return to the Clojure REPL
+
+### Build CSS
+
+```shell
+make css-watch
+```
+
+This will start PostCSS to watch for changes in `resources/styles/*.css`.
 
 ### Unit tests
 
@@ -52,8 +68,7 @@ Also edit config/deploy.yml to ensure it matches your setup. See the [Kamal docs
 It’s possible to build an uberjar and run it locally to test before deploying:
 
 ```shell
-make dist
-java -jar target/parts-standalone.jar
+make dist && make run-dist
 ```
 
 ### Deploy
@@ -61,7 +76,8 @@ java -jar target/parts-standalone.jar
 A deployment can be started via:
 
 ```shell
-make deploy
+# Always run tests before deploying
+make test && make deploy
 ```
 
 ## License
