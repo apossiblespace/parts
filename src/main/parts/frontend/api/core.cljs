@@ -1,116 +1,59 @@
 (ns parts.frontend.api.core
-  (:require [cljs.core.async :refer [chan put! <! go go-loop timeout]]
-            [cljs-http.client :as http]
-            [cognitect.transit :as t]
-            [parts.frontend.utils.api :as utils]
-            [parts.frontend.state :as state]))
+  (:require [cljs.core.async :refer [<! go]]
+            [cljs-http.client :as http]))
 
-;; Core channels: request, response, events
-(def request-channel (chan 10))
-(def response-channel (chan 10))
-(def event-channel (chan 10))
+;; Helpers
 
-(def request-types
-  {:fetch-data              {:method :get}
-   :create-entity           {:method :post}
-   :update-entity           {:method :put}
-   :partially-update-entity {:method :patch}
-   :delete-entity           {:method :delete}
-   ;; Example:
-   ;; :search {:method :get, :throttle 300}
-   })
+(defn- get-auth-token []
+  (js/lcalStorage.getItem "auth-token"))
 
-(defn- build-request [req-type endpoint params]
-  (let [base-config (get request-types req-type)
-        method (:method base-config)
-        headers {"Authorization" (utils/get-auth-header)
-                 "Accept" "application/transit+json"}]
-    {:method method
-     :url (str "/api" endpoint)
-     :headers headers
-     :params params
-     :type req-type}))
+(defn- add-auth-header [req]
+  (if-let [token (js/localStorage.getItem "auth-token")]
+    (assoc-in req [:headers "Authorization"] (str "Bearer " token))
+    req))
 
-(defn- start-request-manager []
-  (go-loop []
-    (let [request (<! request-channel)
-          {:keys [method url headers params type]} request]
-      (println "[request]" request)
-      (when-let [throttle-ms (get-in request-types [type :throttle])]
-        (<! (timeout throttle-ms)))
+(defn GET [endpoint params]
+  (go (<! (http/get (str "/api" endpoint)
+                    (-> {:query-params params
+                         :accept :transit+json}
+                        add-auth-header)))))
 
-      (go
-        (try
-          (let [response (<! (case method
-                               :get (http/get url {:headers headers :query-params params :accept :transit+json})
-                               :post (http/post url {:headers headers :transit-params params :accept :transit+json})
-                               :put (http/put url {:headers headers :transit-params params :accept :transit+json})
-                               :patch (http/patch url {:headers headers :transit-params params :accept :transit+json})
-                               :delete (http/delete url {:headers headers :accept :transit+json})))]
-            (if (< (:status response) 400)
-              (put! response-channel {:type type
-                                      :request request
-                                      :response response
-                                      :status :success})
-              (put! response-channel {:type type
-                                      :request request
-                                      :error {:message (str "HTTP Error: " (:status response))
-                                              :response response}
-                                      :status :error})))
-          (catch js/Error e
-            (put! response-channel {:type type
-                                    :request request
-                                    :error e
-                                    :status :error}))))
-      (recur))))
+(defn POST [endpoint data]
+  (go (<! (http/post (str "/api" endpoint)
+                     (-> {:transit-params data
+                          :accept :transit+json}
+                         add-auth-header)))))
 
-(defn- start-response-handler []
-  (go-loop []
-    (let [{:keys [type request response error status]} (<! response-channel)]
-      (cond
-        (= status :success)
-        (let [data (-> response :body)]
-          (case type
-            :fetch-data    (state/set-entities! data)
-            :create-entity (state/add-entity! data)
-            :update-entity (state/update-entity! data)
-            :delete-entity (state/remove-entity! (:id (:params request))))
+(defn PUT [endpoint data]
+  (go (<! (http/put (str "/api" endpoint)
+                    (-> {:transit-params data
+                         :accept :transit+json}
+                        add-auth-header)))))
 
-          (put! event-channel {:event :api-success
-                               :type type
-                               :data data}))
-        (= status :error)
-        (let [error-data {:message (or (-> error .-message) "Unknown error")
-                          :type type
-                          :request request}]
-          (state/set-error! error-data)
-          (put! event-channel {:event :api-error
-                               :error error-data})))
-      (recur))))
+(defn PATCH [endpoint data]
+  (go (<! (http/patch (str "/api" endpoint)
+                      (-> {:transit-params data
+                           :accept :transit+json}
+                          add-auth-header)))))
 
-(defn fetch-data [endpoint & [params]]
-  (put! request-channel (build-request :fetch-data endpoint params))
-  (let [result-channel (chan)]
-    (go
-      (loop []
-        (let [event (<! event-channel)]
-          (println "fetch-data" event)
-          (if (and (= (:event event) :api-success)
-                   (= (:type event) :fetch-data))
-            (put! result-channel (:data event))
-            (recur)))))
-    result-channel))
+(defn DELETE [endpoint]
+  (go (<! (http/delete (str "/api" endpoint)
+                       (-> {:accept :transit+json}
+                           add-auth-header)))))
 
-(defn create-entity [endpoint entity]
-  (put! request-channel (build-request :create-entity endpoint entity)))
+;; Auth
 
-(defn update-entity [endpoint entity]
-  (put! request-channel (build-request :update-entity endpoint entity)))
+(defn login [credentials]
+  (go
+    (let [response (<! (POST "/auth/login" credentials))]
+      (when (= 200 (:status response))
+        (js/localStorage.setItem "auth-token" (get-in response [:body :token])))
+      response)))
 
-(defn delete-entity [endpoint id]
-  (put! request-channel (build-request :delete-entity endpoint {:id id})))
+(defn logout []
+  (js/localStorage.removeItem "auth-token"))
 
-(defn init! []
-  (start-request-manager)
-  (start-response-handler)
-  (println "API layer initialised"))
+;; Account
+
+(defn get-current-user []
+  (GET "/account" {}))
