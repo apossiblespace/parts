@@ -4,10 +4,10 @@
 
 ;; Helpers
 
-(defn- get-auth-token []
-  (js/lcalStorage.getItem "auth-token"))
+(defn get-auth-token []
+  (js/localStorage.getItem "auth-token"))
 
-(defn- add-auth-header [req]
+(defn add-auth-header [req]
   (if-let [token (js/localStorage.getItem "auth-token")]
     (assoc-in req [:headers "Authorization"] (str "Bearer " token))
     req))

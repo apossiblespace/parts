@@ -1,7 +1,7 @@
 (ns parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
-   [parts.frontend.api.core :as api]
+   [parts.frontend.context :refer [auth-provider]]
    [parts.frontend.components.system :refer [system]]
    [uix.core :refer [defui $]]
    [uix.dom]))
@@ -16,7 +16,8 @@
     {:id "e3-2" :source "3" :target "2"}]})
 
 (defui app []
-  ($ system system-data))
+  ($ auth-provider {}
+     ($ system system-data)))
 
 (defonce root
   (when-let [root-element (js/document.getElementById "root")]

@@ -12,6 +12,7 @@
    [clojure.string :as str]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar :refer [parts-toolbar]]
+   [parts.frontend.components.login-modal :refer [login-modal]]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [parts.frontend.context :as ctx]))
 
@@ -53,16 +54,17 @@
 
 (defui auth-status-bar []
   (let [[show-login-modal set-show-login-modal] (use-state false)
-        {:keys [logged-in email logout]} (uix.core/use-context ctx/auth-context)]
+        {:keys [user loading logout]} (ctx/use-auth)]
     ($ :div
        (when show-login-modal
          ($ login-modal
             {:show true
              :on-close #(set-show-login-modal false)}))
-
-       (if logged-in
+       (when loading
+         ($ :span "(...) "))
+       (if user
          ($ :span
-            ($ :span {:class "user-email"} (str "🟢 " email))
+            ($ :span {:class "user-email"} (str "🟢 " (:email user)))
             ($ :button {:on-click (fn []
                                     (.then (logout) (fn [_] nil)))}
                "Log out"))
