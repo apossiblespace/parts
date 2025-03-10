@@ -106,12 +106,15 @@
    ;;   namespace
    ;; - JWT authentication (with some endpoints requiring auth)
    ;; - Security headers appropriate for API endpoints
-   ["/api" {:middleware [muuntaja-middleware/format-middleware
-                         middleware/wrap-api-defaults
+   ;;
+   ;; It's important for the format-middleware to be called last for proper
+   ;; conversion.
+   ["/api" {:middleware [middleware/wrap-api-defaults
                          rrc/coerce-exceptions-middleware
                          rrc/coerce-request-middleware
                          rrc/coerce-response-middleware
-                         middleware/wrap-jwt-authentication]
+                         middleware/wrap-jwt-authentication
+                         muuntaja-middleware/format-middleware]
             :muuntaja transit-format
             :coercion rcs/coercion}
 
