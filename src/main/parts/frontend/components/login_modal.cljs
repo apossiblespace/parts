@@ -3,7 +3,7 @@
    [uix.core :refer [defui $ use-state]]
    [cljs.core.async :refer [<!]]
    [parts.frontend.context :as ctx]
-   [parts.frontend.utils.csrf :as csrf]
+   [parts.frontend.api.utils :as utils]
    [parts.frontend.components.modal :refer [modal]])
   (:require-macros
    [cljs.core.async.macros :refer [go]]))
@@ -40,12 +40,12 @@
             ($ :div {:class "error-message"}
                error))
 
-          (when-let [token (csrf/get-token)]
+          (when-let [csrf-token (utils/get-csrf-token)]
             ($ :input
                {:type "hidden"
                 :id "__anti-forgery-token"
                 :name "__anti-forgery-token"
-                :value token}))
+                :value csrf-token}))
 
           ($ :div {:class "form-group"}
              ($ :label {:for "email"} "Email:")

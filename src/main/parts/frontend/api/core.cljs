@@ -1,15 +1,11 @@
 (ns parts.frontend.api.core
   (:require [cljs.core.async :refer [<! go]]
-            [cljs-http.client :as http]))
-
-;; Helpers
-
-(defn get-auth-token []
-  (js/localStorage.getItem "auth-token"))
+            [cljs-http.client :as http]
+            [parts.frontend.api.utils :as utils]))
 
 (defn add-auth-header [req]
-  (if-let [token (js/localStorage.getItem "auth-token")]
-    (assoc-in req [:headers "Authorization"] (str "Bearer " token))
+  (if-let [header (utils/get-auth-header)]
+    (assoc-in req [:headers "Authorization"] header)
     req))
 
 (defn GET [endpoint params]
@@ -47,7 +43,7 @@
   (go
     (let [response (<! (POST "/auth/login" credentials))]
       (when (= 200 (:status response))
-        (js/localStorage.setItem "auth-token" (get-in response [:body :token])))
+        (utils/save-tokens (:body response)))
       response)))
 
 (defn logout []

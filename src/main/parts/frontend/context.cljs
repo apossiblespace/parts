@@ -2,6 +2,7 @@
   (:require
    [clojure.core.async :refer [<!]]
    [parts.frontend.api.core :as api]
+   [parts.frontend.api.utils :as utils]
    [uix.core :refer [$ defui use-state use-effect use-context]])
   (:require-macros
    [cljs.core.async.macros :refer [go]]))
@@ -40,9 +41,9 @@
     (use-effect
      (fn []
        (println "[auth-provider] checking for token")
-       (if (api/get-auth-token)
+       (if (utils/get-tokens)
          (do
-           (println "[auth-provider] token found")
+           (println "[auth-provider] token found, already signed in")
            (fetch-user!))
          (set-loading false)))
      [fetch-user!])
