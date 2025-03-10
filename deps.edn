@@ -9,7 +9,6 @@
   ;; https://github.com/cognitect/transit-format
   ;; https://github.com/metosin/muuntaja
   com.cognitect/transit-clj {:mvn/version "1.0.333"}
-  com.cognitect/transit-cljs {:mvn/version "0.8.280"}
   metosin/muuntaja {:mvn/version "0.6.11"}
 
   ;;
