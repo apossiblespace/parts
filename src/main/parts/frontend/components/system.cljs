@@ -64,9 +64,8 @@
          ($ :span "(...) "))
        (if user
          ($ :span
-            ($ :span {:class "user-email"} (str "🟢 " (:email user)))
-            ($ :button {:on-click (fn []
-                                    (.then (logout) (fn [_] nil)))}
+            ($ :span {:class "user-email"} (str "🟢 " (:username user)))
+            ($ :button {:on-click (fn [] (logout))}
                "Log out"))
          ($ :span
             ($ :span "🔴")

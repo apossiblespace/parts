@@ -1,8 +1,6 @@
-(ns parts.frontend.api.utils
-  (:require [cognitect.transit :as transit]))
+(ns parts.frontend.api.utils)
 
 (def ^:private token-storage-key "parts-auth-tokens")
-(def ^:private user-email-key "parts-user-email")
 
 (defn save-tokens
   "Save authentication tokens to local storage"
@@ -18,13 +16,12 @@
 (defn clear-tokens
   "Clear authentication tokens from local storage"
   []
-  (.removeItem js/localStorage token-storage-key)
-  (.removeItem js/localStorage user-email-key))
+  (.removeItem js/localStorage token-storage-key))
 
-(defn get-auth-header
-  "Get the Authorization header for authenticated requests"
-  []
-  (when-let [tokens (get-tokens)]
+(defn auth-header
+  "Get the Authorization header for authenticated requests from tokens"
+  [tokens]
+  (when (and (:token_type tokens) (:access_token tokens))
     (str (:token_type tokens) " " (:access_token tokens))))
 
 (defn get-csrf-token

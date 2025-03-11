@@ -1,55 +1,30 @@
 (ns parts.frontend.api.core
+  "High level API functions that should be used to interact with the backend."
   (:require [cljs.core.async :refer [<! go]]
-            [cljs-http.client :as http]
-            [parts.frontend.api.utils :as utils]))
+            [parts.frontend.api.utils :as utils]
+            [parts.frontend.api.http :as http]))
 
-(defn add-auth-header [req]
-  (if-let [header (utils/get-auth-header)]
-    (assoc-in req [:headers "Authorization"] header)
-    req))
-
-(defn GET [endpoint params]
-  (go (<! (http/get (str "/api" endpoint)
-                    (-> {:query-params params
-                         :accept :transit+json}
-                        add-auth-header)))))
-
-(defn POST [endpoint data]
-  (go (<! (http/post (str "/api" endpoint)
-                     (-> {:transit-params data
-                          :accept :transit+json}
-                         add-auth-header)))))
-
-(defn PUT [endpoint data]
-  (go (<! (http/put (str "/api" endpoint)
-                    (-> {:transit-params data
-                         :accept :transit+json}
-                        add-auth-header)))))
-
-(defn PATCH [endpoint data]
-  (go (<! (http/patch (str "/api" endpoint)
-                      (-> {:transit-params data
-                           :accept :transit+json}
-                          add-auth-header)))))
-
-(defn DELETE [endpoint]
-  (go (<! (http/delete (str "/api" endpoint)
-                       (-> {:accept :transit+json}
-                           add-auth-header)))))
-
-;; Auth
-
-(defn login [credentials]
+;; Authentication-related functions
+(defn login
+  "CREDENTIALS should be a map containing the keys :email and :password."
+  [credentials]
   (go
-    (let [response (<! (POST "/auth/login" credentials))]
+    (let [response (<! (http/POST "/auth/login" credentials {:skip-auth true}))]
       (when (= 200 (:status response))
         (utils/save-tokens (:body response)))
       response)))
 
 (defn logout []
-  (js/localStorage.removeItem "auth-token"))
+  (utils/clear-tokens))
 
-;; Account
+;; Account-related functions
+(defn get-current-user
+  "Retrieve the information about the currently signed in user:
 
-(defn get-current-user []
-  (GET "/account" {}))
+  - id
+  - email
+  - username
+  - display name
+  - role"
+  []
+  (http/GET "/account" {}))

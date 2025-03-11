@@ -43,9 +43,11 @@
        (println "[auth-provider] checking for token")
        (if (utils/get-tokens)
          (do
-           (println "[auth-provider] token found, already signed in")
+           (println "[auth-provider] token found")
            (fetch-user!))
-         (set-loading false)))
+         (do
+           (println "[auth-provider] no token")
+           (set-loading false))))
      [fetch-user!])
 
     ($ auth-context.Provider {:value value}
