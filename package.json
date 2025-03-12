@@ -9,6 +9,7 @@
     "@tailwindcss/postcss": "^4.0.8",
     "autoprefixer": "^10.4.20",
     "cssnano": "^7.0.6",
+    "daisyui": "^5.0.2",
     "postcss": "^8.5.3",
     "postcss-cli": "^11.0.0",
     "postcss-nesting": "^13.0.1",
