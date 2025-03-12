@@ -12,7 +12,7 @@
    (html
     (layouts/fullscreen
      {:title "System"
-      :styles ["/css/flow.css"]}
+      :styles ["/css/flow.css" "/css/style.css"]}
      [:div#root]))))
 
 (defn home-page
@@ -21,7 +21,8 @@
   (response/response
    (html
     (layouts/main
-     {:title "Mapping tools for IFS practitioners and their clients"}
+     {:title "Mapping tools for IFS practitioners and their clients"
+      :styles ["/css/landing.css"]}
      [:section.container
       [:div.content
        [:section.hero
