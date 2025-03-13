@@ -64,12 +64,12 @@
          ($ :span "(...) "))
        (if user
          ($ :span
-            ($ :span {:class "user-email"} (str "🟢 " (:username user)))
-            ($ :button {:on-click (fn [] (logout))}
+            ($ :span {:class "user-email"} (str "🟢 " (:username user) " "))
+            ($ :button {:class "btn btn-xs" :on-click (fn [] (logout))}
                "Log out"))
          ($ :span
             ($ :span "🔴")
-            ($ :button {:on-click #(set-show-login-modal true)}
+            ($ :button {:class "btn btn-xs" :on-click #(set-show-login-modal true)}
                "Log in"))))))
 
 (defui system [{:keys [nodes edges]}]
@@ -99,26 +99,23 @@
                 ($ parts-toolbar
                    ($ auth-status-bar)
                    ($ :span " Add part: ")
-                   ($ :button
-                      {:on-click
-                       (fn []
-                         (setNodes (add-node "unknown")))}
-                      "Unknown")
-                   ($ :button
-                      {:on-click
-                       (fn []
-                         (setNodes (add-node "exile")))}
-                      "Exile")
-                   ($ :button
-                      {:on-click
-                       (fn []
-                         (setNodes (add-node "firefighter")))}
-                      "Firefighter")
-                   ($ :button
-                      {:on-click
-                       (fn []
-                         (setNodes (add-node "manager")))}
-                      "Manager")))
+                   ($ :div {:class "join"}
+                      ($ :button
+                         {:class "btn btn-xs join-item"
+                          :on-click (fn [] (setNodes (add-node "unknown")))}
+                         "Unknown")
+                      ($ :button
+                         {:class "btn btn-xs join-item"
+                          :on-click (fn [] (setNodes (add-node "exile")))}
+                         "Exile")
+                      ($ :button
+                         {:class "btn btn-xs join-item"
+                          :on-click (fn [] (setNodes (add-node "firefighter")))}
+                         "Firefighter")
+                      ($ :button
+                         {:class "btn btn-xs join-item"
+                          :on-click (fn [] (setNodes (add-node "manager")))}
+                         "Manager"))))
              ($ Background {:variant "dots"
                             :gap 12
                             :size 1}))))))
