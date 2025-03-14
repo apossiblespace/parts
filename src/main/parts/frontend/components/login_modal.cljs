@@ -32,49 +32,59 @@
 
     ($ modal
        {:show show
-        :title "Log in"
         :on-close on-close}
 
-       ($ :form {:on-submit handle-submit}
+       ($ :<>
           (when error
-            ($ :div {:class "error-message"}
-               error))
+            ($ :div {:class "alert alert-error mb-4"}
+               ($ :span {:class "font-medium"} error)))
 
-          (when-let [csrf-token (utils/get-csrf-token)]
-            ($ :input
-               {:type "hidden"
-                :id "__anti-forgery-token"
-                :name "__anti-forgery-token"
-                :value csrf-token}))
+          ($ :form {:on-submit handle-submit}
 
-          ($ :div {:class "form-group"}
-             ($ :label {:for "email"} "Email:")
-             ($ :input
-                {:type "email"
-                 :id "email"
-                 :value email
-                 :disabled loading
-                 :on-change #(set-email (.. % -target -value))
-                 :required true}))
+             (when-let [csrf-token (utils/get-csrf-token)]
+               ($ :input
+                  {:type "hidden"
+                   :id "__anti-forgery-token"
+                   :name "__anti-forgery-token"
+                   :value csrf-token}))
 
-          ($ :div {:class "form-group"}
-             ($ :label {:for "password"} "Password:")
-             ($ :input
-                {:type "password"
-                 :id "password"
-                 :value password
-                 :disabled loading
-                 :on-change #(set-password (.. % -target -value))
-                 :required true}))
+             ($ :fieldset
+                {:class "fieldset w-full bg-base-200 border border-base-300 p-4 rounded-box"}
+                ($ :legend {:class "fieldset-legend"} "Login")
 
-          ($ :div {:class "form-actions"}
-             ($ :button
-                {:type "button"
-                 :disabled loading
-                 :on-click on-close}
-                "Cancel")
-             ($ :button
-                {:type "submit"
-                 :disabled loading
-                 :class "primary"}
-                (if loading "Logging in..." "Log in")))))))
+                ($ :div {:class "form-control mb-3"}
+                   ($ :label {:class "fieldset-label" :for "email"}
+                      "Email")
+                   ($ :input
+                      {:type "email"
+                       :id "email"
+                       :placeholder "self@you.com"
+                       :class "input input-bordered w-full"
+                       :value email
+                       :disabled loading
+                       :on-change #(set-email (.. % -target -value))
+                       :required true}))
+
+                ($ :div {:class "form-control"}
+                   ($ :label {:class "fieldset-label" :for "password"}
+                      "Password")
+                   ($ :input
+                      {:type "password"
+                       :id "password"
+                       :class "input input-bordered w-full"
+                       :value password
+                       :disabled loading
+                       :on-change #(set-password (.. % -target -value))
+                       :required true}))
+                ($ :div {:class "modal-action mt-6 space-x-2 flex"}
+                   ($ :button
+                      {:type "button"
+                       :class "btn btn-outline flex-1"
+                       :disabled loading
+                       :on-click on-close}
+                      "Cancel")
+                   ($ :button
+                      {:type "submit"
+                       :disabled loading
+                       :class (str "btn btn-primary flex-1" (when loading "loading"))}
+                      (if loading "Logging in..." "Log in")))))))))

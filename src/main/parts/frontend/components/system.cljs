@@ -56,10 +56,9 @@
   (let [[show-login-modal set-show-login-modal] (use-state false)
         {:keys [user loading logout]} (ctx/use-auth)]
     ($ :div
-       (when show-login-modal
-         ($ login-modal
-            {:show true
-             :on-close #(set-show-login-modal false)}))
+       ($ login-modal
+          {:show show-login-modal
+           :on-close #(set-show-login-modal false)})
        (when loading
          ($ :span "(...) "))
        (if user
