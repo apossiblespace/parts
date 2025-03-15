@@ -26,10 +26,10 @@
        ($ :div
           {:class "modal-box"
            :on-click #(.stopPropagation %)}
-          ;; ;; ($ :button
-          ;; ;;    {:class "btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-          ;; ;;     :on-click on-close}
-          ;;    "✕")
+          ($ :button
+             {:class "btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+              :on-click on-close}
+             "✕")
           (when title
-            ($ :h3 {:class "text-lg font-bold"} title))
+            ($ :h3 {:class "text-lg font-bold mb-4"} title))
           children))))

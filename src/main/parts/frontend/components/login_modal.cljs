@@ -15,24 +15,31 @@
         [loading set-loading] (use-state false)
         {:keys [login]} (ctx/use-auth)
 
+        handle-close (fn [e]
+                       (.preventDefault e)
+                       (on-close)
+                       (set-loading false)
+                       (set-error nil)
+                       (set-password "")
+                       (set-email ""))
         handle-submit (fn [e]
                         (.preventDefault e)
                         (set-loading true)
                         (set-error nil)
                         (go
-                          (try
-                            (let [_result (<! (login {:email email
-                                                      :password password}))]
-                              (set-loading false)
-                              (on-close))
-                            (catch js/Error err
-                              (js/console.log "Login error:", err)
-                              (set-loading false)
-                              (set-error "Invalid email or password")))))]
+                          (let [result (<! (login {:email email
+                                                   :password password}))]
+                            (set-loading false)
+                            (if (= 401 (:status result))
+                              (do
+                                (set-error (get-in result [:body :error]))
+                                (println "Login error:" result (get-in result [:body :error])))
+                              (handle-close e)))))]
 
     ($ modal
        {:show show
-        :on-close on-close}
+        :on-close handle-close
+        :title "Log in"}
 
        ($ :<>
           (when error
@@ -49,9 +56,7 @@
                    :value csrf-token}))
 
              ($ :fieldset
-                {:class "fieldset w-full bg-base-200 border border-base-300 p-4 rounded-box"}
-                ($ :legend {:class "fieldset-legend"} "Login")
-
+                {:class "fieldset w-full"}
                 ($ :div {:class "form-control mb-3"}
                    ($ :label {:class "fieldset-label" :for "email"}
                       "Email")
@@ -59,7 +64,7 @@
                       {:type "email"
                        :id "email"
                        :placeholder "self@you.com"
-                       :class "input input-bordered w-full"
+                       :class "input w-full"
                        :value email
                        :disabled loading
                        :on-change #(set-email (.. % -target -value))
@@ -71,7 +76,7 @@
                    ($ :input
                       {:type "password"
                        :id "password"
-                       :class "input input-bordered w-full"
+                       :class "input w-full"
                        :value password
                        :disabled loading
                        :on-change #(set-password (.. % -target -value))
@@ -79,12 +84,16 @@
                 ($ :div {:class "modal-action mt-6 space-x-2 flex"}
                    ($ :button
                       {:type "button"
-                       :class "btn btn-outline flex-1"
+                       :class "btn flex-1"
                        :disabled loading
                        :on-click on-close}
                       "Cancel")
                    ($ :button
                       {:type "submit"
                        :disabled loading
-                       :class (str "btn btn-primary flex-1" (when loading "loading"))}
-                      (if loading "Logging in..." "Log in")))))))))
+                       :class "btn btn-primary flex-1"}
+                      (if loading
+                        ($ :<>
+                           ($ :span {:class "loading loading-spinner"})
+                           "Logging in...")
+                        "Log in")))))))))
