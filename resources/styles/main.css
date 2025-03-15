@@ -35,43 +35,55 @@
     --noise: 0;
 }
 
-.system-view {
-    .node {
-        display: flex;
-        height: 100px;
-        width: 100px;
-        background-repeat: no-repeat;
-        background-size: 100% 100%;
-        background-position: center center;
-        padding: 1rem;
-        justify-content: center;
-        align-items: center;
-        font-size: 14px;
-        background-image: url("/images/nodes/unknown.svg");
+.system-container {
+    display: flex;
 
-        &.manager {
-            height: 108px;
+    .system-view {
+        height: 100vh;
+        flex: 1;
+        .node {
+            display: flex;
+            height: 100px;
             width: 100px;
-            background-image: url("/images/nodes/manager.svg");
+            background-repeat: no-repeat;
+            background-size: 100% 100%;
+            background-position: center center;
+            padding: 1rem;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            background-image: url("/images/nodes/unknown.svg");
+
+            &.manager {
+                height: 108px;
+                width: 100px;
+                background-image: url("/images/nodes/manager.svg");
+            }
+            &.exile {
+                background-image: url("/images/nodes/exile.svg");
+            }
+            &.firefighter {
+                height: 120px;
+                width: 120px;
+                background-image: url("/images/nodes/firefighter.svg");
+            }
         }
-        &.exile {
-            background-image: url("/images/nodes/exile.svg");
+
+        .logo {
+            margin-top: 1em;
         }
-        &.firefighter {
-            height: 120px;
-            width: 120px;
-            background-image: url("/images/nodes/firefighter.svg");
+
+        .parts-toolbar {
+            background-color: var(--color-base-100);
+            border-radius: var(--radius-box);
+            padding: 0.2rem 0.5rem;
+            border: 1px solid #cccccc;
         }
     }
 
-    .logo {
-        margin-top: 1em;
-    }
-
-    .parts-toolbar {
-        background-color: var(--color-base-100);
-        border-radius: var(--radius-box);
-        padding: 0.2rem 0.5rem;
-        border: 1px solid #cccccc;
+    .sidebar {
+        width: 200px;
+        height: 100vh;
+        border-left: 1px solid var(--color-base-300);
     }
 }

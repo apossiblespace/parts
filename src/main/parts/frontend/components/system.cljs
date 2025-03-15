@@ -81,40 +81,41 @@
         on-connect (uix.core/use-callback
                     #(on-connect-callback setEdges %)
                     [setEdges])]
-
-    ($ :div {:style {:width "100vw" :height "100vh"} :class "system-view"}
-       ($ (.-Provider ctx/update-node-context) {:value update-node}
-          ($ ReactFlow {:nodes nodes
-                        :edges edges
-                        :onNodesChange onNodesChange
-                        :onEdgesChange onEdgesChange
-                        :onConnect on-connect
-                        :nodeTypes node-types}
-             ($ MiniMap)
-             ($ Controls)
-             ($ Panel {:position "top-left" :class "logo"}
-                ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-             ($ Panel {:position "top-right" :class "toolbar"}
-                ($ parts-toolbar
-                   ($ auth-status-bar)
-                   ($ :span " Add part: ")
-                   ($ :div {:class "join"}
-                      ($ :button
-                         {:class "btn btn-xs join-item"
-                          :on-click (fn [] (setNodes (add-node "unknown")))}
-                         "Unknown")
-                      ($ :button
-                         {:class "btn btn-xs join-item"
-                          :on-click (fn [] (setNodes (add-node "exile")))}
-                         "Exile")
-                      ($ :button
-                         {:class "btn btn-xs join-item"
-                          :on-click (fn [] (setNodes (add-node "firefighter")))}
-                         "Firefighter")
-                      ($ :button
-                         {:class "btn btn-xs join-item"
-                          :on-click (fn [] (setNodes (add-node "manager")))}
-                         "Manager"))))
-             ($ Background {:variant "dots"
-                            :gap 12
-                            :size 1}))))))
+    ($ :div {:class "system-container"}
+       ($ :div {:class "system-view"}
+          ($ (.-Provider ctx/update-node-context) {:value update-node}
+             ($ ReactFlow {:nodes nodes
+                           :edges edges
+                           :onNodesChange onNodesChange
+                           :onEdgesChange onEdgesChange
+                           :onConnect on-connect
+                           :nodeTypes node-types}
+                ($ MiniMap)
+                ($ Controls)
+                ($ Panel {:position "top-left" :class "logo"}
+                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
+                ($ Panel {:position "top-right" :class "toolbar"}
+                   ($ parts-toolbar
+                      ($ :span " Add part: ")
+                      ($ :div {:class "join"}
+                         ($ :button
+                            {:class "btn btn-xs join-item"
+                             :on-click (fn [] (setNodes (add-node "unknown")))}
+                            "Unknown")
+                         ($ :button
+                            {:class "btn btn-xs join-item"
+                             :on-click (fn [] (setNodes (add-node "exile")))}
+                            "Exile")
+                         ($ :button
+                            {:class "btn btn-xs join-item"
+                             :on-click (fn [] (setNodes (add-node "firefighter")))}
+                            "Firefighter")
+                         ($ :button
+                            {:class "btn btn-xs join-item"
+                             :on-click (fn [] (setNodes (add-node "manager")))}
+                            "Manager"))))
+                ($ Background {:variant "dots"
+                               :gap 12
+                               :size 1}))))
+       ($ :div {:class "sidebar p-4"}
+          ($ auth-status-bar)))))
