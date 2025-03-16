@@ -12,7 +12,7 @@
    [clojure.string :as str]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar :refer [parts-toolbar]]
-   [parts.frontend.components.login-modal :refer [login-modal]]
+   [parts.frontend.components.sidebar :refer [sidebar]]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [parts.frontend.context :as ctx]))
 
@@ -51,25 +51,6 @@
 
 (defn- on-connect-callback [setEdges params]
   (setEdges #(addEdge params %)))
-
-(defui auth-status-bar []
-  (let [[show-login-modal set-show-login-modal] (use-state false)
-        {:keys [user loading logout]} (ctx/use-auth)]
-    ($ :div
-       ($ login-modal
-          {:show show-login-modal
-           :on-close #(set-show-login-modal false)})
-       (when loading
-         ($ :span "(...) "))
-       (if user
-         ($ :span
-            ($ :span {:class "user-email"} (str "🟢 " (:username user) " "))
-            ($ :button {:class "btn btn-xs" :on-click (fn [] (logout))}
-               "Log out"))
-         ($ :span
-            ($ :span "🔴")
-            ($ :button {:class "btn btn-xs" :on-click #(set-show-login-modal true)}
-               "Log in"))))))
 
 (defui system [{:keys [nodes edges]}]
   (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
@@ -117,5 +98,4 @@
                 ($ Background {:variant "dots"
                                :gap 12
                                :size 1}))))
-       ($ :div {:class "sidebar p-4"}
-          ($ auth-status-bar)))))
+       ($ sidebar))))
