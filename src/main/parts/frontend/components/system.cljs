@@ -52,6 +52,9 @@
 (defn- on-connect-callback [setEdges params]
   (setEdges #(addEdge params %)))
 
+(defn- on-selection-change-callback [nodes edges]
+  (println "Selection changed" nodes edges))
+
 (defui system [{:keys [nodes edges]}]
   (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
         [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
@@ -61,7 +64,10 @@
                      [setNodes])
         on-connect (uix.core/use-callback
                     #(on-connect-callback setEdges %)
-                    [setEdges])]
+                    [setEdges])
+        on-selection-change (uix.core/use-callback
+                             #(on-selection-change-callback %1 %2)
+                             [])]
     ($ :div {:class "system-container"}
        ($ :div {:class "system-view"}
           ($ (.-Provider ctx/update-node-context) {:value update-node}
@@ -70,6 +76,7 @@
                            :onNodesChange onNodesChange
                            :onEdgesChange onEdgesChange
                            :onConnect on-connect
+                           :onSelectionChange on-selection-change
                            :nodeTypes node-types}
                 ($ MiniMap)
                 ($ Controls)
