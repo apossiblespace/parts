@@ -3,9 +3,7 @@
    [uix.core :refer [defui $]]
    [parts.common.constants :refer [part-labels]]))
 
-;; TODO: Remove the node-form from the actual node. Editing will happen in the
-;; sidebar henceforth.
-(defui node-form [{:keys [node on-save on-cancel]}]
+(defui node-form [{:keys [node on-save]}]
   (let [{:keys [id type data]} node
         [form-data set-form-data] (uix.core/use-state {:type type
                                                        :label (:label data)})]
@@ -28,9 +26,6 @@
                   :value (:label form-data)
                   :onChange #(set-form-data assoc :label (.. % -target -value))})
 
-       ($ :button {:class "btn"
-                   :onClick #(on-cancel)}
-          "Cancel")
        ($ :button {:class "btn btn-primary"
                    :onClick #(on-save id form-data)}
           "Save"))))

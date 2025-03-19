@@ -39,6 +39,7 @@
 ;; https://marvl.infotech.monash.edu/webcola/
 
 (defn- update-node-callback [setNodes id form-data]
+  (println "update-node-callback" id form-data)
   (setNodes
    (fn [nodes]
      (clj->js
@@ -71,9 +72,10 @@
                                  (set-selected-nodes (:nodes sel))
                                  (set-selected-edges (:edges sel))))
                              [])]
-    ($ :div {:class "system-container"}
-       ($ :div {:class "system-view"}
-          ($ (.-Provider ctx/update-node-context) {:value update-node}
+
+    ($ (.-Provider ctx/update-node-context) {:value update-node}
+       ($ :div {:class "system-container"}
+          ($ :div {:class "system-view"}
              ($ ReactFlow {:nodes nodes
                            :edges edges
                            :onNodesChange onNodesChange
@@ -107,6 +109,6 @@
                             "Manager"))))
                 ($ Background {:variant "dots"
                                :gap 12
-                               :size 1}))))
-       ($ sidebar {:selected-nodes selected-nodes
-                   :selected-edges selected-edges}))))
+                               :size 1})))
+          ($ sidebar {:selected-nodes selected-nodes
+                      :selected-edges selected-edges})))))
