@@ -52,13 +52,12 @@
 (defn- on-connect-callback [setEdges params]
   (setEdges #(addEdge params %)))
 
-(defn- on-selection-change-callback [nodes edges]
-  (println "Selection changed" nodes edges))
-
 (defui system [{:keys [nodes edges]}]
   (let [node-types (uix.core/use-memo (fn [] (clj->js node-types)) [node-types])
         [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
         [edges setEdges onEdgesChange] (useEdgesState (clj->js edges))
+        [selected-nodes set-selected-nodes] (uix.core/use-state nil)
+        [selected-edges set-selected-edges] (uix.core/use-state nil)
         update-node (uix.core/use-callback
                      #(update-node-callback setNodes %1 %2)
                      [setNodes])
@@ -66,7 +65,11 @@
                     #(on-connect-callback setEdges %)
                     [setEdges])
         on-selection-change (uix.core/use-callback
-                             #(on-selection-change-callback %1 %2)
+                             (fn [selections]
+                               (let [sel (js->clj selections :keywordize-keys true)]
+                                 (println "Sel:" sel)
+                                 (set-selected-nodes (:nodes sel))
+                                 (set-selected-edges (:edges sel))))
                              [])]
     ($ :div {:class "system-container"}
        ($ :div {:class "system-view"}
@@ -105,4 +108,5 @@
                 ($ Background {:variant "dots"
                                :gap 12
                                :size 1}))))
-       ($ sidebar))))
+       ($ sidebar {:selected-nodes selected-nodes
+                   :selected-edges selected-edges}))))
