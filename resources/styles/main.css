@@ -69,6 +69,16 @@
             }
         }
 
+        .node-wrapper {
+            padding: 0.5rem;
+            margin: -0.5rem;
+        }
+
+        .selected .node-wrapper {
+            background-color: rgba(0, 0, 0, 0.08);
+            border-radius: 0.5em;
+        }
+
         .logo {
             margin-top: 1em;
         }
