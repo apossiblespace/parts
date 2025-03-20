@@ -3,27 +3,57 @@
    [parts.common.constants :refer [part-labels]]
    [uix.core :refer [$ defui]]))
 
-(defui node-form [{:keys [node on-save collapsed]}]
-  (println "collapsed" collapsed)
+(defui node-form
+  "Form for viewing and editing node properties, to render in the sidebar.
+   Props:
+   - node: The node data to edit
+   - on-save: Callback function (id, form-data) when data is saved
+   - collapsed: Whether the form should start collapsed"
+  [{:keys [node on-save collapsed]}]
   (let [{:keys [id type data]} node
-        [initial-form-data set-initial-form-data] (uix.core/use-state {:type type, :label (:label data)})
-        [form-data set-form-data] (uix.core/use-state initial-form-data)
-        [collapsed? set-collapsed] (uix.core/use-state collapsed)
-        changed? (not= form-data initial-form-data)
+        [form-state set-form-state] (uix.core/use-state
+                                      {:values {:type type, :label (:label data)}
+                                       :initial {:type type, :label (:label data)}
+                                       :collapsed? collapsed})
+        {:keys [values initial collapsed?]} form-state
+        changed? (not= values initial)
+        update-field (fn [field value]
+                       (set-form-state
+                         (fn [state]
+                           (assoc-in state [:values field] value))))
+        toggle-collapsed (fn []
+                           (set-form-state
+                             (fn [state]
+                               (update state :collapsed? not))))
         handle-save (fn []
-                      (on-save id form-data)
-                      (set-initial-form-data form-data)
+                      (on-save id values)
+                      (set-form-state
+                        (fn [state]
+                          (assoc state :initial (:values state))))
                       (when (.-activeElement js/document)
                         (.blur (.-activeElement js/document))))
         handle-submit (fn [e]
                         (.preventDefault e)
                         (when changed?
                           (handle-save)))]
+
+    (uix.core/use-effect
+      (fn []
+        (set-form-state
+          (fn [state]
+            (-> state
+                (assoc-in [:values :type] type)
+                (assoc-in [:values :label] (:label data))
+                (assoc-in [:initial :type] type)
+                (assoc-in [:initial :label] (:label data))
+                (assoc :collapsed? collapsed)))))
+      [data id type collapsed])
+
     ($ :form {:onSubmit handle-submit
               :class "fieldset node-form p-2 border-b border-b-1 border-base-300"}
        ($ :div {:class "flex justify-between"}
           ($ :h3 {:class "text-xs/4 mr-2 font-bold cursor-pointer w-full pl-3 relative"
-                  :on-click #(set-collapsed (not collapsed?))}
+                  :on-click toggle-collapsed}
              (if collapsed?
                ($ :svg
                   {:xmlns "http://www.w3.org/2000/svg"
@@ -43,7 +73,7 @@
                      {:fill-rule "evenodd"
                       :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
                       :clip-rule "evenodd"})))
-             ($ :span (:label form-data)))
+             ($ :span (:label values)))
           (when-not collapsed?
             ($ :button {:class "btn btn-primary btn-xs"
                         :disabled (not changed?)
@@ -53,8 +83,8 @@
          ($ :div
             ($ :label {:class "fieldset-label"} "Type:")
             ($ :select {:class "select select-sm mb-1"
-                        :value (:type form-data)
-                        :onChange #(set-form-data assoc :type (.. % -target -value))}
+                        :value (:type values)
+                        :onChange #(update-field :type (.. % -target -value))}
                (->> part-labels
                     (map (fn [[k {:keys [label]}]]
                            ($ :option {:key k :value k}
@@ -63,7 +93,7 @@
             ($ :label {:class "fieldset-label"} "Label:")
             ($ :input {:class "input input-sm mb-1"
                        :type "text"
-                       :value (:label form-data)
-                       :onChange #(set-form-data assoc :label (.. % -target -value))})
+                       :value (:label values)
+                       :onChange #(update-field :label (.. % -target -value))})
 
             ($ :p {:class "fieldset-label"} (str "id: " id)))))))
