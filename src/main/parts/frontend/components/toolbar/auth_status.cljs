@@ -1,11 +1,11 @@
-(ns parts.frontend.components.auth-status
+(ns parts.frontend.components.toolbar.auth-status
   (:require
-   [uix.core :refer [defui $ use-state]]
+   [parts.frontend.components.login-modal :refer [login-modal]]
    [parts.frontend.context :as ctx]
-   [parts.frontend.components.login-modal :refer [login-modal]]))
+   [uix.core :refer [$ defui use-state]]))
 
 (defui auth-status
-  "Displays a logged/in out status, and a button to login and log out"
+  "Renders a logged/in out status, and a button to login and log out"
   []
   (let [[show-login-modal set-show-login-modal] (use-state false)
         {:keys [user loading logout]} (ctx/use-auth)]
