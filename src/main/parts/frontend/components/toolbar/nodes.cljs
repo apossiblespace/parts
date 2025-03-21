@@ -10,9 +10,6 @@
   (let [update-node (uix.core/use-context ctx/update-node-context)
         node-count (count selected-nodes)
         multiple-nodes (> node-count 1)]
-    ;; TODO: Remove debug
-    (println "Sidebar selected nodes:" selected-nodes)
-    (println "Node count:" node-count)
     ($ :div {:class "node-tools"}
        (when multiple-nodes
          ($ :div {:class "text-xs p-2"} (str node-count " parts selected:")))
@@ -24,8 +21,6 @@
                               :node node
                               :collapsed multiple-nodes
                               :on-save (fn [id form-data]
-                                         ;; TODO: Remove debug
-                                         (println "on-save called" id form-data)
                                          (when update-node
                                            (update-node id form-data)))}))
               selected-nodes))))))
