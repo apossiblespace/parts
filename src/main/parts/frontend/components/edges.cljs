@@ -1,7 +1,6 @@
 (ns parts.frontend.components.edges
   (:require
    ["@xyflow/react" :refer [BaseEdge getBezierPath]]
-   [parts.common.constants :refer [relationship-labels]]
    [uix.core :refer [$ as-react defui]]))
 
 ;; TODO: This is WIP, we need to review all the props being passed here.
@@ -49,7 +48,6 @@
 (def PartsEdge
   (as-react
     (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition] :as ^js props}]
-      (println "edge react props" props)
       ($ parts-edge {:id id
                      :data (js->clj data :keywordize-keys true)
                      :source-x sourceX

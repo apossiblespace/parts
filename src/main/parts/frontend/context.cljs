@@ -1,19 +1,20 @@
 (ns parts.frontend.context
+  (:require-macros
+   [cljs.core.async.macros :refer [go]])
   (:require
    [clojure.core.async :refer [<!]]
    [parts.frontend.api.core :as api]
    [parts.frontend.api.utils :as utils]
-   [uix.core :refer [$ defui use-state use-effect use-context]])
-  (:require-macros
-   [cljs.core.async.macros :refer [go]]))
+   [uix.core :refer [$ create-context defui use-context use-effect use-state]]))
 
-(def update-node-context (uix.core/create-context nil))
+(def update-system-context (create-context {:update-node nil
+                                            :update-edge nil}))
 
 (def auth-context (uix.core/create-context
-                   {:logged-in false
-                    :email nil
-                    :login nil
-                    :logout nil}))
+                    {:logged-in false
+                     :email nil
+                     :login nil
+                     :logout nil}))
 
 (defui auth-provider [{:keys [children]}]
   (let [[user set-user] (use-state nil)
@@ -39,16 +40,16 @@
                :logout logout!}]
 
     (use-effect
-     (fn []
-       (println "[auth-provider] checking for token")
-       (if (utils/get-tokens)
-         (do
-           (println "[auth-provider] token found")
-           (fetch-user!))
-         (do
-           (println "[auth-provider] no token")
-           (set-loading false))))
-     [fetch-user!])
+      (fn []
+        (println "[auth-provider] checking for token")
+        (if (utils/get-tokens)
+          (do
+            (println "[auth-provider] token found")
+            (fetch-user!))
+          (do
+            (println "[auth-provider] no token")
+            (set-loading false))))
+      [fetch-user!])
 
     ($ auth-context.Provider {:value value}
        children)))

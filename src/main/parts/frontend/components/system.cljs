@@ -44,6 +44,20 @@
                    node-map)))
              (js->clj nodes :keywordize-keys true))))))
 
+(defn- update-edge-callback [setEdges id form-data]
+  (println "update-edge-callback" id form-data)
+  (setEdges
+    (fn [edges]
+      (clj->js
+        (map (fn [edge]
+               (let [edge-map (js->clj edge :keywordize-keys true)]
+                 (if (= (:id edge-map) id)
+                   (-> edge-map
+                       (assoc-in [:data :relationship] (:relationship form-data))
+                       (assoc :className (str "edge-" (:relationship form-data))))
+                   edge-map)))
+             (js->clj edges :keywordize-keys true))))))
+
 (defn- on-connect-callback [setEdges params]
   (setEdges #(addEdge params %)))
 
@@ -57,18 +71,20 @@
         update-node (use-callback
                       #(update-node-callback setNodes %1 %2)
                       [setNodes])
+        update-edge (use-callback
+                      #(update-edge-callback setEdges %1 %2)
+                      [setEdges])
         on-connect (use-callback
                      #(on-connect-callback setEdges %)
                      [setEdges])
         on-selection-change (use-callback
                               (fn [selections]
                                 (let [sel (js->clj selections :keywordize-keys true)]
-                                  (println "Sel:" sel)
                                   (set-selected-nodes (:nodes sel))
                                   (set-selected-edges (:edges sel))))
                               [])]
 
-    ($ (.-Provider ctx/update-node-context) {:value update-node}
+    ($ (.-Provider ctx/update-system-context) {:value {:update-node update-node :update-edge update-edge}}
        ($ :div {:class "system-container"}
           ($ :div {:class "system-view"}
              ($ ReactFlow {:nodes nodes

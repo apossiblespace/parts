@@ -192,10 +192,11 @@
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge.selectable:focus .react-flow__edge-path,
 .react-flow__edge.selectable:focus-visible .react-flow__edge-path {
-  stroke: var(
-    --xy-edge-stroke-selected,
-    var(--xy-edge-stroke-selected-default)
-  );
+  /* stroke: var( */
+  /*   --xy-edge-stroke-selected, */
+  /*   var(--xy-edge-stroke-selected-default) */
+  /* ); */
+  stroke-width: 3px;
 }
 .react-flow__edge-textwrapper {
   pointer-events: all;
