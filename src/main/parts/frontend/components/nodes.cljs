@@ -1,28 +1,25 @@
 (ns parts.frontend.components.nodes
   (:require
    ["reactflow" :refer [Handle Position]]
-   [uix.core :refer [defui $]]
-   [parts.common.constants :refer [part-labels]]))
+   [parts.common.constants :refer [part-labels]]
+   [uix.core :refer [$ defui]]))
 
-(defui parts-node [{:keys [type data is-connectable]}]
+(defui parts-node [{:keys [type data]}]
   ($ :div {:class "node-wrapper"}
      ($ :div {:class (str "node " type)}
         ($ Handle {:type "target"
-                   :position (.-Top Position)
-                   :isConnectable is-connectable})
+                   :position (.-Top Position)})
         ($ :div {:class "text-center font-medium text-sm/4"}
            (:label data))
         ($ Handle {:type "source"
-                   :position (.-Bottom Position)
-                   :isConnectable is-connectable}))))
+                   :position (.-Bottom Position)}))))
 
 (def PartsNode
   (uix.core/as-react
-   (fn [{:keys [id type data isConnectable] :as ^js props}]
-     ($ parts-node {:id id
-                    :type type
-                    :data (js->clj data :keywordize-keys true)
-                    :is-connectable isConnectable}))))
+    (fn [{:keys [id type data] :as ^js _props}]
+      ($ parts-node {:id id
+                     :type type
+                     :data (js->clj data :keywordize-keys true)}))))
 
 (def node-types
   (->> part-labels
