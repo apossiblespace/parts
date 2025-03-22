@@ -2,7 +2,7 @@
   (:require
    ["@xyflow/react" :refer [Handle Position]]
    [parts.common.constants :refer [part-labels]]
-   [uix.core :refer [$ defui]]))
+   [uix.core :refer [$ as-react defui]]))
 
 (defui parts-node [{:keys [type data]}]
   ($ :div {:class "node-wrapper"}
@@ -15,7 +15,7 @@
                    :position (.-Bottom Position)}))))
 
 (def PartsNode
-  (uix.core/as-react
+  (as-react
     (fn [{:keys [id type data] :as ^js _props}]
       ($ parts-node {:id id
                      :type type

@@ -69,6 +69,31 @@
             }
         }
 
+        /* Custom edge styles based on relationship */
+        .edge-unknown {
+            stroke: #999999;
+        }
+
+        .edge-protective {
+            stroke: #4caf50;
+        }
+
+        .edge-polarization {
+            stroke: #f44336;
+        }
+
+        .edge-alliance {
+            stroke: #2196f3;
+        }
+
+        .edge-burden {
+            stroke: #ff9800;
+        }
+
+        .edge-blended {
+            stroke: #9c27b0;
+        }
+
         .node-wrapper {
             padding: 0.5rem;
             margin: -0.5rem;

@@ -2,6 +2,7 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow addEdge useEdgesState useNodesState]]
    [clojure.string :as str]
+   [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.sidebar :refer [sidebar]]
    [parts.frontend.components.toolbar :refer [parts-toolbar]]
@@ -48,6 +49,7 @@
 
 (defui system [{:keys [nodes edges]}]
   (let [node-types (use-memo (fn [] (clj->js node-types)) [node-types])
+        edge-types (use-memo (fn [] (clj->js edge-types)) [edge-types])
         [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
         [edges setEdges onEdgesChange] (useEdgesState (clj->js edges))
         [selected-nodes set-selected-nodes] (use-state nil)
@@ -75,33 +77,34 @@
                            :onEdgesChange onEdgesChange
                            :onConnect on-connect
                            :onSelectionChange on-selection-change
-                           :nodeTypes node-types}
-                ($ MiniMap)
-                ($ Controls)
-                ($ Panel {:position "top-left" :class "logo"}
-                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-                ($ Panel {:position "top-right" :class "toolbar"}
-                   ($ parts-toolbar
-                      ($ :span " Add part: ")
-                      ($ :div {:class "join"}
-                         ($ :button
-                            {:class "btn btn-xs join-item"
-                             :on-click (fn [] (setNodes (add-node "unknown")))}
-                            "Unknown")
-                         ($ :button
-                            {:class "btn btn-xs join-item"
-                             :on-click (fn [] (setNodes (add-node "exile")))}
-                            "Exile")
-                         ($ :button
-                            {:class "btn btn-xs join-item"
-                             :on-click (fn [] (setNodes (add-node "firefighter")))}
-                            "Firefighter")
-                         ($ :button
-                            {:class "btn btn-xs join-item"
-                             :on-click (fn [] (setNodes (add-node "manager")))}
-                            "Manager"))))
-                ($ Background {:variant "dots"
-                               :gap 12
-                               :size 1})))
+                           :nodeTypes node-types
+                           :edgeTypes edge-types}
+               ($ MiniMap)
+               ($ Controls)
+               ($ Panel {:position "top-left" :class "logo"}
+                  ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
+               ($ Panel {:position "top-right" :class "toolbar"}
+                  ($ parts-toolbar
+                     ($ :span " Add part: ")
+                     ($ :div {:class "join"}
+                        ($ :button
+                           {:class "btn btn-xs join-item"
+                            :on-click (fn [] (setNodes (add-node "unknown")))}
+                           "Unknown")
+                        ($ :button
+                           {:class "btn btn-xs join-item"
+                            :on-click (fn [] (setNodes (add-node "exile")))}
+                           "Exile")
+                        ($ :button
+                           {:class "btn btn-xs join-item"
+                            :on-click (fn [] (setNodes (add-node "firefighter")))}
+                           "Firefighter")
+                        ($ :button
+                           {:class "btn btn-xs join-item"
+                            :on-click (fn [] (setNodes (add-node "manager")))}
+                           "Manager"))))
+               ($ Background {:variant "dots"
+                              :gap 12
+                              :size 1})))
           ($ sidebar {:selected-nodes selected-nodes
                       :selected-edges selected-edges})))))

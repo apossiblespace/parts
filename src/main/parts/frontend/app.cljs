@@ -1,9 +1,9 @@
 (ns parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
-   [parts.frontend.context :refer [auth-provider]]
    [parts.frontend.components.system :refer [system]]
-   [uix.core :refer [defui $]]
+   [parts.frontend.context :refer [auth-provider]]
+   [uix.core :refer [$ defui]]
    [uix.dom]))
 
 (def system-data
@@ -12,8 +12,8 @@
     {:id "2" :position {:x 200 :y 300} :type "exile" :data {:label "Exile"}}
     {:id "3" :position {:x 100 :y 130} :type "firefighter" :data {:label "Firefighter"}}]
    :edges
-   [{:id "e1-2" :source "1" :target "2"}
-    {:id "e3-2" :source "3" :target "2"}]})
+   [{:id "e1-2" :source "1" :target "2" :data {:relationship "unknown"}}
+    {:id "e3-2" :source "3" :target "2" :data {:relationship "protective"}}]})
 
 (defui app []
   ($ auth-provider {}
