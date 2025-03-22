@@ -3,7 +3,7 @@
     "htmx.org": "^2.0.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "reactflow": "^11.11.4"
+    "@xyflow/react": "^12.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.8",

@@ -1,6 +1,6 @@
 (ns parts.frontend.components.nodes
   (:require
-   ["reactflow" :refer [Handle Position]]
+   ["@xyflow/react" :refer [Handle Position]]
    [parts.common.constants :refer [part-labels]]
    [uix.core :refer [$ defui]]))
 

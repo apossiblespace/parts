@@ -1,6 +1,6 @@
 (ns parts.frontend.components.system
   (:require
-   ["reactflow" :refer [Background Controls MiniMap Panel ReactFlow addEdge useEdgesState useNodesState]]
+   ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow addEdge useEdgesState useNodesState]]
    [clojure.string :as str]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.sidebar :refer [sidebar]]
