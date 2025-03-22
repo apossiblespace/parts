@@ -1,7 +1,7 @@
 (ns parts.frontend.components.node-form
   (:require
    [parts.common.constants :refer [part-labels]]
-   [uix.core :refer [$ defui]]))
+   [uix.core :refer [$ defui use-effect use-state]]))
 
 (defui node-form
   "Form for viewing and editing node properties, to render in the sidebar.
@@ -11,7 +11,7 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [node on-save collapsed]}]
   (let [{:keys [id type data]} node
-        [form-state set-form-state] (uix.core/use-state
+        [form-state set-form-state] (use-state
                                       {:values {:type type, :label (:label data)}
                                        :initial {:type type, :label (:label data)}
                                        :collapsed? collapsed})
@@ -37,7 +37,7 @@
                         (when changed?
                           (handle-save)))]
 
-    (uix.core/use-effect
+    (use-effect
       (fn []
         (set-form-state
           (fn [state]
