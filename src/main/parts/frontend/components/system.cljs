@@ -58,8 +58,13 @@
                    edge-map)))
              (js->clj edges :keywordize-keys true))))))
 
+(defn- with-default-relationship [edge-params]
+  (update-in (js->clj edge-params :keywordize-keys true)
+             [:data]
+             #(merge {:relationship :unknown} %)))
+
 (defn- on-connect-callback [setEdges params]
-  (setEdges #(addEdge params %)))
+  (setEdges #(addEdge (clj->js (with-default-relationship params)) %)))
 
 (defui system [{:keys [nodes edges]}]
   (let [node-types (use-memo (fn [] (clj->js node-types)) [node-types])
