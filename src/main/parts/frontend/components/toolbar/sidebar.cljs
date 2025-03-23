@@ -17,4 +17,6 @@
      ($ :div {:class "fixed-bottom"}
         ($ MiniMap {:className "parts-minimap"
                     :ariaLabel "Minimap"
+                    :pannable true
+                    :zoomable true
                     :offsetScale 5}))))
