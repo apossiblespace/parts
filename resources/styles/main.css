@@ -26,8 +26,8 @@
     --color-error: oklch(70% 0.191 22.216);
     --color-error-content: oklch(39% 0.141 25.723);
     --radius-selector: 1rem;
-    --radius-field: 0.5rem;
-    --radius-box: 1rem;
+    --radius-field: 0.25rem;
+    --radius-box: 0.25rem;
     --size-selector: 0.25rem;
     --size-field: 0.25rem;
     --border: 1px;
@@ -116,10 +116,25 @@
         }
     }
 
-    .sidebar {
+    .sidebar-container {
         width: 200px;
         height: 100vh;
         border-left: 1px solid var(--color-base-300);
-        overflow-y: scroll;
+        background-color: var(--color-base-100);
+        margin: 0px;
+
+        .sidebar {
+            .scrollable-area {
+                overflow-y: scroll;
+            }
+
+            .fixed-bottom {
+            }
+
+            .parts-minimap {
+                position: relative;
+                margin: 0px;
+            }
+        }
     }
 }

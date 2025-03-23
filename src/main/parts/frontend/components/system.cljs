@@ -1,11 +1,11 @@
 (ns parts.frontend.components.system
   (:require
-   ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow addEdge useEdgesState useNodesState]]
+   ["@xyflow/react" :refer [Background Controls Panel ReactFlow addEdge useEdgesState useNodesState]]
    [clojure.string :as str]
    [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
-   [parts.frontend.components.sidebar :refer [sidebar]]
    [parts.frontend.components.toolbar :refer [parts-toolbar]]
+   [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
    [uix.core :refer [$ defui use-callback use-memo use-state]]))
@@ -95,11 +95,10 @@
                            :onSelectionChange on-selection-change
                            :nodeTypes node-types
                            :edgeTypes edge-types}
-               ($ MiniMap)
                ($ Controls)
                ($ Panel {:position "top-left" :class "logo"}
                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-               ($ Panel {:position "top-right" :class "toolbar"}
+               ($ Panel {:position "top-center" :class "toolbar"}
                   ($ parts-toolbar
                      ($ :span " Add part: ")
                      ($ :div {:class "join"}
@@ -119,8 +118,9 @@
                            {:class "btn btn-xs join-item"
                             :on-click (fn [] (setNodes (add-node "manager")))}
                            "Manager"))))
+               ($ Panel {:position "top-right" :className "sidebar-container"}
+                  ($ sidebar {:selected-nodes selected-nodes
+                              :selected-edges selected-edges}))
                ($ Background {:variant "dots"
                               :gap 12
-                              :size 1})))
-          ($ sidebar {:selected-nodes selected-nodes
-                      :selected-edges selected-edges})))))
+                              :size 1})))))))
