@@ -4,7 +4,7 @@
    [clojure.string :as str]
    [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
-   [parts.frontend.components.toolbar :refer [parts-toolbar]]
+   [parts.frontend.components.toolbar.button :refer [button]]
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
@@ -103,26 +103,16 @@
                ($ Controls)
                ($ Panel {:position "top-left" :class "logo"}
                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-               ($ Panel {:position "top-center" :class "toolbar"}
-                  ($ parts-toolbar
-                     ($ :span " Add part: ")
-                     ($ :div {:class "join"}
-                        ($ :button
-                           {:class "btn btn-xs join-item"
-                            :on-click (fn [] (setNodes (add-node "unknown")))}
-                           "Unknown")
-                        ($ :button
-                           {:class "btn btn-xs join-item"
-                            :on-click (fn [] (setNodes (add-node "exile")))}
-                           "Exile")
-                        ($ :button
-                           {:class "btn btn-xs join-item"
-                            :on-click (fn [] (setNodes (add-node "firefighter")))}
-                           "Firefighter")
-                        ($ :button
-                           {:class "btn btn-xs join-item"
-                            :on-click (fn [] (setNodes (add-node "manager")))}
-                           "Manager"))))
+               ($ Panel {:position "top-center" :class "toolbar shadow-xs"}
+                  ($ :div {:class "join"}
+                     ($ button {:label "Unknown"
+                                :on-click (fn [] (setNodes (add-node "unknown")))})
+                     ($ button {:label "Exile"
+                                :on-click (fn [] (setNodes (add-node "exile")))})
+                     ($ button {:label "Firefighter"
+                                :on-click (fn [] (setNodes (add-node "firefighter")))})
+                     ($ button {:label "Manager"
+                                :on-click (fn [] (setNodes (add-node "manager")))})))
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar {:selected-nodes selected-nodes
                               :selected-edges selected-edges}))
