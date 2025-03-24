@@ -1,8 +1,9 @@
 (ns parts.frontend.api.core
   "High level API functions that should be used to interact with the backend."
-  (:require [cljs.core.async :refer [<! go]]
-            [parts.frontend.api.utils :as utils]
-            [parts.frontend.api.http :as http]))
+  (:require
+   [cljs.core.async :refer [<! go]]
+   [parts.frontend.api.http :as http]
+   [parts.frontend.api.utils :as utils]))
 
 ;; Authentication-related functions
 (defn login
@@ -28,3 +29,11 @@
   - role"
   []
   (http/GET "/account" {}))
+
+;; Update batching related functions
+;; TODO: Implement /system/changes backend endpoint
+(defn send-batched-updates
+  [batch]
+  (go
+    (println "Sending batch:" batch)
+    (<! (http/POST "/system/changes" batch))))

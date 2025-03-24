@@ -8,7 +8,7 @@
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
-   [uix.core :refer [$ defui use-callback use-memo use-state]]))
+   [uix.core :refer [$ defui use-callback use-effect use-memo use-state]]))
 
 ;; FIXME: This shouldn't be returning a javascript object.
 ;; Ideally, we would not be manipulating JS outside of the React component at
@@ -88,6 +88,15 @@
                                   (set-selected-nodes (:nodes sel))
                                   (set-selected-edges (:edges sel))))
                               [])]
+
+    (use-effect
+      (fn []
+        ;; TODO: Start batch processing here via api.queue/send-batched-updates
+        (println "[system] mounting")
+        (fn []
+          ;; TODO: Close channels
+          (println "[system] unmounting")))
+      [])
 
     ($ (.-Provider ctx/update-system-context) {:value {:update-node update-node :update-edge update-edge}}
        ($ :div {:class "system-container"}
