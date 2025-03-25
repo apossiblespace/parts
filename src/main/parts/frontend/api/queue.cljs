@@ -1,7 +1,7 @@
 (ns parts.frontend.api.queue
   "Batching up change events for efficient sending to backend"
   (:require
-   [cljs.core.async :refer [<! >! alts! chan close! go-loop timeout]]
+   [cljs.core.async :refer [<! >! alts! chan close! go go-loop timeout]]
    [parts.frontend.api.core :refer [send-batched-updates]]))
 
 (defn debounce-batch
@@ -38,12 +38,29 @@
 (def changes-chan (chan))
 (def debounced-chan (debounce-batch changes-chan 2000))
 
-(defn send-batched-updates
+(defn start
   "Start a loop sending batched system updates to the backend"
   []
+  (println "[queue] update queue started")
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch
         (let [response (send-batched-updates batch)]
           (println "Batch response:" (:status response) (:body response)))))
     (recur)))
+
+(defn stop
+  "Close channles and stop processing the queue"
+  []
+  ;; (close! changes-chan)
+  ;; (close! debounced-chan)
+  (println "[queue] update queue stopped"))
+
+(defn add
+  "Process a node or edge change event and put on queue when appropriate"
+  [entity changes]
+  {:pre [(or (= entity :node) (= entity :edge))]}
+  (println "[process-change]" entity changes)
+  (go
+    (>! changes-chan {:type "generic"
+                      :data changes})))

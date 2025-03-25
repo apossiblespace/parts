@@ -2,6 +2,7 @@
   (:require
    ["@xyflow/react" :refer [Background Controls Panel ReactFlow addEdge useEdgesState useNodesState]]
    [clojure.string :as str]
+   [parts.frontend.api.queue :as queue]
    [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar.button :refer [button]]
@@ -73,6 +74,14 @@
         [edges setEdges onEdgesChange] (useEdgesState (clj->js edges))
         [selected-nodes set-selected-nodes] (use-state nil)
         [selected-edges set-selected-edges] (use-state nil)
+        on-nodes-change (fn [changes]
+                          (println "[on-nodes-change]" changes)
+                          (queue/add :node (js->clj changes :keywordize-keys true))
+                          (onNodesChange changes))
+        on-edges-change (fn [changes]
+                          (println "[on-edges-change]" changes)
+                          (queue/add :edge (js->clj changes :keywordize-keys true))
+                          (onEdgesChange changes))
         update-node (use-callback
                       #(update-node-callback setNodes %1 %2)
                       [setNodes])
@@ -91,11 +100,11 @@
 
     (use-effect
       (fn []
-        ;; TODO: Start batch processing here via api.queue/send-batched-updates
         (println "[system] mounting")
+        (queue/start)
         (fn []
-          ;; TODO: Close channels
-          (println "[system] unmounting")))
+          (println "[system] unmounting")
+          (queue/stop)))
       [])
 
     ($ (.-Provider ctx/update-system-context) {:value {:update-node update-node :update-edge update-edge}}
@@ -103,8 +112,8 @@
           ($ :div {:class "system-view"}
              ($ ReactFlow {:nodes nodes
                            :edges edges
-                           :onNodesChange onNodesChange
-                           :onEdgesChange onEdgesChange
+                           :onNodesChange on-nodes-change
+                           :onEdgesChange on-edges-change
                            :onConnect on-connect
                            :onSelectionChange on-selection-change
                            :nodeTypes node-types
