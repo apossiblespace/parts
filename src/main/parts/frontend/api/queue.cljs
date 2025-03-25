@@ -56,11 +56,42 @@
   ;; (close! debounced-chan)
   (println "[queue] update queue stopped"))
 
-(defn add
-  "Process a node or edge change event and put on queue when appropriate"
-  [entity changes]
-  {:pre [(or (= entity :node) (= entity :edge))]}
-  (println "[process-change]" entity changes)
+(defn- enqueue! [{:keys [entity id type data]}]
   (go
-    (>! changes-chan {:type "generic"
-                      :data changes})))
+    (>! changes-chan {:entity entity
+                      :id id
+                      :type type
+                      :data data})))
+
+(defmulti process-event!
+  (fn [entity event]
+    [entity (:type event)]))
+
+(defmethod process-event! [:node "position"]
+  [entity event]
+  (when-not (:dragging event)
+    (let [{:keys [id type]} event
+          data (:position event)]
+      (enqueue! {:entity entity :id id :type type :data data}))))
+
+(defmethod process-event! [:node "remove"]
+  [entity event]
+  (let [{:keys [id type]} event
+        data {}]
+    (enqueue! {:entity entity :id id :type type :data data})))
+
+(defmethod process-event! [:node "update"]
+  [entity event]
+  (let [{:keys [id type data]} event]
+    (enqueue! {:entity entity :id id :type type :data data})))
+
+(defmethod process-event! :default
+  [entity event]
+  (println "[process-event!] unhandled:" entity event))
+
+(defn add-events
+  "Process a node or edge change event and put on queue when appropriate"
+  [entity events]
+  {:pre [(or (= entity :node) (= entity :edge))]}
+  (doseq [event events]
+    (process-event! entity event)))
