@@ -1,6 +1,5 @@
 (ns parts.frontend.components.toolbar.sidebar
   (:require
-   ["@xyflow/react" :refer [MiniMap]]
    [parts.frontend.components.toolbar.auth-status :refer [auth-status]]
    [parts.frontend.components.toolbar.edges :refer [edges-tools]]
    [parts.frontend.components.toolbar.nodes :refer [node-tools]]
@@ -9,14 +8,8 @@
 (defui sidebar
   "Display the main sidebar"
   [{:keys [selected-nodes selected-edges]}]
-  ($ :div {:class "sidebar h-full flex flex-col"}
-     ($ :div {:class "scrollable-area flex-grow"}
-        ($ auth-status)
+  ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-white shadow-sm"}
+     ($ auth-status)
+     ($ :div {:class "overflow-auto"}
         ($ node-tools {:selected-nodes selected-nodes})
-        ($ edges-tools {:selected-edges selected-edges}))
-     ($ :div {:class "fixed-bottom"}
-        ($ MiniMap {:className "parts-minimap"
-                    :ariaLabel "Minimap"
-                    :pannable true
-                    :zoomable true
-                    :offsetScale 5}))))
+        ($ edges-tools {:selected-edges selected-edges}))))

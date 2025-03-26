@@ -9,7 +9,7 @@
   []
   (let [[show-login-modal set-show-login-modal] (use-state false)
         {:keys [user loading logout]} (ctx/use-auth)]
-    ($ :section {:class "p-2 auth-status border-b border-b-1 border-base-300"}
+    ($ :section {:class "tools p-2 auth-status border-b-1 border-base-300"}
        ($ login-modal
           {:show show-login-modal
            :on-close #(set-show-login-modal false)})

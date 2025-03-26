@@ -1,6 +1,6 @@
 (ns parts.frontend.components.system
   (:require
-   ["@xyflow/react" :refer [Background Controls Panel ReactFlow addEdge useEdgesState useNodesState]]
+   ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow addEdge useEdgesState useNodesState]]
    [clojure.string :as str]
    [parts.frontend.api.queue :as queue]
    [parts.frontend.components.edges :refer [edge-types]]
@@ -137,6 +137,12 @@
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar {:selected-nodes selected-nodes
                               :selected-edges selected-edges}))
+               ($ MiniMap {:className "tools parts-minimap shadow-sm"
+                           :position "bottom-right"
+                           :ariaLabel "Minimap"
+                           :pannable true
+                           :zoomable true
+                           :offsetScale 5})
                ($ Background {:variant "dots"
                               :gap 12
                               :size 1})))))))
