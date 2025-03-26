@@ -1,7 +1,7 @@
 (ns parts.frontend.api.queue
   "Batching up change events for efficient sending to backend"
   (:require
-   [cljs.core.async :refer [<! >! alts! chan close! go go-loop timeout]]
+   [cljs.core.async :refer [<! >! alts! chan close! go go-loop put! timeout]]
    [parts.frontend.api.core :refer [send-batched-updates]]))
 
 (defn debounce-batch
@@ -50,48 +50,53 @@
     (recur)))
 
 (defn stop
-  "Close channles and stop processing the queue"
+  "Close channels and stop processing the queue"
   []
   ;; (close! changes-chan)
   ;; (close! debounced-chan)
   (println "[queue] update queue stopped"))
 
-(defn- enqueue! [{:keys [entity id type data]}]
-  (go
-    (>! changes-chan {:entity entity
-                      :id id
-                      :type type
-                      :data data})))
-
-(defmulti process-event!
+(defmulti normalize-event
+  "Returns a normalized event to be enqueued"
   (fn [entity event]
     [entity (:type event)]))
 
-(defmethod process-event! [:node "position"]
+(defmethod normalize-event [:node "position"]
   [entity event]
   (when-not (:dragging event)
-    (let [{:keys [id type]} event
-          data (:position event)]
-      (enqueue! {:entity entity :id id :type type :data data}))))
+    {:entity entity
+     :id (:id event)
+     :type (:type event)
+     :data (:position event)}))
 
-(defmethod process-event! [:node "remove"]
+(defmethod normalize-event [:node "remove"]
   [entity event]
-  (let [{:keys [id type]} event
-        data {}]
-    (enqueue! {:entity entity :id id :type type :data data})))
+  {:entity entity
+   :id (:id event)
+   :type (:type event)
+   :data {}})
 
-(defmethod process-event! [:node "update"]
+(defmethod normalize-event [:node "update"]
   [entity event]
-  (let [{:keys [id type data]} event]
-    (enqueue! {:entity entity :id id :type type :data data})))
+  {:entity entity
+   :id (:id event)
+   :type (:type event)
+   :data (:data event)})
 
-(defmethod process-event! :default
+(defmethod normalize-event :default
   [entity event]
-  (println "[process-event!] unhandled:" entity event))
+  (println "[normalize-event] unhandled:" entity event)
+  nil)
 
-(defn add-events
-  "Process a node or edge change event and put on queue when appropriate"
+(defn- normalize-events
+  "Normalize a collection of events for enqueuing"
   [entity events]
   {:pre [(or (= entity :node) (= entity :edge))]}
-  (doseq [event events]
-    (process-event! entity event)))
+  (keep #(normalize-event entity %) events))
+
+(defn add-events!
+  "Process and enqueue node or edge change events"
+  [entity events]
+  (when-let [normalized (seq (normalize-events entity events))]
+    (doseq [event normalized]
+      (put! changes-chan event))))

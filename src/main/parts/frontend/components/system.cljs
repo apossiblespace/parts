@@ -44,9 +44,9 @@
                    (build-updated-part node-map form-data)
                    node-map)))
              (js->clj nodes :keywordize-keys true)))))
-  (queue/add-events :node [{:id id
-                            :type "update"
-                            :data form-data}]))
+  (queue/add-events! :node [{:id id
+                             :type "update"
+                             :data form-data}]))
 
 (defn- update-edge-callback [setEdges id form-data]
   (println "update-edge-callback" id form-data)
@@ -79,11 +79,11 @@
         [selected-edges set-selected-edges] (use-state nil)
         on-nodes-change (fn [changes]
                           (println "[on-nodes-change]" changes)
-                          (queue/add-events :node (js->clj changes :keywordize-keys true))
+                          (queue/add-events! :node (js->clj changes :keywordize-keys true))
                           (onNodesChange changes))
         on-edges-change (fn [changes]
                           (println "[on-edges-change]" changes)
-                          (queue/add-events :edge (js->clj changes :keywordize-keys true))
+                          (queue/add-events! :edge (js->clj changes :keywordize-keys true))
                           (onEdgesChange changes))
         update-node (use-callback
                       #(update-node-callback setNodes %1 %2)
