@@ -52,8 +52,6 @@
 (defn stop
   "Close channels and stop processing the queue"
   []
-  ;; (close! changes-chan)
-  ;; (close! debounced-chan)
   (println "[queue] update queue stopped"))
 
 (defmulti normalize-event
