@@ -3,17 +3,44 @@
    ["htmx.org" :default htmx]
    [parts.frontend.components.system :refer [system]]
    [parts.frontend.context :refer [auth-provider]]
+   [parts.common.models.part :refer [make-part]]
+   [parts.common.models.relationship :refer [make-relationship]]
    [uix.core :refer [$ defui]]
    [uix.dom]))
 
+(def system-id (str (random-uuid)))
+
+(def parts
+  [(make-part {:type "manager"
+               :label "Manager"
+               :position_x 300
+               :position_y 130
+               :system_id system-id})
+   (make-part {:type "exile"
+               :label "Exile"
+               :position_x 200
+               :position_y 300
+               :system_id system-id})
+   (make-part {:type "firefighter"
+               :label "Firefighter"
+               :position_x 100
+               :position_y 130
+               :system_id system-id})])
+
+(def relationships
+  [(make-relationship {:type "unknown"
+                       :source_id (:id (nth parts 0))
+                       :target_id (:id (nth parts 1))
+                       :system_id system-id})
+   (make-relationship {:type "protective"
+                       :source_id (:id (nth parts 2))
+                       :target_id (:id (nth parts 1))
+                       :system_id system-id})])
+
 (def system-data
-  {:nodes
-   [{:id "1" :position {:x 300 :y 130} :type "manager" :data {:label "Manager"}}
-    {:id "2" :position {:x 200 :y 300} :type "exile" :data {:label "Exile"}}
-    {:id "3" :position {:x 100 :y 130} :type "firefighter" :data {:label "Firefighter"}}]
-   :edges
-   [{:id "e1-2" :source "1" :target "2" :data {:relationship "unknown"}}
-    {:id "e3-2" :source "3" :target "2" :data {:relationship "protective"}}]})
+  {:id system-id
+   :parts parts
+   :relationships relationships})
 
 (defui app []
   ($ auth-provider {}

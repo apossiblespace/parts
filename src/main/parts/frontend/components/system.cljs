@@ -9,6 +9,7 @@
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
    [parts.frontend.utils.node-utils :refer [build-updated-part]]
+   [parts.frontend.adapters.reactflow :as a]
    [uix.core :refer [$ defui use-callback use-effect use-memo use-state]]))
 
 ;; FIXME: This shouldn't be returning a javascript object.
@@ -79,11 +80,11 @@
   (setEdges #(addEdge (clj->js (with-default-relationship params)) %))
   (queue/add-events! :edge [(assoc params :type "create")]))
 
-(defui system [{:keys [nodes edges]}]
+(defui system [{:keys [parts relationships]}]
   (let [node-types (use-memo (fn [] (clj->js node-types)) [node-types])
         edge-types (use-memo (fn [] (clj->js edge-types)) [edge-types])
-        [nodes setNodes onNodesChange] (useNodesState (clj->js nodes))
-        [edges setEdges onEdgesChange] (useEdgesState (clj->js edges))
+        [nodes setNodes onNodesChange] (useNodesState (a/parts->nodes parts))
+        [edges setEdges onEdgesChange] (useEdgesState (a/relationships->edges relationships))
         [selected-nodes set-selected-nodes] (use-state nil)
         [selected-edges set-selected-edges] (use-state nil)
         on-nodes-change (fn [changes]

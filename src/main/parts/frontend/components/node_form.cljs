@@ -10,26 +10,26 @@
    - on-save: Callback function (id, form-data) when data is saved
    - collapsed: Whether the form should start collapsed"
   [{:keys [node on-save collapsed]}]
-  (let [{:keys [id type data]} node
+  (let [{:keys [id data]} node
         [form-state set-form-state] (use-state
-                                      {:values {:type type, :label (:label data)}
-                                       :initial {:type type, :label (:label data)}
-                                       :collapsed? collapsed})
+                                     {:values {:type (:type data), :label (:label data)}
+                                      :initial {:type (:type data), :label (:label data)}
+                                      :collapsed? collapsed})
         {:keys [values initial collapsed?]} form-state
         changed? (not= values initial)
         update-field (fn [field value]
                        (set-form-state
-                         (fn [state]
-                           (assoc-in state [:values field] value))))
+                        (fn [state]
+                          (assoc-in state [:values field] value))))
         toggle-collapsed (fn []
                            (set-form-state
-                             (fn [state]
-                               (update state :collapsed? not))))
+                            (fn [state]
+                              (update state :collapsed? not))))
         handle-save (fn []
                       (on-save id values)
                       (set-form-state
-                        (fn [state]
-                          (assoc state :initial (:values state))))
+                       (fn [state]
+                         (assoc state :initial (:values state))))
                       (when (.-activeElement js/document)
                         (.blur (.-activeElement js/document))))
         handle-submit (fn [e]
@@ -38,16 +38,16 @@
                           (handle-save)))]
 
     (use-effect
-      (fn []
-        (set-form-state
-          (fn [state]
-            (-> state
-                (assoc-in [:values :type] type)
-                (assoc-in [:values :label] (:label data))
-                (assoc-in [:initial :type] type)
-                (assoc-in [:initial :label] (:label data))
-                (assoc :collapsed? collapsed)))))
-      [data id type collapsed])
+     (fn []
+       (set-form-state
+        (fn [state]
+          (-> state
+              (assoc-in [:values :type] (:type data))
+              (assoc-in [:values :label] (:label data))
+              (assoc-in [:initial :type] (:type data))
+              (assoc-in [:initial :label] (:label data))
+              (assoc :collapsed? collapsed)))))
+     [data id collapsed])
 
     ($ :form {:onSubmit handle-submit
               :class "fieldset node-form p-2 border-b border-b-1 border-base-300"}

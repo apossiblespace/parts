@@ -2,8 +2,8 @@
   (:require [parts.common.constants :refer [part-labels]]))
 
 (defn build-updated-part [node-map form-data]
-  (let [old-type (keyword (:type node-map))
-        new-type (keyword (:type form-data))
+  (let [old-type (get-in node-map [:data :type])
+        new-type (:type form-data)
         old-label (get-in node-map [:data :label])
         old-default-label (get-in part-labels [old-type :label])
         new-label (if (and (= old-label old-default-label)
@@ -14,5 +14,4 @@
                     (get-in part-labels [new-type :label])
                     (:label form-data))]
     (-> node-map
-        (assoc :type (name new-type))
-        (assoc :data {"label" new-label}))))
+        (assoc :data {:label new-label :type new-type}))))

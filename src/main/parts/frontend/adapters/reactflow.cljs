@@ -11,6 +11,11 @@
        :data #js {:label label
                   :type (name type)}})
 
+(defn parts->nodes
+  "Convert a sequence of Parts to an Array of ReactFlow nodes"
+  [parts]
+  (to-array (map part->node parts)))
+
 (defn node->part
   "Convert ReactFlow node to a Part"
   [node system-id]
@@ -30,6 +35,11 @@
        :target target_id
        :data #js {:relationship (name type)}
        :className (str "edge-" (name type))})
+
+(defn relationships->edges
+  "Convert a sequence of Relationships to an Array of ReactFlow edges"
+  [relationships]
+  (to-array (map relationship->edge relationships)))
 
 (defn edge->relationship
   "Convert ReactFlow edge to a Relationship"

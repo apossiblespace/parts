@@ -501,51 +501,59 @@ svg.react-flow__connectionline {
 .react-flow__node.selectable:focus-visible {
   outline: none;
 }
-.react-flow__node-input,
-.react-flow__node-default,
-.react-flow__node-output,
-.react-flow__node-group {
-  padding: 10px;
-  border-radius: var(
-    --xy-node-border-radius,
-    var(--xy-node-border-radius-default)
-  );
-  width: 150px;
-  font-size: 12px;
-  color: var(--xy-node-color, var(--xy-node-color-default));
-  text-align: center;
-  border: var(--xy-node-border, var(--xy-node-border-default));
-  background-color: var(
-    --xy-node-background-color,
-    var(--xy-node-background-color-default)
-  );
-}
-.react-flow__node-input.selectable:hover,
-.react-flow__node-default.selectable:hover,
-.react-flow__node-output.selectable:hover,
-.react-flow__node-group.selectable:hover {
-  box-shadow: var(
-    --xy-node-boxshadow-hover,
-    var(--xy-node-boxshadow-hover-default)
-  );
-}
-.react-flow__node-input.selectable.selected,
-.react-flow__node-input.selectable:focus,
-.react-flow__node-input.selectable:focus-visible,
-.react-flow__node-default.selectable.selected,
-.react-flow__node-default.selectable:focus,
-.react-flow__node-default.selectable:focus-visible,
-.react-flow__node-output.selectable.selected,
-.react-flow__node-output.selectable:focus,
-.react-flow__node-output.selectable:focus-visible,
-.react-flow__node-group.selectable.selected,
-.react-flow__node-group.selectable:focus,
-.react-flow__node-group.selectable:focus-visible {
-  box-shadow: var(
-    --xy-node-boxshadow-selected,
-    var(--xy-node-boxshadow-selected-default)
-  );
-}
+
+/*
+ * NOTE: Commented this out because we are now using the default node style for
+ * all node types, and we bring our own styling based on the (:type data)
+ * property.
+ */
+
+/* .react-flow__node-input, */
+/* .react-flow__node-default, */
+/* .react-flow__node-output, */
+/* .react-flow__node-group { */
+/*   padding: 10px; */
+/*   border-radius: var( */
+/*     --xy-node-border-radius, */
+/*     var(--xy-node-border-radius-default) */
+/*   ); */
+/*   width: 150px; */
+/*   font-size: 12px; */
+/*   color: var(--xy-node-color, var(--xy-node-color-default)); */
+/*   text-align: center; */
+/*   border: var(--xy-node-border, var(--xy-node-border-default)); */
+/*   background-color: var( */
+/*     --xy-node-background-color, */
+/*     var(--xy-node-background-color-default) */
+/*   ); */
+/* } */
+/* .react-flow__node-input.selectable:hover, */
+/* .react-flow__node-default.selectable:hover, */
+/* .react-flow__node-output.selectable:hover, */
+/* .react-flow__node-group.selectable:hover { */
+/*   box-shadow: var( */
+/*     --xy-node-boxshadow-hover, */
+/*     var(--xy-node-boxshadow-hover-default) */
+/*   ); */
+/* } */
+/* .react-flow__node-input.selectable.selected, */
+/* .react-flow__node-input.selectable:focus, */
+/* .react-flow__node-input.selectable:focus-visible, */
+/* .react-flow__node-default.selectable.selected, */
+/* .react-flow__node-default.selectable:focus, */
+/* .react-flow__node-default.selectable:focus-visible, */
+/* .react-flow__node-output.selectable.selected, */
+/* .react-flow__node-output.selectable:focus, */
+/* .react-flow__node-output.selectable:focus-visible, */
+/* .react-flow__node-group.selectable.selected, */
+/* .react-flow__node-group.selectable:focus, */
+/* .react-flow__node-group.selectable:focus-visible { */
+/*   box-shadow: var( */
+/*     --xy-node-boxshadow-selected, */
+/*     var(--xy-node-boxshadow-selected-default) */
+/*   ); */
+/* } */
+
 .react-flow__node-group {
   background-color: var(
     --xy-node-group-background-color,
