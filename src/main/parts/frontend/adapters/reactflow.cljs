@@ -17,7 +17,7 @@
   (let [node (js->clj node :keywordize-keys true)]
     (make-part {:id (:id node)
                 :system_id system-id
-                :type (keyword (get-in node [:data :type]))
+                :type (get-in node [:data :type])
                 :label (get-in node [:data :label])
                 :position_x (get-in node [:position :x])
                 :position_y (get-in node [:position :y])})))
@@ -39,4 +39,4 @@
                         :system_id system-id
                         :source_id (:source edge)
                         :target_id (:target edge)
-                        :type (keyword (get-in edge [:data :relationship]))})))
+                        :type (get-in edge [:data :relationship])})))

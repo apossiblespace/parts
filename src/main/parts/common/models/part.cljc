@@ -5,7 +5,7 @@
 
 (s/def ::id string?)
 (s/def ::system_id string?)
-(s/def ::type #(contains? part-types (name %)))
+(s/def ::type #(contains? part-types %))
 (s/def ::label string?)
 (s/def ::description (s/nilable string?))
 (s/def ::position_x int?)
@@ -31,7 +31,7 @@
   [attrs]
   (let [part (merge
               {:id (str (random-uuid))
-               :type :unknown
+               :type "unknown"
                :label "Unknonwn"
                :position_x 0
                :position_y 0}

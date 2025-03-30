@@ -5,7 +5,7 @@
 
 (s/def ::id string?)
 (s/def ::system_id string?)
-(s/def ::type #(contains? relationship-types (name %)))
+(s/def ::type #(contains? relationship-types %))
 (s/def ::source_id string?)
 (s/def ::target_id string?)
 (s/def ::notes (s/nilable string?))
@@ -23,7 +23,7 @@
   [attrs]
   (let [relationship (merge
                       {:id (str (random-uuid))
-                       :relationship :unknown
+                       :type "unknown"
                        :notes nil}
                       attrs)]
     (if (s/valid? ::relationship relationship)
