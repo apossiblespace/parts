@@ -11,9 +11,23 @@
       (is (string? (:id result)))
       (is (= system-id (:system_id result)))
       (is (= "unknown" (:type result)))
-      (is (= "Unknonwn" (:label result)))
+      (is (= "Unknown" (:label result)))
       (is (= 0 (:position_x result)))
       (is (= 0 (:position_y result)))))
+
+  (testing "Creates a part with a custom label but no custom type"
+    (let [attrs {:system_id "system-123"
+                 :label "Custom label"}
+          result (part/make-part attrs)]
+      (is (= (:type result) "unknown"))
+      (is (= (:label result) "Custom label"))))
+
+  (testing "Creates a part with a custom type but no custom label"
+    (let [attrs {:system_id "system-123"
+                 :type "firefighter"}
+          result (part/make-part attrs)]
+      (is (= (:type result) "firefighter"))
+      (is (= (:label result) "Firefighter"))))
 
   (testing "Creates a part with provided attributes"
     (let [attrs {:id "custom-id"

@@ -1,7 +1,7 @@
 (ns parts.common.models.part
   (:require
    [clojure.spec.alpha :as s]
-   [parts.common.constants :refer [part-types]]))
+   [parts.common.constants :refer [part-types part-labels]]))
 
 (s/def ::id string?)
 (s/def ::system_id string?)
@@ -29,10 +29,12 @@
 (defn make-part
   "Create a new Part with the given attributes"
   [attrs]
-  (let [part (merge
+  (let [type (or (:type attrs) "unknown")
+        label (or (:label attrs) (get-in part-labels [(keyword type) :label]))
+        part (merge
               {:id (str (random-uuid))
-               :type "unknown"
-               :label "Unknonwn"
+               :type type
+               :label label
                :position_x 0
                :position_y 0}
               attrs)]
