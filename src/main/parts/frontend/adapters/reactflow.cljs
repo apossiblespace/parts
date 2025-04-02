@@ -14,6 +14,7 @@
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes"
   [parts]
+  (println "[parts->nodes]" parts)
   (to-array (map part->node parts)))
 
 (defn node->part
@@ -39,6 +40,7 @@
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges"
   [relationships]
+  (println "[relationships->edges]" relationships)
   (to-array (map relationship->edge relationships)))
 
 (defn edge->relationship

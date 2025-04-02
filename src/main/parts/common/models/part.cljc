@@ -29,6 +29,7 @@
 (defn make-part
   "Create a new Part with the given attributes"
   [attrs]
+  (println "[make-part]" attrs)
   (let [type (or (:type attrs) "unknown")
         label (or (:label attrs) (get-in part-labels [(keyword type) :label]))
         part (merge

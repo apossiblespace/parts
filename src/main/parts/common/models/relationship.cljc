@@ -21,6 +21,7 @@
 (defn make-relationship
   "Create a new Relationship with the given attributes"
   [attrs]
+  (println "[make-relationship]" attrs)
   (let [relationship (merge
                       {:id (str (random-uuid))
                        :type "unknown"

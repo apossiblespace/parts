@@ -8,6 +8,9 @@
 (defui sidebar
   "Display the main sidebar"
   [{:keys [selected-nodes selected-edges]}]
+  (println "[sidebar]"
+           "selected-nodes" selected-nodes
+           "selected-edges" selected-edges)
   ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-white shadow-sm"}
      ($ auth-status)
      ($ :div {:class "overflow-auto"}
