@@ -1,0 +1,159 @@
+#+title: HTTP testing
+
+* Home page
+#+begin_src restclient
+GET http://localhost:3000/
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+accept-encoding: gzip, deflate, br, zstd
+accept-language: en-US,en;q=0.9
+cache-control: no-cache
+#+end_src
+
+* Home page waitlist signup
+#+begin_src restclient
+POST http://localhost:3000/waitlist-signup
+content-type: application/x-www-form-urlencoded
+accept: */*
+email=test@testing.com&__anti-forgery-token=a4db2uK6HQIRQqzPpmiUkIlBk9uj3BGuXLlL9XFTlgUFLSGRROiroOikeNdHRkyeCrij/eLH6UhT5gfw
+#+end_src
+
+#+RESULTS:
+#+BEGIN_SRC html
+<div class="success"><p>Thank you for your interest! We&apos;ll be in touch soon.</p></div>
+<!-- POST http://localhost:3000/waitlist-signup -->
+<!-- HTTP/1.1 201 Created -->
+<!-- Content-Type: text/html; charset=utf-8 -->
+<!-- X-Frame-Options: SAMEORIGIN -->
+<!-- X-Content-Type-Options: nosniff -->
+<!-- content-length: 91 -->
+<!-- Server: http-kit -->
+<!-- Date: Wed, 2 Apr 2025 04:49:54 GMT -->
+<!-- Request duration: 0.007000s -->
+#+END_SRC
+
+
+* Account creation:
+#+begin_src restclient
+POST http://localhost:3000/api/account/register
+Content-Type: application/transit+json
+Accept: application/transit+json
+x-csrf-token: a4db2uK6HQIRQqzPpmiUkIlBk9uj3BGuXLlL9XFTlgUFLSGRROiroOikeNdHRkyeCrij/eLH6UhT5gfw
+
+["^ ","~:email","gosha@gosha.net","~:password","Pass1234","~:password_confirmation","Pass1234","~:username","gosha","~:display_name","Gosha the Gosha","~:role","therapist"]
+#+end_src
+
+#+RESULTS:
+#+BEGIN_SRC js
+[
+  "^ ",
+  "~:id",
+  "789a016b-2937-4f87-988a-691aab975e66",
+  "~:email",
+  "gosha@gosha.net",
+  "~:username",
+  "gosha",
+  "~:display_name",
+  "Gosha the Gosha",
+  "~:role",
+  "therapist",
+  "~:created_at",
+  "2025-04-02 04:47:11",
+  "~:updated_at",
+  "2025-04-02 04:47:11"
+]
+// POST http://localhost:3000/api/account/register
+// HTTP/1.1 201 Created
+// Content-Type: application/transit+json; charset=utf-8
+// X-Xss-Protection: 1; mode=block
+// X-Frame-Options: SAMEORIGIN
+// X-Content-Type-Options: nosniff
+// content-length: 231
+// Server: http-kit
+// Date: Wed, 2 Apr 2025 04:47:11 GMT
+// Request duration: 0.288548s
+#+END_SRC
+
+
+* Sign in:
+#+begin_src restclient
+POST http://localhost:3000/api/auth/login
+Content-Type: application/transit+json
+Accept: application/transit+json
+
+["^ ","~:email","gosha@gosha.net","~:password","Pass1234"]
+#+end_src
+
+#+RESULTS:
+#+BEGIN_SRC js
+[
+  "^ ",
+  "~:access_token",
+  "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAvYXBpIiwic3ViIjoiNzg5YTAxNmItMjkzNy00Zjg3LTk4OGEtNjkxYWFiOTc1ZTY2IiwiYXVkIjoiaHR0cDovL2xvY2FsaG9zdDozMDAwIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc0MzU2OTI4OSwiZXhwIjoxNzQzNTcwMTg5fQ.lxt7Od1ydDPYE83rxvX-jLfUEkaB35pbId3cNAwceWg",
+  "~:refresh_token",
+  "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAvYXBpIiwic3ViIjoiNzg5YTAxNmItMjkzNy00Zjg3LTk4OGEtNjkxYWFiOTc1ZTY2IiwiYXVkIjoiaHR0cDovL2xvY2FsaG9zdDozMDAwIiwidHlwZSI6InJlZnJlc2giLCJqdGkiOiI0YzQwMzU4My1kZjY5LTRlZjYtYjcwYi04MzNjZWY0NTRmOTMiLCJpYXQiOjE3NDM1NjkyODksImV4cCI6MTc0NjE2MTI4OX0.cr9c1Ezl-D-085-cKZKjk72w7KxUkr0LSYV-1syn7O8",
+  "~:token_type",
+  "Bearer"
+]
+// POST http://localhost:3000/api/auth/login
+// HTTP/1.1 200 OK
+// Content-Type: application/transit+json; charset=utf-8
+// X-Xss-Protection: 1; mode=block
+// X-Frame-Options: SAMEORIGIN
+// X-Content-Type-Options: nosniff
+// content-length: 690
+// Server: http-kit
+// Date: Wed, 2 Apr 2025 04:48:09 GMT
+// Request duration: 0.336501s
+#+END_SRC
+
+* Account request:
+#+begin_src restclient
+# Define variables
+:auth-token := "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAvYXBpIiwic3ViIjoiNzg5YTAxNmItMjkzNy00Zjg3LTk4OGEtNjkxYWFiOTc1ZTY2IiwiYXVkIjoiaHR0cDovL2xvY2FsaG9zdDozMDAwIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc0MzU2OTI4OSwiZXhwIjoxNzQzNTcwMTg5fQ.lxt7Od1ydDPYE83rxvX-jLfUEkaB35pbId3cNAwceWg"
+
+# API Account Request
+GET http://localhost:3000/api/account
+Accept: */*
+Accept-Language: en-US,en;q=0.9
+Authorization: Bearer :auth-token
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: application/json
+DNT: 1
+Pragma: no-cache
+Referer: http://127.0.0.1:3000/system
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: cors
+Sec-Fetch-Site: same-origin
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+sec-ch-ua: "Chromium";v="133", "Not(A:Brand";v="99"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+#+end_src
+
+#+RESULTS:
+#+BEGIN_SRC js
+[
+  "^ ",
+  "~:id",
+  "789a016b-2937-4f87-988a-691aab975e66",
+  "~:email",
+  "gosha@gosha.net",
+  "~:username",
+  "gosha",
+  "~:display_name",
+  "Gosha the Gosha",
+  "~:role",
+  "therapist"
+]
+// GET http://localhost:3000/api/account
+// HTTP/1.1 200 OK
+// Content-Type: application/transit+json; charset=utf-8
+// X-Xss-Protection: 1; mode=block
+// X-Frame-Options: SAMEORIGIN
+// X-Content-Type-Options: nosniff
+// content-length: 157
+// Server: http-kit
+// Date: Wed, 2 Apr 2025 04:48:38 GMT
+// Request duration: 0.004439s
+#+END_SRC
