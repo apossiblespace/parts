@@ -1,126 +1,85 @@
 (ns parts.frontend.components.system
   (:require
-   ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow addEdge useEdgesState useNodesState]]
-   [clojure.string :as str]
+   ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow]]
    [parts.frontend.api.queue :as queue]
+   [parts.frontend.state.hook :refer [use-system-state]]
    [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar.button :refer [button]]
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
-   [parts.frontend.utils.node-utils :refer [build-updated-part]]
-   [parts.frontend.adapters.reactflow :as a]
-   [uix.core :refer [$ defui use-callback use-effect use-memo use-state]]))
+   [uix.core :refer [$ defui use-effect use-state]]))
 
-;; FIXME: This shouldn't be returning a javascript object.
-;; Ideally, we would not be manipulating JS outside of the React component at
-;; all -- it should all be Clojure.
-(defn- new-node [type _opts]
-  #js {:id (str (random-uuid))
-       :type type
-       :position #js {:x 390 :y 290}
-       :data #js {:label (str/capitalize type)}})
+(defui system [system-data]
+  (let [{:keys [nodes
+                edges
+                add-part
+                update-part
+                remove-part
+                update-part-position
+                add-relationship
+                update-relationship
+                remove-relationship]} (use-system-state system-data)
 
-(defn- add-node
-  ([type]
-   (add-node type {}))
-  ([type opts]
-   (fn [current-nodes]
-     (let [node (new-node type opts)]
-       (.concat current-nodes
-                #js [node])
-       (queue/add-events! :node [{:id (:id node)
-                                  :type "create"
-                                  :data {:type (:type node)
-                                         :label (get-in node [:data :label])}}])))))
-
-;; NOTE: Layouting
-;; https://reactflow.dev/learn/layouting/layouting
-;; https://d3js.org/d3-force
-;; https://marvl.infotech.monash.edu/webcola/
-
-(defn- update-node-callback [setNodes id form-data]
-  (println "update-node-callback" id form-data)
-  (setNodes
-   (fn [nodes]
-     (clj->js
-      (map (fn [node]
-             (let [node-map (js->clj node :keywordize-keys true)]
-               (if (= (:id node-map) id)
-                 (build-updated-part node-map form-data)
-                 node-map)))
-           (js->clj nodes :keywordize-keys true)))))
-  (queue/add-events! :node [{:id id
-                             :type "update"
-                             :data form-data}]))
-
-(defn- update-edge-callback [setEdges id form-data]
-  (println "update-edge-callback" id form-data)
-  (setEdges
-   (fn [edges]
-     (clj->js
-      (map (fn [edge]
-             (let [edge-map (js->clj edge :keywordize-keys true)]
-               (if (= (:id edge-map) id)
-                 (-> edge-map
-                     (assoc-in [:data :relationship] (:relationship form-data))
-                     (assoc :className (str "edge-" (:relationship form-data))))
-                 edge-map)))
-           (js->clj edges :keywordize-keys true)))))
-  (queue/add-events! :edge [{:id id
-                             :type "update"
-                             :data form-data}]))
-
-(defn- with-default-relationship [edge-params]
-  (update-in (js->clj edge-params :keywordize-keys true)
-             [:data]
-             #(merge {:relationship :unknown} %)))
-
-(defn- on-connect-callback [setEdges params]
-  (setEdges #(addEdge (clj->js (with-default-relationship params)) %))
-  (queue/add-events! :edge [(assoc params :type "create")]))
-
-(defui system [{:keys [parts relationships]}]
-  (let [node-types (use-memo (fn [] (clj->js node-types)) [node-types])
-        edge-types (use-memo (fn [] (clj->js edge-types)) [edge-types])
-        [nodes setNodes onNodesChange] (useNodesState (a/parts->nodes parts))
-        [edges setEdges onEdgesChange] (useEdgesState (a/relationships->edges relationships))
         [selected-nodes set-selected-nodes] (use-state nil)
         [selected-edges set-selected-edges] (use-state nil)
+
+        ;; FIXME: Here, we are calling the whole state machinery too often: on
+        ;; each drag event we basically regenerate the state and re-render the
+        ;; system component. This is what causes the flickering.
+        ;;
+        ;; We need to do what we are already doing for queuing the events --
+        ;; only update the state when dragging has stopped.
+        ;;
+        ;; While dragging is still happening, we can use the react-flow
+        ;; callbacks to update just the visual representation, and don't need to
+        ;; access the state at all.
         on-nodes-change (fn [changes]
-                          (println "[on-nodes-change]" changes)
-                          (queue/add-events! :node (js->clj changes :keywordize-keys true))
-                          (onNodesChange changes))
+                          (println "[on-node-change]" changes)
+                          (->> (js->clj changes :keywordize-keys true)
+                               (run! (fn [change]
+                                       (case (:type change)
+                                         "position" (when (:position change)
+                                                      (update-part-position (:id change) (:position change) (:dragging change)))
+                                         "remove" (remove-part (:id change))
+                                         nil)))))
+
         on-edges-change (fn [changes]
-                          (println "[on-edges-change]" changes)
-                          (queue/add-events! :edge (js->clj changes :keywordize-keys true))
-                          (onEdgesChange changes))
-        update-node (use-callback
-                     #(update-node-callback setNodes %1 %2)
-                     [setNodes])
-        update-edge (use-callback
-                     #(update-edge-callback setEdges %1 %2)
-                     [setEdges])
-        on-connect (use-callback
-                    #(on-connect-callback setEdges %)
-                    [setEdges])
-        on-selection-change (use-callback
-                             (fn [selections]
-                               (let [sel (js->clj selections :keywordize-keys true)]
-                                 (set-selected-nodes (:nodes sel))
-                                 (set-selected-edges (:edges sel))))
-                             [])]
+                          (->> (js->clj changes :keywordize-keys true)
+                               (run! (fn [change]
+                                       (when (= "remove" (:type change))
+                                         (remove-relationship (:id change)))))))
+
+        on-connect (fn [connection]
+                     (let [{:keys [source target]} (js->clj connection :keywordize-keys true)]
+                       (add-relationship {:source_id source
+                                          :target_id target
+                                          :type "unknown"})))
+
+        ;; FIXME: This is not working for some reason, selection does not
+        ;; contain any nodes.
+        on-selection-change (fn [selection]
+                              (println "[on-selection-change]" selection)
+                              (let [sel (js->clj selection :keywordize-keys true)]
+                                (set-selected-nodes (:nodes sel))
+                                (set-selected-edges (:edges sel))))
+
+        create-part-by-type (fn [type]
+                              (add-part {:type type
+                                         :position_x 390
+                                         :position_y 290}))]
 
     (use-effect
      (fn []
-       (println "[system] mounting")
+       (println "[system] starting event queue")
        (queue/start)
        (fn []
-         (println "[system] unmounting")
+         (println "[system] stopping event queue")
          (queue/stop)))
      [])
 
-    ($ (.-Provider ctx/update-system-context) {:value {:update-node update-node :update-edge update-edge}}
+    ($ (.-Provider ctx/update-system-context)
+       {:value {:update-node update-part :update-edge update-relationship}}
        ($ :div {:class "system-container"}
           ($ :div {:class "system-view"}
              ($ ReactFlow {:nodes nodes
@@ -129,21 +88,21 @@
                            :onEdgesChange on-edges-change
                            :onConnect on-connect
                            :onSelectionChange on-selection-change
-                           :nodeTypes node-types
-                           :edgeTypes edge-types}
+                           :nodeTypes (clj->js node-types)
+                           :edgeTypes (clj->js edge-types)}
                 ($ Controls)
                 ($ Panel {:position "top-left" :class "logo"}
                    ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
                 ($ Panel {:position "top-center" :class "toolbar shadow-xs"}
                    ($ :div {:class "join"}
                       ($ button {:label "Unknown"
-                                 :on-click (fn [] (setNodes (add-node "unknown")))})
+                                 :on-click #(create-part-by-type "unknown")})
                       ($ button {:label "Exile"
-                                 :on-click (fn [] (setNodes (add-node "exile")))})
+                                 :on-click #(create-part-by-type "exile")})
                       ($ button {:label "Firefighter"
-                                 :on-click (fn [] (setNodes (add-node "firefighter")))})
+                                 :on-click #(create-part-by-type "firefighter")})
                       ($ button {:label "Manager"
-                                 :on-click (fn [] (setNodes (add-node "manager")))})))
+                                 :on-click #(create-part-by-type "manager")})))
                 ($ Panel {:position "top-right" :className "sidebar-container"}
                    ($ sidebar {:selected-nodes selected-nodes
                                :selected-edges selected-edges}))
