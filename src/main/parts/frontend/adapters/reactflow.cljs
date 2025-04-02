@@ -5,7 +5,7 @@
 
 (defn part->node
   "Convert a Part to a ReactFlow node"
-  [{:keys [id type label position_x position_y] :as part}]
+  [{:keys [id type label position_x position_y]}]
   #js {:id id
        :position #js {:x position_x :y position_y}
        :data #js {:label label
@@ -29,7 +29,7 @@
 
 (defn relationship->edge
   "Convert a Relationship to a ReactFlow edge"
-  [{:keys [id source_id target_id type] :as rel}]
+  [{:keys [id source_id target_id type]}]
   #js {:id id
        :source source_id
        :target target_id
