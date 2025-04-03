@@ -10,11 +10,11 @@
 (def update-system-context (create-context {:update-node nil
                                             :update-edge nil}))
 
-(def auth-context (uix.core/create-context
-                    {:logged-in false
-                     :email nil
-                     :login nil
-                     :logout nil}))
+(def auth-context (create-context
+                   {:logged-in false
+                    :email nil
+                    :login nil
+                    :logout nil}))
 
 (defui auth-provider [{:keys [children]}]
   (let [[user set-user] (use-state nil)
@@ -40,16 +40,16 @@
                :logout logout!}]
 
     (use-effect
-      (fn []
-        (println "[auth-provider] checking for token")
-        (if (utils/get-tokens)
-          (do
-            (println "[auth-provider] token found")
-            (fetch-user!))
-          (do
-            (println "[auth-provider] no token")
-            (set-loading false))))
-      [fetch-user!])
+     (fn []
+       (println "[auth-provider] checking for token")
+       (if (utils/get-tokens)
+         (do
+           (println "[auth-provider] token found")
+           (fetch-user!))
+         (do
+           (println "[auth-provider] no token")
+           (set-loading false))))
+     [fetch-user!])
 
     ($ auth-context.Provider {:value value}
        children)))
