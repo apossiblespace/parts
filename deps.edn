@@ -67,7 +67,11 @@
   ;;
   ;; cljs-http
   ;; https://github.com/r0man/cljs-http
-  cljs-http/cljs-http {:mvn/version "0.1.48"}}
+  cljs-http/cljs-http {:mvn/version "0.1.48"}
+  ;;
+  ;; Clojurescript dev tools
+  ;; https://github.com/binaryage/cljs-devtools
+  binaryage/devtools {:mvn/version "1.0.7"}}
 
  :aliases
  {:run/app
