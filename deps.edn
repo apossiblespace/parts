@@ -67,11 +67,7 @@
   ;;
   ;; cljs-http
   ;; https://github.com/r0man/cljs-http
-  cljs-http/cljs-http {:mvn/version "0.1.48"}
-  ;;
-  ;; cljs-time
-  ;; https://github.com/andrewmcveigh/cljs-time
-  com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}}
+  cljs-http/cljs-http {:mvn/version "0.1.48"}}
 
  :aliases
  {:run/app
