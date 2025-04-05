@@ -6,7 +6,9 @@
    [parts.common.models.part :refer [make-part]]
    [parts.common.models.relationship :refer [make-relationship]]
    [uix.core :refer [$ defui]]
-   [uix.dom]))
+   [uix.dom]
+   [uix.re-frame :as uix.rf]
+   [re-frame.core :as rf]))
 
 (def system-id (str (random-uuid)))
 
@@ -38,13 +40,23 @@
                        :system_id system-id})])
 
 (def system-data
-  {:id system-id
-   :parts parts
-   :relationships relationships})
+  {:system
+   {:id system-id
+    :parts parts
+    :relationships relationships}})
+
+(rf/reg-sub :app/system
+            (fn [db _]
+              (:system db)))
+
+(rf/reg-event-fx :app/init-db []
+                 (fn [{:store/keys [system]} [_ default-db]]
+                   {:db (update default-db :system into system)}))
 
 (defui app []
-  ($ auth-provider {}
-     ($ system system-data)))
+  (let [system-state (uix.rf/use-subscribe [:app/system])]
+    ($ auth-provider {}
+       ($ system system-state))))
 
 (defonce root
   (when-let [root-element (js/document.getElementById "root")]
@@ -54,6 +66,8 @@
   "Render the app if root element exists"
   []
   (when root
+    (js/console.log "dispatching init-db")
+    (rf/dispatch-sync [:app/init-db system-data])
     (uix.dom/render-root ($ app) root)))
 
 (defn ^:export init []

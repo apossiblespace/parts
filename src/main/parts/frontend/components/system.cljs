@@ -1,60 +1,47 @@
 (ns parts.frontend.components.system
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow]]
+   [parts.frontend.adapters.reactflow :as adapter]
    [parts.frontend.api.queue :as queue]
-   [parts.frontend.state.hook :refer [use-system-state]]
    [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar.button :refer [button]]
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
-   [uix.core :refer [$ defui use-effect use-state]]))
+   [uix.core :refer [$ defui use-callback use-effect use-state]]))
 
 (defui system [system-data]
-  (let [{:keys [nodes
-                edges
-                add-part
-                update-part
-                remove-part
-                update-part-position
-                add-relationship
-                update-relationship
-                remove-relationship]} (use-system-state system-data)
+  (let [{:keys [parts
+                relationships]} system-data
+        nodes (adapter/parts->nodes parts)
+        edges (adapter/relationships->edges relationships)
 
         [selected-nodes set-selected-nodes] (use-state nil)
         [selected-edges set-selected-edges] (use-state nil)
 
-        ;; FIXME: Here, we are calling the whole state machinery too often: on
-        ;; each drag event we basically regenerate the state and re-render the
-        ;; system component. This is what causes the flickering.
-        ;;
-        ;; We need to do what we are already doing for queuing the events --
-        ;; only update the state when dragging has stopped.
-        ;;
-        ;; While dragging is still happening, we can use the react-flow
-        ;; callbacks to update just the visual representation, and don't need to
-        ;; access the state at all.
         on-nodes-change (fn [changes]
-                          (println "[on-node-change]" changes)
-                          (->> (js->clj changes :keywordize-keys true)
-                               (run! (fn [change]
-                                       (case (:type change)
-                                         "position" (when (:position change)
-                                                      (update-part-position (:id change) (:position change) (:dragging change)))
-                                         "remove" (remove-part (:id change))
-                                         nil)))))
+                          (println "[on-nodes-change]" changes))
+                          ;; (->> (js->clj changes :keywordize-keys true)
+                          ;;      (run! (fn [change]
+                          ;;              (case (:type change)
+                          ;;                "position" (when (:position change)
+                          ;;                             (update-part-position (:id change) (:position change) (:dragging change)))
+                          ;;                "remove" (remove-part (:id change))
+                          ;;                nil)))))
 
         on-edges-change (fn [changes]
-                          (->> (js->clj changes :keywordize-keys true)
-                               (run! (fn [change]
-                                       (when (= "remove" (:type change))
-                                         (remove-relationship (:id change)))))))
+                          (println "[on-edges-change]" changes))
+                          ;; (->> (js->clj changes :keywordize-keys true)
+                          ;;      (run! (fn [change]
+                          ;;              (when (= "remove" (:type change))
+                          ;;                (remove-relationship (:id change)))))))
 
         on-connect (fn [connection]
-                     (let [{:keys [source target]} (js->clj connection :keywordize-keys true)]
-                       (add-relationship {:source_id source
-                                          :target_id target
-                                          :type "unknown"})))
+                     (println "[on-connect]" connection))
+                     ;; (let [{:keys [source target]} (js->clj connection :keywordize-keys true)]
+                     ;;   (add-relationship {:source_id source
+                     ;;                      :target_id target
+                     ;;                      :type "unknown"})))
 
         ;; FIXME: This is not working for some reason, selection does not
         ;; contain any nodes.
@@ -65,9 +52,11 @@
                                 (set-selected-edges (:edges sel))))
 
         create-part-by-type (fn [type]
-                              (add-part {:type type
-                                         :position_x 390
-                                         :position_y 290}))]
+                              (println "[create-part-by-type]" type))
+                              ;; (add-part {:type type
+                              ;;            :position_x 390
+                              ;;            :position_y 290}))]
+        ]
 
     (use-effect
      (fn []
@@ -78,8 +67,11 @@
          (queue/stop)))
      [])
 
+    (js/console.log "System data" system-data)
+
     ($ (.-Provider ctx/update-system-context)
-       {:value {:update-node update-part :update-edge update-relationship}}
+       {:value {:update-node (use-callback (fn [_ _] (println "update-node")) [])
+                :update-edge (use-callback (fn [_ _] (println "update-edge")) [])}}
        ($ :div {:class "system-container"}
           ($ :div {:class "system-view"}
              ($ ReactFlow {:nodes nodes
