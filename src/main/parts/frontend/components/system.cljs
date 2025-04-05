@@ -8,7 +8,8 @@
    [parts.frontend.components.toolbar.button :refer [button]]
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
-   [uix.core :refer [$ defui use-callback use-effect use-state]]))
+   [uix.core :refer [$ defui use-callback use-effect use-state]]
+   [re-frame.core :as rf]))
 
 (defui system [system-data]
   (let [{:keys [parts
@@ -20,7 +21,18 @@
         [selected-edges set-selected-edges] (use-state nil)
 
         on-nodes-change (fn [changes]
-                          (println "[on-nodes-change]" changes))
+                          (println "[on-nodes-change]" changes)
+                          (->> (js->clj changes :keywordize-keys true)
+                               (run! (fn [change]
+                                       (case (:type change)
+                                         "position" (when-let [position (:position change)]
+                                                      (rf/dispatch [:part/update-position
+                                                                    (:id change)
+                                                                    position])
+                                                      (when-not (:dragging change)
+                                                        (rf/dispatch [:part/finish-position-change
+                                                                      (:id change)
+                                                                      position]))))))))
                           ;; (->> (js->clj changes :keywordize-keys true)
                           ;;      (run! (fn [change]
                           ;;              (case (:type change)
@@ -45,11 +57,12 @@
 
         ;; FIXME: This is not working for some reason, selection does not
         ;; contain any nodes.
-        on-selection-change (fn [selection]
-                              (println "[on-selection-change]" selection)
-                              (let [sel (js->clj selection :keywordize-keys true)]
-                                (set-selected-nodes (:nodes sel))
-                                (set-selected-edges (:edges sel))))
+        on-selection-change (use-callback
+                             (fn [selection]
+                               (println "[on-selection-change]" selection)
+                               (let [sel (js->clj selection :keywordize-keys true)]
+                                 (set-selected-nodes (:nodes sel))
+                                 (set-selected-edges (:edges sel)))) [])
 
         create-part-by-type (fn [type]
                               (println "[create-part-by-type]" type))

@@ -45,13 +45,45 @@
     :parts parts
     :relationships relationships}})
 
-(rf/reg-sub :app/system
-            (fn [db _]
-              (:system db)))
+(rf/reg-sub
+ :app/system
+ (fn [db _]
+   (:system db)))
 
-(rf/reg-event-fx :app/init-db []
-                 (fn [{:store/keys [system]} [_ default-db]]
-                   {:db (update default-db :system into system)}))
+(rf/reg-event-fx
+ :app/init-db []
+ (fn [{:store/keys [system]} [_ default-db]]
+   {:db (update default-db :system into system)}))
+
+(rf/reg-event-db
+ :part/update-position
+ (fn [db [_ node-id position]]
+   (update-in db [:system :parts]
+              (fn [parts]
+                (mapv (fn [part]
+                        (if (= (:id part) node-id)
+                          (-> part
+                              (assoc :position_x (int (:x position)))
+                              (assoc :position_y (int (:y position))))
+                          part))
+                      parts)))))
+
+(rf/reg-event-fx
+ :part/finish-position-change
+ (fn [{:keys [db]} [_ node-id position]]
+   {:db db
+    :fx [[:dispatch [:queue/add-event
+                     {:entity :node
+                      :id node-id
+                      :type "position"
+                      :data position}]]]}))
+
+(rf/reg-fx
+ :queue/add-event
+ (fn [event]
+   (parts.frontend.api.queue/add-events!
+    (:entity event)
+    [event])))
 
 (defui app []
   (let [system-state (uix.rf/use-subscribe [:app/system])]
