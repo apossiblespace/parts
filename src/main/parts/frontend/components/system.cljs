@@ -28,24 +28,17 @@
                                 (run! (fn [change]
                                         (case (:type change)
                                           "position" (when-let [position (:position change)]
-                                                       (rf/dispatch [:part/update-position
+                                                       (rf/dispatch [:system/update-part-position
                                                                      (:id change)
                                                                      position])
                                                        (when-not (:dragging change)
-                                                         (rf/dispatch [:part/finish-position-change
+                                                         (rf/dispatch [:system/part-finish-position-change
                                                                        (:id change)
                                                                        position])))
                                           "select" (rf/dispatch [:selection/toggle-node
                                                                  (:id change)
                                                                  (:selected change)])
                                           (js/console.log "Unhandled node change:" change)))))) [])
-                          ;; (->> (js->clj changes :keywordize-keys true)
-                          ;;      (run! (fn [change]
-                          ;;              (case (:type change)
-                          ;;                "position" (when (:position change)
-                          ;;                             (update-part-position (:id change) (:position change) (:dragging change)))
-                          ;;                "remove" (remove-part (:id change))
-                          ;;                nil)))))
 
         on-edges-change (use-callback
                          (fn [changes]
@@ -57,10 +50,6 @@
                                                                  (:id change)
                                                                  (:selected change)])
                                           (js/console.log "Unhandled edge change:" change)))))) [])
-                          ;; (->> (js->clj changes :keywordize-keys true)
-                          ;;      (run! (fn [change]
-                          ;;              (when (= "remove" (:type change))
-                          ;;                (remove-relationship (:id change)))))))
 
         on-connect (fn [connection]
                      (println "[on-connect]" connection))
@@ -69,8 +58,6 @@
                      ;;                      :target_id target
                      ;;                      :type "unknown"})))
 
-        ;; FIXME: This is not working for some reason, selection does not
-        ;; contain any nodes.
         on-selection-change (use-callback
                              (fn [selection]
                                (println "[on-selection-change]" selection)

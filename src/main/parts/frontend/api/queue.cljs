@@ -65,7 +65,7 @@
     {:entity entity
      :id (:id event)
      :type (:type event)
-     :data (:position event)}))
+     :data (:data event)}))
 
 (defmethod normalize-event [:part "remove"]
   [entity event]

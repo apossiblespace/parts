@@ -62,7 +62,7 @@
    {:db (update default-db :system into system)}))
 
 (rf/reg-event-db
- :part/update-position
+ :system/update-part-position
  (fn [db [_ node-id position]]
    (update-in db [:system :parts]
               (fn [parts]
@@ -75,7 +75,7 @@
                       parts)))))
 
 (rf/reg-event-fx
- :part/finish-position-change
+ :system/part-finish-position-change
  (fn [{:keys [db]} [_ node-id position]]
    {:db db
     :queue/add-event {:entity :part
