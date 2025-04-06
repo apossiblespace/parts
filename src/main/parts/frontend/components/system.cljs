@@ -9,30 +9,33 @@
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [parts.frontend.context :as ctx]
    [uix.core :refer [$ defui use-callback use-effect use-state]]
+   [uix.re-frame :as uix.rf]
    [re-frame.core :as rf]))
 
-(defui system [system-data]
-  (let [{:keys [parts
-                relationships]} system-data
+(defui system []
+  (let [parts (uix.rf/use-subscribe [:system/parts])
+        relationships (uix.rf/use-subscribe [:system/relationships])
         nodes (adapter/parts->nodes parts)
         edges (adapter/relationships->edges relationships)
 
         [selected-nodes set-selected-nodes] (use-state nil)
         [selected-edges set-selected-edges] (use-state nil)
 
-        on-nodes-change (fn [changes]
-                          (println "[on-nodes-change]" changes)
-                          (->> (js->clj changes :keywordize-keys true)
-                               (run! (fn [change]
-                                       (case (:type change)
-                                         "position" (when-let [position (:position change)]
-                                                      (rf/dispatch [:part/update-position
-                                                                    (:id change)
-                                                                    position])
-                                                      (when-not (:dragging change)
-                                                        (rf/dispatch [:part/finish-position-change
-                                                                      (:id change)
-                                                                      position]))))))))
+        on-nodes-change (use-callback
+                         (fn [changes]
+                           (println "[on-nodes-change]" changes)
+                           (->> (js->clj changes :keywordize-keys true)
+                                (run! (fn [change]
+                                        (case (:type change)
+                                          "position" (when-let [position (:position change)]
+                                                       (rf/dispatch [:part/update-position
+                                                                     (:id change)
+                                                                     position])
+                                                       (when-not (:dragging change)
+                                                         (rf/dispatch [:part/finish-position-change
+                                                                       (:id change)
+                                                                       position])))
+                                          nil))))) [])
                           ;; (->> (js->clj changes :keywordize-keys true)
                           ;;      (run! (fn [change]
                           ;;              (case (:type change)
@@ -79,8 +82,6 @@
          (println "[system] stopping event queue")
          (queue/stop)))
      [])
-
-    (js/console.log "System data" system-data)
 
     ($ (.-Provider ctx/update-system-context)
        {:value {:update-node (use-callback (fn [_ _] (println "update-node")) [])

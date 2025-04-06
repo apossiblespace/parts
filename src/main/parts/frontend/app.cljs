@@ -3,6 +3,7 @@
    ["htmx.org" :default htmx]
    [parts.frontend.components.system :refer [system]]
    [parts.frontend.context :refer [auth-provider]]
+   [parts.frontend.api.queue :as queue]
    [parts.common.models.part :refer [make-part]]
    [parts.common.models.relationship :refer [make-relationship]]
    [uix.core :refer [$ defui]]
@@ -46,9 +47,14 @@
     :relationships relationships}})
 
 (rf/reg-sub
- :app/system
+ :system/parts
  (fn [db _]
-   (:system db)))
+   (get-in db [:system :parts])))
+
+(rf/reg-sub
+ :system/relationships
+ (fn [db _]
+   (get-in db [:system :relationships])))
 
 (rf/reg-event-fx
  :app/init-db []
@@ -85,9 +91,8 @@
     [event])))
 
 (defui app []
-  (let [system-state (uix.rf/use-subscribe [:app/system])]
-    ($ auth-provider {}
-       ($ system system-state))))
+  ($ auth-provider {}
+     ($ system)))
 
 (defonce root
   (when-let [root-element (js/document.getElementById "root")]
