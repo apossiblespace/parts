@@ -146,6 +146,26 @@
    (filterv #(contains? (set selected-ids) (:id %)) relationships)))
 
 (rf/reg-event-fx
+ :system/part-create
+ (fn [{:keys [db]} [_ attrs]]
+   (let [system-id (get-in db [:system :id])
+         attrs-with-position (merge {:position_x 390
+                                     :position_y 290}
+                                    attrs)
+         new-part (make-part (merge {:system_id system-id}
+                                    attrs-with-position))
+         part-id (:id new-part)
+         updated-db (-> db
+                        (update-in [:system :parts] conj new-part)
+                        (assoc-in [:ui :selected-node-ids] [part-id])
+                        (assoc-in [:ui :selected-edge-ids] []))]
+     {:db updated-db
+      :queue/add-event {:entity :part
+                        :id part-id
+                        :type "create"
+                        :data (select-keys new-part [:type :label :position_x :position_y])}})))
+
+(rf/reg-event-fx
  :system/part-update
  (fn [{:keys [db]} [_ part-id attrs]]
    (let [updated-db (update-in db [:system :parts]
@@ -162,6 +182,36 @@
                         :data attrs}})))
 
 (rf/reg-event-fx
+ :system/part-remove
+ (fn [{:keys [db]} [_ part-id]]
+   (let [updated-db (-> db
+                        (update-in [:system :parts]
+                                   (fn [parts]
+                                     (filterv #(not= (:id %) part-id) parts)))
+                        (update-in [:ui :selected-node-ids]
+                                   (fn [ids]
+                                     (filterv #(not= % part-id) (or ids [])))))]
+     {:db updated-db
+      :queue/add-event {:entity :part
+                        :id part-id
+                        :type "remove"
+                        :data {}}})))
+
+(rf/reg-event-fx
+ :system/relationship-create
+ (fn [{:keys [db]} [_ attrs]]
+   (let [system-id (get-in db [:system :id])
+         new-relationship (make-relationship (merge {:system_id system-id}
+                                                    attrs))
+         rel-id (:id new-relationship)
+         updated-db (update-in db [:system :relationships] conj new-relationship)]
+     {:db updated-db
+      :queue/add-event {:entity :relationship
+                        :id rel-id
+                        :type "create"
+                        :data (select-keys new-relationship [:type :source_id :target_id])}})))
+
+(rf/reg-event-fx
  :system/relationship-update
  (fn [{:keys [db]} [_ relationship-id attrs]]
    (let [updated-db (update-in db [:system :relationships]
@@ -176,6 +226,21 @@
                         :id relationship-id
                         :type "update"
                         :data attrs}})))
+(rf/reg-event-fx
+ :system/relationship-remove
+ (fn [{:keys [db]} [_ relationship-id]]
+   (let [updated-db (-> db
+                        (update-in [:system :relationships]
+                                   (fn [relationships]
+                                     (filterv #(not= (:id %) relationship-id) relationships)))
+                        (update-in [:ui :selected-edge-ids]
+                                   (fn [ids]
+                                     (filterv #(not= % relationship-id) (or ids [])))))]
+     {:db updated-db
+      :queue/add-event {:entity :relationship
+                        :id relationship-id
+                        :type "remove"
+                        :data {}}})))
 
 (defui app []
   ($ auth-provider {}

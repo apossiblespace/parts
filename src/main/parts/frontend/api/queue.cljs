@@ -81,6 +81,27 @@
    :type (:type event)
    :data (:data event)})
 
+(defmethod normalize-event [:relationship "create"]
+  [entity event]
+  {:entity entity
+   :id (:id event)
+   :type (:type event)
+   :data (:data event)})
+
+(defmethod normalize-event [:relationship "update"]
+  [entity event]
+  {:entity entity
+   :id (:id event)
+   :type (:type event)
+   :data (:data event)})
+
+(defmethod normalize-event [:relationship "remove"]
+  [entity event]
+  {:entity entity
+   :id (:id event)
+   :type (:type event)
+   :data {}})
+
 (defmethod normalize-event :default
   [entity event]
   (println "[normalize-event] unhandled:" entity event)

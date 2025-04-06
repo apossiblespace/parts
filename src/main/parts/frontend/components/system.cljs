@@ -38,6 +38,8 @@
                                           "select" (rf/dispatch [:selection/toggle-node
                                                                  (:id change)
                                                                  (:selected change)])
+                                          "remove" (rf/dispatch [:system/part-remove
+                                                                 (:id change)])
                                           (js/console.log "[on-nodes-change][UNHANDLED]" change)))))) [])
 
         on-edges-change (use-callback
@@ -49,14 +51,20 @@
                                           "select" (rf/dispatch [:selection/toggle-edge
                                                                  (:id change)
                                                                  (:selected change)])
+                                          "remove" (rf/dispatch [:system/relationship-remove
+                                                                 (:id change)])
                                           (js/console.log "[on-edges-change][UNHANDLED]" change)))))) [])
 
-        on-connect (fn [connection]
-                     (println "[on-connect]" connection))
-                     ;; (let [{:keys [source target]} (js->clj connection :keywordize-keys true)]
-                     ;;   (add-relationship {:source_id source
-                     ;;                      :target_id target
-                     ;;                      :type "unknown"})))
+        on-connect (use-callback
+                    (fn [connection]
+                      (println "[on-connect]" connection)
+                      (let [params (js->clj connection :keywordize-keys true)
+                            source-id (:source params)
+                            target-id (:target params)]
+                        (rf/dispatch [:system/relationship-create
+                                      {:source_id source-id
+                                       :target_id target-id}])))
+                    [])
 
         on-selection-change (use-callback
                              (fn [selection]
@@ -66,11 +74,8 @@
                              [])
 
         create-part-by-type (fn [type]
-                              (println "[create-part-by-type]" type))
-                              ;; (add-part {:type type
-                              ;;            :position_x 390
-                              ;;            :position_y 290}))]
-        ]
+                              (println "[create-part-by-type]" type)
+                              (rf/dispatch [:system/part-create {:type type}]))]
 
     (use-effect
      (fn []
