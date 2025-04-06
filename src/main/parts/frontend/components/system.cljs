@@ -15,11 +15,11 @@
 (defui system []
   (let [parts (uix.rf/use-subscribe [:system/parts])
         relationships (uix.rf/use-subscribe [:system/relationships])
-        nodes (adapter/parts->nodes parts)
-        edges (adapter/relationships->edges relationships)
+        selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
+        selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
 
-        [selected-nodes set-selected-nodes] (use-state nil)
-        [selected-edges set-selected-edges] (use-state nil)
+        nodes (adapter/parts->nodes parts selected-node-ids)
+        edges (adapter/relationships->edges relationships selected-edge-ids)
 
         on-nodes-change (use-callback
                          (fn [changes]
@@ -35,7 +35,10 @@
                                                          (rf/dispatch [:part/finish-position-change
                                                                        (:id change)
                                                                        position])))
-                                          nil))))) [])
+                                          "select" (rf/dispatch [:selection/toggle-node
+                                                                 (:id change)
+                                                                 (:selected change)])
+                                          (js/console.log "Unhandled node change:" change)))))) [])
                           ;; (->> (js->clj changes :keywordize-keys true)
                           ;;      (run! (fn [change]
                           ;;              (case (:type change)
@@ -64,8 +67,8 @@
                              (fn [selection]
                                (println "[on-selection-change]" selection)
                                (let [sel (js->clj selection :keywordize-keys true)]
-                                 (set-selected-nodes (:nodes sel))
-                                 (set-selected-edges (:edges sel)))) [])
+                                 (rf/dispatch [:selection/set sel])))
+                             [])
 
         create-part-by-type (fn [type]
                               (println "[create-part-by-type]" type))
@@ -109,9 +112,9 @@
                                  :on-click #(create-part-by-type "firefighter")})
                       ($ button {:label "Manager"
                                  :on-click #(create-part-by-type "manager")})))
-                ($ Panel {:position "top-right" :className "sidebar-container"}
-                   ($ sidebar {:selected-nodes selected-nodes
-                               :selected-edges selected-edges}))
+                ;; ($ Panel {:position "top-right" :className "sidebar-container"}
+                ;;    ($ sidebar {:selected-nodes selected-nodes
+                ;;                :selected-edges selected-edges}))
                 ($ MiniMap {:className "tools parts-minimap shadow-sm"
                             :position "bottom-right"
                             :ariaLabel "Minimap"

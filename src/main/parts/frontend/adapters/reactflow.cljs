@@ -5,17 +5,21 @@
 
 (defn part->node
   "Convert a Part to a ReactFlow node"
-  [{:keys [id type label position_x position_y]}]
-  #js {:id id
-       :position #js {:x position_x :y position_y}
-       :data #js {:label label
-                  :type (name type)}})
+  ([part] (part->node part nil))
+  ([{:keys [id type label position_x position_y]} selected-ids]
+   #js {:id id
+        :position #js {:x position_x :y position_y}
+        :selected (when selected-ids (contains? selected-ids id))
+        :data #js {:label label
+                   :type (name type)}}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes"
-  [parts]
-  (println "[parts->nodes]" parts)
-  (to-array (map part->node parts)))
+  ([parts] (parts->nodes parts nil))
+  ([parts selected-ids]
+   (js/console.log "[parts->nodes]" parts selected-ids)
+   (let [selected-id-set (when selected-ids (set selected-ids))]
+     (to-array (map #(part->node % selected-id-set) parts)))))
 
 (defn node->part
   "Convert ReactFlow node to a Part"
@@ -30,18 +34,22 @@
 
 (defn relationship->edge
   "Convert a Relationship to a ReactFlow edge"
-  [{:keys [id source_id target_id type]}]
-  #js {:id id
-       :source source_id
-       :target target_id
-       :data #js {:relationship (name type)}
-       :className (str "edge-" (name type))})
+  ([relationship] (relationship->edge relationship nil))
+  ([{:keys [id source_id target_id type]} selected-ids]
+   #js {:id id
+        :source source_id
+        :target target_id
+        :selected (when selected-ids (contains? selected-ids id))
+        :data #js {:relationship (name type)}
+        :className (str "edge-" (name type))}))
 
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges"
-  [relationships]
-  (println "[relationships->edges]" relationships)
-  (to-array (map relationship->edge relationships)))
+  ([relationships] (relationships->edges relationships nil))
+  ([relationships selected-ids]
+   (js/console.log "[relationships->edges]" relationships)
+   (let [selected-id-set (when selected-ids (set selected-ids))]
+     (to-array (map #(relationship->edge % selected-id-set) relationships)))))
 
 (defn edge->relationship
   "Convert ReactFlow edge to a Relationship"

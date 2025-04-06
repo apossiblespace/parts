@@ -90,6 +90,49 @@
     (:entity event)
     [event])))
 
+(rf/reg-event-db
+ :selection/set
+ (fn [db [_ selection]]
+   (-> db
+       (assoc-in [:ui :selected-node-ids] (mapv :id (:nodes selection)))
+       (assoc-in [:ui :selected-edge-ids] (mapv :id (:edges selection))))))
+
+(rf/reg-event-db
+ :selection/toggle-node
+ (fn [db [_ node-id selected?]]
+   (update-in db [:ui :selected-node-ids]
+              (fn [ids]
+                (let [current-ids (or ids [])]
+                  (if selected?
+                    (if (some #{node-id} current-ids)
+                      current-ids
+                      (conj current-ids node-id))
+                    (filterv #(not= node-id %) current-ids)))))))
+
+(rf/reg-sub
+ :ui/selected-node-ids
+ (fn [db _]
+   (get-in db [:ui :selected-node-ids] [])))
+
+(rf/reg-sub
+ :ui/selected-edge-ids
+ (fn [db _]
+   (get-in db [:ui :selected-edge-ids] [])))
+
+(rf/reg-sub
+ :system/selected-parts
+ :<- [:ui/selected-node-ids]
+ :<- [:system/parts]
+ (fn [[selected-ids parts] _]
+   (filterv #(contains? (set selected-ids) (:id %)) parts)))
+
+(rf/reg-sub
+ :system/selected-relationships
+ :<- [:ui/selected-edge-ids]
+ :<- [:system/relationships]
+ (fn [[selected-ids relationships] _]
+   (filterv #(contains? (set selected-ids) (:id %)) relationships)))
+
 (defui app []
   ($ auth-provider {}
      ($ system)))
