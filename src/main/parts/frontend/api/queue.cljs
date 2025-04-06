@@ -59,7 +59,7 @@
   (fn [entity event]
     [entity (:type event)]))
 
-(defmethod normalize-event [:node "position"]
+(defmethod normalize-event [:part "position"]
   [entity event]
   (when-not (:dragging event)
     {:entity entity
@@ -67,14 +67,14 @@
      :type (:type event)
      :data (:position event)}))
 
-(defmethod normalize-event [:node "remove"]
+(defmethod normalize-event [:part "remove"]
   [entity event]
   {:entity entity
    :id (:id event)
    :type (:type event)
    :data {}})
 
-(defmethod normalize-event [:node "update"]
+(defmethod normalize-event [:part "update"]
   [entity event]
   {:entity entity
    :id (:id event)
@@ -89,11 +89,11 @@
 (defn- normalize-events
   "Normalize a collection of events for enqueuing"
   [entity events]
-  {:pre [(or (= entity :node) (= entity :edge))]}
+  {:pre [(or (= entity :part) (= entity :relationship))]}
   (keep #(normalize-event entity %) events))
 
 (defn add-events!
-  "Process and enqueue node or edge change events"
+  "Process and enqueue part or relationship change events"
   [entity events]
   (when-let [normalized (seq (normalize-events entity events))]
     (doseq [event normalized]

@@ -72,16 +72,15 @@
  :part/finish-position-change
  (fn [{:keys [db]} [_ node-id position]]
    {:db db
-    :fx [[:dispatch [:queue/add-event
-                     {:entity :node
+    :queue/add-event {:entity :part
                       :id node-id
                       :type "position"
-                      :data position}]]]}))
+                      :data position}}))
 
 (rf/reg-fx
  :queue/add-event
  (fn [event]
-   (parts.frontend.api.queue/add-events!
+   (queue/add-events!
     (:entity event)
     [event])))
 
