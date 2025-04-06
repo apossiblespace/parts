@@ -1,19 +1,19 @@
-(ns parts.frontend.components.node-form
+(ns parts.frontend.components.toolbar.part-form
   (:require
    [parts.common.constants :refer [part-labels]]
    [uix.core :refer [$ defui use-effect use-state]]))
 
-(defui node-form
-  "Form for viewing and editing node properties, to render in the sidebar.
+(defui part-form
+  "Form for viewing and editing part properties, to render in the sidebar.
    Props:
-   - node: The node data to edit
+   - part: The part model to edit
    - on-save: Callback function (id, form-data) when data is saved
    - collapsed: Whether the form should start collapsed"
-  [{:keys [node on-save collapsed]}]
-  (let [{:keys [id data]} node
+  [{:keys [part on-save collapsed]}]
+  (let [{:keys [id type label]} part
         [form-state set-form-state] (use-state
-                                     {:values {:type (:type data), :label (:label data)}
-                                      :initial {:type (:type data), :label (:label data)}
+                                     {:values {:type type, :label label}
+                                      :initial {:type type, :label label}
                                       :collapsed? collapsed})
         {:keys [values initial collapsed?]} form-state
         changed? (not= values initial)
@@ -42,12 +42,12 @@
        (set-form-state
         (fn [state]
           (-> state
-              (assoc-in [:values :type] (:type data))
-              (assoc-in [:values :label] (:label data))
-              (assoc-in [:initial :type] (:type data))
-              (assoc-in [:initial :label] (:label data))
+              (assoc-in [:values :type] type)
+              (assoc-in [:values :label] label)
+              (assoc-in [:initial :type] type)
+              (assoc-in [:initial :label] label)
               (assoc :collapsed? collapsed)))))
-     [data id collapsed])
+     [label type id collapsed])
 
     ($ :form {:onSubmit handle-submit
               :class "fieldset node-form p-2 border-b border-b-1 border-base-300"}

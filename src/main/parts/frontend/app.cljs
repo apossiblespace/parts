@@ -133,6 +133,22 @@
  (fn [[selected-ids relationships] _]
    (filterv #(contains? (set selected-ids) (:id %)) relationships)))
 
+(rf/reg-event-fx
+ :system/part-update
+ (fn [{:keys [db]} [_ part-id attrs]]
+   (let [updated-db (update-in db [:system :parts]
+                               (fn [parts]
+                                 (mapv (fn [part]
+                                         (if (= (:id part) part-id)
+                                           (merge part attrs)
+                                           part))
+                                       parts)))]
+     {:db updated-db
+      :queue/add-event {:entity :part
+                        :id part-id
+                        :type "update"
+                        :data attrs}})))
+
 (defui app []
   ($ auth-provider {}
      ($ system)))

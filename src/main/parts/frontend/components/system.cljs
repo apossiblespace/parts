@@ -112,9 +112,8 @@
                                  :on-click #(create-part-by-type "firefighter")})
                       ($ button {:label "Manager"
                                  :on-click #(create-part-by-type "manager")})))
-                ;; ($ Panel {:position "top-right" :className "sidebar-container"}
-                ;;    ($ sidebar {:selected-nodes selected-nodes
-                ;;                :selected-edges selected-edges}))
+                ($ Panel {:position "top-right" :className "sidebar-container"}
+                   ($ sidebar))
                 ($ MiniMap {:className "tools parts-minimap shadow-sm"
                             :position "bottom-right"
                             :ariaLabel "Minimap"
