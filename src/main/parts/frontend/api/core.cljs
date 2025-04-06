@@ -35,5 +35,5 @@
 (defn send-batched-updates
   [batch]
   (go
-    (println "Sending batch:" batch)
+    (js/console.log "[queue][send-batched-updates]" batch)
     (<! (http/POST "/system/changes" batch))))

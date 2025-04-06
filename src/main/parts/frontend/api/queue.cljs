@@ -46,7 +46,7 @@
     (let [batch (<! debounced-chan)]
       (when batch
         (let [response (send-batched-updates batch)]
-          (println "Batch response:" (:status response) (:body response)))))
+          (js/console.log "[queue][batch update response]" (:status response) (:body response)))))
     (recur)))
 
 (defn stop

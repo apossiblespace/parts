@@ -23,7 +23,7 @@
 
         on-nodes-change (use-callback
                          (fn [changes]
-                           (println "[on-nodes-change]" changes)
+                           (js/console.log "[on-nodes-change]" changes)
                            (->> (js->clj changes :keywordize-keys true)
                                 (run! (fn [change]
                                         (case (:type change)
@@ -38,7 +38,7 @@
                                           "select" (rf/dispatch [:selection/toggle-node
                                                                  (:id change)
                                                                  (:selected change)])
-                                          (js/console.log "Unhandled node change:" change)))))) [])
+                                          (js/console.log "[on-nodes-change][UNHANDLED]" change)))))) [])
 
         on-edges-change (use-callback
                          (fn [changes]
@@ -49,7 +49,7 @@
                                           "select" (rf/dispatch [:selection/toggle-edge
                                                                  (:id change)
                                                                  (:selected change)])
-                                          (js/console.log "Unhandled edge change:" change)))))) [])
+                                          (js/console.log "[on-edges-change][UNHANDLED]" change)))))) [])
 
         on-connect (fn [connection]
                      (println "[on-connect]" connection))
