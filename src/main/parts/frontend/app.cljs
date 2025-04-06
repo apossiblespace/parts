@@ -109,6 +109,18 @@
                       (conj current-ids node-id))
                     (filterv #(not= node-id %) current-ids)))))))
 
+(rf/reg-event-db
+ :selection/toggle-edge
+ (fn [db [_ edge-id selected?]]
+   (update-in db [:ui :selected-edge-ids]
+              (fn [ids]
+                (let [current-ids (or ids [])]
+                  (if selected?
+                    (if (some #{edge-id} current-ids)
+                      current-ids
+                      (conj current-ids edge-id))
+                    (filterv #(not= edge-id %) current-ids)))))))
+
 (rf/reg-sub
  :ui/selected-node-ids
  (fn [db _]
@@ -146,6 +158,22 @@
      {:db updated-db
       :queue/add-event {:entity :part
                         :id part-id
+                        :type "update"
+                        :data attrs}})))
+
+(rf/reg-event-fx
+ :system/relationship-update
+ (fn [{:keys [db]} [_ relationship-id attrs]]
+   (let [updated-db (update-in db [:system :relationships]
+                               (fn [relationships]
+                                 (mapv (fn [relationship]
+                                         (if (= (:id relationship) relationship-id)
+                                           (merge relationship attrs)
+                                           relationship))
+                                       relationships)))]
+     {:db updated-db
+      :queue/add-event {:entity :relationship
+                        :id relationship-id
                         :type "update"
                         :data attrs}})))
 

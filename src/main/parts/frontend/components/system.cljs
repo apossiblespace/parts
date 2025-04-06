@@ -47,8 +47,16 @@
                           ;;                "remove" (remove-part (:id change))
                           ;;                nil)))))
 
-        on-edges-change (fn [changes]
-                          (println "[on-edges-change]" changes))
+        on-edges-change (use-callback
+                         (fn [changes]
+                           (println "[on-edges-change]" changes)
+                           (->> (js->clj changes :keywordize-keys true)
+                                (run! (fn [change]
+                                        (case (:type change)
+                                          "select" (rf/dispatch [:selection/toggle-edge
+                                                                 (:id change)
+                                                                 (:selected change)])
+                                          (js/console.log "Unhandled edge change:" change)))))) [])
                           ;; (->> (js->clj changes :keywordize-keys true)
                           ;;      (run! (fn [change]
                           ;;              (when (= "remove" (:type change))
