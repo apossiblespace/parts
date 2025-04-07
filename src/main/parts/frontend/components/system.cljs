@@ -28,7 +28,7 @@
                                 (run! (fn [change]
                                         (case (:type change)
                                           "position" (when-let [position (:position change)]
-                                                       (rf/dispatch [:system/update-part-position
+                                                       (rf/dispatch [:system/part-update-position
                                                                      (:id change)
                                                                      position])
                                                        (when-not (:dragging change)
