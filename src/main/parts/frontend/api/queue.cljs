@@ -41,7 +41,7 @@
 (defn start
   "Start a loop sending batched system updates to the backend"
   []
-  (println "[queue] update queue started")
+  (js/console.log "[queue] update queue started")
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch
@@ -52,7 +52,7 @@
 (defn stop
   "Close channels and stop processing the queue"
   []
-  (println "[queue] update queue stopped"))
+  (js/console.log "[queue] update queue stopped"))
 
 (defmulti normalize-event
   "Returns a normalized event to be enqueued"
@@ -104,7 +104,7 @@
 
 (defmethod normalize-event :default
   [entity event]
-  (println "[normalize-event] unhandled:" entity event)
+  (js/console.log "[normalize-event] unhandled:" entity event)
   nil)
 
 (defn- normalize-events

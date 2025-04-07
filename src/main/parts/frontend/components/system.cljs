@@ -43,7 +43,7 @@
 
         on-edges-change (use-callback
                          (fn [changes]
-                           (println "[on-edges-change]" changes)
+                           (js/console.log "[on-edges-change]" changes)
                            (->> (js->clj changes :keywordize-keys true)
                                 (run! (fn [change]
                                         (case (:type change)
@@ -56,7 +56,7 @@
 
         on-connect (use-callback
                     (fn [connection]
-                      (println "[on-connect]" connection)
+                      (js/console.log "[on-connect]" connection)
                       (let [params (js->clj connection :keywordize-keys true)
                             source-id (:source params)
                             target-id (:target params)]
@@ -67,21 +67,21 @@
 
         on-selection-change (use-callback
                              (fn [selection]
-                               (println "[on-selection-change]" selection)
+                               (js/console.log "[on-selection-change]" selection)
                                (let [sel (js->clj selection :keywordize-keys true)]
                                  (rf/dispatch [:selection/set sel])))
                              [])
 
         create-part-by-type (fn [type]
-                              (println "[create-part-by-type]" type)
+                              (js/console.log "[create-part-by-type]" type)
                               (rf/dispatch [:system/part-create {:type type}]))]
 
     (use-effect
      (fn []
-       (println "[system] starting event queue")
+       (js/console.log "[system] starting event queue")
        (queue/start)
        (fn []
-         (println "[system] stopping event queue")
+         (js/console.log "[system] stopping event queue")
          (queue/stop)))
      [])
 
