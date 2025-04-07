@@ -35,3 +35,19 @@
  :<- [:system/relationships]
  (fn [[selected-ids relationships] _]
    (filterv #(contains? (set selected-ids) (:id %)) relationships)))
+
+(rf/reg-sub
+ :auth/user
+ (fn [db _]
+   (get-in db [:auth :user])))
+
+(rf/reg-sub
+ :auth/loading
+ (fn [db _]
+   (get-in db [:auth :loading])))
+
+(rf/reg-sub
+ :auth/logged-in
+ :<- [:auth/user]
+ (fn [user _]
+   (boolean user)))

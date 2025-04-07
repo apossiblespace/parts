@@ -5,9 +5,12 @@
    [re-frame.core :as rf]))
 
 (rf/reg-event-fx
- :app/init-db []
- (fn [{:store/keys [system]} [_ default-db]]
-   {:db (update default-db :system into system)}))
+ :app/init-db
+ (fn [_ [_ default-db]]
+   {:db (-> default-db
+            (assoc :auth {:user nil
+                          :loading true}))
+    :auth/check-auth-fx nil}))
 
 (rf/reg-event-db
  :selection/set
@@ -158,3 +161,31 @@
                         :id relationship-id
                         :type "remove"
                         :data {}}})))
+
+(rf/reg-event-db
+ :auth/set-user
+ (fn [db [_ user]]
+   (assoc-in db [:auth :user] user)))
+
+(rf/reg-event-db
+ :auth/set-loading
+ (fn [db [_ loading]]
+   (assoc-in db [:auth :loading] loading)))
+
+(rf/reg-event-fx
+ :auth/login
+ (fn [{:keys [db]} [_ credentials]]
+   {:db db
+    :auth/login-fx credentials}))
+
+(rf/reg-event-fx
+ :auth/logout
+ (fn [{:keys [db]} _]
+   {:db (assoc-in db [:auth :user] nil)
+    :auth/logout-fx nil}))
+
+(rf/reg-event-fx
+ :auth/check-auth
+ (fn [{:keys [db]} _]
+   {:db db
+    :auth/check-auth-fx nil}))

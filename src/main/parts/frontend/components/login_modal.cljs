@@ -1,19 +1,15 @@
 (ns parts.frontend.components.login-modal
   (:require
    [uix.core :refer [defui $ use-state]]
-   [cljs.core.async :refer [<!]]
-   [parts.frontend.context :as ctx]
+   [re-frame.core :as rf]
    [parts.frontend.api.utils :as utils]
-   [parts.frontend.components.modal :refer [modal]])
-  (:require-macros
-   [cljs.core.async.macros :refer [go]]))
+   [parts.frontend.components.modal :refer [modal]]))
 
 (defui login-modal [{:keys [show on-close]}]
   (let [[email set-email] (use-state "")
         [password set-password] (use-state "")
         [error set-error] (use-state nil)
         [loading set-loading] (use-state false)
-        {:keys [login]} (ctx/use-auth)
 
         handle-close (fn [e]
                        (.preventDefault e)
@@ -26,15 +22,14 @@
                         (.preventDefault e)
                         (set-loading true)
                         (set-error nil)
-                        (go
-                          (let [result (<! (login {:email email
-                                                   :password password}))]
-                            (set-loading false)
-                            (if (= 401 (:status result))
-                              (do
-                                (set-error (get-in result [:body :error]))
-                                (println "Login error:" result (get-in result [:body :error])))
-                              (handle-close e)))))]
+                        (rf/dispatch [:auth/login
+                                      {:email email
+                                       :password password
+                                       :callback (fn [result]
+                                                   (set-loading false)
+                                                   (if (= 401 (:status result))
+                                                     (set-error (get-in result [:body :error]))
+                                                     (handle-close e)))}]))]
 
     ($ modal
        {:show show

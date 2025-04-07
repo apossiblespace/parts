@@ -2,7 +2,6 @@
   (:require
    ["htmx.org" :default htmx]
    [parts.frontend.components.system :refer [system]]
-   [parts.frontend.context :refer [auth-provider]]
    [parts.frontend.state.subs]
    [parts.frontend.state.handlers]
    [parts.frontend.state.fx]
@@ -48,8 +47,7 @@
     :relationships relationships}})
 
 (defui app []
-  ($ auth-provider {}
-     ($ system)))
+  ($ system))
 
 (defonce root
   (when-let [root-element (js/document.getElementById "root")]
@@ -59,7 +57,6 @@
   "Render the app if root element exists"
   []
   (when root
-    (js/console.log "dispatching init-db")
     (rf/dispatch-sync [:app/init-db system-data])
     (uix.dom/render-root ($ app) root)))
 

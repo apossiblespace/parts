@@ -7,8 +7,7 @@
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar.button :refer [button]]
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
-   [parts.frontend.context :as ctx]
-   [uix.core :refer [$ defui use-callback use-effect use-state]]
+   [uix.core :refer [$ defui use-callback use-effect]]
    [uix.re-frame :as uix.rf]
    [re-frame.core :as rf]))
 
