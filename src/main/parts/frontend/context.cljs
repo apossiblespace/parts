@@ -7,9 +7,6 @@
    [parts.frontend.api.utils :as utils]
    [uix.core :refer [$ create-context defui use-context use-effect use-state]]))
 
-(def update-system-context (create-context {:update-node nil
-                                            :update-edge nil}))
-
 (def auth-context (create-context
                    {:logged-in false
                     :email nil

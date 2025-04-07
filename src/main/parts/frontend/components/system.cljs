@@ -86,40 +86,37 @@
          (queue/stop)))
      [])
 
-    ($ (.-Provider ctx/update-system-context)
-       {:value {:update-node (use-callback (fn [_ _] (println "update-node")) [])
-                :update-edge (use-callback (fn [_ _] (println "update-edge")) [])}}
-       ($ :div {:class "system-container"}
-          ($ :div {:class "system-view"}
-             ($ ReactFlow {:nodes nodes
-                           :edges edges
-                           :onNodesChange on-nodes-change
-                           :onEdgesChange on-edges-change
-                           :onConnect on-connect
-                           :onSelectionChange on-selection-change
-                           :nodeTypes (clj->js node-types)
-                           :edgeTypes (clj->js edge-types)}
-                ($ Controls)
-                ($ Panel {:position "top-left" :class "logo"}
-                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-                ($ Panel {:position "top-center" :class "toolbar shadow-xs"}
-                   ($ :div {:class "join"}
-                      ($ button {:label "Unknown"
-                                 :on-click #(create-part-by-type "unknown")})
-                      ($ button {:label "Exile"
-                                 :on-click #(create-part-by-type "exile")})
-                      ($ button {:label "Firefighter"
-                                 :on-click #(create-part-by-type "firefighter")})
-                      ($ button {:label "Manager"
-                                 :on-click #(create-part-by-type "manager")})))
-                ($ Panel {:position "top-right" :className "sidebar-container"}
-                   ($ sidebar))
-                ($ MiniMap {:className "tools parts-minimap shadow-sm"
-                            :position "bottom-right"
-                            :ariaLabel "Minimap"
-                            :pannable true
-                            :zoomable true
-                            :offsetScale 5})
-                ($ Background {:variant "dots"
-                               :gap 12
-                               :size 1})))))))
+    ($ :div {:class "system-container"}
+       ($ :div {:class "system-view"}
+          ($ ReactFlow {:nodes nodes
+                        :edges edges
+                        :onNodesChange on-nodes-change
+                        :onEdgesChange on-edges-change
+                        :onConnect on-connect
+                        :onSelectionChange on-selection-change
+                        :nodeTypes (clj->js node-types)
+                        :edgeTypes (clj->js edge-types)}
+             ($ Controls)
+             ($ Panel {:position "top-left" :class "logo"}
+                ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
+             ($ Panel {:position "top-center" :class "toolbar shadow-xs"}
+                ($ :div {:class "join"}
+                   ($ button {:label "Unknown"
+                              :on-click #(create-part-by-type "unknown")})
+                   ($ button {:label "Exile"
+                              :on-click #(create-part-by-type "exile")})
+                   ($ button {:label "Firefighter"
+                              :on-click #(create-part-by-type "firefighter")})
+                   ($ button {:label "Manager"
+                              :on-click #(create-part-by-type "manager")})))
+             ($ Panel {:position "top-right" :className "sidebar-container"}
+                ($ sidebar))
+             ($ MiniMap {:className "tools parts-minimap shadow-sm"
+                         :position "bottom-right"
+                         :ariaLabel "Minimap"
+                         :pannable true
+                         :zoomable true
+                         :offsetScale 5})
+             ($ Background {:variant "dots"
+                            :gap 12
+                            :size 1}))))))
