@@ -13,19 +13,18 @@
     (:entity event)
     [event])))
 
-;; NOTE: `credentials` can have a callback key, which can hold a function that
-;; will be called, if provided, with the API response.
+;; NOTE: the params can have a callback key, which can hold a function that will
+;; be called, if provided, with the API response.
 (rf/reg-fx
  :auth/login-fx
- (fn [credentials]
+ (fn [{:keys [email password callback]}]
    (go
-     (let [resp (<! (api/login {:email (:email credentials)
-                                :password (:password credentials)}))]
+     (let [resp (<! (api/login {:email email :password password}))]
        (rf/dispatch [:auth/set-loading false])
        (when (= 200 (:status resp))
          (rf/dispatch [:auth/check-auth]))
-       (when (:callback credentials)
-         ((:callback credentials) resp))))))
+       (when callback
+         (callback resp))))))
 
 (rf/reg-fx
  :auth/logout-fx
