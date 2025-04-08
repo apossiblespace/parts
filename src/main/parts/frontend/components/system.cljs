@@ -65,6 +65,9 @@
                                        :target_id target-id}])))
                     [])
 
+        ;; FIXME: We might need to remove this in order to properly handle
+        ;; selection by dragging. When this callback is set, dragging does not
+        ;; select any edges, for reasons yet unclear.
         on-selection-change (use-callback
                              (fn [selection]
                                (js/console.log "[on-selection-change]" selection)
@@ -92,7 +95,7 @@
                         :onNodesChange on-nodes-change
                         :onEdgesChange on-edges-change
                         :onConnect on-connect
-                        :onSelectionChange on-selection-change
+                        ;; :onSelectionChange on-selection-change
                         :nodeTypes (clj->js node-types)
                         :edgeTypes (clj->js edge-types)}
              ($ Controls)
