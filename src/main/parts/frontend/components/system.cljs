@@ -12,7 +12,8 @@
    [re-frame.core :as rf]))
 
 (defui system []
-  (let [parts (uix.rf/use-subscribe [:system/parts])
+  (let [system-id (uix.rf/use-subscribe [:system/id])
+        parts (uix.rf/use-subscribe [:system/parts])
         relationships (uix.rf/use-subscribe [:system/relationships])
         selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
@@ -82,11 +83,11 @@
     (use-effect
      (fn []
        (js/console.log "[system] starting event queue")
-       (queue/start)
+       (queue/start system-id)
        (fn []
          (js/console.log "[system] stopping event queue")
          (queue/stop)))
-     [])
+     [system-id])
 
     ($ :div {:class "system-container"}
        ($ :div {:class "system-view"}

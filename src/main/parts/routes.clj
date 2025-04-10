@@ -143,4 +143,5 @@
       ["" {:get {:handler api.systems/get-system}
            :put {:handler api.systems/update-system}
            :delete {:handler api.systems/delete-system}}]
-      ["/pdf" {:get {:handler api.systems/export-pdf}}]]]]])
+      ["/pdf" {:get {:handler api.systems/export-pdf}}]
+      ["/changes" {:post {:handler api.systems/process-changes}}]]]]])

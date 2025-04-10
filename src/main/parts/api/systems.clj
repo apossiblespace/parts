@@ -59,6 +59,13 @@
       (-> (response/response {:error "Not authorized"})
           (response/status 403)))))
 
+(defn process-changes
+  "Process batches of changes sent by client
+  TODO: Add expanded documentation"
+  [{:keys [identity parameters] :as _request}]
+  (-> response/response {:error "Not implemented"}
+      (response/status 501)))
+
 ;; TODO: Implement PDF export endpoint once we have the PDF generation service
 (defn export-pdf
   "Generate PDF export of a system"

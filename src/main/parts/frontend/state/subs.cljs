@@ -3,6 +3,11 @@
    [re-frame.core :as rf]))
 
 (rf/reg-sub
+ :system/id
+ (fn [db _]
+   (get-in db [:system :id])))
+
+(rf/reg-sub
  :system/parts
  (fn [db _]
    (get-in db [:system :parts])))

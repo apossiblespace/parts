@@ -39,13 +39,13 @@
 (def debounced-chan (debounce-batch changes-chan 2000))
 
 (defn start
-  "Start a loop sending batched system updates to the backend"
-  []
+  "Start a loop sending batched system updates for a specific system ID to the backend"
+  [system-id]
   (js/console.log "[queue] update queue started")
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch
-        (let [response (send-batched-updates batch)]
+        (let [response (send-batched-updates system-id batch)]
           (js/console.log "[queue][batch update response]" (:status response) (:body response)))))
     (recur)))
 

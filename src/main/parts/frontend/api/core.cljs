@@ -33,7 +33,7 @@
 ;; Update batching related functions
 ;; TODO: Implement /system/changes backend endpoint
 (defn send-batched-updates
-  [batch]
+  [system-id batch]
   (go
     (js/console.log "[queue][send-batched-updates]" batch)
-    (<! (http/POST "/system/changes" batch))))
+    (<! (http/POST (str "/systems/" system-id "/changes") batch))))
