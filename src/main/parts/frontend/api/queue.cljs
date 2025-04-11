@@ -1,7 +1,7 @@
 (ns parts.frontend.api.queue
-  "Batching up change events for efficient sending to backend"
+  "Batching up change events for sending to backend"
   (:require
-   [cljs.core.async :refer [<! >! alts! chan close! go go-loop put! timeout]]
+   [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]
    [parts.frontend.api.core :refer [send-batched-updates]]))
 
 (defn debounce-batch

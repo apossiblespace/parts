@@ -30,8 +30,10 @@
   []
   (http/GET "/account" {}))
 
-;; Update batching related functions
-;; TODO: Implement /system/changes backend endpoint
+;; NOTE: This function is called in the queue processing go-loop in
+;; parts.frontend.api.queue/start. The idea is that a processing queue is
+;; started _per system_, so it makes sense to enclose the system-id in the
+;; `start` function.
 (defn send-batched-updates
   [system-id batch]
   (go
