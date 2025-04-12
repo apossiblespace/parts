@@ -1,6 +1,10 @@
 (ns parts.api.systems
   (:require
+   [com.brunobonacci.mulog :as mulog]
+   [next.jdbc :as jdbc]
+   [parts.db :as db]
    [parts.entity.system :as system]
+   [parts.api.systems-events :as events]
    [ring.util.response :as response]))
 
 (defn list-systems
@@ -59,12 +63,74 @@
       (-> (response/response {:error "Not authorized"})
           (response/status 403)))))
 
+(defn- user-can-modify-system?
+  "Check if the user has permission to modify the system.
+   Currently always returns true as permissions are not implemented."
+  [user-id system]
+  (= user-id (:owner_id system)))
+
 (defn process-changes
   "Process batches of changes sent by client
-  TODO: Add expanded documentation"
-  [{:keys [identity parameters] :as _request}]
-  (-> response/response {:error "Not implemented"}
-      (response/status 501)))
+
+  Handles batches of change events for a system, applying them in a transaction.
+  Each change is processed according to its entity type and operation.
+
+  The request body should be an array of change objects, each with:
+  - entity: The entity type (part, relationship)
+  - id: The entity ID
+  - type: The operation type (create, update, remove, position)
+  - data: Operation-specific data
+
+  Returns:
+  - 200 OK with results if all changes succeed
+  - 403 Forbidden if user doesn't own the system
+  - 207 Multi-Status if some changes fail
+  - 400 Bad Request for invalid input
+  "
+  [{:keys [identity parameters body-params] :as _request}]
+  (let [user-id (:sub identity)
+        system-id (get-in parameters [:path :id])]
+    (try
+      (let [system (system/get-system system-id)]
+        (if (user-can-modify-system? user-id system)
+          (try
+            (let [changes (if (sequential? body-params) body-params [body-params])
+                  results (jdbc/with-transaction [_tx (db/write-pool)]
+                            (mapv #(events/process-change system-id %) changes))]
+
+              (mulog/log ::process-changes
+                         :user-id user-id
+                         :system-id system-id
+                         :change-count (count changes)
+                         :success-count (count (filter :success results)))
+
+              (if (every? :success results)
+                (-> (response/response {:success true :results results})
+                    (response/status 200))
+                (-> (response/response {:success false
+                                        :results results
+                                        :error "Some changes failed"})
+                    (response/status 207))))
+
+            (catch Exception e
+              (mulog/log ::process-changes-error
+                         :user-id user-id
+                         :system-id system-id
+                         :error (.getMessage e))
+              (-> (response/response {:error "Failed to process changes"
+                                      :details (.getMessage e)})
+                  (response/status 500))))
+
+          (-> (response/response {:error "Not authorized"})
+              (response/status 403))))
+
+      (catch Exception e
+        (mulog/log ::system-access-error
+                   :user-id user-id
+                   :system-id system-id
+                   :error (.getMessage e))
+        (-> (response/response {:error "System not found"})
+            (response/status 404))))))
 
 ;; TODO: Implement PDF export endpoint once we have the PDF generation service
 (defn export-pdf
