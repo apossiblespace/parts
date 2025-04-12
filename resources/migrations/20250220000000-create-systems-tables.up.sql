@@ -8,7 +8,7 @@ CREATE TABLE systems (
     FOREIGN KEY (owner_id) REFERENCES users(id)
 );
 --;;
-CREATE TABLE nodes (
+CREATE TABLE parts (
     id TEXT PRIMARY KEY,
     system_id TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('manager', 'firefighter', 'exile', 'unknown')),
@@ -22,7 +22,7 @@ CREATE TABLE nodes (
     FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
 );
 --;;
-CREATE TABLE edges (
+CREATE TABLE relationships (
     id TEXT PRIMARY KEY,
     system_id TEXT NOT NULL,
     source_id TEXT NOT NULL,
@@ -30,14 +30,14 @@ CREATE TABLE edges (
     type TEXT NOT NULL CHECK (type IN ('protective', 'polarization', 'alliance', 'burden', 'blended')),
     notes TEXT,
     FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_id) REFERENCES nodes(id) ON DELETE CASCADE,
-    FOREIGN KEY (target_id) REFERENCES nodes(id) ON DELETE CASCADE
+    FOREIGN KEY (source_id) REFERENCES parts(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_id) REFERENCES parts(id) ON DELETE CASCADE
 );
 --;;
-CREATE INDEX idx_nodes_system_id ON nodes(system_id);
+CREATE INDEX idx_parts_system_id ON parts(system_id);
 --;;
-CREATE INDEX idx_edges_system_id ON edges(system_id);
+CREATE INDEX idx_relationships_system_id ON relationships(system_id);
 --;;
-CREATE INDEX idx_edges_source_id ON edges(source_id);
+CREATE INDEX idx_relationships_source_id ON relationships(source_id);
 --;;
-CREATE INDEX idx_edges_target_id ON edges(target_id);
+CREATE INDEX idx_relationships_target_id ON relationships(target_id);
