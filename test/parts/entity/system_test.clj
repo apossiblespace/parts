@@ -24,8 +24,8 @@
             fetched (system/get-system (:id created))]
         (is (= (:id created) (:id fetched)))
         (is (= (:title created) (:title fetched)))
-        (is (vector? (:nodes fetched)))
-        (is (vector? (:edges fetched)))))
+        (is (vector? (:parts fetched)))
+        (is (vector? (:relationships fetched)))))
 
     (testing "list-systems"
       (let [_ (system/create-system! system-data)

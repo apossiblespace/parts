@@ -1,8 +1,8 @@
 (ns parts.api.systems-events
   (:require
    [com.brunobonacci.mulog :as mulog]
-   [parts.entity.edge :as edge]
-   [parts.entity.node :as node]))
+   [parts.entity.relationship :as relationship]
+   [parts.entity.part :as part]))
 
 ;; TODO: Since we have changed our basic entities from Node to Part etc on the
 ;; frontend, we should rename them on the backend as well, plus integrate the
@@ -19,7 +19,7 @@
     (let [part-data (assoc data
                            :id id
                            :system_id system-id)
-          created (node/create-node! part-data)]
+          created (part/create-part! part-data)]
       {:success true
        :result created})
     (catch Exception e
@@ -29,7 +29,7 @@
 (defmethod process-change [:part :update]
   [_system-id {:keys [id data]}]
   (try
-    (let [updated (node/update-node! id data)]
+    (let [updated (part/update-part! id data)]
       {:success true
        :result updated})
     (catch Exception e
@@ -41,7 +41,7 @@
   (try
     (let [position-data {:position_x (int (:x data))
                          :position_y (int (:y data))}
-          updated (node/update-node! id position-data)]
+          updated (part/update-part! id position-data)]
       {:success true
        :result updated})
     (catch Exception e
@@ -51,7 +51,7 @@
 (defmethod process-change [:part :remove]
   [_system-id {:keys [id]}]
   (try
-    (let [result (node/delete-node! id)]
+    (let [result (part/delete-part! id)]
       {:success (:deleted result)
        :result result})
     (catch Exception e
@@ -64,7 +64,7 @@
     (let [rel-data (assoc data
                           :id id
                           :system_id system-id)
-          created (edge/create-edge! rel-data)]
+          created (relationship/create-relationship! rel-data)]
       {:success true
        :result created})
     (catch Exception e
@@ -74,7 +74,7 @@
 (defmethod process-change [:relationship :update]
   [_system-id {:keys [id data]}]
   (try
-    (let [updated (edge/update-edge! id data)]
+    (let [updated (relationship/update-relationship! id data)]
       {:success true
        :result updated})
     (catch Exception e
@@ -84,7 +84,7 @@
 (defmethod process-change [:relationship :remove]
   [_system-id {:keys [id]}]
   (try
-    (let [result (edge/delete-edge! id)]
+    (let [result (relationship/delete-relationship! id)]
       {:success (:deleted result)
        :result result})
     (catch Exception e

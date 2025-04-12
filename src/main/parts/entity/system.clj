@@ -1,7 +1,6 @@
 (ns parts.entity.system
-  "Entity representing a system map, including its nodes and edges.
-   Systems are owned by users and contain a collection of nodes and their
-   relationships (edges)."
+  "Entity representing a system map, including its parts and relationships.
+   Systems are owned by users."
   (:require
    [clojure.spec.alpha :as s]
    [parts.utils :refer [validate-spec]]
@@ -22,12 +21,12 @@
   (db/insert! :systems data))
 
 (defn get-system
-  "Get a system by ID, including all its nodes and edges.
+  "Get a system by ID, including all its parts and relationships.
 
    Returns a map containing:
    - Basic system information (id, title, etc.)
-   - :nodes vector containing all nodes
-   - :edges vector containing all edges
+   - :parts vector containing all parts
+   - :relationships vector containing all relationships
 
    Example:
    ```
@@ -35,8 +34,8 @@
    ;; => {:id \"123\"
    ;;     :title \"My System\"
    ;;     :owner_id \"user-456\"
-   ;;     :nodes [{:id \"n1\" :type \"manager\" ...}]
-   ;;     :edges [{:id \"e1\" :source_id \"n1\" ...}]}
+   ;;     :parts [{:id \"n1\" :type \"manager\" ...}]
+   ;;     :relationships [{:id \"e1\" :source_id \"n1\" ...}]}
    ```"
   [id]
   (if-let [system (db/query-one
@@ -44,19 +43,19 @@
                     {:select [:*]
                      :from [:systems]
                      :where [:= :id id]}))]
-    (let [nodes (db/query
+    (let [parts (db/query
                  (db/sql-format
                   {:select [:*]
-                   :from [:nodes]
+                   :from [:parts]
                    :where [:= :system_id id]}))
-          edges (db/query
-                 (db/sql-format
-                  {:select [:*]
-                   :from [:edges]
-                   :where [:= :system_id id]}))]
+          relationships (db/query
+                         (db/sql-format
+                          {:select [:*]
+                           :from [:relationships]
+                           :where [:= :system_id id]}))]
       (assoc system
-             :nodes nodes
-             :edges edges))
+             :parts parts
+             :relationships relationships))
     (throw (ex-info "System not found" {:type :not-found :id id}))))
 
 (defn list-systems

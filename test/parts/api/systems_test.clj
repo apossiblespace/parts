@@ -43,8 +43,8 @@
             response (api/get-system request)]
         (is (= 200 (:status response)))
         (is (= (:id system) (-> response :body :id)))
-        (is (vector? (-> response :body :nodes)))
-        (is (vector? (-> response :body :edges)))))
+        (is (vector? (-> response :body :parts)))
+        (is (vector? (-> response :body :relationships)))))
 
     (testing "returns 403 for non-owner"
       (let [request (make-request other-user :params {:id (:id system)})

@@ -4,7 +4,7 @@ CREATE TABLE systems (
     owner_id TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    viewport_settings TEXT,  -- JSON string containing zoom and position
+    viewport_settings TEXT,  -- EDN string containing zoom and position
     FOREIGN KEY (owner_id) REFERENCES users(id)
 );
 --;;
