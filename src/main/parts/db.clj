@@ -62,13 +62,11 @@
   [q]
   (first (query q)))
 
-(defn generate-uuid
-  []
-  (str (UUID/randomUUID)))
-
 (defn insert!
+  "Inserts `data` into `table`. If `data` does not include an :id key, generate
+  a random UUID for it."
   [table data]
-  (let [data-with-uuid (assoc data :id (generate-uuid))]
+  (let [data-with-uuid (merge {:id (random-uuid)} data)]
     (first (jdbc/execute! write-datasource
                           (sql/format {:insert-into (keyword table)
                                        :values [data-with-uuid]
