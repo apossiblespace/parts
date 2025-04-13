@@ -4,8 +4,10 @@
   (:require
    [clojure.spec.alpha :as s]
    [parts.utils :refer [validate-spec]]
+   [parts.common.models.system :as model]
    [parts.db :as db]))
 
+;; TODO: Remove this, replace by in-model validation
 (s/def ::id string?)
 (s/def ::title string?)
 (s/def ::owner_id string?)
@@ -17,8 +19,8 @@
 (defn create-system!
   "Create a new system"
   [data]
-  (validate-spec ::system data)
-  (db/insert! :systems data))
+  (let [system (model/make-system data)]
+    (db/insert! :systems system)))
 
 (defn get-system
   "Get a system by ID, including all its parts and relationships.

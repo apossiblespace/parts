@@ -50,7 +50,7 @@
 
 (deftest test-system-validations
   (testing "creates fails with invalid data"
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Invalid System data"
                           (system/create-system! {}))))
 
   (testing "update fails with invalid data"
