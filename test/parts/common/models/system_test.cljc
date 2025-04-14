@@ -23,5 +23,5 @@
   (testing "Throws an exception for missing owner ID"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
-            :cljs cljs.core.ExceptionInfo) #"Invalid System data"
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (system/make-system {})))))

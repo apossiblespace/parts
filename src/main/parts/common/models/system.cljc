@@ -1,6 +1,7 @@
 (ns parts.common.models.system
   (:require
-   [clojure.spec.alpha :as s]))
+   [clojure.spec.alpha :as s]
+   [parts.common.utils :refer [validate-spec]]))
 
 (s/def ::id string?)
 (s/def ::title string?)
@@ -12,6 +13,10 @@
                                  ::owner_id]
                         :opt-un [::viewport_settings]))
 
+(def spec
+  "System model spec for reuse outside of the namespace"
+  ::system)
+
 (defn make-system
   "Create a new System with the given attributes"
   [attrs]
@@ -20,9 +25,5 @@
                 {:id (str (random-uuid))
                  :title "Untitled System"}
                 attrs)]
-    (if (s/valid? ::system system)
-      system
-      (throw (ex-info "Invalid System data"
-                      {:type ::invalid-system
-                       :spec-error (s/explain-data ::system system)
-                       :data system})))))
+    (validate-spec ::system system)
+    system))

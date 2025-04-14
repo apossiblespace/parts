@@ -46,11 +46,11 @@
   (testing "Throws exception for invalid part type"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
-            :cljs cljs.core.ExceptionInfo) #"Invalid Part data"
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (part/make-part {:system_id "test" :type "invalid-type"}))))
 
   (testing "Throws exception for missing required attributes"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
-            :cljs cljs.core.ExceptionInfo) #"Invalid Part data"
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (part/make-part {})))))

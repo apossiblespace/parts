@@ -4,10 +4,6 @@
    [parts.entity.relationship :as relationship]
    [parts.entity.part :as part]))
 
-;; TODO: Since we have changed our basic entities from Node to Part etc on the
-;; frontend, we should rename them on the backend as well, plus integrate the
-;; models in common with the backend entities.
-
 (defmulti process-change
   "Process a single change event based on entity type and operation"
   (fn [_system-id event]

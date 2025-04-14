@@ -32,7 +32,7 @@
   (testing "Throws exception for invalid relationship type"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
-            :cljs cljs.core.ExceptionInfo) #"Invalid Relationship data"
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (relationship/make-relationship {:system_id "test"
                                           :source_id "source"
                                           :target_id "target"
@@ -41,5 +41,5 @@
   (testing "Throws exception for missing required attributes"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
-            :cljs cljs.core.ExceptionInfo) #"Invalid Relationship data"
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (relationship/make-relationship {})))))

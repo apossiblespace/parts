@@ -1,7 +1,8 @@
 (ns parts.common.models.relationship
   (:require
    [clojure.spec.alpha :as s]
-   [parts.common.constants :refer [relationship-types]]))
+   [parts.common.constants :refer [relationship-types]]
+   [parts.common.utils :refer [validate-spec]]))
 
 (s/def ::id string?)
 (s/def ::system_id string?)
@@ -18,6 +19,10 @@
                    ::target_id]
           :opt-un [::notes]))
 
+(def spec
+  "Relationship model spec for reuse outside of the namespace"
+  ::relationship)
+
 (defn make-relationship
   "Create a new Relationship with the given attributes"
   [attrs]
@@ -27,9 +32,5 @@
                        :type "unknown"
                        :notes nil}
                       attrs)]
-    (if (s/valid? ::relationship relationship)
-      relationship
-      (throw (ex-info "Invalid Relationship data"
-                      {:type ::invalid-relationship
-                       :spec-error (s/explain-data ::relationship relationship)
-                       :data relationship})))))
+    (validate-spec ::relationship relationship)
+    relationship))

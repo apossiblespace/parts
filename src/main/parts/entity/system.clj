@@ -2,19 +2,9 @@
   "Entity representing a system map, including its parts and relationships.
    Systems are owned by users."
   (:require
-   [clojure.spec.alpha :as s]
-   [parts.utils :refer [validate-spec]]
+   [parts.common.utils :refer [validate-spec]]
    [parts.common.models.system :as model]
    [parts.db :as db]))
-
-;; TODO: Remove this, replace by in-model validation
-(s/def ::id string?)
-(s/def ::title string?)
-(s/def ::owner_id string?)
-(s/def ::viewport_settings (s/nilable string?))
-
-(s/def ::system (s/keys :req-un [::title ::owner_id]
-                        :opt-un [::id ::viewport_settings]))
 
 (defn create-system!
   "Create a new system"
@@ -72,7 +62,7 @@
 (defn update-system!
   "Update a system"
   [id data]
-  (validate-spec ::system (assoc data :id id))
+  (validate-spec model/spec (assoc data :id id))
   (let [updated (db/update! :systems
                             (assoc data :last_modified [:raw "CURRENT_TIMESTAMP"])
                             [:= :id id])]
