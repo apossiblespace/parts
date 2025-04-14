@@ -1,4 +1,4 @@
-(ns parts.utils
+(ns parts.common.utils
   "Various useful utilities."
   (:require
    [clojure.spec.alpha :as s]))
