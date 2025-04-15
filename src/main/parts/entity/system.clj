@@ -70,6 +70,7 @@
       (first updated)
       (throw (ex-info "System not found" {:type :not-found :id id})))))
 
+;; TODO: Rename to delete!, also delete parts and relationships.
 (defn delete-system!
   "Delete a system. Returns a map with :id and :deleted keys,
    where :deleted is true if the system was found and deleted."

@@ -1,7 +1,9 @@
 (ns parts.entity.user
   (:require
+   [com.brunobonacci.mulog :as mulog]
    [parts.auth :as auth]
-   [parts.db :as db]))
+   [parts.db :as db]
+   [parts.entity.system :as system]))
 
 (def allowed-update-fields #{:email :display_name :password})
 (def sensitive-fields #{:password_hash})
@@ -74,8 +76,27 @@
     (remove-sensitive-data
      (db/insert! :users validated-attrs))))
 
-;; TODO: Don't forget to delete other data associated with this user
+;; TODO: Add unit tests
 (defn delete!
-  "Delete a user record"
+  "Delete a user record and all associated data:
+  - All systems owned by the user
+  - All parts and relationships in those systems
+  - All refresh tokens for the user"
   [id]
-  (db/delete! :users [:= :id id]))
+  (let [systems (db/query
+                 (db/sql-format
+                  {:select [:id]
+                   :from [:systems]
+                   :where [:= :owner_id id]}))]
+    (doseq [system systems]
+      (system/delete-system! (:id system)))
+
+    (db/delete! :refresh_tokens [:= :user_id id])
+
+    (let [result (db/delete! :users [:= :id id])
+          deleted (pos? (or (:next.jdbc/update-count (first result)) 0))]
+      (mulog/log ::delete-user-complete
+                 :user-id id
+                 :success deleted
+                 :systems-deleted (count systems))
+      {:id id :deleted deleted})))
