@@ -4,7 +4,8 @@
   (:require
    [parts.common.utils :refer [validate-spec]]
    [parts.common.models.system :as model]
-   [parts.db :as db]))
+   [parts.db :as db]
+   [com.brunobonacci.mulog :as mulog]))
 
 (defn create!
   "Create a new system"
@@ -70,11 +71,30 @@
       (first updated)
       (throw (ex-info "System not found" {:type :not-found :id id})))))
 
-;; TODO: Rename to delete!, also delete parts and relationships.
 (defn delete!
   "Delete a system. Returns a map with :id and :deleted keys,
    where :deleted is true if the system was found and deleted."
   [id]
-  (let [result (db/delete! :systems [:= :id id])
-        count (or (:next.jdbc/update-count (first result)) 0)]
-    {:id id :deleted (pos? count)}))
+  (mulog/log ::delete-system-start :system-id id)
+
+  (let [result (db/with-transaction
+                 (fn [tx]
+                   (let [deleted-parts (db/delete! :parts [:= :system_id id] tx)
+                         parts-count (or (:next.jdbc/update-count (first deleted-parts)) 0)
+                         deleted-relationships (db/delete! :relationships [:= :system_id id] tx)
+                         rel-count (or (:next.jdbc/update-count (first deleted-relationships)) 0)
+                         result (db/delete! :systems [:= :id id] tx)
+                         deleted (pos? (or (:next.jdbc/update-count (first result)) 0))]
+
+                     {:id id
+                      :deleted deleted
+                      :parts-deleted parts-count
+                      :relationships-deleted rel-count})))]
+
+    (mulog/log ::delete-system-complete
+               :system-id id
+               :success (:deleted result)
+               :parts-deleted (:parts-count result)
+               :relationships-deleted (:rel-count result))
+
+    result))
