@@ -6,9 +6,7 @@
    [migratus.core :as migratus]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]
-   [parts.config :as conf])
-  (:import
-   (java.util UUID)))
+   [parts.config :as conf]))
 
 (def db-spec
   {:dbtype "sqlite"
@@ -65,29 +63,42 @@
 (defn insert!
   "Inserts `data` into `table`. If `data` does not include an :id key, generate
   a random UUID for it."
-  [table data]
-  (let [data-with-uuid (merge {:id (random-uuid)} data)]
-    (first (jdbc/execute! write-datasource
-                          (sql/format {:insert-into (keyword table)
-                                       :values [data-with-uuid]
-                                       :returning :*})
-                          {:builder-fn rs/as-unqualified-maps}))))
+  ([table data]
+   (insert! table data write-datasource))
+  ([table data datasource]
+   (let [data-with-uuid (merge {:id (random-uuid)} data)]
+     (first (jdbc/execute! datasource
+                           (sql/format {:insert-into (keyword table)
+                                        :values [data-with-uuid]
+                                        :returning :*})
+                           {:builder-fn rs/as-unqualified-maps})))))
 
 (defn update!
-  [table data where-clause]
-  (jdbc/execute! write-datasource
-                 (sql/format {:update (keyword table)
-                              :set data
-                              :where where-clause
-                              :returning :*})
-                 {:builder-fn rs/as-unqualified-maps}))
+  ([table data where-clause]
+   (update! table data where-clause write-datasource))
+  ([table data where-clause datasource]
+   (jdbc/execute! datasource
+                  (sql/format {:update (keyword table)
+                               :set data
+                               :where where-clause
+                               :returning :*})
+                  {:builder-fn rs/as-unqualified-maps})))
 
 (defn delete!
-  [table where-clause]
-  (jdbc/execute! write-datasource
-                 (sql/format {:delete-from (keyword table)
-                              :where where-clause})
-                 {:builder-fn rs/as-unqualified-maps}))
+  ([table where-clause]
+   (delete! table where-clause write-datasource))
+  ([table where-clause datasource]
+   (jdbc/execute! datasource
+                  (sql/format {:delete-from (keyword table)
+                               :where where-clause})
+                  {:builder-fn rs/as-unqualified-maps})))
+
+(defn with-transaction
+  "Execute a function f within a transaction on the write datasource.
+  f should accept a transaction connection as its argument"
+  [f]
+  (jdbc/with-transaction [tx write-datasource]
+    (f tx)))
 
 ;; Connection pool configuration
 (def read-pool-spec
