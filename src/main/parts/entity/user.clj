@@ -89,7 +89,7 @@
                    :from [:systems]
                    :where [:= :owner_id id]}))]
     (doseq [system systems]
-      (system/delete-system! (:id system)))
+      (system/delete! (:id system)))
 
     (db/delete! :refresh_tokens [:= :user_id id])
 

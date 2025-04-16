@@ -11,7 +11,7 @@
   "List all systems for the authenticated user"
   [{:keys [identity] :as _request}]
   (let [user-id (:sub identity)
-        systems (system/list-systems user-id)]
+        systems (system/index user-id)]
     (-> (response/response systems)
         (response/status 200))))
 
@@ -20,7 +20,7 @@
   [{:keys [identity body-params] :as _request}]
   (let [user-id (:sub identity)
         system-data (assoc body-params :owner_id user-id)
-        created (system/create-system! system-data)]
+        created (system/create! system-data)]
     (-> (response/response created)
         (response/status 201))))
 
@@ -29,7 +29,7 @@
   [{:keys [identity parameters] :as _request}]
   (let [user-id (:sub identity)
         system-id (get-in parameters [:path :id])
-        system (system/get-system system-id)]
+        system (system/fetch system-id)]
     (if (= user-id (:owner_id system))
       (-> (response/response system)
           (response/status 200))
@@ -41,10 +41,10 @@
   [{:keys [identity parameters body-params] :as _request}]
   (let [user-id (:sub identity)
         system-id (get-in parameters [:path :id])
-        existing (system/get-system system-id)]
+        existing (system/fetch system-id)]
     (if (= user-id (:owner_id existing))
-      (let [updated (system/update-system! system-id
-                                           (assoc body-params :owner_id (:owner_id existing)))]
+      (let [updated (system/update! system-id
+                                    (assoc body-params :owner_id (:owner_id existing)))]
         (-> (response/response updated)
             (response/status 200)))
       (-> (response/response {:error "Not authorized"})
@@ -55,10 +55,10 @@
   [{:keys [identity parameters] :as _request}]
   (let [user-id (:sub identity)
         system-id (get-in parameters [:path :id])
-        existing (system/get-system system-id)]
+        existing (system/fetch system-id)]
     (if (= user-id (:owner_id existing))
       (do
-        (system/delete-system! system-id)
+        (system/delete! system-id)
         (response/status 204))
       (-> (response/response {:error "Not authorized"})
           (response/status 403)))))
@@ -91,7 +91,7 @@
   (let [user-id (:sub identity)
         system-id (get-in parameters [:path :id])]
     (try
-      (let [system (system/get-system system-id)]
+      (let [system (system/fetch system-id)]
         (if (user-can-modify-system? user-id system)
           (try
             (let [changes (if (sequential? body-params) body-params [body-params])

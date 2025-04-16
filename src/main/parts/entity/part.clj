@@ -5,13 +5,13 @@
    [parts.common.utils :refer [validate-spec]]
    [parts.db :as db]))
 
-(defn create-part!
+(defn create!
   "Create a new part in a system"
   [data]
   (let [part (model/make-part data)]
     (db/insert! :parts part)))
 
-(defn get-part
+(defn fetch
   "Get a part by ID"
   [id]
   (if-let [part (db/query-one
@@ -22,7 +22,7 @@
     part
     (throw (ex-info "Part not found" {:type :not-found :id id}))))
 
-(defn update-part!
+(defn update!
   "Update a part"
   [id data]
   (validate-spec model/spec (assoc data :id id))
@@ -31,7 +31,7 @@
       (first updated)
       (throw (ex-info "Part not found" {:type :not-found :id id})))))
 
-(defn delete-part!
+(defn delete!
   "Delete a part. Returns a map with :id and :deleted keys, where :deleted is
   true if the part was found and deleted."
   [id]

@@ -6,13 +6,13 @@
    [parts.common.models.system :as model]
    [parts.db :as db]))
 
-(defn create-system!
+(defn create!
   "Create a new system"
   [data]
   (let [system (model/make-system data)]
     (db/insert! :systems system)))
 
-(defn get-system
+(defn fetch
   "Get a system by ID, including all its parts and relationships.
 
    Returns a map containing:
@@ -22,7 +22,7 @@
 
    Example:
    ```
-   (get-system \"123\")
+   (fetch \"123\")
    ;; => {:id \"123\"
    ;;     :title \"My System\"
    ;;     :owner_id \"user-456\"
@@ -50,7 +50,7 @@
              :relationships relationships))
     (throw (ex-info "System not found" {:type :not-found :id id}))))
 
-(defn list-systems
+(defn index
   "List all systems for a user"
   [owner-id]
   (db/query
@@ -59,7 +59,7 @@
      :from [:systems]
      :where [:= :owner_id owner-id]})))
 
-(defn update-system!
+(defn update!
   "Update a system"
   [id data]
   (validate-spec model/spec (assoc data :id id))
@@ -71,7 +71,7 @@
       (throw (ex-info "System not found" {:type :not-found :id id})))))
 
 ;; TODO: Rename to delete!, also delete parts and relationships.
-(defn delete-system!
+(defn delete!
   "Delete a system. Returns a map with :id and :deleted keys,
    where :deleted is true if the system was found and deleted."
   [id]

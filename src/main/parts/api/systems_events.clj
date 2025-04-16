@@ -15,7 +15,7 @@
     (let [part-data (assoc data
                            :id id
                            :system_id system-id)
-          created (part/create-part! part-data)]
+          created (part/create! part-data)]
       {:success true
        :result created})
     (catch Exception e
@@ -25,7 +25,7 @@
 (defmethod process-change [:part :update]
   [_system-id {:keys [id data]}]
   (try
-    (let [updated (part/update-part! id data)]
+    (let [updated (part/update! id data)]
       {:success true
        :result updated})
     (catch Exception e
@@ -37,7 +37,7 @@
   (try
     (let [position-data {:position_x (int (:x data))
                          :position_y (int (:y data))}
-          updated (part/update-part! id position-data)]
+          updated (part/update! id position-data)]
       {:success true
        :result updated})
     (catch Exception e
@@ -47,7 +47,7 @@
 (defmethod process-change [:part :remove]
   [_system-id {:keys [id]}]
   (try
-    (let [result (part/delete-part! id)]
+    (let [result (part/delete! id)]
       {:success (:deleted result)
        :result result})
     (catch Exception e
@@ -60,7 +60,7 @@
     (let [rel-data (assoc data
                           :id id
                           :system_id system-id)
-          created (relationship/create-relationship! rel-data)]
+          created (relationship/create! rel-data)]
       {:success true
        :result created})
     (catch Exception e
@@ -70,7 +70,7 @@
 (defmethod process-change [:relationship :update]
   [_system-id {:keys [id data]}]
   (try
-    (let [updated (relationship/update-relationship! id data)]
+    (let [updated (relationship/update! id data)]
       {:success true
        :result updated})
     (catch Exception e
@@ -80,7 +80,7 @@
 (defmethod process-change [:relationship :remove]
   [_system-id {:keys [id]}]
   (try
-    (let [result (relationship/delete-relationship! id)]
+    (let [result (relationship/delete! id)]
       {:success (:deleted result)
        :result result})
     (catch Exception e

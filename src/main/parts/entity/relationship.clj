@@ -6,13 +6,13 @@
    [parts.common.utils :refer [validate-spec]]
    [parts.db :as db]))
 
-(defn create-relationship!
+(defn create!
   "Create a new relationship in a system"
   [data]
   (let [relationship (model/make-relationship data)]
     (db/insert! :relationships relationship)))
 
-(defn get-relationship
+(defn fetch
   "Get an relationship by ID"
   [id]
   (if-let [relationship (db/query-one
@@ -23,7 +23,7 @@
     relationship
     (throw (ex-info "Relationship not found" {:type :not-found :id id}))))
 
-(defn update-relationship!
+(defn update!
   "Update an relationship"
   [id data]
   (validate-spec model/spec (assoc data :id id))
@@ -32,7 +32,7 @@
       (first updated)
       (throw (ex-info "Relationship not found" {:type :not-found :id id})))))
 
-(defn delete-relationship!
+(defn delete!
   "Delete an relationship. Returns a map with :id and :deleted keys, where :deleted is
   true if the relationship was found and deleted."
   [id]

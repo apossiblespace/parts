@@ -17,7 +17,7 @@
 (deftest test-list-systems
   (testing "returns systems for authenticated user"
     (let [user (register-test-user)
-          _ (system/create-system! {:title "Test System" :owner_id (:id user)})
+          _ (system/create! {:title "Test System" :owner_id (:id user)})
           request (make-request user)
           response (api/list-systems request)]
       (is (= 200 (:status response)))
@@ -36,7 +36,7 @@
 (deftest test-get-system
   (let [user (register-test-user)
         other-user (register-test-user)
-        system (system/create-system! {:title "Test" :owner_id (:id user)})]
+        system (system/create! {:title "Test" :owner_id (:id user)})]
 
     (testing "returns system for owner"
       (let [request (make-request user :params {:id (:id system)})
@@ -55,7 +55,7 @@
 (deftest test-update-system
   (let [user (register-test-user)
         other-user (register-test-user)
-        system (system/create-system! {:title "Test" :owner_id (:id user)})]
+        system (system/create! {:title "Test" :owner_id (:id user)})]
 
     (testing "updates system for owner"
       (let [request (make-request user
@@ -76,7 +76,7 @@
 (deftest test-delete-system
   (let [user (register-test-user)
         other-user (register-test-user)
-        system (system/create-system! {:title "Test" :owner_id (:id user)})]
+        system (system/create! {:title "Test" :owner_id (:id user)})]
 
     (testing "returns 403 for non-owner"
       (let [request (make-request other-user :params {:id (:id system)})
@@ -93,7 +93,7 @@
 (deftest test-export-pdf
   (testing "returns not implemented"
     (let [user (register-test-user)
-          system (system/create-system! {:title "Test" :owner_id (:id user)})
+          system (system/create! {:title "Test" :owner_id (:id user)})
           request (make-request user :params {:id (:id system)})
           response (api/export-pdf request)]
       (is (= 501 (:status response)))
