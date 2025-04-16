@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS edges;
+DROP TABLE IF EXISTS relationships;
 --;;
-DROP TABLE IF EXISTS nodes;
+DROP TABLE IF EXISTS parts;
 --;;
 DROP TABLE IF EXISTS systems;

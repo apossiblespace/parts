@@ -27,7 +27,7 @@ CREATE TABLE relationships (
     system_id TEXT NOT NULL,
     source_id TEXT NOT NULL,
     target_id TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('protective', 'polarization', 'alliance', 'burden', 'blended')),
+    type TEXT NOT NULL CHECK (type IN ('protective', 'polarization', 'alliance', 'burden', 'blended', 'unknown')),
     notes TEXT,
     FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE,
     FOREIGN KEY (source_id) REFERENCES parts(id) ON DELETE CASCADE,
