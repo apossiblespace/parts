@@ -55,7 +55,7 @@
 
 (deftest test-create!
   (testing "creates the user entity in the database"
-    (let [attrs (factory/create-test-user)
+    (let [attrs (factory/build-test-user)
           {:keys [email username display_name role]} attrs
           created-user (user/create! attrs)]
       (is (contains? created-user :id))
@@ -69,12 +69,12 @@
                           (user/create! {}))))
 
   (testing "throws when a password is passed without confirmation"
-    (let [attrs (factory/create-test-user)]
+    (let [attrs (factory/build-test-user)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/create! (dissoc attrs :password_confirmation))))))
 
   (testing "throws when the passed password and confirmation do not match"
-    (let [attrs (factory/create-test-user)]
+    (let [attrs (factory/build-test-user)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/create!
                              (assoc attrs

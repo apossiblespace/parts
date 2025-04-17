@@ -43,7 +43,7 @@
 
 (deftest test-authenticate
   (testing "authenticate succeeds with correct credentials"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
       (let [tokens (auth/authenticate {:email email :password password})]
@@ -57,7 +57,7 @@
           (is (= "refresh" (:type refresh-decoded)))))))
 
   (testing "authenticate fails with incorrect password"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email]} user-data]
       (user/create! user-data)
       (is (nil? (auth/authenticate {:email email :password "wrongpassword"})))))
@@ -78,7 +78,7 @@
 
 (deftest test-refresh-auth-tokens
   (testing "refresh-auth-tokens generates new tokens with valid refresh token"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
       (let [tokens (auth/authenticate {:email email :password password})
@@ -92,7 +92,7 @@
 
 (deftest test-invalidate-refresh-token
   (testing "invalidate-refresh-token invalidates a valid token"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
       (let [tokens (auth/authenticate {:email email :password password})

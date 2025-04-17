@@ -67,7 +67,7 @@
 
 (deftest test-register-account
   (testing "register creates a new user successfully"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email username display_name role]} user-data
           mock-request {:body-params user-data}
           response (account/register-account mock-request)

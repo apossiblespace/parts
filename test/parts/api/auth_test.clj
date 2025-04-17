@@ -45,7 +45,7 @@
 
 (deftest test-authenticate
   (testing "authenticate succeeds with correct credentials"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
       (let [tokens (auth-utils/authenticate {:email email :password password})]
@@ -59,7 +59,7 @@
           (is (= "refresh" (:type refresh-decoded)))))))
 
   (testing "authenticate fails with incorrect password"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email]} user-data]
       (user/create! user-data)
       (is (nil? (auth-utils/authenticate {:email email :password "wrongpassword"})))))
@@ -69,7 +69,7 @@
 
 (deftest test-login
   (testing "login succeeds with correct credentials"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data
           mock-request {:body-params user-data}]
       (account/register-account mock-request)
@@ -82,7 +82,7 @@
         (is (jwt/unsign (:refresh_token (:body response)) auth-utils/secret)))))
 
   (testing "login fails with incorrect password"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email]} user-data
           mock-request {:body-params user-data}]
       (account/register-account mock-request)
@@ -97,7 +97,7 @@
 
 (deftest test-refresh
   (testing "refresh token endpoint generates new tokens with valid refresh token"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
       (let [tokens (auth-utils/authenticate {:email email :password password})
@@ -116,7 +116,7 @@
 
 (deftest test-logout
   (testing "logout invalidates refresh token when provided"
-    (let [user-data (factory/create-test-user)
+    (let [user-data (factory/build-test-user)
           {:keys [email password]} user-data]
       (user/create! user-data)
       (let [tokens (auth-utils/authenticate {:email email :password password})

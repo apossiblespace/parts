@@ -45,5 +45,5 @@
   ([]
    (register-test-user {}))
   ([attrs]
-   (let [user-data (factory/create-test-user attrs)]
+   (let [user-data (factory/build-test-user attrs)]
      (user/create! user-data))))

@@ -6,9 +6,9 @@
   []
   (swap! counter inc))
 
-(defn create-test-user
+(defn build-test-user
   ([]
-   (create-test-user {}))
+   (build-test-user {}))
   ([attrs]
    (let [id (generate-unique-id)]
      (merge
@@ -20,6 +20,6 @@
        :role "client"}
       attrs))))
 
-(defn create-test-users
+(defn build-test-users
   [n]
-  (repeatedly n create-test-user))
+  (repeatedly n build-test-user))
