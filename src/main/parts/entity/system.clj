@@ -77,24 +77,23 @@
   [id]
   (mulog/log ::delete-system-start :system-id id)
 
-  (let [result (db/with-transaction
-                 (fn [tx]
-                   (let [deleted-parts (db/delete! :parts [:= :system_id id] tx)
-                         parts-count (or (:next.jdbc/update-count (first deleted-parts)) 0)
-                         deleted-relationships (db/delete! :relationships [:= :system_id id] tx)
-                         rel-count (or (:next.jdbc/update-count (first deleted-relationships)) 0)
-                         result (db/delete! :systems [:= :id id] tx)
-                         deleted (pos? (or (:next.jdbc/update-count (first result)) 0))]
+  (let [system (fetch id)
+        parts-count (count (:parts system))
+        rel-count (count (:relationships system))
 
-                     {:id id
-                      :deleted deleted
-                      :parts-deleted parts-count
-                      :relationships-deleted rel-count})))]
+        result (db/with-transaction
+                 (fn [tx] (db/delete! :systems [:= :id id] tx)))
+        deleted (pos? (or (:next.jdbc/update-count (first result)) 0))
+
+        response {:id id
+                  :success deleted
+                  :parts-deleted parts-count
+                  :relationships-deleted rel-count}]
 
     (mulog/log ::delete-system-complete
                :system-id id
-               :success (:deleted result)
-               :parts-deleted (:parts-count result)
-               :relationships-deleted (:rel-count result))
+               :success deleted
+               :parts-deleted parts-count
+               :relationships-deleted rel-count)
 
-    result))
+    response))

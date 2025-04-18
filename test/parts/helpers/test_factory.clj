@@ -1,4 +1,9 @@
-(ns parts.helpers.test-factory)
+(ns parts.helpers.test-factory
+  (:require
+   [parts.common.models.part :as part]
+   [parts.common.models.relationship :as relationship]
+   [parts.common.models.system :as system]
+   [parts.common.models.user :as user]))
 
 (def ^:private counter (atom 0))
 
@@ -11,14 +16,15 @@
    (build-test-user {}))
   ([attrs]
    (let [id (generate-unique-id)]
-     (merge
-      {:email (str "test" id "@example.com")
-       :username (str "username" id)
-       :display_name (str "Test User " id)
-       :password (str "password" id)
-       :password_confirmation (str "password" id)
-       :role "client"}
-      attrs))))
+     (user/make-user (merge
+                      {:email (str "test" id "@example.com")
+                       :username (str "username" id)
+                       :display_name (str "Test User " id)
+                       :password (str "password" id)
+                       :password_confirmation (str "password" id)
+                       :role "client"}
+                      attrs)
+                     true))))
 
 (defn build-test-users
   [n]
