@@ -2,10 +2,10 @@
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [parts.db :as db]
-   [parts.entity.system :as system]
-   [parts.helpers.utils :refer [register-test-user with-test-db]]
    [parts.entity.part :as part]
-   [parts.entity.relationship :as relationship]))
+   [parts.entity.relationship :as relationship]
+   [parts.entity.system :as system]
+   [parts.helpers.utils :refer [register-test-user with-test-db]]))
 
 (use-fixtures :each with-test-db)
 
@@ -110,9 +110,9 @@
 
       (is (= 1 (count (:parts system-before-deletion))))
 
-      (with-redefs [db/with-transaction (fn [f]
-                                          (println "[REDEF] in redefined with-transaction")
-                                          (throw (Exception. "Simulated transaction error")))]
+      (with-redefs [db/affected-row-count (fn [f]
+                                            (println "[REDEF] in redefined with-transaction")
+                                            (throw (Exception. "Simulated transaction error")))]
 
         (is (thrown? Exception (system/delete! (:id system))))
         (let [system-after (system/fetch (:id system))]

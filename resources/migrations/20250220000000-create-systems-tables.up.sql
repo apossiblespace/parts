@@ -19,7 +19,7 @@ CREATE TABLE parts (
     width INTEGER NOT NULL DEFAULT 100,
     height INTEGER NOT NULL DEFAULT 100,
     body_location TEXT,
-    FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
+    FOREIGN KEY (system_id) REFERENCES systems(id)
 );
 --;;
 CREATE TABLE relationships (
@@ -29,9 +29,9 @@ CREATE TABLE relationships (
     target_id TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('protective', 'polarization', 'alliance', 'burden', 'blended', 'unknown')),
     notes TEXT,
-    FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_id) REFERENCES parts(id) ON DELETE CASCADE,
-    FOREIGN KEY (target_id) REFERENCES parts(id) ON DELETE CASCADE
+    FOREIGN KEY (system_id) REFERENCES systems(id)
+    FOREIGN KEY (source_id) REFERENCES parts(id)
+    FOREIGN KEY (target_id) REFERENCES parts(id)
 );
 --;;
 CREATE INDEX idx_parts_system_id ON parts(system_id);

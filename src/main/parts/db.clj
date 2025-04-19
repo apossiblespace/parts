@@ -100,6 +100,19 @@
   (jdbc/with-transaction [tx write-datasource]
     (f tx)))
 
+(defn affected-row-count
+  "Extract the number of rows affected by a DML operation.
+   Works with both single result maps and collections of result maps.
+   Always returns an integer ≥ 0."
+  [result]
+  (cond
+    (nil? result) 0
+    (map? result) (or (:next.jdbc/update-count result) 0)
+    (sequential? result) (if (empty? result)
+                           0
+                           (reduce + (map affected-row-count result)))
+    :else 0))
+
 ;; Connection pool configuration
 (def read-pool-spec
   {:datasource read-datasource

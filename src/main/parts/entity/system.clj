@@ -2,10 +2,10 @@
   "Entity representing a system map, including its parts and relationships.
    Systems are owned by users."
   (:require
-   [parts.common.utils :refer [validate-spec]]
+   [com.brunobonacci.mulog :as mulog]
    [parts.common.models.system :as model]
-   [parts.db :as db]
-   [com.brunobonacci.mulog :as mulog]))
+   [parts.common.utils :refer [validate-spec]]
+   [parts.db :as db]))
 
 (defn create!
   "Create a new system"
@@ -32,20 +32,20 @@
    ```"
   [id]
   (if-let [system (db/query-one
-                   (db/sql-format
-                    {:select [:*]
-                     :from [:systems]
-                     :where [:= :id id]}))]
+                    (db/sql-format
+                      {:select [:*]
+                       :from [:systems]
+                       :where [:= :id id]}))]
     (let [parts (db/query
-                 (db/sql-format
-                  {:select [:*]
-                   :from [:parts]
-                   :where [:= :system_id id]}))
+                  (db/sql-format
+                    {:select [:*]
+                     :from [:parts]
+                     :where [:= :system_id id]}))
           relationships (db/query
-                         (db/sql-format
-                          {:select [:*]
-                           :from [:relationships]
-                           :where [:= :system_id id]}))]
+                          (db/sql-format
+                            {:select [:*]
+                             :from [:relationships]
+                             :where [:= :system_id id]}))]
       (assoc system
              :parts parts
              :relationships relationships))
@@ -55,10 +55,10 @@
   "List all systems for a user"
   [owner-id]
   (db/query
-   (db/sql-format
-    {:select [:*]
-     :from [:systems]
-     :where [:= :owner_id owner-id]})))
+    (db/sql-format
+      {:select [:*]
+       :from [:systems]
+       :where [:= :owner_id owner-id]})))
 
 (defn update!
   "Update a system"
@@ -77,23 +77,29 @@
   [id]
   (mulog/log ::delete-system-start :system-id id)
 
-  (let [system (fetch id)
-        parts-count (count (:parts system))
-        rel-count (count (:relationships system))
+  (let [system (fetch id)]
+    (if system
+      (db/with-transaction
+        (fn [tx]
+          (let [deleted-relationships (db/delete! :relationships [:= :system_id id] tx)
+                deleted-parts (db/delete! :parts [:= :system_id id] tx)
+                deleted-system (db/delete! :systems [:= :id id] tx)
 
-        result (db/with-transaction
-                 (fn [tx] (db/delete! :systems [:= :id id] tx)))
-        deleted (pos? (or (:next.jdbc/update-count (first result)) 0))
-
-        response {:id id
-                  :success deleted
-                  :parts-deleted parts-count
-                  :relationships-deleted rel-count}]
-
-    (mulog/log ::delete-system-complete
-               :system-id id
-               :success deleted
-               :parts-deleted parts-count
-               :relationships-deleted rel-count)
-
-    response))
+                rel-count (db/affected-row-count deleted-relationships)
+                parts-count (db/affected-row-count deleted-parts)
+                deleted (pos? (db/affected-row-count deleted-system))]
+            (mulog/log ::delete-system-complete
+                       :system-id id
+                       :success deleted
+                       :parts-deleted parts-count
+                       :relationships-deleted rel-count)
+            {:id id
+             :success deleted
+             :parts-deleted parts-count
+             :relationships-deleted rel-count})))
+      (do
+        (mulog/log ::delete-system-not-found :system-id id)
+        {:id id
+         :success false
+         :parts-deleted 0
+         :relationships-deleted 0}))))
