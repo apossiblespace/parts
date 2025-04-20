@@ -1,15 +1,18 @@
 (ns parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
-   [parts.frontend.components.system :refer [system]]
-   [parts.frontend.state.subs]
-   [parts.frontend.state.handlers]
-   [parts.frontend.state.fx]
    [parts.common.models.part :refer [make-part]]
    [parts.common.models.relationship :refer [make-relationship]]
-   [uix.core :refer [$ defui]]
+   [parts.frontend.api.utils :as api-utils]
+   [parts.frontend.components.system :refer [system]]
+   [parts.frontend.components.system-list-modal :refer [system-list-modal]]
+   [parts.frontend.state.fx]
+   [parts.frontend.state.handlers]
+   [parts.frontend.state.subs]
+   [re-frame.core :as rf]
+   [uix.core :refer [$ defui use-effect use-state]]
    [uix.dom]
-   [re-frame.core :as rf]))
+   [uix.re-frame :as uix.rf]))
 
 (def system-id (str (random-uuid)))
 
@@ -41,13 +44,33 @@
                        :system_id system-id})])
 
 (def system-data
-  {:system
-   {:id system-id
-    :parts parts
-    :relationships relationships}})
+  {:id system-id
+   :parts parts
+   :relationships relationships})
+
+(def initial-db
+  {:system {}
+   :systems {:list []
+             :loading false}})
 
 (defui app []
-  ($ system))
+  (let [[show-system-list set-show-system-list] (use-state false)
+        current-system-id (uix.rf/use-subscribe [:system/id])]
+
+    (use-effect
+     (fn []
+       (js/console.log "use-effect in APP")
+       (if-let [stored-id (api-utils/get-current-system-id)]
+         (rf/dispatch [:system/load stored-id])
+         (set-show-system-list true)))
+     [])
+    (js/console.log "current-system-id" current-system-id)
+    ($ :<>
+       (when-not current-system-id
+         ($ system-list-modal
+            {:show show-system-list
+             :on-close #(set-show-system-list false)}))
+       ($ system))))
 
 (defonce root
   (when-let [root-element (js/document.getElementById "root")]
@@ -57,7 +80,7 @@
   "Render the app if root element exists"
   []
   (when root
-    (rf/dispatch-sync [:app/init-db system-data])
+    (rf/dispatch-sync [:app/init-db initial-db])
     (uix.dom/render-root ($ app) root)))
 
 (defn ^:export init []

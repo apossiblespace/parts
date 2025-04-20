@@ -42,3 +42,30 @@
            (rf/dispatch [:auth/set-loading false])
            (when (= 200 (:status resp))
              (rf/dispatch [:auth/set-user (:body resp)]))))))))
+
+(rf/reg-fx
+ :api/get-system
+ (fn [{:keys [id]}]
+   (go
+     (let [response (<! (api/get-system id))]
+       (if (= 200 (:status response))
+         (rf/dispatch [:system/fetch-success (:body response)])
+         (rf/dispatch [:system/fetch-failure (:body response)]))))))
+
+(rf/reg-fx
+ :api/create-system
+ (fn [params]
+   (go
+     (let [response (<! (api/create-system params))]
+       (if (= 201 (:status response))
+         (rf/dispatch [:system/create-success (:body response)])
+         (rf/dispatch [:system/create-failure (:body response)]))))))
+
+(rf/reg-fx
+ :api/get-systems
+ (fn [_]
+   (go
+     (let [response (<! (api/get-systems))]
+       (if (= 200 (:status response))
+         (rf/dispatch [:system/fetch-list-success (:body response)])
+         (rf/dispatch [:system/fetch-list-failure (:body response)]))))))

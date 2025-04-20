@@ -1,5 +1,16 @@
 (ns parts.frontend.api.utils)
 
+(def ^:private current-system-storage-key "parts-current-system-id")
+
+(defn save-current-system-id [id]
+  (.setItem js/localStorage current-system-storage-key id))
+
+(defn get-current-system-id []
+  (.getItem js/localStorage current-system-storage-key))
+
+(defn clear-current-system-id []
+  (.removeItem js/localStorage current-system-storage-key))
+
 (def ^:private token-storage-key "parts-auth-tokens")
 
 (defn save-tokens

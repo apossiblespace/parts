@@ -162,6 +162,52 @@
                         :type "remove"
                         :data {}}})))
 
+(rf/reg-event-fx
+ :system/fetch
+ (fn [{:keys [db]} [_ system-id]]
+   {:db (assoc-in db [:systems :loading] true)
+    :api/get-system {:id system-id}}))
+
+(rf/reg-event-fx
+ :system/create
+ (fn [{:keys [db]} _]
+   {:db (assoc-in db [:systems :loading] true)
+    :api/create-system {:title "Untitled System"}}))
+
+(rf/reg-event-fx
+ :system/fetch-list
+ (fn [{:keys [db]} _]
+   {:db (assoc-in db [:systems :loading] true)
+    :api/get-systems nil}))
+
+(rf/reg-event-db
+ :system/fetch-list-success
+ (fn [db [_ systems]]
+   (-> db
+       (assoc-in [:systems :loading] false)
+       (assoc-in [:systems :list] systems))))
+
+(rf/reg-event-db
+ :system/fetch-list-failure
+ (fn [db [_ _error]]
+   (-> db
+       (assoc-in [:systems :loading] false)
+       (assoc-in [:systems :error] "Failed to load systems"))))
+
+(rf/reg-event-db
+ :system/fetch-failure
+ (fn [db [_ _error]]
+   (-> db
+       (assoc-in [:systems :loading] false)
+       (assoc-in [:systems :error] "Failed to load system"))))
+
+(rf/reg-event-db
+ :system/create-failure
+ (fn [db [_ _error]]
+   (-> db
+       (assoc-in [:systems :loading] false)
+       (assoc-in [:systems :error] "Failed to create system"))))
+
 (rf/reg-event-db
  :auth/set-user
  (fn [db [_ user]]

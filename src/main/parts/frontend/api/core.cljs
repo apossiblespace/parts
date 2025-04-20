@@ -30,6 +30,21 @@
   []
   (http/GET "/account" {}))
 
+(defn get-systems
+  "Retrieve a list of systems for the currently signed in user:"
+  []
+  (http/GET "/systems"))
+
+(defn get-system
+  "Retrieve a single system identified by `id`"
+  [id]
+  (http/GET (str "/systems/" id)))
+
+(defn create-system
+  "Create a system with the given `params`"
+  [params]
+  (http/POST "/systems" params))
+
 ;; NOTE: This function is called in the queue processing go-loop in
 ;; parts.frontend.api.queue/start. The idea is that a processing queue is
 ;; started _per system_, so it makes sense to enclose the system-id in the
