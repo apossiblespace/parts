@@ -9,7 +9,7 @@
     ;; control modal visibility based on show prop
     (use-effect
      (fn []
-       (when-let [dialog (.-current dialog-ref)]
+       (when-let [dialog @dialog-ref]
          (if show
            (.showModal dialog)
            (.close dialog))))
@@ -20,7 +20,7 @@
         :ref dialog-ref
         :on-click (fn [e]
                     ;; close when clicking backdrop
-                    (when (= (.-target e) (.-current dialog-ref))
+                    (when (= (.-target e) @dialog-ref)
                       (on-close)))
         :on-cancel on-close} ;; handles ESC key
        ($ :div

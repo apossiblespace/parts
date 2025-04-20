@@ -11,8 +11,7 @@
         [error set-error] (use-state nil)
         [loading set-loading] (use-state false)
 
-        handle-close (fn [e]
-                       (.preventDefault e)
+        handle-close (fn []
                        (on-close)
                        (set-loading false)
                        (set-error nil)
@@ -29,7 +28,7 @@
                                                    (set-loading false)
                                                    (if (= 401 (:status result))
                                                      (set-error (get-in result [:body :error]))
-                                                     (handle-close e)))}]))]
+                                                     (handle-close)))}]))]
 
     ($ modal
        {:show show
