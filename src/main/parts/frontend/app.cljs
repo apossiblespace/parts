@@ -49,7 +49,7 @@
    :relationships relationships})
 
 (def initial-db
-  {:system {}
+  {:system system-data
    :systems {:list []
              :loading false}})
 
