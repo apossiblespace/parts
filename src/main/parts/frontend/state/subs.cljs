@@ -3,6 +3,11 @@
    [re-frame.core :as rf]))
 
 (rf/reg-sub
+ :demo-mode
+ (fn [db _]
+   (:demo-mode db)))
+
+(rf/reg-sub
  :systems/list
  (fn [db _]
    (get-in db [:systems :list])))
