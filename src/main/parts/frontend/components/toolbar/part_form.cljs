@@ -1,7 +1,8 @@
 (ns parts.frontend.components.toolbar.part-form
   (:require
    [parts.common.constants :refer [part-labels]]
-   [uix.core :refer [$ defui use-effect use-state]]))
+   [uix.core :refer [$ defui use-effect use-state]]
+   [uix.re-frame :as uix.rf]))
 
 (defui part-form
   "Form for viewing and editing part properties, to render in the sidebar.
@@ -11,6 +12,7 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save collapsed]}]
   (let [{:keys [id type label]} part
+        demo-mode (uix.rf/use-subscribe [:demo-mode])
         [form-state set-form-state] (use-state
                                      {:values {:type type, :label label}
                                       :initial {:type type, :label label}
@@ -96,4 +98,5 @@
                        :value (:label values)
                        :onChange #(update-field :label (.. % -target -value))})
 
-            ($ :p {:class "fieldset-label"} (str "id: " id)))))))
+            (when-not demo-mode
+              ($ :p {:class "fieldset-label"} (str "id: " id))))))))

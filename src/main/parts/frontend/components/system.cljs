@@ -12,12 +12,14 @@
    [re-frame.core :as rf]))
 
 (defui system []
-  (let [system-id (uix.rf/use-subscribe [:system/id])
+  (let [demo-mode (uix.rf/use-subscribe [:demo-mode])
+        system-id (uix.rf/use-subscribe [:system/id])
         parts (uix.rf/use-subscribe [:system/parts])
         relationships (uix.rf/use-subscribe [:system/relationships])
         selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
-
+        display-sidebar (or (not demo-mode)
+                            (or (seq selected-node-ids) (seq selected-edge-ids)))
         nodes (adapter/parts->nodes parts selected-node-ids)
         edges (adapter/relationships->edges relationships selected-edge-ids)
 
@@ -112,8 +114,9 @@
                               :on-click #(create-part-by-type "firefighter")})
                    ($ button {:label "Manager"
                               :on-click #(create-part-by-type "manager")})))
-             ($ Panel {:position "top-right" :className "sidebar-container"}
-                ($ sidebar))
+             (when display-sidebar
+               ($ Panel {:position "top-right" :className "sidebar-container"}
+                  ($ sidebar)))
              ($ MiniMap {:className "tools parts-minimap shadow-sm"
                          :position "bottom-right"
                          :ariaLabel "Minimap"

@@ -1,7 +1,8 @@
 (ns parts.frontend.components.toolbar.relationship-form
   (:require
    [parts.common.constants :refer [relationship-labels]]
-   [uix.core :refer [$ defui use-effect use-state]]))
+   [uix.core :refer [$ defui use-effect use-state]]
+   [uix.re-frame :as uix.rf]))
 
 (defui relationship-form
   "Form for viewing and editing relationship properties, to render in the sidebar.
@@ -11,6 +12,7 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [relationship on-save collapsed]}]
   (let [{:keys [id type source_id target_id]} relationship
+        demo-mode (uix.rf/use-subscribe [:demo-mode])
         [form-state set-form-state] (use-state
                                      {:values {:type type}
                                       :initial {:type type}
@@ -88,8 +90,10 @@
                            ($ :option {:key k :value (name k)}
                               label)))))
 
-            ($ :div {:class "flex justify-between text-xs text-base-content/70 mt-2"}
-               ($ :span (str "From: " source_id))
-               ($ :span (str "To: " target_id)))
+            (when-not demo-mode
+              ($ :div {:class "flex justify-between text-xs text-base-content/70 mt-2"}
+                 ($ :span (str "From: " source_id))
+                 ($ :span (str "To: " target_id))))
 
-            ($ :p {:class "fieldset-label"} (str "id: " id)))))))
+            (when-not demo-mode
+              ($ :p {:class "fieldset-label"} (str "id: " id))))))))

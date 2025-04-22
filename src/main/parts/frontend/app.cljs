@@ -49,28 +49,29 @@
    :relationships relationships})
 
 (def initial-db
-  {:demo-mode false
+  {:demo-mode true
    :system system-data
    :systems {:list []
              :loading false}})
 
 (defui app []
   (let [[show-system-list set-show-system-list] (use-state false)
-        current-system-id (uix.rf/use-subscribe [:system/id])]
+        current-system-id (uix.rf/use-subscribe [:system/id])
+        demo-mode (uix.rf/use-subscribe [:demo-mode])]
 
     (use-effect
      (fn []
-       (js/console.log "use-effect in APP")
-       (if-let [stored-id (api-utils/get-current-system-id)]
-         (rf/dispatch [:system/load stored-id])
-         (set-show-system-list true)))
-     [])
-    (js/console.log "current-system-id" current-system-id)
+       (when-not demo-mode
+         (if-let [stored-id (api-utils/get-current-system-id)]
+           (rf/dispatch [:system/load stored-id])
+           (set-show-system-list true))))
+     [demo-mode])
     ($ :<>
-       (when-not current-system-id
-         ($ system-list-modal
-            {:show show-system-list
-             :on-close #(set-show-system-list false)}))
+       (when-not demo-mode
+         (when-not current-system-id
+           ($ system-list-modal
+              {:show show-system-list
+               :on-close #(set-show-system-list false)})))
        ($ system))))
 
 (defonce root
