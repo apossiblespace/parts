@@ -14,7 +14,9 @@
                    :type (name type)}}))
 
 (defn parts->nodes
-  "Convert a sequence of Parts to an Array of ReactFlow nodes"
+  "Convert a sequence of Parts to an Array of ReactFlow nodes.
+  The optional selected-ids param is a vector containing the IDs of Parts the
+  nodes for which should be marked as selected."
   ([parts] (parts->nodes parts nil))
   ([parts selected-ids]
    (js/console.log "[parts->nodes]" parts selected-ids)
@@ -44,7 +46,9 @@
         :className (str "edge-" (name type))}))
 
 (defn relationships->edges
-  "Convert a sequence of Relationships to an Array of ReactFlow edges"
+  "Convert a sequence of Relationships to an Array of ReactFlow edges.
+  The optional selected-ids param is a vector containing the IDs of selected
+  Relationships, the edges for which should be marked as selected."
   ([relationships] (relationships->edges relationships nil))
   ([relationships selected-ids]
    (js/console.log "[relationships->edges]" relationships)
