@@ -22,7 +22,7 @@
    (html
     (layouts/main
      {:title "Mapping tools for IFS practitioners and their clients"
-      :styles ["/css/landing.css"]}
+      :styles ["/css/landing.css" "/css/flow.css" "/css/style.css"]}
      [:section.container
       [:div.content
        [:section.hero
@@ -40,6 +40,7 @@
           [:strong "Parts"]
           " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]
          (partials/waitlist-signup-form)]]]]
+     [:section#root]
      [:section.aboutus.container
       [:div.content
        [:h3
