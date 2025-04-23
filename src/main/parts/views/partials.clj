@@ -78,21 +78,29 @@
   ([]
    (waitlist-signup-form nil))
   ([message]
-   [:div#signup-form
-    [:form {:hx-post "/waitlist-signup"
+   [:div#signup-form.w-full
+    [:form.flex.flex-col.sm:flex-row.gap-2 
+           {:hx-post "/waitlist-signup"
             :hx-target "#signup-form"
             :hx-swap "outerHTML"
             :hx-on:submit "plausible('Waitlist Signup'); return true;"}
-     [:input {:type "email"
-              :id "email"
-              :name "email"
-              :placeholder "self@you.com"
-              :hx-on:focus "plausible('Email Field Focus'); return true;"}]
+     [:input.flex-grow.py-2.px-4.text-xl.rounded-lg.border-2.border-input-border.w-full 
+            {:type "email"
+             :id "email"
+             :name "email"
+             :placeholder "self@you.com"
+             :hx-on:focus "plausible('Email Field Focus'); return true;"}]
      [:input {:type "hidden"
               :id "__anti-forgery-token"
               :name "__anti-forgery-token"
               :value *anti-forgery-token*}]
-     [:input {:type "submit" :value "Sign me up!"}]]
+     [:input.py-2.px-4.text-xl.rounded-lg.border-2.border-primary.bg-primary.text-white.w-full.sm:w-auto
+            {:type "submit" :value "Sign me up!"}]]
     (when message
-      [:div.error
-       [:p message]])]))
+      [:div.relative.mt-1.ml-6
+       [:p.relative
+        {:class "before:content-['⤴︎'] before:absolute before:-left-4 before:-top-1 before:scale-x-[-1]"}
+        message]])
+    (when (and message (re-find #"^Thank you" message))
+      [:div.bg-callout.p-4.rounded-2xl.text-center.mt-2
+       message])]))
