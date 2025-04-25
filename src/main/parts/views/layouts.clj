@@ -21,7 +21,7 @@
   (let [options (merge default-options options)]
     (html
      (partials/head options)
-     [:body
+     [:body.font-sans.bg-gray-50.text-gray-900
       (when (:header options) (partials/header))
       content
       (when (:footer options) (partials/footer))

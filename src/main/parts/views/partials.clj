@@ -45,33 +45,83 @@
 (defn header
   "Site header"
   []
-  [:header.container
-   [:div.content
-    [:p.logo
-     [:img {:src "/images/parts-logo-horizontal.svg"}]]]])
+  [:header
+   {:class "py-6"}
+   [:div
+    {:class "container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}
+    [:div
+     {:class "flex justify-between items-center"}
+     [:a
+      {:href "/", :class "flex items-center"}
+      [:img {:class "w-50"
+             :src "/images/parts-logo-horizontal.svg"}]
+      [:a
+       {:href "#founding-circle",
+        :class "text-ifs-green font-semibold hover:underline"}
+       "Join Founding Circle"]]]]])
 
 (defn footer
   "Site footer"
   []
-  [:footer.container
-   [:div.content
-    [:div.copyright
+  [:footer
+   {:class "bg-gray-100 py-12"}
+   [:div
+    {:class "container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}
+    [:div
+     {:class "grid grid-cols-1 md:grid-cols-3 gap-8"}
+     [:div
+      [:div
+       {:class "flex items-center"}
+       [:img {:class "w-50"
+              :src "/images/parts-logo-horizontal.svg"}]]
+      [:p
+       {:class "mt-4 text-gray-600"}
+       "Parts is free, open source software. See the "
+       [:a
+        {:href "https://github.com/apossiblespace/parts", :class "text-ifs-green"}
+        "source code on GitHub"]
+       "."]]
+     [:div
+      [:h3 {:class "font-semibold text-gray-900 mb-4"} "Quick Links"]
+      [:ul
+       {:class "space-y-2"}
+       [:li
+        [:a
+         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
+         "Features"]]
+       [:li
+        [:a
+         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
+         "Pricing"]]
+       [:li
+        [:a
+         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
+         "Documentation"]]
+       [:li
+        [:a
+         {:href "https://github.com/apossiblespace/parts", :class "text-gray-600 hover:text-ifs-green"}
+         "GitHub"]]]]
+     [:div
+      [:h3 {:class "font-semibold text-gray-900 mb-4"} "Legal"]
+      [:ul
+       {:class "space-y-2"}
+       [:li
+        [:a
+         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
+         "Privacy Policy"]]
+       [:li
+        [:a
+         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
+         "Terms of Service"]]]]]
+    [:div
+     {:class
+      "mt-12 pt-8 border-t border-gray-200 text-center text-sm text-gray-500"}
      [:p
       "© 2025 "
       [:a {:href "https://a.possible.space"} "A Possible Space Ltd"]
       [:br]
-      "Company number 11617016"]]
-    [:div.heart
-     [:p
-      "Made with ❤️ in London, U.K."]]
-    [:div.meta
-     [:p
-      [:strong "Parts"]
-      " is free, open source software."
-      [:br]
-      "See the "
-      [:a {:href "https://github.com/apossiblespace/parts"} "source code on GitHub"]
-      "."]]]])
+      "Company number 11617016"]
+     [:p {:class "mt-4"} "Made with ❤️ in London, U.K."]]]])
 
 (defn waitlist-signup-form
   "Form for signing up for the waiting list"
