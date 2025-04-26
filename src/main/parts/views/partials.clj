@@ -72,15 +72,11 @@
      [:div
       [:div
        {:class "flex items-center"}
-       [:img {:class "w-50"
-              :src "/images/parts-logo-horizontal.svg"}]]
+       [:img {:class "h-6"
+              :src "/images/parts-logo-mini.svg"}]]
       [:p
        {:class "mt-4 text-gray-600"}
-       "Parts is free, open source software. See the "
-       [:a
-        {:href "https://github.com/apossiblespace/parts", :class "text-ifs-green"}
-        "source code on GitHub"]
-       "."]]
+       "Free, open-source IFS part mapping solution"]]
      [:div
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Quick Links"]
       [:ul
@@ -100,7 +96,7 @@
        [:li
         [:a
          {:href "https://github.com/apossiblespace/parts", :class "text-gray-600 hover:text-ifs-green"}
-         "GitHub"]]]]
+         "Source code on GitHub"]]]]
      [:div
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Legal"]
       [:ul
@@ -115,13 +111,12 @@
          "Terms of Service"]]]]]
     [:div
      {:class
-      "mt-12 pt-8 border-t border-gray-200 text-center text-sm text-gray-500"}
+      "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500"}
      [:p
       "© 2025 "
-      [:a {:href "https://a.possible.space"} "A Possible Space Ltd"]
-      [:br]
-      "Company number 11617016"]
-     [:p {:class "mt-4"} "Made with ❤️ in London, U.K."]]]])
+      [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]
+      ", company number 11617016."
+      [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]]]])
 
 (defn waitlist-signup-form
   "Form for signing up for the waiting list"
