@@ -40,24 +40,51 @@
           [:strong.font-bold "Parts"]
           " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]
          (partials/waitlist-signup-form)]]]]
-     [:section.bg-bg-secondary.px-4.md:px-16
-      [:div.w-full.max-w-7xl.mx-auto.py-8.md:py-16
-       [:h3.text-2xl.font-bold.mb-6
-        "Who made this?"]
-       [:div.flex.flex-col.md:flex-row.justify-between.gap-4.md:gap-12
-        [:div.relative.pl-32.md:pl-40.min-h-32
-         [:img.absolute.top-0.left-0.h-32.w-32.rounded-full {:src "/images/avatars/gosha.svg"}]
-         [:p.m-0
-          [:strong.font-bold "Gosha Tcherednitchenko"]
-          " is a software engineer with 20 years experience building for the Web."
-          [:br]
-          "Online: "
-          [:a.text-primary.hover:underline {:href "https://gosha.net"} "Website"]
-          ", "
-          [:a.text-primary.hover:underline {:href "https://bsky.app/profile/gosha.net"} "Bluesky"]
-          "."]]
-        [:div.relative.pl-32.md:pl-40.min-h-32
-         [:img.absolute.top-0.left-0.h-32.w-32.rounded-full {:src "/images/avatars/tingyi.svg"}]
-         [:p.m-0
-          [:strong.font-bold "Ting-yi Lai"]
-          " is an IFS Level 1 trained art psychotherapist, focusing on trauma."]]]]]))))
+     [:section
+      {:class "bg-bg-secondary py-24 sm:py-32"}
+      [:div
+       {:class "mx-auto max-w-7xl px-6 lg:px-8"}
+       [:div
+        {:class "mx-auto max-w-2xl sm:text-center"}
+        [:h2
+         {:class
+          "text-34l font-semibold tracking-tight text-balance text-gray-900 sm:text-5xl"}
+         "Meet the team"]]
+       [:ul
+        {:role "list",
+         :class
+         "mx-auto mt-20 grid max-w-2xl grid-cols-1 gap-x-6 gap-y-20 sm:grid-cols-2 lg:max-w-4xl lg:gap-x-8 xl:max-w-none"}
+        [:li
+         {:class "flex flex-col gap-6 xl:flex-row"}
+         [:img
+          {:class "w-52 flex-none rounded-full object-cover",
+           :src "/images/avatars/gosha.svg"
+           :alt "Gosha Tcherednitchenko"}]
+         [:div
+          {:class "flex-auto"}
+          [:h3
+           {:class "text-lg/8 font-semibold tracking-tight text-gray-900"}
+           "Gosha Tcherednitchenko"]
+          [:p
+           {:class "mt-6 text-base/7 text-gray-600"}
+           "A software engineer with 20 years of experience building for the Web"]
+          [:p
+           {:class "mt-6 text-base/7 text-gray-600"}
+           "Online: "
+           [:a {:href "https://gosha.net"} "Website"]
+           ", "
+           [:a {:href "https://bsky.app/profile/gosha.net"} "Bluesky"]]]]
+        [:li
+         {:class "flex flex-col gap-6 xl:flex-row"}
+         [:img
+          {:class "w-52 flex-none rounded-full object-cover",
+           :src "/images/avatars/tingyi.svg"
+           :alt "Ting-yi Lai"}]
+         [:div
+          {:class "flex-auto"}
+          [:h3
+           {:class "text-lg/8 font-semibold tracking-tight text-gray-900"}
+           "Ting-yi Lai"]
+          [:p
+           {:class "mt-6 text-base/7 text-gray-600"}
+           "An IFS Level 1 trained art psychotherapist, focusing on trauma."]]]]]]))))
