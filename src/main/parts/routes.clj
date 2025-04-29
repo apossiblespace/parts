@@ -60,7 +60,7 @@
       (assoc :default-format "application/transit+json")
       muuntaja/create))
 
-(def routes
+(defn routes
   "Application routes with hierarchical middleware configuration.
 
   This defines all routes for the application with their associated middleware,
@@ -75,6 +75,7 @@
   - Common middleware is applied at the router level
   - Route-type middleware is applied at the group level (/api)
   - Route-specific middleware is applied to individual routes as needed"
+  []
   [;; HTML Routes
    ;;
    ;; These routes return server-rendered HTML content with:

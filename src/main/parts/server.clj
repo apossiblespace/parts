@@ -32,11 +32,14 @@
   The handler processes requests by matching routes, applying appropriate
   middleware, and falling back to the default handler for unmatched routes."
   []
-  (-> (ring/router r/routes
-                   {:data {:middleware [middleware/logging
-                                        middleware/exception]}})
-      (ring/ring-handler (ring/create-default-handler))
-      middleware/wrap-core-middlewares))
+  (fn [req]
+    (let [handler
+          (-> (ring/router (r/routes)
+                           {:data {:middleware [middleware/logging
+                                                middleware/exception]}})
+              (ring/ring-handler (ring/create-default-handler))
+              middleware/wrap-core-middlewares)]
+      (handler req))))
 
 (defn schedule-token-cleanup
   "Schedule periodic cleanup of expired refresh tokens using core.async"
