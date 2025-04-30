@@ -123,14 +123,14 @@
   ([]
    (waitlist-signup-form nil))
   ([message]
-   [:div#signup-form.w-full
-    [:form.flex.flex-col.sm:flex-row.gap-2
+   [:div#signup-form
+    [:form
      {:hx-post "/waitlist-signup"
       :hx-target "#signup-form"
       :hx-swap "outerHTML"
       :hx-on:submit "plausible('Waitlist Signup'); return true;"}
-     [:div.join
-      [:input.join-item.input
+     [:div.join.rounded-xl
+      [:input.join-item.input.input-xl.text-gray-800
        {:type "email"
         :id "email"
         :name "email"
@@ -140,7 +140,7 @@
                :id "__anti-forgery-token"
                :name "__anti-forgery-token"
                :value *anti-forgery-token*}]
-      [:input.join-item.btn.btn-primary
+      [:input.join-item.btn.btn-xl.btn-primary
        {:type "submit" :value "Sign me up!"}]]]
     (when message
       [:div.relative.mt-1.ml-6
