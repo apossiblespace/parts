@@ -22,7 +22,7 @@
    (html
     (layouts/main
      {:title "Mapping tools for IFS practitioners and their clients"
-      :styles ["/css/style.css"]}
+      :styles ["/css/flow.css" "/css/style.css"]}
      [:section.px-4.md:px-16
       [:div.w-full.max-w-7xl.mx-auto
        [:section.max-w-4xl
@@ -39,6 +39,7 @@
          [:p.mb-6
           [:strong.font-bold "Parts"]
           " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]]]]]
+     [:div#root]
      [:section
       {:class "py-20 text-white",
        :id "founding-circle",
