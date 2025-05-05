@@ -45,6 +45,12 @@ npm-deps: package.json
 deps: deps.edn npm-deps ## Prepare dependencies for test and dist targets
 	clojure -P
 
+deps-update:
+	clojure -M:antq --upgrade
+
+npm-deps-update: package.json
+	bun update
+
 dist: build-css build-frontend build-uberjar  ## Build project
 
 build-css: ## Buld CSS for production
