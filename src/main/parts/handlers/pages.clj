@@ -31,11 +31,18 @@
          "Understand your clients' parts and their relationships."]
         [:h3.mb-4
          [:strong.font-bold "Parts"]
-         " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' parts."]]
+         " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' parts."]
+        [:div {:class "grid grid-cols-1 md:grid-cols-2 gap12 w-full"}
+         [:a {:href "#signup"
+              :class "btn btn-primary"}
+          "Join the Founding Circle"]
+         [:a {:href "/system"
+              :class "btn"}
+          "Try the playground"]]]
        [:div#root.demo.minimal]]]
      [:section
       {:class "py-20 text-white",
-       :id "founding-circle",
+       :id "signup",
        :style {:background-color "#4eb48a"}}
       [:div
        {:class
