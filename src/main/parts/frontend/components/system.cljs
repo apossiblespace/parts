@@ -92,7 +92,9 @@
      [system-id])
 
     ($ :div {:class "system-container"}
-       ($ :div {:class "system-view"}
+       ($ :div {:class (if (= demo-mode :minimal)
+                         "system-view minimal"
+                         "system-view")}
           ($ ReactFlow {:nodes nodes
                         :edges edges
                         :onNodesChange on-nodes-change
@@ -102,9 +104,11 @@
                         :nodeTypes (clj->js node-types)
                         :edgeTypes (clj->js edge-types)}
              ($ Controls)
-             ($ Panel {:position "top-left" :class "logo"}
-                ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))
-             ($ Panel {:position "top-center" :class "toolbar shadow-xs"}
+             (when-not (= demo-mode :minimal)
+               ($ Panel {:position "top-left" :class "logo"}
+                  ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150})))
+             ($ Panel {:position (if (= demo-mode :minimal) "top-left" "top-center")
+                       :class "toolbar shadow-xs"}
                 ($ :div {:class "join"}
                    ($ button {:label "Unknown"
                               :on-click #(create-part-by-type "unknown")})
