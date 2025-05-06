@@ -142,6 +142,9 @@
     .system-view {
         height: 100vh;
         flex: 1;
+        &.minimal {
+            height: 70vh;
+        }
         .node {
             display: flex;
             height: 100px;

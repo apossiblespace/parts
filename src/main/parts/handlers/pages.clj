@@ -24,22 +24,15 @@
      {:title "Mapping tools for IFS practitioners and their clients"
       :styles ["/css/flow.css" "/css/style.css"]}
      [:section.px-4.md:px-16
-      [:div.w-full.max-w-7xl.mx-auto
-       [:section.max-w-4xl
+      [:div
+       {:class "grid grid-cols-1 md:grid-cols-2 gap-12 w-full mx-auto"}
+       [:div
         [:h1.text-5xl.md:text-6xl.text-primary.font-serif.leading-tight.font-normal
-         "Understand your clients' parts and their relationships."]]
-       [:div.flex.flex-col.lg:flex-row.lg:justify-between.gap-0.lg:gap-12
-        [:section.w-full.text-center
-         [:p
-          [:img.w-full.max-w-md.mx-auto {:src "/images/system-illustration.svg"}]]]
-        [:section.w-full.max-w-md.mx-auto.my-8
-         [:h3.mb-4
-          [:strong.font-bold "Parts"]
-          " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' parts."]
-         [:p.mb-6
-          [:strong.font-bold "Parts"]
-          " is being actively developed, and we would love to have your feedback! Please enter your email below to join the private beta test."]]]]]
-     [:div#root]
+         "Understand your clients' parts and their relationships."]
+        [:h3.mb-4
+         [:strong.font-bold "Parts"]
+         " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' parts."]]
+       [:div#root.demo.minimal]]]
      [:section
       {:class "py-20 text-white",
        :id "founding-circle",

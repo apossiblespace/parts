@@ -13,6 +13,7 @@
 
 (defui system []
   (let [demo-mode (uix.rf/use-subscribe [:demo-mode])
+        minimal (= demo-mode :minimal)
         system-id (uix.rf/use-subscribe [:system/id])
         parts (uix.rf/use-subscribe [:system/parts])
         relationships (uix.rf/use-subscribe [:system/relationships])
@@ -92,7 +93,7 @@
      [system-id])
 
     ($ :div {:class "system-container"}
-       ($ :div {:class (if (= demo-mode :minimal)
+       ($ :div {:class (if minimal
                          "system-view minimal"
                          "system-view")}
           ($ ReactFlow {:nodes nodes
@@ -102,12 +103,14 @@
                         :onConnect on-connect
                         ;; :onSelectionChange on-selection-change
                         :nodeTypes (clj->js node-types)
-                        :edgeTypes (clj->js edge-types)}
+                        :edgeTypes (clj->js edge-types)
+                        :zoomOnScroll (not minimal)
+                        :preventScrolling (not minimal)}
              ($ Controls)
-             (when-not (= demo-mode :minimal)
+             (when-not minimal
                ($ Panel {:position "top-left" :class "logo"}
                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150})))
-             ($ Panel {:position (if (= demo-mode :minimal) "top-left" "top-center")
+             ($ Panel {:position (if minimal "top-left" "top-center")
                        :class "toolbar shadow-xs"}
                 ($ :div {:class "join"}
                    ($ button {:label "Unknown"
@@ -121,12 +124,13 @@
              (when display-sidebar
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar)))
-             ($ MiniMap {:className "tools parts-minimap shadow-sm"
-                         :position "bottom-right"
-                         :ariaLabel "Minimap"
-                         :pannable true
-                         :zoomable true
-                         :offsetScale 5})
+             (when-not minimal
+               ($ MiniMap {:className "tools parts-minimap shadow-sm"
+                           :position "bottom-right"
+                           :ariaLabel "Minimap"
+                           :pannable true
+                           :zoomable true
+                           :offsetScale 5}))
              ($ Background {:variant "dots"
                             :gap 12
                             :size 1}))))))
