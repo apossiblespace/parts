@@ -37,7 +37,7 @@ RUN make dist
 # Setup Run-time Container
 
 # Official OpenJDK Image
-FROM eclipse-temurin:17-alpine
+FROM eclipse-temurin:21-alpine
 
 # Example labels for runtime docker image
 # LABEL org.opencontainers.image.authors="nospam+dockerfile@possible.space"

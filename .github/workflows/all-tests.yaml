@@ -2,46 +2,46 @@ name: All tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-    - name: Install Node dependencies
-      run: npm install ws
+      - name: Install Node dependencies
+        run: npm install ws
 
-    - name: Install Clojure Tools
-      uses: DeLaGuardo/setup-clojure@12.5
-      with:
-        cli: latest
+      - name: Install Clojure Tools
+        uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          cli: latest
 
-    - name: Cache Maven packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
-        restore-keys: ${{ runner.os }}-m2
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-m2
 
-    - name: Run tests
-      run: |
-        export PARTS_DB_PATH="$GITHUB_WORKSPACE/db/parts_test.db"
-        clojure -X:test/env:test/run
-      env:
-        GITHUB_WORKSPACE: ${{ github.workspace }}
+      - name: Run tests
+        run: |
+          export PARTS_DB_PATH="$GITHUB_WORKSPACE/db/parts_test.db"
+          clojure -X:test/env:test/run
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
