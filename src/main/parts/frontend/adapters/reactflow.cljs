@@ -6,10 +6,12 @@
 (defn part->node
   "Convert a Part to a ReactFlow node"
   ([part] (part->node part nil))
-  ([{:keys [id type label position_x position_y]} selected-ids]
+  ([{:keys [id type label position_x position_y width height]} selected-ids]
    #js {:id id
         :position #js {:x position_x :y position_y}
         :selected (when selected-ids (contains? selected-ids id))
+        :width (or width 100)
+        :height (or height 100)
         :data #js {:label label
                    :type (name type)}}))
 

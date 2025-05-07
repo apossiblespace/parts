@@ -159,16 +159,12 @@
             background-image: url("/images/nodes/unknown.svg");
 
             &.manager {
-                height: 108px;
-                width: 100px;
                 background-image: url("/images/nodes/manager.svg");
             }
             &.exile {
                 background-image: url("/images/nodes/exile.svg");
             }
             &.firefighter {
-                height: 120px;
-                width: 120px;
                 background-image: url("/images/nodes/firefighter.svg");
             }
         }
