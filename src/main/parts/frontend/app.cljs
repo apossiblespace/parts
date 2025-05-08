@@ -49,7 +49,7 @@
    :relationships relationships})
 
 (def initial-db
-  {:demo-mode :minimal
+  {:demo-mode false
    :system system-data
    :systems {:list []
              :loading false}})
@@ -74,24 +74,38 @@
                :on-close #(set-show-system-list false)})))
        ($ system))))
 
-(defonce root
-  (when-let [root-element (js/document.getElementById "root")]
-    (uix.dom/create-root root-element)))
+(defn get-demo-settings
+  "Extract demo mode configuration from root element"
+  [root-el]
+  (when root-el
+    (let [mode (.getAttribute root-el "data-demo-mode")]
+      (cond
+        (= mode "minimal") :minimal
+        (= mode "true") true
+        :else false))))
 
-(defn render-app
-  "Render the app if root element exists"
-  []
-  (when root
-    (rf/dispatch-sync [:app/init-db initial-db])
-    (uix.dom/render-root ($ app) root)))
+(defn setup-app
+  "Setup the app with the root element, create root, init state and render"
+  [root-el]
+  (let [root (uix.dom/create-root root-el)
+        demo-mode (get-demo-settings root-el)
+        initial-db-with-demo (assoc initial-db :demo-mode demo-mode)]
+    (rf/dispatch-sync [:app/init-db initial-db-with-demo])
+    (uix.dom/render-root ($ app) root)
+    {:root root
+     :demo-mode demo-mode}))
+
+(defonce app-state (atom nil))
 
 (defn ^:export init []
   (.on htmx "htmx:load"
        (fn [_]
-         (render-app)
+         (when-let [root-el (js/document.getElementById "root")]
+           (reset! app-state (setup-app root-el)))
          (let [version (.-version htmx)]
            (js/console.log "HTMX loaded! Version:" version)))))
 
 (defn ^:dev/after-load reload! []
   (js/console.log "Reloading app...")
-  (uix.dom/render-root ($ app) root))
+  (when-let [root (:root @app-state)]
+    (uix.dom/render-root ($ app) root)))

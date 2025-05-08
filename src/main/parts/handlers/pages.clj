@@ -39,7 +39,7 @@
          [:a {:href "/system"
               :class "btn"}
           "Try the playground"]]]
-       [:div#root.demo.minimal]]]
+       [:div#root.demo.minimal {:data-demo-mode "minimal"}]]]
      [:section
       {:class "py-20 text-white",
        :id "signup",

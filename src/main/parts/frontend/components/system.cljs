@@ -12,14 +12,14 @@
    [re-frame.core :as rf]))
 
 (defui system []
-  (let [demo-mode (uix.rf/use-subscribe [:demo-mode])
-        minimal? (= demo-mode :minimal)
+  (let [demo? (uix.rf/use-subscribe [:demo?])
+        minimal? (uix.rf/use-subscribe [:minimal-demo?])
         system-id (uix.rf/use-subscribe [:system/id])
         parts (uix.rf/use-subscribe [:system/parts])
         relationships (uix.rf/use-subscribe [:system/relationships])
         selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
-        display-sidebar (or (not demo-mode)
+        display-sidebar (or (not demo?)
                             (or (seq selected-node-ids) (seq selected-edge-ids)))
         nodes (adapter/parts->nodes parts selected-node-ids)
         edges (adapter/relationships->edges relationships selected-edge-ids)
