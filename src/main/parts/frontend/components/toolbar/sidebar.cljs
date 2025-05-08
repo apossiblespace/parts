@@ -9,9 +9,9 @@
 (defui sidebar
   "Display the main sidebar"
   []
-  (let [demo-mode (uix.rf/use-subscribe [:demo-mode])]
+  (let [demo (uix.rf/use-subscribe [:demo])]
     ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-white shadow-sm"}
-       (when-not demo-mode ($ auth-status))
+       (when-not demo ($ auth-status))
        ($ :div {:class "overflow-auto"}
           ($ parts-tools)
           ($ relationships-tools)))))

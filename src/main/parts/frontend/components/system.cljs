@@ -12,14 +12,14 @@
    [re-frame.core :as rf]))
 
 (defui system []
-  (let [demo? (uix.rf/use-subscribe [:demo?])
-        minimal? (uix.rf/use-subscribe [:minimal-demo?])
+  (let [demo (uix.rf/use-subscribe [:demo])
+        minimal (uix.rf/use-subscribe [:minimal-demo])
         system-id (uix.rf/use-subscribe [:system/id])
         parts (uix.rf/use-subscribe [:system/parts])
         relationships (uix.rf/use-subscribe [:system/relationships])
         selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
-        display-sidebar (or (not demo?)
+        display-sidebar (or (not demo)
                             (or (seq selected-node-ids) (seq selected-edge-ids)))
         nodes (adapter/parts->nodes parts selected-node-ids)
         edges (adapter/relationships->edges relationships selected-edge-ids)
@@ -93,7 +93,7 @@
      [system-id])
 
     ($ :div {:class "system-container"}
-       ($ :div {:class (if minimal?
+       ($ :div {:class (if minimal
                          "system-view minimal"
                          "system-view")}
           ($ ReactFlow {:nodes nodes
@@ -104,13 +104,13 @@
                         ;; :onSelectionChange on-selection-change
                         :nodeTypes (clj->js node-types)
                         :edgeTypes (clj->js edge-types)
-                        :zoomOnScroll (not minimal?)
-                        :preventScrolling (not minimal?)}
+                        :zoomOnScroll (not minimal)
+                        :preventScrolling (not minimal)}
              ($ Controls)
-             (when-not minimal?
+             (when-not minimal
                ($ Panel {:position "top-left" :class "logo"}
                   ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150})))
-             ($ Panel {:position (if minimal? "top-left" "top-center")
+             ($ Panel {:position (if minimal "top-left" "top-center")
                        :class "toolbar shadow-xs"}
                 ($ :div {:class "join"}
                    ($ button {:label "Unknown"
@@ -124,7 +124,7 @@
              (when display-sidebar
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar)))
-             (when-not minimal?
+             (when-not minimal
                ($ MiniMap {:className "tools parts-minimap shadow-sm"
                            :position "bottom-right"
                            :ariaLabel "Minimap"

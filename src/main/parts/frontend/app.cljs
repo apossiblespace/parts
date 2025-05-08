@@ -57,17 +57,17 @@
 (defui app []
   (let [[show-system-list set-show-system-list] (use-state false)
         current-system-id (uix.rf/use-subscribe [:system/id])
-        demo-mode (uix.rf/use-subscribe [:demo-mode])]
+        demo (uix.rf/use-subscribe [:demo])]
 
     (use-effect
      (fn []
-       (when-not demo-mode
+       (when-not demo
          (if-let [stored-id (api-utils/get-current-system-id)]
            (rf/dispatch [:system/load stored-id])
            (set-show-system-list true))))
-     [demo-mode])
+     [demo])
     ($ :<>
-       (when-not demo-mode
+       (when-not demo
          (when-not current-system-id
            ($ system-list-modal
               {:show show-system-list

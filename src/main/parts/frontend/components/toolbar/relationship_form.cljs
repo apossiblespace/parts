@@ -12,7 +12,7 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [relationship on-save collapsed]}]
   (let [{:keys [id type source_id target_id]} relationship
-        demo-mode (uix.rf/use-subscribe [:demo-mode])
+        demo (uix.rf/use-subscribe [:demo])
         [form-state set-form-state] (use-state
                                      {:values {:type type}
                                       :initial {:type type}
@@ -90,10 +90,10 @@
                            ($ :option {:key k :value (name k)}
                               label)))))
 
-            (when-not demo-mode
+            (when-not demo
               ($ :div {:class "flex justify-between text-xs text-base-content/70 mt-2"}
                  ($ :span (str "From: " source_id))
                  ($ :span (str "To: " target_id))))
 
-            (when-not demo-mode
+            (when-not demo
               ($ :p {:class "fieldset-label"} (str "id: " id))))))))

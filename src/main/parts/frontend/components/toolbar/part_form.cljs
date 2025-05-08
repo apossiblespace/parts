@@ -12,7 +12,7 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save collapsed]}]
   (let [{:keys [id type label]} part
-        demo-mode (uix.rf/use-subscribe [:demo-mode])
+        demo (uix.rf/use-subscribe [:demo])
         [form-state set-form-state] (use-state
                                      {:values {:type type, :label label}
                                       :initial {:type type, :label label}
@@ -98,5 +98,5 @@
                        :value (:label values)
                        :onChange #(update-field :label (.. % -target -value))})
 
-            (when-not demo-mode
+            (when-not demo
               ($ :p {:class "fieldset-label"} (str "id: " id))))))))

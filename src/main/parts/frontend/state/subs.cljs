@@ -3,12 +3,12 @@
    [re-frame.core :as rf]))
 
 (rf/reg-sub
- :demo?
+ :demo
  (fn [db _]
    (boolean (:demo-mode db))))
 
 (rf/reg-sub
- :minimal-demo?
+ :minimal-demo
  (fn [db _]
    (= (:demo-mode db) :minimal)))
 
