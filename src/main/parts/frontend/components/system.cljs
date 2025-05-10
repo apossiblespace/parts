@@ -131,6 +131,7 @@
                            :pannable true
                            :zoomable true
                            :offsetScale 5}))
-             ($ Background {:variant "dots"
-                            :gap 12
-                            :size 1}))))))
+             (when-not minimal
+               ($ Background {:variant "dots"
+                              :gap 12
+                              :size 1})))))))
