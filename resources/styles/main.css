@@ -41,6 +41,10 @@
     --ifs-orange: #faae17;
 }
 
+body {
+    font-family: "Inter";
+}
+
 .bg-ifs-green {
     background-color: var(--ifs-green);
 }

@@ -171,8 +171,7 @@ footer {
 .hero {
     max-width: 800px;
     h1 {
-        font-family:
-            "DM Serif Display", Georgia, Times, "Times New Roman", serif;
+        font-family: Inter, sans-serif;
         color: var(--color-primary);
         font-weight: normal;
         font-size: 3rem;
