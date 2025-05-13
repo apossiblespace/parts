@@ -26,15 +26,18 @@
      [:section.px-4.md:px-16
       [:div.grid.grid-cols-1.md:grid-cols-2.gap-12.w-full.mx-auto
        [:div
-        [:h1.text-5xl.md:text-6xl.text-primary.font-bold
+        [:h1.text-5xl.md:text-6xl.font-bold.my-16
          "Understand your clients’ parts and their relationships."]
-        [:h3.mb-4
+        [:h3.my-8.text-xl
          [:strong.font-bold "Parts"]
          " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' parts."]
-        [:div.grid.grid-cols-1.md:grid-cols-2.gap12.w-full
-         [:a.btn.btn-primary {:href "#signup"}
+        [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
+         [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
+          {:role "button"
+           :href "#signup"}
           "Join the Founding Circle"]
-         [:a.btn {:href "/system"}
+         [:a.btn.btn-lg {:role "button"
+                         :href "/system"}
           "Try the playground"]]]
        [:div#root.demo.minimal {:data-demo-mode "minimal"}]]]
      [:section#signup.py-20.text-white

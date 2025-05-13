@@ -56,7 +56,7 @@
       [:img {:class "w-50"
              :src "/images/parts-logo-horizontal.svg"}]
       [:a
-       {:href "#founding-circle",
+       {:href "#signup",
         :class "text-ifs-green font-semibold hover:underline"}
        "Join Founding Circle"]]]]])
 
