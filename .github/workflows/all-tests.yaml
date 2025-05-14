@@ -28,7 +28,7 @@ jobs:
         run: npm install ws
 
       - name: Install Clojure Tools
-        uses: DeLaGuardo/setup-clojure@12.5
+        uses: DeLaGuardo/setup-clojure@13.2
         with:
           cli: latest
 
