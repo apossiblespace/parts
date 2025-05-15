@@ -147,7 +147,7 @@ body {
         height: 100vh;
         flex: 1;
         &.minimal {
-            height: 70vh;
+            max-height: 36rem;
         }
         .node {
             display: flex;

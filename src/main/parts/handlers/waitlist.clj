@@ -42,3 +42,9 @@
                (html [:div.success
                       [:p "You're already on the list! We'll be in touch soon."]]))
               (response/status 200)))))))
+
+(defn signups-count
+  "Get the number of current signups on the waiting list"
+  []
+  (:total (db/query-one (db/sql-format {:select [[:%count.* :total]]
+                                        :from [:waitlist_signups]}))))

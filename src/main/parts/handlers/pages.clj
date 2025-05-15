@@ -38,7 +38,10 @@
           "Join the Founding Circle"]
          [:a.btn.btn-lg {:role "button"
                          :href "/system"}
-          "Try the playground"]]]
+          "Try the playground"]]
+        [:p
+         {:class ["my-4" "w-full" "text-center" "text-gray-400"]}
+         (partials/waitlist-count)]]
        [:div#root.demo.minimal {:data-demo-mode "minimal"}]]]
      [:section#signup.py-20.text-white
       {:style {:background-color "#4eb48a"}}
