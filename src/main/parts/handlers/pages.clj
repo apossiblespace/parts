@@ -48,7 +48,9 @@
           [:p
            {:class ["my-4" "w-full" "text-gray-500" "text-sm"]}
            (str "Current founding members: " waitlist-count " practitioners.")]]
-         [:div#root.demo.minimal {:data-demo-mode "minimal"}]]]
+         [:div#root
+          {:data-demo-mode "minimal"
+           :class ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
        [:section#signup.py-20.text-white
         {:style {:background-color "#4eb48a"}}
         [:div.container.max-w-3xl.mx-auto.px-4.sm:px-6.lg:px-8.text-center
