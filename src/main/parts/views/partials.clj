@@ -1,6 +1,5 @@
 (ns parts.views.partials
   (:require
-   [parts.handlers.waitlist :refer [signups-count]]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
 
 (defn scripts
@@ -151,8 +150,3 @@
     (when (and message (re-find #"^Thank you" message))
       [:div.bg-callout.p-4.rounded-2xl.text-center.mt-2
        message])]))
-
-(defn waitlist-count
-  []
-  (let [count (signups-count)]
-    (str "Join " count " practitioners that will shape the future of Parts!")))
