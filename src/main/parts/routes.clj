@@ -88,9 +88,9 @@
                       middleware/wrap-html-response]
          :get {:handler pages/home-page}}]
 
-   ["/system" {:middleware [middleware/wrap-html-defaults
-                            middleware/wrap-html-response]
-               :get {:handler pages/system-graph}}]
+   ["/playground" {:middleware [middleware/wrap-html-defaults
+                                middleware/wrap-html-response]
+                   :get {:handler pages/playground}}]
 
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 

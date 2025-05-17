@@ -8,13 +8,19 @@
 
 (defn system-graph
   "Page rendering the graph of a system"
+  [{:keys [demo-mode]}]
+  (let [demo-mode (or demo-mode false)]
+    (response/response
+     (html
+      (layouts/fullscreen
+       {:title "System"
+        :styles ["/css/flow.css" "/css/style.css"]}
+       [:div#root {:data-demo-mode demo-mode}])))))
+
+(defn playground
+  "Page rendering a playground system graph in demo mode"
   [_]
-  (response/response
-   (html
-    (layouts/fullscreen
-     {:title "System"
-      :styles ["/css/flow.css" "/css/style.css"]}
-     [:div#root]))))
+  (system-graph {:demo-mode "true"}))
 
 (defn home-page
   "Page rendered for GET /"
@@ -43,7 +49,7 @@
              :href "#signup"}
             "Join the Founding Circle"]
            [:a.btn.btn-lg {:role "button"
-                           :href "/system"}
+                           :href "/playground"}
             "Try the playground"]]
           [:p
            {:class ["my-4" "w-full" "text-gray-500" "text-sm"]}
