@@ -39,6 +39,7 @@
     --ifs-green: #4eb48a;
     --ifs-yellow: #d3be2a;
     --ifs-orange: #faae17;
+    scroll-behavior: smooth;
 }
 
 body {

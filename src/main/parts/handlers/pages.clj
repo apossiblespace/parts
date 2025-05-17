@@ -122,10 +122,10 @@
             [:p.text-gray-600.mt-1
              "Software engineer with 20 years experience building for the Web."]
             [:div.mt-2
-             [:a.text-ifs-green.hover:underline.mr-3
+             [:a.text-ifs-green.mr-3
               {:href "#"}
               "Website"]
-             [:a.text-ifs-green.hover:underline
+             [:a.text-ifs-green
               {:href "#"}
               "Bluesky"]]]]
           [:div.flex
@@ -137,6 +137,6 @@
             [:p.text-gray-600.mt-1
              "IFS Level 1 trained art psychotherapist, focusing on trauma."]
             [:div.mt-2
-             [:a.text-ifs-yellow.hover:underline
-              {:href "#"}
-              "Portfolio"]]]]]]])))))
+             [:a.text-ifs-yellow
+              {:href "https://tingyilai.com"}
+              "Website"]]]]]]])))))
