@@ -146,7 +146,4 @@
       [:div.relative.mt-1.ml-6
        [:p.relative
         {:class "before:content-['⤴︎'] before:absolute before:-left-4 before:-top-1 before:scale-x-[-1]"}
-        message]])
-    (when (and message (re-find #"^Thank you" message))
-      [:div.bg-callout.p-4.rounded-2xl.text-center.mt-2
-       message])]))
+        message]])]))
