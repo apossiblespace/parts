@@ -120,30 +120,33 @@
 
 (defn waitlist-signup-form
   "Form for signing up for the waiting list"
-  ([]
-   (waitlist-signup-form nil))
-  ([message]
-   [:div#signup-form
-    [:form
-     {:hx-post "/waitlist-signup"
-      :hx-target "#signup-form"
-      :hx-swap "outerHTML"
-      :hx-on:submit "plausible('Waitlist Signup'); return true;"}
-     [:div.join.rounded-xl
-      [:input.join-item.input.input-xl.text-gray-800
-       {:type "email"
-        :id "email"
-        :name "email"
-        :placeholder "self@you.com"
-        :hx-on:focus "plausible('Email Field Focus'); return true;"}]
-      [:input {:type "hidden"
-               :id "__anti-forgery-token"
-               :name "__anti-forgery-token"
-               :value *anti-forgery-token*}]
-      [:input.join-item.btn.btn-xl.btn-primary
-       {:type "submit" :value "Sign me up!"}]]]
-    (when message
-      [:div.relative.mt-1.ml-6
-       [:p.relative
-        {:class "before:content-['⤴︎'] before:absolute before:-left-4 before:-top-1 before:scale-x-[-1]"}
-        message]])]))
+  [{:keys [message value]}]
+  [:div#signup-form
+   [:form
+    {:hx-post "/waitlist-signup"
+     :hx-target "#signup-form"
+     :hx-swap "outerHTML"
+     :hx-on:submit "plausible('Waitlist Signup'); return true;"}
+    [:div.join.rounded-xl
+     [:input.join-item.input.input-xl.text-gray-800
+      {:type "email"
+       :id "email"
+       :name "email"
+       :placeholder "self@you.com"
+       :value value
+       :hx-on:focus "plausible('Email Field Focus'); return true;"}]
+     [:input {:type "hidden"
+              :id "__anti-forgery-token"
+              :name "__anti-forgery-token"
+              :value *anti-forgery-token*}]
+     [:input.join-item.btn.btn-xl.btn-primary
+      {:type "submit" :value "Sign me up!"}]]]
+   [:div.relative.mt-1.ml-6.inline-block
+    [:p.relative.mt-3.text-sm
+     {:style {:opacity "0.8"}}
+     (if message
+       [:span
+        {:class "before:content-['⤴︎'] before:absolute before:-left-5 before:-top-1 before:scale-x-[-1]"}
+        message]
+       [:span
+        "No credit card required"])]]])

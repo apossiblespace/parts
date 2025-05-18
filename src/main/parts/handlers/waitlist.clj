@@ -20,13 +20,16 @@
       (or (nil? email) (str/blank? email))
       (-> (response/response
            (html
-            (partials/waitlist-signup-form "Please don't forget your email address!")))
+            (partials/waitlist-signup-form
+             {:message "Please don't forget your email address!"})))
           (response/status 200))
 
       (not (valid-email? email))
       (-> (response/response
            (html
-            (partials/waitlist-signup-form "Sorry, that's not a valid email address.")))
+            (partials/waitlist-signup-form
+             {:message "Sorry, that's not a valid email address."
+              :value email})))
           (response/status 200))
 
       :else
