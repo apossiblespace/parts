@@ -46,9 +46,13 @@ body {
     font-family: "Inter", Helvetica, Arial, sans-serif;
 }
 
-a:not(.btn) {
+a {
     @apply underline;
     @apply underline-offset-4;
+}
+
+a.btn {
+    @apply no-underline;
 }
 
 .bg-ifs-green {
