@@ -82,16 +82,20 @@
       [:ul
        {:class "space-y-2"}
        [:li
-        [:a
-         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
-         "Features"]]
+        [:div
+         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
+         [:span
+          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
+          "Features"]]]
+       [:li
+        [:div
+         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
+         [:span
+          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
+          "Pricing"]]]
        [:li
         [:a
-         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
-         "Pricing"]]
-       [:li
-        [:a
-         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
+         {:href "https://github.com/apossiblespace/parts?tab=readme-ov-file#readme", :class "text-gray-600 hover:text-ifs-green"}
          "Documentation"]]
        [:li
         [:a
@@ -102,13 +106,17 @@
       [:ul
        {:class "space-y-2"}
        [:li
-        [:a
-         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
-         "Privacy Policy"]]
+        [:div
+         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
+         [:span
+          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
+          "Privacy Policy"]]]
        [:li
-        [:a
-         {:href "#", :class "text-gray-600 hover:text-ifs-green"}
-         "Terms of Service"]]]]]
+        [:div
+         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
+         [:span
+          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
+          "Terms of Service"]]]]]]
     [:div
      {:class
       "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500"}
