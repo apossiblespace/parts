@@ -59,26 +59,37 @@
            :class ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
        [:section#signup.py-20.text-white
         {:style {:background-color "#4eb48a"}}
-        [:div.container.max-w-3xl.mx-auto.px-4.sm:px-6.lg:px-8.text-center
-         [:h2.text-3xl.font-bold.mb-6
+        [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
+         [:h2.text-3xl.font-bold.mb-6.text-center
           "Join the Founding Practitioners Circle"]
-         [:p.text-xl.mb-8
+         [:p.text-xl.mb-8.text-center
           "Parts is being actively developed — be among the first IFS practitioners to help shape its future."]
-         [:div.p-6.mb-8
-          [:div.grid.grid-cols-1.md:grid-cols-3.gap-4
-           [:div.flex.flex-col.items-center.p-4.rounded-md
-            {:style {:background-color "rgba(255, 255, 255, 0.1)"}}
-            [:img {:src "/images/icons/build.png"}]
-            [:span.font-semibold "Help shape Parts"]]
-           [:div.flex.flex-col.items-center.p-4.rounded-md
-            {:style {:background-color "rgba(255, 255, 255, 0.1)"}}
-            [:img {:src "/images/icons/lock.png"}]
-            [:span.font-semibold "Early access"]]
-           [:div.flex.flex-col.items-center.p-4.rounded-md
-            {:style {:background-color "rgba(255, 255, 255, 0.1)"}}
-            [:img {:src "/images/icons/concierge.png"}]
-            [:span.font-semibold "Concierge support"]]]]
-         [:div.mx-auto
+         [:div.grid.grid-cols-1.md:grid-cols-3.gap-4.md:gap-8.max-w-5xl.mx-auto.my-12
+          [:div.flex
+           [:img.w-20.h-20
+            {:src "/images/icons/build.png"
+             :alt "An icon representing a toolbox with some tools in it"}]
+           [:div.ml-4
+            [:h3.text-lg.font-bold "Help shape Parts"]
+            [:p
+             "Your feedback will make Parts better for clients & therapists"]]]
+          [:div.flex
+           [:img.w-20.h-20
+            {:src "/images/icons/key.png"
+             :alt "An icon representing a key on a keychain"}]
+           [:div.ml-4
+            [:h3.text-lg.font-bold "Early access"]
+            [:p
+             "Start using Parts and new features before general availability"]]]
+          [:div.flex
+           [:img.w-20.h-20
+            {:src "/images/icons/concierge.png"
+             :alt "An icon representing a concierge's bell"}]
+           [:div.ml-4
+            [:h3.text-lg.font-bold "Concierge support"]
+            [:p
+             "Help getting setup and started, straight from the developer"]]]]
+         [:div.mx-auto.text-center
           (partials/waitlist-signup-form {})]]]
        [:section.py-16
         [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
