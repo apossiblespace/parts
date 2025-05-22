@@ -38,7 +38,7 @@
         (mulog/log ::waitlist_signup :email email)
         (-> (response/response
              (html [:div.success
-                    [:p "Thank you for your interest! We'll be in touch soon."]]))
+                    [:p "Thank you for your interest in Parts! We'll be in touch soon."]]))
             (response/status 201))
         (catch Exception _e
           (-> (response/response

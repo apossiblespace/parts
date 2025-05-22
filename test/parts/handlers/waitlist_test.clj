@@ -19,7 +19,7 @@
                                                :where [:= :email "someone@somewhere.com"]}))]
       (is (= 201 (:status response)))
       (is (= "someone@somewhere.com" (:email record)))
-      (is (str/includes? (:body response) "Thank you for your interest!"))))
+      (is (str/includes? (:body response) "Thank you for your interest in Parts!"))))
 
   (testing "returns a reminder to not forget the email when email is missing"
     (let [mock-request {:form-params {"email" ""}}

@@ -106,10 +106,10 @@
              "Software engineer with 20 years experience building for the Web."]
             [:div.mt-2
              [:a.text-ifs-green.mr-3
-              {:href "#"}
+              {:href "https://gosha.net"}
               "Website"]
              [:a.text-ifs-green
-              {:href "#"}
+              {:href "https://bsky.app/profile/gosha.net"}
               "Bluesky"]]]]
           [:div.flex
            [:img.w-20.h-20.rounded-full

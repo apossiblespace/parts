@@ -157,4 +157,4 @@
         {:class "before:content-['⤴︎'] before:absolute before:-left-5 before:-top-1 before:scale-x-[-1]"}
         message]
        [:span
-        "No credit card required"])]]])
+        "No credit card required."])]]])
