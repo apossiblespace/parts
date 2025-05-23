@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
+   [hiccup.util :refer [raw-string]]
    [hiccup2.core :refer [html]]
    [parts.db :as db]
    [parts.views.partials :as partials]
@@ -38,7 +39,11 @@
         (mulog/log ::waitlist_signup :email email)
         (-> (response/response
              (html [:div.success
-                    [:p "Thank you for your interest in Parts! We'll be in touch soon."]]))
+                    [:p "Thank you for your interest in Parts! We'll be in touch soon."]
+                    [:script (raw-string
+                              "const element = document.getElementById('counter');
+                            const currentValue = parseInt(element.textContent) || 0;
+                            element.textContent = currentValue + 1;")]]))
             (response/status 201))
         (catch Exception _e
           (-> (response/response

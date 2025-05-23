@@ -53,7 +53,9 @@
             "Try the playground"]]
           [:p
            {:class ["my-4" "w-full" "text-gray-500" "text-sm"]}
-           (str "Current founding members: " waitlist-count " practitioners.")]]
+           [:span "Current founding members: "]
+           [:span#counter waitlist-count]
+           [:span " practitioners."]]]
          [:div#root
           {:data-demo-mode "minimal"
            :class ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
