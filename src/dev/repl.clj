@@ -46,10 +46,14 @@
   (stop)
   (start))
 
-(defn db-migrate [env]
+(defn db-migrate
+  "Migrate the database for ENV (default: development)"
+  ([]
+   (db-migrate :development))
+  ([env]
   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
         migration-config (assoc db/migration-config :db db-spec)]
-    (migratus/migrate migration-config)))
+    (migratus/migrate migration-config))))
 
 (defn db-rollback [env]
   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
