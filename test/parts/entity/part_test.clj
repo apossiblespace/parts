@@ -34,9 +34,11 @@
             updated (part/update! (:id created)
                                   (assoc part-data
                                          :label "Updated Label"
-                                         :position_x 200))]
+                                         :position_x 200
+                                         :notes "Updated notes"))]
         (is (= "Updated Label" (:label updated)))
         (is (= 200 (:position_x updated)))
+        (is (= "Updated notes" (:notes updated)))
         (is (= (:id created) (:id updated)))))
 
     (testing "delete!"

@@ -13,7 +13,8 @@
       (is (= "unknown" (:type result)))
       (is (= "Unknown" (:label result)))
       (is (= 0 (:position_x result)))
-      (is (= 0 (:position_y result)))))
+      (is (= 0 (:position_y result)))
+      (is (nil? (:notes result)))))
 
   (testing "Creates a part with a custom label but no custom type"
     (let [attrs {:system_id "system-123"
@@ -39,7 +40,8 @@
                  :description "Test description"
                  :width 150
                  :height 80
-                 :body_location "head"}
+                 :body_location "head"
+                 :notes "Test notes"}
           result (part/make-part attrs)]
       (is (= attrs result))))
 

@@ -13,6 +13,7 @@
 (s/def ::position_y int?)
 (s/def ::width (s/nilable int?))
 (s/def ::height (s/nilable int?))
+(s/def ::notes (s/nilable string?))
 (s/def ::body_location (s/nilable string?))
 
 (s/def ::part
@@ -25,7 +26,8 @@
           :opt-un [::description
                    ::width
                    ::height
-                   ::body_location]))
+                   ::body_location
+                   ::notes]))
 
 (def spec
   "Part model spec for reuse outside of the namespace"
@@ -42,7 +44,8 @@
                :type type
                :label label
                :position_x 0
-               :position_y 0}
+               :position_y 0
+               :notes nil}
               attrs)]
     (validate-spec ::part part)
     part))
