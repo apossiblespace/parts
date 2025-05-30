@@ -6,14 +6,15 @@
 (defn part->node
   "Convert a Part to a ReactFlow node"
   ([part] (part->node part nil))
-  ([{:keys [id type label position_x position_y width height]} selected-ids]
+  ([{:keys [id type label notes position_x position_y width height]} selected-ids]
    #js {:id id
         :position #js {:x position_x :y position_y}
         :selected (when selected-ids (contains? selected-ids id))
         :width (or width 100)
         :height (or height 100)
         :data #js {:label label
-                   :type (name type)}}))
+                   :type (name type)
+                   :notes notes}}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.
@@ -33,18 +34,20 @@
                 :system_id system-id
                 :type (get-in node [:data :type])
                 :label (get-in node [:data :label])
+                :notes (get-in node [:data :notes])
                 :position_x (get-in node [:position :x])
                 :position_y (get-in node [:position :y])})))
 
 (defn relationship->edge
   "Convert a Relationship to a ReactFlow edge"
   ([relationship] (relationship->edge relationship nil))
-  ([{:keys [id source_id target_id type]} selected-ids]
+  ([{:keys [id source_id target_id notes type]} selected-ids]
    #js {:id id
         :source source_id
         :target target_id
         :selected (when selected-ids (contains? selected-ids id))
-        :data #js {:relationship (name type)}
+        :data #js {:relationship (name type)
+                   :notes notes}
         :className (str "edge-" (name type))}))
 
 (defn relationships->edges
@@ -65,4 +68,5 @@
                         :system_id system-id
                         :source_id (:source edge)
                         :target_id (:target edge)
-                        :type (get-in edge [:data :relationship])})))
+                        :type (get-in edge [:data :relationship])
+                        :notes (get-in edge [:data :notes])})))
