@@ -11,11 +11,13 @@
    - on-save: Callback function (id, form-data) when data is saved
    - collapsed: Whether the form should start collapsed"
   [{:keys [relationship on-save collapsed]}]
-  (let [{:keys [id type source_id target_id]} relationship
+  (let [{:keys [id type notes source_id target_id]} relationship
         demo (uix.rf/use-subscribe [:demo])
         [form-state set-form-state] (use-state
-                                     {:values {:type type}
-                                      :initial {:type type}
+                                     {:values {:type type
+                                               :notes notes}
+                                      :initial {:type type
+                                                :notes notes}
                                       :collapsed? collapsed})
         {:keys [values initial collapsed?]} form-state
         changed? (not= values initial)
@@ -45,9 +47,11 @@
         (fn [state]
           (-> state
               (assoc-in [:values :type] type)
+              (assoc-in [:values :notes] notes)
               (assoc-in [:initial :type] type)
+              (assoc-in [:initial :notes] notes)
               (assoc :collapsed? collapsed)))))
-     [type relationship id collapsed])
+     [type relationship notes id collapsed])
 
     ($ :form {:onSubmit handle-submit
               :class "fieldset edge-form p-2 border-b border-b-1 border-base-300"}
@@ -89,6 +93,11 @@
                     (map (fn [[k {:keys [label]}]]
                            ($ :option {:key k :value (name k)}
                               label)))))
+
+            ($ :label {:class "fieldset-label"} "Notes:")
+            ($ :textarea {:class "textarea textarea-sm mb-1"
+                          :value (:notes values)
+                          :onChange #(update-field :notes (.. % -target -value))})
 
             (when-not demo
               ($ :div {:class "flex justify-between text-xs text-base-content/70 mt-2"}
