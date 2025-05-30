@@ -11,11 +11,15 @@
    - on-save: Callback function (id, form-data) when data is saved
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save collapsed]}]
-  (let [{:keys [id type label]} part
+  (let [{:keys [id type label notes]} part
         demo (uix.rf/use-subscribe [:demo])
         [form-state set-form-state] (use-state
-                                     {:values {:type type, :label label}
-                                      :initial {:type type, :label label}
+                                     {:values {:type type
+                                               :label label
+                                               :notes notes}
+                                      :initial {:type type
+                                                :label label
+                                                :notes notes}
                                       :collapsed? collapsed})
         {:keys [values initial collapsed?]} form-state
         changed? (not= values initial)
@@ -46,10 +50,12 @@
           (-> state
               (assoc-in [:values :type] type)
               (assoc-in [:values :label] label)
+              (assoc-in [:values :notes] notes)
               (assoc-in [:initial :type] type)
               (assoc-in [:initial :label] label)
+              (assoc-in [:initial :notes] notes)
               (assoc :collapsed? collapsed)))))
-     [label type id collapsed])
+     [label type notes id collapsed])
 
     ($ :form {:onSubmit handle-submit
               :class "fieldset node-form p-2 border-b border-b-1 border-base-300"}
@@ -97,6 +103,11 @@
                        :type "text"
                        :value (:label values)
                        :onChange #(update-field :label (.. % -target -value))})
+
+            ($ :label {:class "fieldset-label"} "Notes:")
+            ($ :textarea {:class "textarea textarea-sm mb-1"
+                          :value (:notes values)
+                          :onChange #(update-field :notes (.. % -target -value))})
 
             (when-not demo
               ($ :p {:class "fieldset-label"} (str "id: " id))))))))
