@@ -41,7 +41,12 @@ jobs:
 
       - name: Run tests
         run: |
-          export PARTS_DB_PATH="$GITHUB_WORKSPACE/db/parts_test.db"
-          clojure -X:test/env:test/run
+          clojure -X:test/env:test/run || {
+            echo "=== Full Clojure Error Report ==="
+            find /tmp -name "clojure-*.edn" -type f -exec cat {} \;
+            exit 1
+          }
         env:
+          PARTS_ENV: test
           GITHUB_WORKSPACE: ${{ github.workspace }}
+          PARTS_DB_PATH: ${{ github.workspace }}/db/parts_test.db
