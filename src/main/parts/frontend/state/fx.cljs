@@ -3,6 +3,8 @@
    [cljs.core.async :refer [<! go]]
    [parts.frontend.api.core :as api]
    [parts.frontend.api.queue :as queue]
+   [parts.frontend.storage.registry :as storage-registry]
+   [parts.frontend.storage.protocol :refer [list-systems load-system update-system]]
    [re-frame.core :as rf]
    [parts.frontend.api.utils :as utils]))
 
@@ -43,6 +45,49 @@
            (when (= 200 (:status resp))
              (rf/dispatch [:auth/set-user (:body resp)]))))))))
 
+(rf/reg-fx
+ :storage/get-system
+ (fn [{:keys [id]}]
+   (go
+     (if-let [backend (storage-registry/get-backend)]
+       (let [system (<! (load-system backend id))]
+         (if system
+           (rf/dispatch [:system/fetch-success system])
+           (rf/dispatch [:system/fetch-failure "Failed to load system"])))
+       (rf/dispatch [:system/fetch-failure "No storage backend available"])))))
+
+(rf/reg-fx
+ :storage/create-system
+ (fn [params]
+   (go
+     (let [response (<! (api/create-system params))]
+       (if (= 201 (:status response))
+         (rf/dispatch [:system/create-success (:body response)])
+         (rf/dispatch [:system/create-failure (:body response)]))))))
+
+(rf/reg-fx
+ :storage/get-systems
+ (fn [_]
+   (go
+     (if-let [backend (storage-registry/get-backend)]
+       (let [systems (<! (list-systems backend))]
+         (if systems
+           (rf/dispatch [:system/fetch-list-success systems])
+           (rf/dispatch [:system/fetch-list-failure "Failed to load systems"])))
+       (rf/dispatch [:system/fetch-list-failure "No storage backend available"])))))
+
+(rf/reg-fx
+ :storage/update-system
+ (fn [{:keys [id system-data]}]
+   (go
+     (if-let [backend (storage-registry/get-backend)]
+       (let [updated-system (<! (update-system backend id system-data))]
+         (if updated-system
+           (rf/dispatch [:system/update-success updated-system])
+           (rf/dispatch [:system/update-failure "Failed to update system"])))
+       (rf/dispatch [:system/update-failure "No storage backend available"])))))
+
+;; Keep the old API effects for system creation since we don't have storage backend creation yet
 (rf/reg-fx
  :api/get-system
  (fn [{:keys [id]}]

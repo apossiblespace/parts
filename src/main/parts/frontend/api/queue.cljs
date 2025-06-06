@@ -2,7 +2,8 @@
   "Batching up change events for sending to backend"
   (:require
    [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]
-   [parts.frontend.api.core :refer [send-batched-updates]]))
+   [parts.frontend.storage.registry :as storage-registry]
+   [parts.frontend.storage.protocol :refer [process-batched-changes]]))
 
 (defn debounce-batch
   "Creates a debounced channel that batches incoming changes from `input-chan`.
@@ -45,8 +46,9 @@
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch
-        (let [response (send-batched-updates system-id batch)]
-          (js/console.log "[queue][batch update response]" (:status response) (:body response)))))
+        (when-let [backend (storage-registry/get-backend)]
+          (let [response (<! (process-batched-changes backend system-id batch))]
+            (js/console.log "[queue][batch update response]" response)))))
     (recur)))
 
 (defn stop

@@ -9,6 +9,7 @@
    [parts.frontend.state.fx]
    [parts.frontend.state.handlers]
    [parts.frontend.state.subs]
+   [parts.frontend.storage.registry :as storage-registry]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-state]]
    [uix.dom]
@@ -90,6 +91,8 @@
   (let [root (uix.dom/create-root root-el)
         demo-mode (get-demo-settings root-el)
         initial-db-with-demo (assoc initial-db :demo-mode demo-mode)]
+    ;; Initialize HTTP storage backend (for now, always use HTTP backend)
+    (storage-registry/init-http-backend!)
     (rf/dispatch-sync [:app/init-db initial-db-with-demo])
     (uix.dom/render-root ($ app) root)
     {:root root

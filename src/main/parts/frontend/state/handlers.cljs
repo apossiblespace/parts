@@ -168,19 +168,19 @@
  :system/fetch
  (fn [{:keys [db]} [_ system-id]]
    {:db (assoc-in db [:systems :loading] true)
-    :api/get-system {:id system-id}}))
+    :storage/get-system {:id system-id}}))
 
 (rf/reg-event-fx
  :system/create
  (fn [{:keys [db]} _]
    {:db (assoc-in db [:systems :loading] true)
-    :api/create-system {:title "Untitled System"}}))
+    :storage/create-system {:title "Untitled System"}}))
 
 (rf/reg-event-fx
  :system/fetch-list
  (fn [{:keys [db]} _]
    {:db (assoc-in db [:systems :loading] true)
-    :api/get-systems nil}))
+    :storage/get-systems nil}))
 
 (rf/reg-event-db
  :system/fetch-list-success
@@ -209,6 +209,46 @@
    (-> db
        (assoc-in [:systems :loading] false)
        (assoc-in [:systems :error] "Failed to create system"))))
+
+(rf/reg-event-db
+ :system/fetch-success
+ (fn [db [_ system]]
+   (-> db
+       (assoc-in [:systems :loading] false)
+       (assoc-in [:system] system))))
+
+(rf/reg-event-db
+ :system/create-success
+ (fn [db [_ system]]
+   (-> db
+       (assoc-in [:systems :loading] false)
+       (assoc-in [:system] system)
+       (update-in [:systems :list] conj system))))
+
+(rf/reg-event-fx
+ :system/load
+ (fn [{:keys [db]} [_ system-id]]
+   {:db (assoc-in db [:systems :loading] true)
+    :storage/get-system {:id system-id}}))
+
+(rf/reg-event-db
+ :system/update-success
+ (fn [db [_ updated-system]]
+   (-> db
+       (assoc-in [:system] updated-system)
+       (update-in [:systems :list]
+                  (fn [systems]
+                    (mapv (fn [sys]
+                            (if (= (:id sys) (:id updated-system))
+                              updated-system
+                              sys))
+                          systems))))))
+
+(rf/reg-event-db
+ :system/update-failure
+ (fn [db [_ error]]
+   (-> db
+       (assoc-in [:systems :error] error))))
 
 (rf/reg-event-db
  :auth/set-user
