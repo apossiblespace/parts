@@ -32,20 +32,20 @@
    ```"
   [id]
   (if-let [system (db/query-one
-                    (db/sql-format
-                      {:select [:*]
-                       :from [:systems]
-                       :where [:= :id id]}))]
-    (let [parts (db/query
-                  (db/sql-format
+                   (db/sql-format
                     {:select [:*]
-                     :from [:parts]
-                     :where [:= :system_id id]}))
+                     :from [:systems]
+                     :where [:= :id id]}))]
+    (let [parts (db/query
+                 (db/sql-format
+                  {:select [:*]
+                   :from [:parts]
+                   :where [:= :system_id id]}))
           relationships (db/query
-                          (db/sql-format
-                            {:select [:*]
-                             :from [:relationships]
-                             :where [:= :system_id id]}))]
+                         (db/sql-format
+                          {:select [:*]
+                           :from [:relationships]
+                           :where [:= :system_id id]}))]
       (assoc system
              :parts parts
              :relationships relationships))
@@ -55,10 +55,10 @@
   "List all systems for a user"
   [owner-id]
   (db/query
-    (db/sql-format
-      {:select [:*]
-       :from [:systems]
-       :where [:= :owner_id owner-id]})))
+   (db/sql-format
+    {:select [:*]
+     :from [:systems]
+     :where [:= :owner_id owner-id]})))
 
 (defn update!
   "Update a system"

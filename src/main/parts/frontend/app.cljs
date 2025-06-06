@@ -12,7 +12,6 @@
    [uix.dom]
    [uix.re-frame :as uix.rf]))
 
-
 (def initial-db
   {:demo-mode false
    :system {}

@@ -47,15 +47,15 @@
 ;; };
 (def PartsEdge
   (as-react
-    (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition] :as ^js props}]
-      ($ parts-edge {:id id
-                     :data (js->clj data :keywordize-keys true)
-                     :source-x sourceX
-                     :source-y sourceY
-                     :target-x targetX
-                     :target-y targetY
-                     :source-position sourcePosition
-                     :target-position targetPosition}))))
+   (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition] :as ^js props}]
+     ($ parts-edge {:id id
+                    :data (js->clj data :keywordize-keys true)
+                    :source-x sourceX
+                    :source-y sourceY
+                    :target-x targetX
+                    :target-y targetY
+                    :source-position sourcePosition
+                    :target-position targetPosition}))))
 
 (def edge-types
   {"default" PartsEdge})
