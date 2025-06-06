@@ -113,20 +113,18 @@
 (rf/reg-event-fx
  :system/part-update
  (fn [{:keys [db]} [_ part-id attrs]]
-   (let [demo (get db :demo-mode false)
-         updated-db (update-in db [:system :parts]
+   (let [updated-db (update-in db [:system :parts]
                                (fn [parts]
                                  (mapv (fn [part]
                                          (if (= (:id part) part-id)
                                            (merge part attrs)
                                            part))
                                        parts)))]
-     (cond-> {:db updated-db}
-       (not demo) (assoc :queue/add-event
-                         {:entity :part
-                          :id part-id
-                          :type "update"
-                          :data attrs})))))
+     {:db updated-db
+      :queue/add-event {:entity :part
+                        :id part-id
+                        :type "update"
+                        :data attrs}})))
 
 (rf/reg-event-fx
  :system/part-remove

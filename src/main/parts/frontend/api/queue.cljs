@@ -76,6 +76,13 @@
    :type (:type event)
    :data {}})
 
+(defmethod normalize-event [:part "create"]
+  [entity event]
+  {:entity entity
+   :id (:id event)
+   :type (:type event)
+   :data (:data event)})
+
 (defmethod normalize-event [:part "update"]
   [entity event]
   {:entity entity
