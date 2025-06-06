@@ -110,7 +110,17 @@
              ($ Controls)
              (when-not minimal
                ($ Panel {:position "top-left" :class "logo"}
-                  ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150})))
+                  (if demo
+                    ($ :a {:href "/"}
+                       ($ :svg
+                          {:aria-label "Previous",
+                           :class "fill-current size-4",
+                           :slot "previous",
+                           :xmlns "http://www.w3.org/2000/svg",
+                           :viewBox "0 0 24 24"}
+                          ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
+                       ($ :img {:src "/images/parts-logo-mini.svg"}))
+                    ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))))
              ($ Panel {:position (if minimal "top-left" "top-center")
                        :class "toolbar shadow-xs"}
                 ($ :div {:class "join"}

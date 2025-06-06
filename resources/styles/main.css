@@ -220,6 +220,16 @@ a.btn {
 
         .logo {
             margin-top: 1em;
+            a {
+                display: flex;
+                height: 1.5rem;
+                width: auto;
+
+                svg {
+                    margin-right: 5px;
+                    margin-top: 3px;
+                }
+            }
         }
 
         .parts-toolbar {
