@@ -24,6 +24,11 @@
 
 (add-tap #'portal.api/submit)
 
+(defn portal-open
+  "Open a new portal window in the browser"
+  []
+  (portal/open {:app false}))
+
 ;; App server management
 
 (defonce server-ref (atom nil))
