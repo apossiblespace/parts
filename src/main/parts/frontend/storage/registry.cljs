@@ -1,7 +1,8 @@
 (ns parts.frontend.storage.registry
   "Storage backend registry for managing the current storage backend instance."
   (:require
-   [parts.frontend.storage.http-backend :refer [create-http-backend]]))
+   [parts.frontend.storage.http-backend :refer [create-http-backend]]
+   [parts.frontend.storage.localstorage-backend :refer [create-localstorage-backend]]))
 
 (defonce ^:private current-backend (atom nil))
 
@@ -19,3 +20,8 @@
   "Initializes and sets the HTTP storage backend as current."
   []
   (set-backend! (create-http-backend)))
+
+(defn init-localstorage-backend!
+  "Initializes and sets the localStorage storage backend as current."
+  []
+  (set-backend! (create-localstorage-backend)))

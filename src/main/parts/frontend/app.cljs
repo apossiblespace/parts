@@ -91,8 +91,10 @@
   (let [root (uix.dom/create-root root-el)
         demo-mode (get-demo-settings root-el)
         initial-db-with-demo (assoc initial-db :demo-mode demo-mode)]
-    ;; Initialize HTTP storage backend (for now, always use HTTP backend)
-    (storage-registry/init-http-backend!)
+    ;; Initialize storage backend based on demo mode
+    (if demo-mode
+      (storage-registry/init-localstorage-backend!)
+      (storage-registry/init-http-backend!))
     (rf/dispatch-sync [:app/init-db initial-db-with-demo])
     (uix.dom/render-root ($ app) root)
     {:root root

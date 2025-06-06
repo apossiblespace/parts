@@ -4,7 +4,7 @@
    [parts.frontend.api.core :as api]
    [parts.frontend.api.queue :as queue]
    [parts.frontend.storage.registry :as storage-registry]
-   [parts.frontend.storage.protocol :refer [list-systems load-system update-system]]
+   [parts.frontend.storage.protocol :refer [list-systems load-system create-system update-system]]
    [re-frame.core :as rf]
    [parts.frontend.api.utils :as utils]))
 
@@ -60,10 +60,12 @@
  :storage/create-system
  (fn [params]
    (go
-     (let [response (<! (api/create-system params))]
-       (if (= 201 (:status response))
-         (rf/dispatch [:system/create-success (:body response)])
-         (rf/dispatch [:system/create-failure (:body response)]))))))
+     (if-let [backend (storage-registry/get-backend)]
+       (let [system (<! (create-system backend params))]
+         (if system
+           (rf/dispatch [:system/create-success system])
+           (rf/dispatch [:system/create-failure "Failed to create system"])))
+       (rf/dispatch [:system/create-failure "No storage backend available"])))))
 
 (rf/reg-fx
  :storage/get-systems
