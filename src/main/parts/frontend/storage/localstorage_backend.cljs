@@ -29,6 +29,7 @@
 (defn- save-system-to-storage
   "Saves system data to localStorage without blocking UI"
   [system-id system-data]
+  (js/console.log "🫶 SAVING" system-id system-data (storage-key system-id))
   (try
     (let [json-str (js/JSON.stringify (clj->js system-data))]
       ;; Use setTimeout to avoid blocking the UI
@@ -203,7 +204,8 @@
                                :relationships []
                                :created_at (js/Date.now)
                                :last_modified (js/Date.now)}
-                              system-data)]
+                              system-data)
+            system-id (:id new-system)]
         (save-system-to-storage system-id new-system)
         ;; Acquire lock for this tab
         (acquire-tab-lock system-id)
@@ -230,18 +232,14 @@
     "Processes batched changes in localStorage"
     (go
       (js/console.log "[storage][localstorage-backend] processing batch for system:" system-id "changes:" batch)
-      (if (check-tab-lock system-id)
-        (do
-          (js/console.warn "[storage][localstorage-backend] cannot process changes, another tab is active:" system-id)
-          {:success false :error "System is being edited in another tab"})
-        (when-let [current-system (get-system-from-storage system-id)]
-          ;; Update heartbeat to maintain lock
-          (update-tab-heartbeat system-id)
-          ;; Apply all changes sequentially
-          (let [updated-system (reduce apply-change-to-system current-system batch)
-                updated-with-timestamp (assoc updated-system :last_modified (js/Date.now))]
-            (save-system-to-storage system-id updated-with-timestamp)
-            {:success true :result updated-with-timestamp}))))))
+      (when-let [current-system (get-system-from-storage system-id)]
+        ;; Update heartbeat to maintain lock
+        (update-tab-heartbeat system-id)
+        ;; Apply all changes sequentially
+        (let [updated-system (reduce apply-change-to-system current-system batch)
+              updated-with-timestamp (assoc updated-system :last_modified (js/Date.now))]
+          (save-system-to-storage system-id updated-with-timestamp)
+          {:success true :result updated-with-timestamp})))))
 
 (defn create-localstorage-backend
   "Creates a new localStorage storage backend instance"

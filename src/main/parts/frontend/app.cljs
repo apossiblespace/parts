@@ -1,9 +1,6 @@
 (ns parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
-   [parts.common.models.part :refer [make-part]]
-   [parts.common.models.relationship :refer [make-relationship]]
-   [parts.frontend.api.utils :as api-utils]
    [parts.frontend.components.system :refer [system]]
    [parts.frontend.components.system-list-modal :refer [system-list-modal]]
    [parts.frontend.state.fx]
@@ -15,43 +12,10 @@
    [uix.dom]
    [uix.re-frame :as uix.rf]))
 
-(def system-id (str (random-uuid)))
-
-(def parts
-  [(make-part {:type "manager"
-               :label "Manager"
-               :position_x 300
-               :position_y 130
-               :system_id system-id})
-   (make-part {:type "exile"
-               :label "Exile"
-               :position_x 200
-               :position_y 300
-               :system_id system-id})
-   (make-part {:type "firefighter"
-               :label "Firefighter"
-               :position_x 100
-               :position_y 130
-               :system_id system-id})])
-
-(def relationships
-  [(make-relationship {:type "unknown"
-                       :source_id (:id (nth parts 0))
-                       :target_id (:id (nth parts 1))
-                       :system_id system-id})
-   (make-relationship {:type "protective"
-                       :source_id (:id (nth parts 2))
-                       :target_id (:id (nth parts 1))
-                       :system_id system-id})])
-
-(def system-data
-  {:id system-id
-   :parts parts
-   :relationships relationships})
 
 (def initial-db
   {:demo-mode false
-   :system system-data
+   :system {}
    :systems {:list []
              :loading false}})
 
@@ -60,13 +24,6 @@
         current-system-id (uix.rf/use-subscribe [:system/id])
         demo (uix.rf/use-subscribe [:demo])]
 
-    (use-effect
-     (fn []
-       (when-not demo
-         (if-let [stored-id (api-utils/get-current-system-id)]
-           (rf/dispatch [:system/load stored-id])
-           (set-show-system-list true))))
-     [demo])
     ($ :<>
        (when-not demo
          (when-not current-system-id
@@ -96,6 +53,7 @@
       (storage-registry/init-localstorage-backend!)
       (storage-registry/init-http-backend!))
     (rf/dispatch-sync [:app/init-db initial-db-with-demo])
+    (rf/dispatch [:app/init-system])
     (uix.dom/render-root ($ app) root)
     {:root root
      :demo-mode demo-mode}))

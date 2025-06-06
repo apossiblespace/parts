@@ -42,7 +42,7 @@
 (defn start
   "Start a loop sending batched system updates for a specific system ID to the backend"
   [system-id]
-  (js/console.log "[queue] update queue started")
+  (js/console.log "[queue] update queue started for system: " system-id)
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch

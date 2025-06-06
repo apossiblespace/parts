@@ -2,6 +2,7 @@
   (:require
    [parts.common.models.part :refer [make-part]]
    [parts.common.models.relationship :refer [make-relationship]]
+   [parts.frontend.api.utils :as api-utils]
    [re-frame.core :as rf]))
 
 (rf/reg-event-fx
@@ -11,6 +12,52 @@
             (assoc :auth {:user nil
                           :loading true}))
     :auth/check-auth-fx nil}))
+
+(rf/reg-event-fx
+ :app/init-system
+ (fn [{:keys [db]} _]
+   (if-let [stored-id (api-utils/get-current-system-id)]
+     ;; Try to load stored system
+     {:storage/get-system {:id stored-id}}
+     ;; No stored system, create demo system
+     {:dispatch [:app/create-demo-system]})))
+
+(rf/reg-event-fx
+ :app/create-demo-system
+ (fn [{:keys [db]} _]
+   (let [system-id (str (random-uuid))
+         demo-parts [(make-part {:type "manager"
+                                 :label "Manager"
+                                 :position_x 300
+                                 :position_y 130
+                                 :system_id system-id})
+                     (make-part {:type "exile"
+                                 :label "Exile"
+                                 :position_x 200
+                                 :position_y 300
+                                 :system_id system-id})
+                     (make-part {:type "firefighter"
+                                 :label "Firefighter"
+                                 :position_x 100
+                                 :position_y 130
+                                 :system_id system-id})]
+         demo-relationships [(make-relationship {:type "unknown"
+                                                 :source_id (:id (nth demo-parts 0))
+                                                 :target_id (:id (nth demo-parts 1))
+                                                 :system_id system-id})
+                             (make-relationship {:type "protective"
+                                                 :source_id (:id (nth demo-parts 2))
+                                                 :target_id (:id (nth demo-parts 1))
+                                                 :system_id system-id})]
+         demo-system {:id system-id
+                      :title "Demo System"
+                      :parts demo-parts
+                      :relationships demo-relationships}]
+     ;; Load demo system into app state immediately
+     {:db (assoc-in db [:system] demo-system)
+      ;; Persist to storage backend and save current system ID
+      :fx [[:storage/create-system demo-system]
+           [:api-utils/save-current-system-id system-id]]})))
 
 (rf/reg-event-db
  :selection/set
@@ -196,12 +243,13 @@
        (assoc-in [:systems :loading] false)
        (assoc-in [:systems :error] "Failed to load systems"))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :system/fetch-failure
- (fn [db [_ _error]]
-   (-> db
-       (assoc-in [:systems :loading] false)
-       (assoc-in [:systems :error] "Failed to load system"))))
+ (fn [{:keys [db]} [_ _error]]
+   {:db (-> db
+            (assoc-in [:systems :loading] false)
+            (assoc-in [:systems :error] "Failed to load system"))
+    :dispatch [:app/create-demo-system]}))
 
 (rf/reg-event-db
  :system/create-failure

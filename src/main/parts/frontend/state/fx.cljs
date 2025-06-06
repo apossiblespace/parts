@@ -15,6 +15,11 @@
     (:entity event)
     [event])))
 
+(rf/reg-fx
+ :api-utils/save-current-system-id
+ (fn [system-id]
+   (utils/save-current-system-id system-id)))
+
 ;; NOTE: the params can have a callback key, which can hold a function that will
 ;; be called, if provided, with the API response.
 (rf/reg-fx

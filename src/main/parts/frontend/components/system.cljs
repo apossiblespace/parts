@@ -85,11 +85,12 @@
 
     (use-effect
      (fn []
-       (js/console.log "[system] starting event queue")
-       (queue/start system-id)
-       (fn []
-         (js/console.log "[system] stopping event queue")
-         (queue/stop)))
+       (when system-id
+         (js/console.log "[system] starting event queue for system: " system-id)
+         (queue/start system-id)
+         (fn []
+           (js/console.log "[system] stopping event queue")
+           (queue/stop))))
      [system-id])
 
     ($ :div {:class "system-container"}
