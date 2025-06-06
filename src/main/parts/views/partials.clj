@@ -134,7 +134,7 @@
     {:hx-post "/waitlist-signup"
      :hx-target "#signup-form"
      :hx-swap "outerHTML"
-     :hx-on:submit "plausible('Waitlist Signup'); return true;"}
+     :hx-on:submit "plausible('Waitlist Signup', {props: {source: 'homepage'}}); return true;"}
     [:div.join.rounded-xl
      [:input.join-item.input.input-xl.text-gray-800
       {:type "email"
@@ -142,7 +142,7 @@
        :name "email"
        :placeholder "self@you.com"
        :value value
-       :hx-on:focus "plausible('Email Field Focus'); return true;"}]
+       :hx-on:focus "plausible('Email Field Focus', {props: {source: 'homepage'}}); return true;"}]
      [:input {:type "hidden"
               :id "__anti-forgery-token"
               :name "__anti-forgery-token"

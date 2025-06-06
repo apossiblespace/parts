@@ -19,7 +19,10 @@
            ($ :div {:class "p-2"}
               ($ :button
                  {:class "btn btn-sm btn-primary w-full"
-                  :on-click #(set-show-waitlist-modal true)}
+                  :on-click #(do
+                               (when (js/window.plausible)
+                                 (js/window.plausible "Playground Signup Modal Open" #js {:props #js {:source "playground"}}))
+                               (set-show-waitlist-modal true))}
                  "Sign up")))
          ($ auth-status))
        ($ :div {:class "overflow-auto"}
@@ -27,4 +30,7 @@
           ($ relationships-tools))
        ($ waitlist-modal
           {:show show-waitlist-modal
-           :on-close #(set-show-waitlist-modal false)}))))
+           :on-close #(do
+                        (when (js/window.plausible)
+                          (js/window.plausible "Playground Signup Modal Close" #js {:props #js {:source "playground"}}))
+                        (set-show-waitlist-modal false))}))))

@@ -109,7 +109,9 @@
              (when-not minimal
                ($ Panel {:position "top-left" :class "logo"}
                   (if demo
-                    ($ :a {:href "/"}
+                    ($ :a {:href "/"
+                           :on-click #(when (js/window.plausible)
+                                        (js/window.plausible "Playground Logo Click" #js {:props #js {:source "playground"}}))}
                        ($ :svg
                           {:aria-label "Previous",
                            :class "fill-current size-4",

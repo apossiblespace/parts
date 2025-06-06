@@ -20,6 +20,9 @@
         handle-submit (fn [e]
                         (.preventDefault e)
                         (when-not (or loading success)
+                          ;; Track Plausible event for form submission
+                          (when (js/window.plausible)
+                            (js/window.plausible "Waitlist Signup" #js {:props #js {:source "playground"}}))
                           (set-loading true)
                           (set-error nil)
                           (let [form-data (js/FormData.)
@@ -108,6 +111,8 @@
                          :value email
                          :disabled loading
                          :on-change #(set-email (.. % -target -value))
+                         :on-focus #(when (js/window.plausible)
+                                      (js/window.plausible "Email Field Focus" #js {:props #js {:source "playground"}}))
                          :required true}))
 
                   ($ :div {:class "modal-action space-x-2 flex"}
