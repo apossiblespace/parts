@@ -27,10 +27,40 @@
 ;; App server management
 
 (defonce server-ref (atom nil))
+(defonce postcss-process-ref (atom nil))
+
+(defn- start-postcss-watch
+  "Start PostCSS watch process"
+  []
+  (let [pb (ProcessBuilder. ["bunx" "postcss" "resources/styles/*.css" "-o" "resources/public/css/style.css" "--watch"])
+        _ (.redirectErrorStream pb true)
+        process (.start pb)
+        reader (java.io.BufferedReader. (java.io.InputStreamReader. (.getInputStream process)))]
+    (reset! postcss-process-ref process)
+    (println "PostCSS watch started")
+    ;; Stream output to REPL in background thread
+    (future
+      (try
+        (loop []
+          (when-let [line (.readLine reader)]
+            (println "[PostCSS]" line)
+            (recur)))
+        (catch Exception e
+          (when-not (.isAlive process)
+            (println "[PostCSS] Process terminated")))))))
+
+(defn- stop-postcss-watch
+  "Stop PostCSS watch process"
+  []
+  (when-some [process @postcss-process-ref]
+    (.destroy process)
+    (reset! postcss-process-ref nil)
+    (println "PostCSS watch stopped")))
 
 (defn start []
   (shadow-server/start!)
   (shadow/watch :frontend)
+  (start-postcss-watch)
 
   (reset! server-ref
           (server/-main))
@@ -40,6 +70,7 @@
   (when-some [stop-server @server-ref]
     (reset! server-ref nil)
     (stop-server))
+  (stop-postcss-watch)
   ::stopped)
 
 (defn go []
@@ -51,14 +82,18 @@
   ([]
    (db-migrate :development))
   ([env]
-  (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
-        migration-config (assoc db/migration-config :db db-spec)]
-    (migratus/migrate migration-config))))
+   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
+         migration-config (assoc db/migration-config :db db-spec)]
+     (migratus/migrate migration-config))))
 
-(defn db-rollback [env]
-  (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
-        migration-config (assoc db/migration-config :db db-spec)]
-    (migratus/rollback migration-config)))
+(defn db-rollback
+  "Rollback the database for ENV (default: development)"
+  ([]
+   (db-rollback :environment))
+  ([env]
+   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
+         migration-config (assoc db/migration-config :db db-spec)]
+     (migratus/rollback migration-config))))
 
 ;; Test running
 (defn with-env [env-map f]
