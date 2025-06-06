@@ -19,8 +19,6 @@
         relationships (uix.rf/use-subscribe [:system/relationships])
         selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
-        display-sidebar (or (not demo)
-                            (or (seq selected-node-ids) (seq selected-edge-ids)))
         nodes (adapter/parts->nodes parts selected-node-ids)
         edges (adapter/relationships->edges relationships selected-edge-ids)
 
@@ -132,9 +130,8 @@
                               :on-click #(create-part-by-type "firefighter")})
                    ($ button {:label "Manager"
                               :on-click #(create-part-by-type "manager")})))
-             (when display-sidebar
-               ($ Panel {:position "top-right" :className "sidebar-container"}
-                  ($ sidebar)))
+             ($ Panel {:position "top-right" :className "sidebar-container"}
+                ($ sidebar))
              (when-not minimal
                ($ MiniMap {:className "tools parts-minimap shadow-sm"
                            :position "bottom-right"
