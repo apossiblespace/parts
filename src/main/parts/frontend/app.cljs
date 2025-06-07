@@ -60,6 +60,15 @@
 (defonce app-state (atom nil))
 
 (defn ^:export init []
+  ;; Configure HTMX response handling for validation errors
+  (set! (.-responseHandling (.-config htmx))
+        #js [#js {:code "204" :swap false}                    ; 204 - No Content by default does nothing, but is not an error
+             #js {:code "400" :swap true :error false}        ; 400 - Bad Request (validation errors) should swap content
+             #js {:code "409" :swap true :error false}        ; 409 - Conflict (duplicate email) should swap content
+             #js {:code "[23].." :swap true}                  ; 200 & 300 responses are non-errors and are swapped
+             #js {:code "[45].." :swap false :error true}     ; Other 400 & 500 responses are not swapped and are errors
+             #js {:code "..." :swap false}])                  ; catch all for any other response code
+  
   (.on htmx "htmx:load"
        (fn [_]
          (when-let [root-el (js/document.getElementById "root")]

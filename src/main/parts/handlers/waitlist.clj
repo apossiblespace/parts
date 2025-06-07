@@ -23,7 +23,7 @@
            (html
             (partials/waitlist-signup-form
              {:message "Please don't forget your email address!"})))
-          (response/status 200))
+          (response/status 400))
 
       (not (valid-email? email))
       (-> (response/response
@@ -31,7 +31,7 @@
             (partials/waitlist-signup-form
              {:message "Sorry, that's not a valid email address."
               :value email})))
-          (response/status 200))
+          (response/status 400))
 
       :else
       (try
@@ -39,6 +39,7 @@
         (mulog/log ::waitlist_signup :email email)
         (-> (response/response
              (html [:div.success
+                    [:div {:class "text-6xl mb-2"} "🎉"]
                     [:p "Thank you for your interest in Parts! We'll be in touch soon."]
                     [:script (raw-string
                               "const element = document.getElementById('counter');
@@ -48,8 +49,10 @@
         (catch Exception _e
           (-> (response/response
                (html [:div.success
+                      [:div {:class "text-6xl mb-2"} "👋"]
                       [:p "You're already on the list! We'll be in touch soon."]]))
-              (response/status 200)))))))
+              (response/status 409)))))))
+
 
 (defn signups-count
   "Get the number of current signups on the waiting list"

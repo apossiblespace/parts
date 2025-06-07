@@ -25,14 +25,14 @@
     (let [mock-request {:form-params {"email" ""}}
           wrapped-handler (middleware/wrap-html-response waitlist/signup)
           response (wrapped-handler mock-request)]
-      (is (= 200 (:status response)))
+      (is (= 400 (:status response)))
       (is (str/includes? (:body response) "Please don&apos;t forget your email address!"))))
 
   (testing "returns an error when email is not valid"
     (let [mock-request {:form-params {"email" "invalid-email"}}
           wrapped-handler (middleware/wrap-html-response waitlist/signup)
           response (wrapped-handler mock-request)]
-      (is (= 200 (:status response)))
+      (is (= 400 (:status response)))
       (is (str/includes? (:body response) "Sorry, that&apos;s not a valid email address."))))
 
   (testing "returns a notice that the person is already on list when email is a duplicate"
@@ -41,5 +41,5 @@
           mock-request {:form-params {"email" email}}
           wrapped-handler (middleware/wrap-html-response waitlist/signup)
           response (wrapped-handler mock-request)]
-      (is (= 200 (:status response)))
+      (is (= 409 (:status response)))
       (is (str/includes? (:body response) "You&apos;re already on the list! We&apos;ll be in touch soon.")))))
