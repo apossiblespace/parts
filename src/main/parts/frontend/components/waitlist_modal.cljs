@@ -8,40 +8,56 @@
   (let [[email set-email] (use-state "")
         [loading set-loading] (use-state false)
         [success set-success] (use-state false)
+        [already-signed-up set-already-signed-up] (use-state false)
         [error set-error] (use-state nil)
 
         handle-close (fn []
                        (on-close)
                        (set-loading false)
                        (set-success false)
+                       (set-already-signed-up false)
                        (set-error nil)
                        (set-email ""))
 
         handle-submit (fn [e]
                         (.preventDefault e)
-                        (when-not (or loading success)
+                        (when-not (or loading success already-signed-up)
                           ;; Track Plausible event for form submission
                           (when (js/window.plausible)
                             (js/window.plausible "Waitlist Signup" #js {:props #js {:source "playground"}}))
                           (set-loading true)
                           (set-error nil)
-                          (let [form-data (js/FormData.)
-                                csrf-token (utils/get-csrf-token)]
-                            (.append form-data "email" email)
-                            (when csrf-token
-                              (.append form-data "__anti-forgery-token" csrf-token))
+                          (let [csrf-token (utils/get-csrf-token)
+                                body-data (cond-> (str "email=" (js/encodeURIComponent email))
+                                            csrf-token (str "&__anti-forgery-token=" (js/encodeURIComponent csrf-token)))]
                             (-> (js/fetch "/waitlist-signup"
                                           #js {:method "POST"
-                                               :body form-data})
+                                               :headers #js {"Content-Type" "application/x-www-form-urlencoded"}
+                                               :body body-data})
                                 (.then (fn [response]
-                                         (.text response)))
-                                (.then (fn [html]
-                                         (set-loading false)
-                                         (if (re-find #"already signed up" html)
-                                           (set-error "You're already on the waitlist!")
-                                           (if (re-find #"Invalid email" html)
-                                             (set-error "Please enter a valid email address")
-                                             (set-success true)))))
+                                         (-> (.text response)
+                                             (.then (fn [html]
+                                                      (set-loading false)
+                                                      (cond
+                                                        (= 201 (.-status response))
+                                                        (set-success true)
+                                                        
+                                                        (= 409 (.-status response))
+                                                        (set-already-signed-up true)
+                                                        
+                                                        (= 400 (.-status response))
+                                                        (cond
+                                                          (re-find #"don't.+forget.+email" html)
+                                                          (set-error "Please enter your email address")
+                                                          
+                                                          (re-find #"not.+valid.+email" html)
+                                                          (set-error "Please enter a valid email address")
+                                                          
+                                                          :else
+                                                          (set-error "Please check your email address"))
+                                                        
+                                                        :else
+                                                        (set-error "Something went wrong. Please try again.")))))))
                                 (.catch (fn [err]
                                           (set-loading false)
                                           (set-error "Something went wrong. Please try again.")))))))]
@@ -52,18 +68,32 @@
         :title "Join the Founding Practitioners Circle"}
 
        ($ :<>
-          (if success
+          (cond
+            success
             ($ :div {:class "text-center py-6"}
                ($ :div {:class "text-6xl mb-4"} "🎉")
-               ($ :h3 {:class "text-xl font-semibold mb-2"} "Welcome to the Founding Circle!")
+               ($ :h3 {:class "text-xl font-semibold mb-2"} "Welcome to the Founding Practitioners Circle!")
                ($ :p {:class "text-gray-600 mb-6"} "You'll be among the first to get early access to Parts.")
                ($ :button
                   {:type "button"
                    :class "btn btn-primary"
                    :on-click handle-close}
                   "Got it!"))
+            
+            already-signed-up
+            ($ :div {:class "text-center py-6"}
+               ($ :div {:class "text-6xl mb-4"} "👋")
+               ($ :h3 {:class "text-xl font-semibold mb-2"} "You're already in the circle!")
+               ($ :p {:class "text-gray-600 mb-6"} "We have your email and you'll be among the first to get early access to Parts.")
+               ($ :button
+                  {:type "button"
+                   :class "btn btn-primary"
+                   :on-click handle-close}
+                  "Got it!"))
 
+            :else
             ($ :<>
+               ;; Benefits section
                ($ :div {:class "mb-6"}
                   ($ :div {:class "space-y-4"}
                      ($ :div {:class "flex items-start space-x-3"}
@@ -93,12 +123,6 @@
                     ($ :span {:class "font-medium"} error)))
 
                ($ :form {:on-submit handle-submit}
-
-                  (when-let [csrf-token (utils/get-csrf-token)]
-                    ($ :input
-                       {:type "hidden"
-                        :name "__anti-forgery-token"
-                        :value csrf-token}))
 
                   ($ :div {:class "form-control mb-6"}
                      ($ :label {:class "fieldset-label mb-2" :for "email"}
