@@ -54,11 +54,12 @@
      [:a
       {:href "/", :class "flex items-center"}
       [:img {:class "w-50"
-             :src "/images/parts-logo-horizontal.svg"}]
-      [:a
-       {:href "#signup",
-        :class "text-ifs-green font-semibold hover:underline"}
-       "Join Founding Circle"]]]]])
+             :src "/images/parts-logo-horizontal.svg"}]]
+     [:a
+      {:href "#signup",
+       :class "text-ifs-green font-semibold hover:underline"
+       :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
+      "Join Founding Circle"]]]])
 
 (defn footer
   "Site footer"

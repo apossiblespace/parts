@@ -32,6 +32,9 @@
                             (fn [state]
                               (update state :collapsed? not))))
         handle-save (fn []
+                      ;; Track part save
+                      (when (js/window.plausible)
+                        (js/window.plausible "Part Saved" #js {:props #js {:type (:type values)}}))
                       (on-save id values)
                       (set-form-state
                        (fn [state]

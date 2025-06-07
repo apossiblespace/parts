@@ -39,9 +39,13 @@
                                           "select" (rf/dispatch [:selection/toggle-node
                                                                  (:id change)
                                                                  (:selected change)])
-                                          "remove" (rf/dispatch [:system/part-remove
-                                                                 (:id change)])
-                                          (js/console.log "[on-nodes-change][UNHANDLED]" change)))))) [])
+                                          "remove" (do
+                                                     ;; Track part deletion
+                                                     (when (js/window.plausible)
+                                                       (js/window.plausible "Part Deleted" #js {:props #js {:demo demo}}))
+                                                     (rf/dispatch [:system/part-remove
+                                                                   (:id change)]))
+                                          (js/console.log "[on-nodes-change][UNHANDLED]" change)))))) [demo])
 
         on-edges-change (use-callback
                          (fn [changes]
@@ -52,20 +56,27 @@
                                           "select" (rf/dispatch [:selection/toggle-edge
                                                                  (:id change)
                                                                  (:selected change)])
-                                          "remove" (rf/dispatch [:system/relationship-remove
-                                                                 (:id change)])
-                                          (js/console.log "[on-edges-change][UNHANDLED]" change)))))) [])
+                                          "remove" (do
+                                                     ;; Track relationship deletion
+                                                     (when (js/window.plausible)
+                                                       (js/window.plausible "Relationship Deleted" #js {:props #js {:demo demo}}))
+                                                     (rf/dispatch [:system/relationship-remove
+                                                                   (:id change)]))
+                                          (js/console.log "[on-edges-change][UNHANDLED]" change)))))) [demo])
 
         on-connect (use-callback
                     (fn [connection]
                       (js/console.log "[on-connect]" connection)
+                      ;; Track relationship creation
+                      (when (js/window.plausible)
+                        (js/window.plausible "Relationship Created" #js {:props #js {:demo demo}}))
                       (let [params (js->clj connection :keywordize-keys true)
                             source-id (:source params)
                             target-id (:target params)]
                         (rf/dispatch [:system/relationship-create
                                       {:source_id source-id
                                        :target_id target-id}])))
-                    [])
+                    [demo])
 
         ;; FIXME: We might need to remove this in order to properly handle
         ;; selection by dragging. When this callback is set, dragging does not
@@ -79,6 +90,9 @@
 
         create-part-by-type (fn [type]
                               (js/console.log "[create-part-by-type]" type)
+                              ;; Track part creation by type
+                              (when (js/window.plausible)
+                                (js/window.plausible "Part Created" #js {:props #js {:type type :demo demo}}))
                               (rf/dispatch [:system/part-create {:type type}]))]
 
     (use-effect
@@ -111,7 +125,7 @@
                   (if demo
                     ($ :a {:href "/"
                            :on-click #(when (js/window.plausible)
-                                        (js/window.plausible "Playground Logo Click" #js {:props #js {:source "playground"}}))}
+                                        (js/window.plausible "Playground Logo Click" #js {:props #js {:demo demo}}))}
                        ($ :svg
                           {:aria-label "Previous",
                            :class "fill-current size-4",
