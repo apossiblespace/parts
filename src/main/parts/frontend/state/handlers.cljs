@@ -26,20 +26,23 @@
  :app/create-demo-system
  (fn [{:keys [db]} _]
    (let [system-id (str (random-uuid))
-         demo-parts [(make-part {:type "manager"
-                                 :label "Manager"
+         demo-parts [(make-part {:type "firefighter"
+                                 :label "Escapist"
                                  :position_x 300
                                  :position_y 130
+                                 :notes "Numbs/distracts when the Exile gets activated. Could be substances, scrolling social media, shopping, etc."
                                  :system_id system-id})
                      (make-part {:type "exile"
-                                 :label "Exile"
+                                 :label "Disappointed kid"
                                  :position_x 200
-                                 :position_y 300
+                                 :position_y 320
+                                 :notes "Carries shame/sadness from childhood events. Can get triggered by criticism/rejection."
                                  :system_id system-id})
-                     (make-part {:type "firefighter"
-                                 :label "Firefighter"
+                     (make-part {:type "manager"
+                                 :label "Overachiever"
                                  :position_x 100
-                                 :position_y 130
+                                 :position_y 150
+                                 :notes "Shows up as workaholism, imposter syndrome, etc."
                                  :system_id system-id})]
          demo-relationships [(make-relationship {:type "unknown"
                                                  :source_id (:id (nth demo-parts 0))
@@ -48,6 +51,7 @@
                              (make-relationship {:type "protective"
                                                  :source_id (:id (nth demo-parts 2))
                                                  :target_id (:id (nth demo-parts 1))
+                                                 :note "Overachieving behaviour protects exile from getting triggered."
                                                  :system_id system-id})]
          demo-system {:id system-id
                       :title "Demo System"
