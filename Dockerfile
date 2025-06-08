@@ -57,8 +57,8 @@ RUN apk add --no-cache \
 # Create Non-root group and user to run service securely
 RUN addgroup -g 1001 clojure && adduser -u 1001 -S clojure -G clojure
 
-# Create directory to contain service archive, owned by non-root user
-RUN mkdir -p /app && chown -R clojure. /app
+# Create directories to contain service archive and database, owned by non-root user
+RUN mkdir -p /app /app/db && chown -R clojure:clojure /app
 
 # Tell docker that all future commands should run as the appuser user
 USER clojure
