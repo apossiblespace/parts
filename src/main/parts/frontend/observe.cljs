@@ -11,7 +11,8 @@
 (defn- get-initial-log-level
   "Determine initial log level from data attribute or build environment"
   []
-  (let [root-el (js/document.getElementById "root")
+  (let [root-el (when (exists? js/document) 
+                  (js/document.getElementById "root"))
         data-level (when root-el (.getAttribute root-el "data-log-level"))
         explicit-level (when data-level (keyword data-level))]
     (cond
