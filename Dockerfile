@@ -1,10 +1,14 @@
-FROM clojure:temurin-17-alpine AS builder
+FROM clojure:temurin-21-alpine AS builder
 
 # Create directory for project code (working directory)
 RUN mkdir -p /build
 
 # Set Docker working directory
 WORKDIR /build
+
+# Install Node.js and bun first
+RUN apk add --no-cache nodejs npm
+RUN npm install -g bun
 
 # Cache and install Clojure dependencies
 # Add before copying code to cache the layer even if code changes
@@ -14,10 +18,6 @@ RUN make deps
 # Copy project to working directory
 # .dockerignore file excludes all but essential files
 COPY ./ /build
-
-RUN apk add --no-cache nodejs npm
-RUN npm install -g bun
-RUN bun install
 
 # `dist` task packages Clojure service as an uberjar
 # - creates: /build/practicalli-gameboard-api-service.jar
