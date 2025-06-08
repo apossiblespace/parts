@@ -16,6 +16,8 @@
 !deps.edn
 !shadow-cljs.edn
 !package.json
+!postcss.config.mjs
+!tailwind.config.js
 !config.edn
 !build.clj
 !Makefile
