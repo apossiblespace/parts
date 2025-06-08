@@ -1,9 +1,10 @@
 (ns parts.frontend.components.toolbar.sidebar
   (:require
    [parts.frontend.components.toolbar.auth-status :refer [auth-status]]
-   [parts.frontend.components.toolbar.relationships-tools :refer [relationships-tools]]
    [parts.frontend.components.toolbar.parts-tools :refer [parts-tools]]
+   [parts.frontend.components.toolbar.relationships-tools :refer [relationships-tools]]
    [parts.frontend.components.waitlist-modal :refer [waitlist-modal]]
+   [parts.frontend.observe :as o]
    [uix.core :refer [$ defui use-state]]
    [uix.re-frame :as uix.rf]))
 
@@ -20,8 +21,7 @@
               ($ :button
                  {:class "btn btn-sm btn-primary w-full"
                   :on-click #(do
-                               (when (js/window.plausible)
-                                 (js/window.plausible "Playground Signup Modal Open" #js {:props #js {:source "playground"}}))
+                               (o/track "Signup Modal Open" {:source "playground"})
                                (set-show-waitlist-modal true))}
                  "Sign up")))
          ($ auth-status))
@@ -31,6 +31,5 @@
        ($ waitlist-modal
           {:show show-waitlist-modal
            :on-close #(do
-                        (when (js/window.plausible)
-                          (js/window.plausible "Playground Signup Modal Close" #js {:props #js {:source "playground"}}))
+                        (o/track "Signup Modal Close" {:source "playground"})
                         (set-show-waitlist-modal false))}))))

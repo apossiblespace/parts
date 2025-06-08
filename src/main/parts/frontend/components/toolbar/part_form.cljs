@@ -1,6 +1,7 @@
 (ns parts.frontend.components.toolbar.part-form
   (:require
    [parts.common.constants :refer [part-labels]]
+   [parts.frontend.observe :as o]
    [uix.core :refer [$ defui use-effect use-state]]
    [uix.re-frame :as uix.rf]))
 
@@ -32,9 +33,7 @@
                             (fn [state]
                               (update state :collapsed? not))))
         handle-save (fn []
-                      ;; Track part save
-                      (when (js/window.plausible)
-                        (js/window.plausible "Part Saved" #js {:props #js {:type (:type values)}}))
+                      (o/track "Part saved" {:type (:type values)})
                       (on-save id values)
                       (set-form-state
                        (fn [state]

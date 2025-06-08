@@ -1,6 +1,7 @@
 (ns parts.frontend.components.toolbar.relationship-form
   (:require
    [parts.common.constants :refer [relationship-labels]]
+   [parts.frontend.observe :as o]
    [uix.core :refer [$ defui use-effect use-state]]
    [uix.re-frame :as uix.rf]))
 
@@ -30,9 +31,7 @@
                             (fn [state]
                               (update state :collapsed? not))))
         handle-save (fn []
-                      ;; Track relationship save
-                      (when (js/window.plausible)
-                        (js/window.plausible "Relationship Saved" #js {:props #js {:type (:type values)}}))
+                      (o/track "Relationship saved" {:type (:type values)})
                       (on-save id values)
                       (set-form-state
                        (fn [state]

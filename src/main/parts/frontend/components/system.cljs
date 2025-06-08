@@ -1,15 +1,16 @@
 (ns parts.frontend.components.system
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow]]
+   [parts.frontend.observe :as o]
    [parts.frontend.adapters.reactflow :as adapter]
    [parts.frontend.api.queue :as queue]
    [parts.frontend.components.edges :refer [edge-types]]
    [parts.frontend.components.nodes :refer [node-types]]
    [parts.frontend.components.toolbar.button :refer [button]]
    [parts.frontend.components.toolbar.sidebar :refer [sidebar]]
+   [re-frame.core :as rf]
    [uix.core :refer [$ defui use-callback use-effect]]
-   [uix.re-frame :as uix.rf]
-   [re-frame.core :as rf]))
+   [uix.re-frame :as uix.rf]))
 
 (defui system []
   (let [demo (uix.rf/use-subscribe [:demo])
@@ -40,9 +41,7 @@
                                                                  (:id change)
                                                                  (:selected change)])
                                           "remove" (do
-                                                     ;; Track part deletion
-                                                     (when (js/window.plausible)
-                                                       (js/window.plausible "Part Deleted" #js {:props #js {:demo demo}}))
+                                                     (o/track "Part deleted" {:demo demo})
                                                      (rf/dispatch [:system/part-remove
                                                                    (:id change)]))
                                           (js/console.log "[on-nodes-change][UNHANDLED]" change)))))) [demo])
@@ -57,9 +56,7 @@
                                                                  (:id change)
                                                                  (:selected change)])
                                           "remove" (do
-                                                     ;; Track relationship deletion
-                                                     (when (js/window.plausible)
-                                                       (js/window.plausible "Relationship Deleted" #js {:props #js {:demo demo}}))
+                                                     (o/track "Relationship deleted" {:demo demo})
                                                      (rf/dispatch [:system/relationship-remove
                                                                    (:id change)]))
                                           (js/console.log "[on-edges-change][UNHANDLED]" change)))))) [demo])
@@ -67,9 +64,7 @@
         on-connect (use-callback
                     (fn [connection]
                       (js/console.log "[on-connect]" connection)
-                      ;; Track relationship creation
-                      (when (js/window.plausible)
-                        (js/window.plausible "Relationship Created" #js {:props #js {:demo demo}}))
+                      (o/track "Relationship created" {:demo demo})
                       (let [params (js->clj connection :keywordize-keys true)
                             source-id (:source params)
                             target-id (:target params)]
@@ -90,9 +85,7 @@
 
         create-part-by-type (fn [type]
                               (js/console.log "[create-part-by-type]" type)
-                              ;; Track part creation by type
-                              (when (js/window.plausible)
-                                (js/window.plausible "Part Created" #js {:props #js {:type type :demo demo}}))
+                              (o/track "Part created" {:type type :demo demo})
                               (rf/dispatch [:system/part-create {:type type}]))]
 
     (use-effect
@@ -124,8 +117,7 @@
                ($ Panel {:position "top-left" :class "logo"}
                   (if demo
                     ($ :a {:href "/"
-                           :on-click #(when (js/window.plausible)
-                                        (js/window.plausible "Playground Logo Click" #js {:props #js {:demo demo}}))}
+                           :on-click #(o/track "Playground logo click" {:demo demo})}
                        ($ :svg
                           {:aria-label "Previous",
                            :class "fill-current size-4",

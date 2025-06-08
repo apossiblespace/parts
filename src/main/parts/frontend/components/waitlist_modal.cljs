@@ -2,7 +2,8 @@
   (:require
    [uix.core :refer [defui $ use-state]]
    [parts.frontend.api.utils :as utils]
-   [parts.frontend.components.modal :refer [modal]]))
+   [parts.frontend.components.modal :refer [modal]]
+   [parts.frontend.observe :as o]))
 
 (defui waitlist-modal [{:keys [show on-close]}]
   (let [[email set-email] (use-state "")
@@ -22,9 +23,7 @@
         handle-submit (fn [e]
                         (.preventDefault e)
                         (when-not (or loading success already-signed-up)
-                          ;; Track Plausible event for form submission
-                          (when (js/window.plausible)
-                            (js/window.plausible "Waitlist Signup" #js {:props #js {:source "playground"}}))
+                          (o/track "Waitlist Signup" {:source "playground"})
                           (set-loading true)
                           (set-error nil)
                           (let [csrf-token (utils/get-csrf-token)
@@ -135,8 +134,7 @@
                          :value email
                          :disabled loading
                          :on-change #(set-email (.. % -target -value))
-                         :on-focus #(when (js/window.plausible)
-                                      (js/window.plausible "Email Field Focus" #js {:props #js {:source "playground"}}))
+                         :on-focus #(o/track "Email Field Focus" {:source "playground"})
                          :required true}))
 
                   ($ :div {:class "modal-action space-x-2 flex"}
