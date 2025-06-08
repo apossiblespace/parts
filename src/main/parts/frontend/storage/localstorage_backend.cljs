@@ -11,10 +11,6 @@
   [system-id]
   (str "parts-system-" system-id))
 
-(defn- lock-key
-  "Returns the localStorage key for tab locking"
-  [system-id]
-  (str "parts-active-tab-" system-id))
 
 (defn- get-system-from-storage
   "Gets system data from localStorage"
@@ -58,44 +54,9 @@
   (when (.startsWith storage-key "parts-system-")
     (.substring storage-key 13))) ;; length of "parts-system-"
 
-(defn- acquire-tab-lock
-  "Attempts to acquire tab lock for system editing"
-  [system-id]
-  (let [lock-key-str (lock-key system-id)
-        timestamp (js/Date.now)]
-    (try
-      (js/localStorage.setItem lock-key-str (str timestamp))
-      true
-      (catch js/Error e
-        (js/console.error "[storage][localstorage-backend] failed to acquire lock:" system-id e)
-        false))))
 
-(defn- release-tab-lock
-  "Releases tab lock for system editing"
-  [system-id]
-  (try
-    (js/localStorage.removeItem (lock-key system-id))
-    (catch js/Error e
-      (js/console.error "[storage][localstorage-backend] failed to release lock:" system-id e))))
 
-(defn- check-tab-lock
-  "Checks if another tab has the lock (returns true if another tab is active)"
-  [system-id]
-  (try
-    (when-let [lock-timestamp (js/localStorage.getItem (lock-key system-id))]
-      (let [timestamp (js/parseInt lock-timestamp)
-            now (js/Date.now)
-            stale-threshold 30000] ;; 30 seconds
-        ;; If lock is fresh (less than 30 seconds old), another tab is active
-        (< (- now timestamp) stale-threshold)))
-    (catch js/Error e
-      (js/console.error "[storage][localstorage-backend] failed to check lock:" system-id e)
-      false)))
 
-(defn- update-tab-heartbeat
-  "Updates tab heartbeat to maintain lock"
-  [system-id]
-  (acquire-tab-lock system-id))
 
 (defn- apply-change-to-system
   "Applies a single change event to system data"
@@ -156,7 +117,7 @@
       (js/console.error "[storage][localstorage-backend] failed to apply change:" event e)
       system-data)))
 
-(defrecord LocalStorageBackend [tab-locks]
+(defrecord LocalStorageBackend []
   StorageBackend
 
   (list-systems [_this]
@@ -178,21 +139,10 @@
           []))))
 
   (load-system [_this system-id]
-    "Loads system from localStorage with tab lock check"
+    "Loads system from localStorage"
     (go
       (js/console.log "[storage][localstorage-backend] loading system:" system-id)
-      (if (check-tab-lock system-id)
-        (do
-          (js/console.warn "[storage][localstorage-backend] system is being edited in another tab:" system-id)
-          ;; Return system data but mark as read-only somehow
-          ;; For now, return nil to indicate unavailable
-          nil)
-        (when-let [system (get-system-from-storage system-id)]
-          ;; Acquire lock for this tab
-          (acquire-tab-lock system-id)
-          ;; Store lock in tab-locks atom for cleanup
-          (swap! tab-locks conj system-id)
-          system))))
+      (get-system-from-storage system-id)))
 
   (create-system [_this system-data]
     "Creates a new system in localStorage"
@@ -207,34 +157,24 @@
                               system-data)
             system-id (:id new-system)]
         (save-system-to-storage system-id new-system)
-        ;; Acquire lock for this tab
-        (acquire-tab-lock system-id)
-        ;; Store lock in tab-locks atom for cleanup
-        (swap! tab-locks conj system-id)
         new-system)))
 
   (update-system [_this system-id system-data]
     "Updates system metadata in localStorage"
     (go
       (js/console.log "[storage][localstorage-backend] updating system:" system-id)
-      (if (check-tab-lock system-id)
-        (do
-          (js/console.warn "[storage][localstorage-backend] cannot update system, another tab is active:" system-id)
-          nil)
-        (when-let [current-system (get-system-from-storage system-id)]
-          (let [updated-system (merge current-system
-                                      (select-keys system-data [:title :viewport_settings])
-                                      {:last_modified (js/Date.now)})]
-            (save-system-to-storage system-id updated-system)
-            updated-system)))))
+      (when-let [current-system (get-system-from-storage system-id)]
+        (let [updated-system (merge current-system
+                                    (select-keys system-data [:title :viewport_settings])
+                                    {:last_modified (js/Date.now)})]
+          (save-system-to-storage system-id updated-system)
+          updated-system))))
 
   (process-batched-changes [_this system-id batch]
     "Processes batched changes in localStorage"
     (go
       (js/console.log "[storage][localstorage-backend] processing batch for system:" system-id "changes:" batch)
       (when-let [current-system (get-system-from-storage system-id)]
-        ;; Update heartbeat to maintain lock
-        (update-tab-heartbeat system-id)
         ;; Apply all changes sequentially
         (let [updated-system (reduce apply-change-to-system current-system batch)
               updated-with-timestamp (assoc updated-system :last_modified (js/Date.now))]
@@ -244,17 +184,4 @@
 (defn create-localstorage-backend
   "Creates a new localStorage storage backend instance"
   []
-  (let [tab-locks (atom #{})
-        backend (->LocalStorageBackend tab-locks)]
-    ;; Set up beforeunload listener to release locks
-    (js/addEventListener "beforeunload"
-                         (fn []
-                           (doseq [system-id @tab-locks]
-                             (release-tab-lock system-id))))
-    ;; Set up periodic heartbeat to maintain locks
-    (js/setInterval
-     (fn []
-       (doseq [system-id @tab-locks]
-         (update-tab-heartbeat system-id)))
-     10000) ;; Update every 10 seconds
-    backend))
+  (->LocalStorageBackend))
