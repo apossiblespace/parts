@@ -25,7 +25,7 @@
 
         on-nodes-change (use-callback
                          (fn [changes]
-                           (js/console.log "[on-nodes-change]" changes)
+                           (o/debug "system.on-nodes-change" "nodes changed" changes)
                            (->> (js->clj changes :keywordize-keys true)
                                 (run! (fn [change]
                                         (case (:type change)
@@ -44,11 +44,11 @@
                                                      (o/track "Part deleted" {:demo demo})
                                                      (rf/dispatch [:system/part-remove
                                                                    (:id change)]))
-                                          (js/console.log "[on-nodes-change][UNHANDLED]" change)))))) [demo])
+                                          (o/warn "system.on-nodes-change" "unhandled change type" change)))))) [demo])
 
         on-edges-change (use-callback
                          (fn [changes]
-                           (js/console.log "[on-edges-change]" changes)
+                           (o/debug "system.on-edges-change" "edges changed" changes)
                            (->> (js->clj changes :keywordize-keys true)
                                 (run! (fn [change]
                                         (case (:type change)
@@ -59,11 +59,11 @@
                                                      (o/track "Relationship deleted" {:demo demo})
                                                      (rf/dispatch [:system/relationship-remove
                                                                    (:id change)]))
-                                          (js/console.log "[on-edges-change][UNHANDLED]" change)))))) [demo])
+                                          (o/warn "system.on-edges-change" "unhandled change type" change)))))) [demo])
 
         on-connect (use-callback
                     (fn [connection]
-                      (js/console.log "[on-connect]" connection)
+                      (o/debug "system.on-connect" "connection created" connection)
                       (o/track "Relationship created" {:demo demo})
                       (let [params (js->clj connection :keywordize-keys true)
                             source-id (:source params)
@@ -78,23 +78,23 @@
         ;; select any edges, for reasons yet unclear.
         on-selection-change (use-callback
                              (fn [selection]
-                               (js/console.log "[on-selection-change]" selection)
+                               (o/debug "system.on-selection-change" "selection changed" selection)
                                (let [sel (js->clj selection :keywordize-keys true)]
                                  (rf/dispatch [:selection/set sel])))
                              [])
 
         create-part-by-type (fn [type]
-                              (js/console.log "[create-part-by-type]" type)
+                              (o/debug "system.create-part-by-type" "creating part" type)
                               (o/track "Part created" {:type type :demo demo})
                               (rf/dispatch [:system/part-create {:type type}]))]
 
     (use-effect
      (fn []
        (when system-id
-         (js/console.log "[system] starting event queue for system: " system-id)
+         (o/info "system.lifecycle" "starting event queue for system" system-id)
          (queue/start system-id)
          (fn []
-           (js/console.log "[system] stopping event queue")
+           (o/info "system.lifecycle" "stopping event queue")
            (queue/stop))))
      [system-id])
 

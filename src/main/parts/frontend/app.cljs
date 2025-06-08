@@ -3,6 +3,7 @@
    ["htmx.org" :default htmx]
    [parts.frontend.components.system :refer [system]]
    [parts.frontend.components.system-list-modal :refer [system-list-modal]]
+   [parts.frontend.observe :as o]
    [parts.frontend.state.fx]
    [parts.frontend.state.handlers]
    [parts.frontend.state.subs]
@@ -74,9 +75,9 @@
          (when-let [root-el (js/document.getElementById "root")]
            (reset! app-state (setup-app root-el)))
          (let [version (.-version htmx)]
-           (js/console.log "HTMX loaded! Version:" version)))))
+           (o/info "app.init" "HTMX loaded! Version:" version)))))
 
 (defn ^:dev/after-load reload! []
-  (js/console.log "Reloading app...")
+  (o/info "app.reload" "Reloading app...")
   (when-let [root (:root @app-state)]
     (uix.dom/render-root ($ app) root)))

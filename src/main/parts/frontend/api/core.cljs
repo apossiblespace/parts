@@ -3,7 +3,8 @@
   (:require
    [cljs.core.async :refer [<! go]]
    [parts.frontend.api.http :as http]
-   [parts.frontend.api.utils :as utils]))
+   [parts.frontend.api.utils :as utils]
+   [parts.frontend.observe :as o]))
 
 ;; Authentication-related functions
 (defn login
@@ -52,5 +53,5 @@
 (defn send-batched-updates
   [system-id batch]
   (go
-    (js/console.log "[queue][send-batched-updates]" batch)
+    (o/debug "api.send-batched-updates" "sending batch" batch)
     (<! (http/POST (str "/systems/" system-id "/changes") batch))))

@@ -2,6 +2,7 @@
   "Batching up change events for sending to backend"
   (:require
    [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]
+   [parts.frontend.observe :as o]
    [parts.frontend.storage.registry :as storage-registry]
    [parts.frontend.storage.protocol :refer [process-batched-changes]]))
 
@@ -42,19 +43,19 @@
 (defn start
   "Start a loop sending batched system updates for a specific system ID to the backend"
   [system-id]
-  (js/console.log "[queue] update queue started for system: " system-id)
+  (o/info "queue.start" "update queue started for system" system-id)
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch
         (when-let [backend (storage-registry/get-backend)]
           (let [response (<! (process-batched-changes backend system-id batch))]
-            (js/console.log "[queue][batch update response]" response)))))
+            (o/debug "queue.batch-response" "batch update response" response)))))
     (recur)))
 
 (defn stop
   "Close channels and stop processing the queue"
   []
-  (js/console.log "[queue] update queue stopped"))
+  (o/info "queue.stop" "update queue stopped"))
 
 (defmulti normalize-event
   "Returns a normalized event to be enqueued"
@@ -113,7 +114,7 @@
 
 (defmethod normalize-event :default
   [entity event]
-  (js/console.log "[normalize-event] unhandled:" entity event)
+  (o/warn "queue.normalize-event" "unhandled event type" entity event)
   nil)
 
 (defn- normalize-events
