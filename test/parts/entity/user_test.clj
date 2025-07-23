@@ -2,6 +2,7 @@
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [parts.entity.user :as user]
+   [parts.entity.system :as system]
    [parts.helpers.test-factory :as factory]
    [parts.helpers.utils :refer [register-test-user with-test-db]]))
 
@@ -87,4 +88,14 @@
           id (:id user)]
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
-                            (user/fetch id))))))
+                            (user/fetch id)))))
+
+  (testing "deletes the system entity owned by the user from the database"
+    (let [user (register-test-user)
+          id (:id user)
+          system-data {:title "System To Delete"
+                       :owner_id id}
+          system-created (system/create! system-data)]
+      (user/delete! id)
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"System not found"
+                            (system/fetch (:id system-created)))))))
