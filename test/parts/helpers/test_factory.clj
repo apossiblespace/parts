@@ -1,8 +1,5 @@
 (ns parts.helpers.test-factory
   (:require
-   [parts.common.models.part :as part]
-   [parts.common.models.relationship :as relationship]
-   [parts.common.models.system :as system]
    [parts.common.models.user :as user]))
 
 (def ^:private counter (atom 0))

@@ -9,7 +9,7 @@
    [parts.frontend.state.subs]
    [parts.frontend.storage.registry :as storage-registry]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-effect use-state]]
+   [uix.core :refer [$ defui use-state]]
    [uix.dom]
    [uix.re-frame :as uix.rf]))
 
@@ -69,7 +69,7 @@
              #js {:code "[23].." :swap true}                  ; 200 & 300 responses are non-errors and are swapped
              #js {:code "[45].." :swap false :error true}     ; Other 400 & 500 responses are not swapped and are errors
              #js {:code "..." :swap false}])                  ; catch all for any other response code
-  
+
   (.on htmx "htmx:load"
        (fn [_]
          (when-let [root-el (js/document.getElementById "root")]

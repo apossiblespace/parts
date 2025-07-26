@@ -47,7 +47,7 @@
 ;; };
 (def PartsEdge
   (as-react
-   (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition] :as ^js props}]
+   (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition]}]
      ($ parts-edge {:id id
                     :data (js->clj data :keywordize-keys true)
                     :source-x sourceX

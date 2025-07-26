@@ -15,7 +15,7 @@
 
 (rf/reg-event-fx
  :app/init-system
- (fn [{:keys [db]} _]
+ (fn [_ _]
    (if-let [stored-id (api-utils/get-current-system-id)]
      ;; Try to load stored system
      {:storage/get-system {:id stored-id}}

@@ -5,13 +5,12 @@
    :info 1
    :warn 2
    :error 3
-   :silent 4}
-  )
+   :silent 4})
 
 (defn- get-initial-log-level
   "Determine initial log level from data attribute or build environment"
   []
-  (let [root-el (when (exists? js/document) 
+  (let [root-el (when (exists? js/document)
                   (js/document.getElementById "root"))
         data-level (when root-el (.getAttribute root-el "data-log-level"))
         explicit-level (when data-level (keyword data-level))]
@@ -88,14 +87,14 @@
   (set-log-level! :warn)   ; Only warnings and errors
   (set-log-level! :error)  ; Only errors
   (set-log-level! :silent) ; No logs
-  
+
   ;; Check current log level
   (get-log-level) ; => :debug
-  
+
   ;; HTML configuration (highest priority)
   ;; <div id="root" data-log-level="info">
-  
+
   ;; Build-time defaults:
   ;; - Development builds: :debug level (show everything)
   ;; - Production builds: :warn level (warnings and errors only)
-)
+  )

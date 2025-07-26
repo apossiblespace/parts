@@ -40,24 +40,24 @@
                                                       (cond
                                                         (= 201 (.-status response))
                                                         (set-success true)
-                                                        
+
                                                         (= 409 (.-status response))
                                                         (set-already-signed-up true)
-                                                        
+
                                                         (= 400 (.-status response))
                                                         (cond
                                                           (re-find #"don't.+forget.+email" html)
                                                           (set-error "Please enter your email address")
-                                                          
+
                                                           (re-find #"not.+valid.+email" html)
                                                           (set-error "Please enter a valid email address")
-                                                          
+
                                                           :else
                                                           (set-error "Please check your email address"))
-                                                        
+
                                                         :else
                                                         (set-error "Something went wrong. Please try again.")))))))
-                                (.catch (fn [err]
+                                (.catch (fn [_]
                                           (set-loading false)
                                           (set-error "Something went wrong. Please try again.")))))))]
 
@@ -78,7 +78,7 @@
                    :class "btn btn-primary"
                    :on-click handle-close}
                   "Got it!"))
-            
+
             already-signed-up
             ($ :div {:class "text-center py-6"}
                ($ :div {:class "text-6xl mb-4"} "👋")

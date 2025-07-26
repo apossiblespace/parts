@@ -104,18 +104,17 @@
     (db/init-db)
 
     ;; Start nREPL server if configured
-    (let [nrepl-server (start-nrepl)]
+    (let [nrepl-server (start-nrepl)
+          ;; Start server and background processes
+          stop-fn (start-server port)
+          cleanup-stop-ch (schedule-token-cleanup)]
+      (println "Parts: Server started on port" port)
 
-      ;; Start server and background processes
-      (let [stop-fn (start-server port)
-            cleanup-stop-ch (schedule-token-cleanup)]
-        (println "Parts: Server started on port" port)
-
-        ;; Return shutdown function
-        (fn []
-          (stop-fn)
-          (async/close! cleanup-stop-ch) ; Signal the cleanup process to stop
-          (when nrepl-server
-            (nrepl/stop-server nrepl-server)
-            (println "nREPL server stopped"))
-          (println "Parts: Server stopped."))))))
+      ;; Return shutdown function
+      (fn []
+        (stop-fn)
+        (async/close! cleanup-stop-ch) ; Signal the cleanup process to stop
+        (when nrepl-server
+          (nrepl/stop-server nrepl-server)
+          (println "nREPL server stopped"))
+        (println "Parts: Server stopped.")))))

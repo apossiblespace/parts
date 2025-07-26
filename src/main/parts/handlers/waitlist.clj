@@ -53,7 +53,6 @@
                       [:p "You're already on the list! We'll be in touch soon."]]))
               (response/status 409)))))))
 
-
 (defn signups-count
   "Get the number of current signups on the waiting list"
   []

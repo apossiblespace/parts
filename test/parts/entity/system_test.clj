@@ -110,7 +110,7 @@
 
       (is (= 1 (count (:parts system-before-deletion))))
 
-      (with-redefs [db/affected-row-count (fn [f]
+      (with-redefs [db/affected-row-count (fn [_]
                                             (println "[REDEF] in redefined with-transaction")
                                             (throw (Exception. "Simulated transaction error")))]
 

@@ -1,17 +1,14 @@
 (ns parts.frontend.storage.localstorage-backend
   "LocalStorage storage backend implementation with single-tab editing enforcement."
   (:require
-   [cljs.core.async :refer [chan go put! timeout <! alts!]]
+   [cljs.core.async :refer [go]]
    [parts.frontend.storage.protocol :refer [StorageBackend]]
-   [parts.frontend.observe :as o]
-   [parts.common.models.part :as part-model]
-   [parts.common.models.relationship :as relationship-model]))
+   [parts.frontend.observe :as o]))
 
 (defn- storage-key
   "Returns the localStorage key for a system"
   [system-id]
   (str "parts-system-" system-id))
-
 
 (defn- get-system-from-storage
   "Gets system data from localStorage"
@@ -54,10 +51,6 @@
   [storage-key]
   (when (.startsWith storage-key "parts-system-")
     (.substring storage-key 13))) ;; length of "parts-system-"
-
-
-
-
 
 (defn- apply-change-to-system
   "Applies a single change event to system data"

@@ -1,7 +1,6 @@
 (ns parts.auth
   (:require
    [buddy.auth.backends :as backends]
-   [buddy.core.crypto :as crypto]
    [buddy.hashers :as hashers]
    [buddy.sign.jwt :as jwt]
    [com.brunobonacci.mulog :as mulog]

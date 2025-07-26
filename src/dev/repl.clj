@@ -50,7 +50,7 @@
           (when-let [line (.readLine reader)]
             (println "[PostCSS]" line)
             (recur)))
-        (catch Exception e
+        (catch Exception _
           (when-not (.isAlive process)
             (println "[PostCSS] Process terminated")))))))
 

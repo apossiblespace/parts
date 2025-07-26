@@ -76,12 +76,12 @@
         ;; FIXME: We might need to remove this in order to properly handle
         ;; selection by dragging. When this callback is set, dragging does not
         ;; select any edges, for reasons yet unclear.
-        on-selection-change (use-callback
-                             (fn [selection]
-                               (o/debug "system.on-selection-change" "selection changed" selection)
-                               (let [sel (js->clj selection :keywordize-keys true)]
-                                 (rf/dispatch [:selection/set sel])))
-                             [])
+        ;; on-selection-change (use-callback
+        ;;                      (fn [selection]
+        ;;                        (o/debug "system.on-selection-change" "selection changed" selection)
+        ;;                        (let [sel (js->clj selection :keywordize-keys true)]
+        ;;                          (rf/dispatch [:selection/set sel])))
+        ;;                      [])
 
         create-part-by-type (fn [type]
                               (o/debug "system.create-part-by-type" "creating part" type)
