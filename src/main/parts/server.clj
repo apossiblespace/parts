@@ -4,6 +4,7 @@
   (:require
    [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]
+   [nrepl.server :as nrepl]
    [org.httpkit.server :as server]
    [reitit.ring :as ring]
    [parts.config :as conf]
@@ -63,6 +64,25 @@
           (recur))))
     stop-ch))
 
+(defn start-nrepl
+  "Starts an nREPL server if enabled via environment configuration.
+   Returns the server instance or nil if disabled."
+  []
+  (when-let [repl-port (System/getenv "PARTS_REPL_PORT")]
+    (try
+      (let [port (Integer/parseInt repl-port)
+            bind-address (or (System/getenv "PARTS_REPL_HOST") "127.0.0.1")
+            server (nrepl/start-server :bind bind-address :port port)]
+        (mulog/log ::nrepl-started :port port :bind bind-address)
+        (println (format "nREPL server started on %s:%d" bind-address port))
+        server)
+      (catch Exception e
+        (mulog/log ::nrepl-start-error
+                   :error (.getMessage e)
+                   :error_type (.getName (class e)))
+        (println "Failed to start nREPL server:" (.getMessage e))
+        nil))))
+
 (defn start-server
   "Starts the web server with the configured application handler.
    Returns a function that can be called to stop the server."
@@ -83,13 +103,19 @@
     ;; Initialize database
     (db/init-db)
 
-    ;; Start server and background processes
-    (let [stop-fn (start-server port)
-          cleanup-stop-ch (schedule-token-cleanup)]
-      (println "Parts: Server started on port" port)
+    ;; Start nREPL server if configured
+    (let [nrepl-server (start-nrepl)]
 
-      ;; Return shutdown function
-      (fn []
-        (stop-fn)
-        (async/close! cleanup-stop-ch) ; Signal the cleanup process to stop
-        (println "Parts: Server stopped.")))))
+      ;; Start server and background processes
+      (let [stop-fn (start-server port)
+            cleanup-stop-ch (schedule-token-cleanup)]
+        (println "Parts: Server started on port" port)
+
+        ;; Return shutdown function
+        (fn []
+          (stop-fn)
+          (async/close! cleanup-stop-ch) ; Signal the cleanup process to stop
+          (when nrepl-server
+            (nrepl/stop-server nrepl-server)
+            (println "nREPL server stopped"))
+          (println "Parts: Server stopped."))))))

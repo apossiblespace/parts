@@ -80,6 +80,131 @@ A deployment can be started via:
 make test && make deploy
 ```
 
+## Production REPL Access
+
+The application includes an nREPL server that can be enabled in production for debugging and live system inspection. The REPL is configured to:
+
+- Only bind to localhost (127.0.0.1) for security
+- Run on port 7888 by default
+- Start automatically when `PARTS_REPL_PORT` environment variable is set
+
+### Connecting to the Production REPL
+
+#### Method 1: SSH Tunnel (Recommended)
+
+Create an SSH tunnel to the production server:
+
+```bash
+# Replace 'parts' with your actual server hostname
+ssh -L 7888:localhost:7888 parts
+```
+
+Then connect from your local machine:
+
+```bash
+# Using Clojure CLI
+clj -Sdeps '{:deps {nrepl/nrepl {:mvn/version "1.3.1"}}}' \
+    -M -m nrepl.cmdline --connect --host localhost --port 7888
+
+# Or using the project's nREPL alias
+clj -M:nrepl --port 7888
+
+# Using your editor (Emacs/CIDER, VS Code/Calva, etc.)
+# Connect to localhost:7888
+```
+
+#### Method 2: Kamal App Exec
+
+Use Kamal's exec command to connect directly within the container:
+
+```bash
+# Connect to REPL inside the container
+kamal app exec --interactive 'clojure -Sdeps "{:deps {nrepl/nrepl {:mvn/version \"1.3.1\"}}}" -M -m nrepl.cmdline --connect --host localhost --port 7888'
+
+# Or create a shell first
+kamal app exec --interactive bash
+# Then inside the container:
+clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version "1.3.1"}}}' \
+        -M -m nrepl.cmdline --connect --host localhost --port 7888
+```
+
+#### Method 3: Kamal Alias (Optional)
+
+Add this to your `config/deploy.yml` aliases section:
+
+```yaml
+aliases:
+  repl: app exec --interactive 'clojure -Sdeps "{:deps {nrepl/nrepl {:mvn/version \"1.3.1\"}}}" -M -m nrepl.cmdline --connect --host localhost --port 7888'
+```
+
+Then use:
+```bash
+kamal repl
+```
+
+### Security Considerations
+
+1. **Network Binding**: The REPL only binds to localhost by default. Never expose it to the public internet.
+
+2. **Environment Variables**: Control REPL availability via environment variables:
+   - `PARTS_REPL_PORT`: Set to enable REPL (e.g., "7888")
+   - `PARTS_REPL_HOST`: Bind address (default: "127.0.0.1")
+
+3. **Production Access**: Only enable REPL when needed. Consider removing `PARTS_REPL_PORT` from production config when not actively debugging.
+
+### Useful REPL Commands
+
+Once connected, you can inspect and modify the running system:
+
+```clojure
+;; Check system state
+(require '[parts.db :as db])
+(db/query ["SELECT COUNT(*) FROM users"])
+
+;; View current configuration
+(require '[parts.config :as conf])
+(conf/config)
+
+;; Monitor logs
+(require '[com.brunobonacci.mulog :as mulog])
+(mulog/log ::test-event :message "Hello from REPL")
+
+;; Inspect HTTP server
+(require '[parts.server])
+;; Access running server state...
+```
+
+### Troubleshooting
+
+1. **REPL not starting**: Check logs for "nREPL server started" message
+   ```bash
+   kamal app logs --tail 100
+   ```
+
+2. **Connection refused**: Ensure SSH tunnel is active and REPL is enabled via environment variable
+
+3. **Port already in use**: The application may have crashed without cleaning up. Restart the container:
+   ```bash
+   kamal app restart
+   ```
+
+### Disabling REPL
+
+To disable REPL in production, remove or comment out the REPL environment variables in `config/deploy.yml`:
+
+```yaml
+env:
+  clear:
+    PARTS_DB_PATH: /app/db/parts.db
+    # PARTS_REPL_PORT: 7888  # Commented out to disable
+    # PARTS_REPL_HOST: 127.0.0.1
+```
+
+Then redeploy:
+```bash
+kamal deploy
+```
+
 ## License
 
 Copyright © 2025 Gosha Tcherednitchenko / A Possible Space Ltd

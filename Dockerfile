@@ -87,6 +87,9 @@ ENV PARTS_HOSTNAME="parts.ifs.tools"
 # Expose port of HTTP Server
 EXPOSE 3000
 
+# Expose nREPL port (only accessible within container network by default)
+EXPOSE 7888
+
 # ------------------------
 # Run service
 

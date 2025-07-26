@@ -44,6 +44,8 @@ builder:
 env:
   clear:
     PARTS_DB_PATH: /app/db/parts.db
+    PARTS_REPL_PORT: 7888
+    PARTS_REPL_HOST: 127.0.0.1
 
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.
