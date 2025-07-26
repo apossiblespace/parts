@@ -54,3 +54,13 @@ resources/public/css/style.css
 # Include agentic workflows
 !CLAUDE.md
 !.claude/agents
+
+# ------------------------
+# Include Nix files
+!flake.nix
+!flake.lock
+!.envrc
+!.envrc.local.example
+# Ignore direnv artifacts and local env
+.direnv/
+.envrc.local

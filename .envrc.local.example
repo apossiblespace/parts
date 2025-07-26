@@ -1,0 +1,7 @@
+# Example local environment variables
+# Copy this file to .envrc.local and fill in your actual values
+
+# Docker registry token for Kamal deployments
+export KAMAL_REGISTRY_PASSWORD=your_docker_registry_token_here
+
+# Add other local environment variables as needed

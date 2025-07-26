@@ -1,5 +1,16 @@
 # Parts Project Guide
 
+## Development Environment
+
+The project uses Nix for reproducible development environments. To get started:
+
+1. Install Nix: https://nixos.org/download
+2. Install direnv: https://direnv.net/docs/installation.html
+3. Run `direnv allow` in the project root
+4. The environment will activate automatically
+
+Alternative: Use `nix develop` to enter the environment manually.
+
 ## Autonomous Development Workflow
 
 - Always clarify the developer's intentions before writing code
