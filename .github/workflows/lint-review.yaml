@@ -22,15 +22,17 @@ jobs:
           token: "${{ secrets.PAT || secrets.GITHUB_TOKEN }}"
       - run: echo "🐙 ${{ github.repository }} repository was cloned to the runner."
 
-      - name: clj-kondo
-        uses: nnichols/clojure-lint-action@v4
-        with:
-          pattern: "*.clj"
-          clj_kondo_config: ".github/config/clj-kondo-ci-config.edn"
-          level: "error"
-          exclude: ".cljstyle"
-          github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Setup Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Run clj-kondo
+        run: |
+          nix develop --command clj-kondo --lint src test
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
 
       # Summary and status
       - run: echo "🎨 Lint Review checks completed"

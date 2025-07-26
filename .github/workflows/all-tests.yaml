@@ -13,35 +13,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "21"
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - name: Setup Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Install Node dependencies
-        run: npm install ws
+      - name: Install dependencies
+        run: nix develop --command make deps
 
-      - name: Install Clojure Tools
-        uses: DeLaGuardo/setup-clojure@13.2
-        with:
-          cli: latest
+      - name: Check formatting
+        run: nix develop --command make format-check
 
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-m2
+      - name: Run linter
+        run: nix develop --command clj-kondo --lint src test
 
       - name: Run tests
         run: |
-          clojure -X:test/env:test/run || {
+          nix develop --command clojure -X:test/env:test/run || {
             echo "=== Full Clojure Error Report ==="
             find /tmp -name "clojure-*.edn" -type f -exec cat {} \;
             exit 1

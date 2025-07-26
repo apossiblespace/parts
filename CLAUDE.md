@@ -11,6 +11,12 @@ The project uses Nix for reproducible development environments. To get started:
 
 Alternative: Use `nix develop` to enter the environment manually.
 
+### CI/CD
+GitHub Actions workflows use Nix for consistency with local development:
+- All tests, linting, and formatting checks run in the same Nix environment
+- Caching is handled by DeterminateSystems/magic-nix-cache-action
+- No separate tool setup required
+
 ## Autonomous Development Workflow
 
 - Always clarify the developer's intentions before writing code
