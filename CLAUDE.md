@@ -2,6 +2,7 @@
 
 ## Autonomous Development Workflow
 
+- Always clarify the developer's intentions before writing code
 - Do not attempt to read or edit files outside the project folder
 - Add failing tests first, then fix them
 - Work autonomously in small, testable increments

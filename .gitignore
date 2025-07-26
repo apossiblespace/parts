@@ -49,3 +49,8 @@ resources/public/css/style.css
 # Include deployment related files
 !config
 !.kamal
+
+# ------------------------
+# Include agentic workflows
+!CLAUDE.md
+!.claude/agents
