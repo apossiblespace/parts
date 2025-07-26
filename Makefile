@@ -25,7 +25,7 @@ repl: deps ## Start a Clojure REPL
 	clojure -M -m shadow.cljs.devtools.cli clj-repl
 
 css-watch: ## Watch and build CSS
-	bunx postcss resources/styles/*.css -o resources/public/css/style.css --watch
+	pnpm exec postcss resources/styles/*.css -o resources/public/css/style.css --watch
 
 test: ## Run clj/cljs unit tests
 	$(CLOJURE_TEST_RUNNER)
@@ -40,7 +40,7 @@ format-fix: ## Fix formatting of clj/cljs files
 	clojure -M:cljfmt fix
 
 npm-deps: package.json
-	bun i
+	pnpm install
 
 deps: deps.edn npm-deps ## Prepare dependencies for test and dist targets
 	clojure -P
@@ -49,12 +49,12 @@ deps-update:
 	clojure -M:antq --upgrade
 
 npm-deps-update: package.json
-	bun update
+	pnpm update
 
 dist: build-css build-frontend build-uberjar  ## Build project
 
 build-css: ## Buld CSS for production
-	NODE_ENV=production bunx postcss resources/styles/*.css -o resources/public/css/style.css
+	NODE_ENV=production pnpm exec postcss resources/styles/*.css -o resources/public/css/style.css
 
 build-frontend: ## Build frontend for production
 	clojure -M -m shadow.cljs.devtools.cli release frontend

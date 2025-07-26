@@ -36,7 +36,7 @@ GitHub Actions workflows use Nix for consistency with local development:
 - Fix formatting issues: `make format-fix`
 - Build CSS: `make build-css`
 - Watch CSS changes: `make css-watch`
-- Start frontend development: `bunx shadow-cljs watch frontend`
+- Start frontend development: `pnpm exec shadow-cljs watch frontend`
 - Build project: `make dist`
 - Clean project: `make clean`
 - Update dependencies: `clojure -M:antq --upgrade`

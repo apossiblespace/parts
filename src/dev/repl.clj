@@ -37,7 +37,7 @@
 (defn- start-postcss-watch
   "Start PostCSS watch process"
   []
-  (let [pb (ProcessBuilder. ["bunx" "postcss" "resources/styles/*.css" "-o" "resources/public/css/style.css" "--watch"])
+  (let [pb (ProcessBuilder. ["pnpm" "exec" "postcss" "resources/styles/*.css" "-o" "resources/public/css/style.css" "--watch"])
         _ (.redirectErrorStream pb true)
         process (.start pb)
         reader (java.io.BufferedReader. (java.io.InputStreamReader. (.getInputStream process)))]

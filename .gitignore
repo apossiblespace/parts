@@ -35,7 +35,7 @@ resources/public/css/style.css
 # Frontend things
 !shadow-cljs.edn
 !package.json
-!bun.lockb
+!pnpm-lock.yaml
 !tailwind.config.js
 !postcss.config.mjs
 

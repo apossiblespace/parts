@@ -6,13 +6,13 @@ RUN mkdir -p /build
 # Set Docker working directory
 WORKDIR /build
 
-# Install Node.js and bun first
+# Install Node.js and pnpm first
 RUN apk add --no-cache nodejs npm
-RUN npm install -g bun
+RUN npm install -g pnpm
 
 # Cache and install Clojure dependencies
 # Add before copying code to cache the layer even if code changes
-COPY deps.edn Makefile shadow-cljs.edn package.json /build/
+COPY deps.edn Makefile shadow-cljs.edn package.json pnpm-lock.yaml /build/
 RUN make deps
 
 # Copy project to working directory

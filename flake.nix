@@ -25,8 +25,8 @@
             clj-kondo
             
             # JavaScript tools
-            bun
             nodejs_20
+            nodePackages.pnpm
             
             # Database
             sqlite
@@ -61,8 +61,8 @@
             echo ""
             echo "Java:     $(java -version 2>&1 | head -n 1)"
             echo "Clojure:  $(clojure --version)"
-            echo "Bun:      $(bun --version)"
             echo "Node:     $(node --version)"
+            echo "pnpm:     $(pnpm --version)"
           '';
         };
       });
