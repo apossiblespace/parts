@@ -1,6 +1,8 @@
 (ns parts.entity.user-test
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
+   [parts.db :as db]
+   [parts.auth :as auth]
    [parts.entity.user :as user]
    [parts.entity.system :as system]
    [parts.helpers.test-factory :as factory]
@@ -98,4 +100,16 @@
           system-created (system/create! system-data)]
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"System not found"
-                            (system/fetch (:id system-created)))))))
+                            (system/fetch (:id system-created))))))
+
+  (testing "deletes the refresh token entity of the user from the database"
+    (let [user (register-test-user)
+          guid (:id user)
+          password (apply str "password" (filter #(Character/isDigit %) (:username user)))]
+      (auth/authenticate {:email (:email user) :password password})
+      (user/delete! guid)
+      (is (not (some? (db/query-one (db/sql-format
+                                     {:select [:id]
+                                      :from [:refresh_tokens]
+                                      :where [:= :user_id guid]
+                                      :limit 1}))))))))
