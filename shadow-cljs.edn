@@ -1,15 +1,16 @@
-{:deps true
- :nrepl {:init-ns repl}
+{:deps  true
+ :nrepl {:init-ns repl
+         :port    7888}
  :builds
  {:frontend
-  {:target :browser
+  {:target     :browser
    :output-dir "resources/public/js"
-   :modules {:main {:init-fn parts.frontend.app/init}}
-   :devtools {:watch-dir "resources/public"}
-   :dev {:preloads [devtools.preload]
-         :compiler-options
-         {:external-config
-          {:devtools/config {:features-to-install [:formatters :hints]
-                             :fn-symbol "F"
-                             :print-config-overrides true}}}}
-   :release {:optimizations :advanced}}}}
+   :modules    {:main {:init-fn parts.frontend.app/init}}
+   :devtools   {:watch-dir "resources/public"}
+   :dev        {:preloads [devtools.preload]
+                :compiler-options
+                {:external-config
+                 {:devtools/config {:features-to-install    [:formatters :hints]
+                                    :fn-symbol              "F"
+                                    :print-config-overrides true}}}}
+   :release    {:optimizations :advanced}}}}

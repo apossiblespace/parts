@@ -54,6 +54,7 @@ resources/public/css/style.css
 # Include agentic workflows
 !CLAUDE.md
 !.claude/agents
+!.mcp.json
 
 # ------------------------
 # Include Nix files
