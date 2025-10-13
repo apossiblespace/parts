@@ -5,9 +5,9 @@
    [migratus.core :as migratus]
    [portal.api :as portal]
    [mulog-events]
-   [parts.config :as conf]
-   [parts.db :as db]
-   [parts.server :as server]
+   [aps.parts.config :as conf]
+   [aps.parts.db :as db]
+   [aps.parts.server :as server]
    [shadow.cljs.devtools.api :as shadow]
    [shadow.cljs.devtools.server :as shadow-server]))
 
@@ -119,8 +119,8 @@
    Examples:
    (run-tests)                    ;; runs current namespace
    (run-tests :unit)              ;; runs unit test suite
-   (run-tests 'parts.auth-test)   ;; runs specified namespace
-   (run-tests #'parts.auth-test/test-authenticate) ;; runs specific test"
+   (run-tests 'aps.parts.auth-test)   ;; runs specified namespace
+   (run-tests #'aps.parts.auth-test/test-authenticate) ;; runs specific test"
   ([]
    (with-env {"PARTS_ENV" "test"}
      #(k/run)))

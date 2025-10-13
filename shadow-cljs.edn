@@ -5,7 +5,7 @@
  {:frontend
   {:target     :browser
    :output-dir "resources/public/js"
-   :modules    {:main {:init-fn parts.frontend.app/init}}
+   :modules    {:main {:init-fn aps.parts.frontend.app/init}}
    :devtools   {:watch-dir "resources/public"}
    :dev        {:preloads [devtools.preload]
                 :compiler-options

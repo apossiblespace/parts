@@ -30,7 +30,7 @@
 (def project-config
   "Project configuration to support all tasks"
   {:class-directory "target/classes"
-   :main-namespace  'parts/server
+   :main-namespace  'aps.parts/server
    :project-basis   (build-api/create-basis)
    :uberjar-file    "target/parts-standalone.jar"})
 

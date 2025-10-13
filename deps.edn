@@ -79,7 +79,7 @@
 
  :aliases
  {:run/app
-  {:main-opts ["-m" "parts.server"]}
+  {:main-opts ["-m" "aps.parts.server"]}
 
   :test/env
   {:env-vars {"PARTS_ENV" "test"}}

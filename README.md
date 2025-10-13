@@ -158,11 +158,11 @@ Once connected, you can inspect and modify the running system:
 
 ```clojure
 ;; Check system state
-(require '[parts.db :as db])
+(require '[aps.parts.db :as db])
 (db/query ["SELECT COUNT(*) FROM users"])
 
 ;; View current configuration
-(require '[parts.config :as conf])
+(require '[aps.parts.config :as conf])
 (conf/config)
 
 ;; Monitor logs
@@ -170,7 +170,7 @@ Once connected, you can inspect and modify the running system:
 (mulog/log ::test-event :message "Hello from REPL")
 
 ;; Inspect HTTP server
-(require '[parts.server])
+(require '[aps.parts.server])
 ;; Access running server state...
 ```
 
