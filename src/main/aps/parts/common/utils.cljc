@@ -6,5 +6,5 @@
 (defn validate-spec [spec data]
   (when-not (s/valid? spec data)
     (throw (ex-info "Validation failed"
-                    {:type :validation
+                    {:type    :validation
                      :explain (s/explain-str spec data)}))))

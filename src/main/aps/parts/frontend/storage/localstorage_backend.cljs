@@ -1,9 +1,9 @@
 (ns aps.parts.frontend.storage.localstorage-backend
   "LocalStorage storage backend implementation with single-tab editing enforcement."
   (:require
-   [cljs.core.async :refer [go]]
+   [aps.parts.frontend.observe :as o]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
-   [aps.parts.frontend.observe :as o]))
+   [cljs.core.async :refer [go]]))
 
 (defn- storage-key
   "Returns the localStorage key for a system"
@@ -37,8 +37,8 @@
   "Gets all system keys from localStorage"
   []
   (try
-    (let [keys (for [i (range (.-length js/localStorage))
-                     :let [key (js/localStorage.key i)]
+    (let [keys (for [i     (range (.-length js/localStorage))
+                     :let  [key (js/localStorage.key i)]
                      :when (and key (.startsWith key "parts-system-"))]
                  key)]
       keys)
@@ -120,13 +120,13 @@
       (o/debug "localstorage-backend.list-systems" "listing systems")
       (try
         (let [system-keys (get-all-system-keys)
-              systems (keep (fn [key]
-                              (when-let [system-id (extract-system-id key)]
-                                (when-let [system (get-system-from-storage system-id)]
-                                  {:id (:id system)
-                                   :title (:title system "Untitled System")
-                                   :last_modified (:last_modified system)})))
-                            system-keys)]
+              systems     (keep (fn [key]
+                                  (when-let [system-id (extract-system-id key)]
+                                    (when-let [system (get-system-from-storage system-id)]
+                                      {:id            (:id system)
+                                       :title         (:title system "Untitled System")
+                                       :last_modified (:last_modified system)})))
+                                system-keys)]
           systems)
         (catch js/Error e
           (o/error "localstorage-backend.list-systems" "failed to list systems" e)
@@ -142,14 +142,14 @@
     "Creates a new system in localStorage"
     (go
       (o/debug "localstorage-backend.create-system" "creating system" system-data)
-      (let [system-id (str (random-uuid))
-            new-system (merge {:id system-id
-                               :parts []
+      (let [system-id  (str (random-uuid))
+            new-system (merge {:id            system-id
+                               :parts         []
                                :relationships []
-                               :created_at (js/Date.now)
+                               :created_at    (js/Date.now)
                                :last_modified (js/Date.now)}
                               system-data)
-            system-id (:id new-system)]
+            system-id  (:id new-system)]
         (save-system-to-storage system-id new-system)
         new-system)))
 
@@ -170,7 +170,7 @@
       (o/debug "localstorage-backend.process-batch" "processing batch for system" system-id "changes:" batch)
       (when-let [current-system (get-system-from-storage system-id)]
         ;; Apply all changes sequentially
-        (let [updated-system (reduce apply-change-to-system current-system batch)
+        (let [updated-system         (reduce apply-change-to-system current-system batch)
               updated-with-timestamp (assoc updated-system :last_modified (js/Date.now))]
           (save-system-to-storage system-id updated-with-timestamp)
           {:success true :result updated-with-timestamp})))))

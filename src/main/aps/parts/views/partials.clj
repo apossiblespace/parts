@@ -54,10 +54,10 @@
      [:a
       {:href "/", :class "flex items-center"}
       [:img {:class "w-50"
-             :src "/images/parts-logo-horizontal.svg"}]]
+             :src   "/images/parts-logo-horizontal.svg"}]]
      [:a
-      {:href "#signup",
-       :class "text-ifs-green font-semibold hover:underline"
+      {:href    "#signup",
+       :class   "text-ifs-green font-semibold hover:underline"
        :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
       "Join Founding Circle"]]]])
 
@@ -74,7 +74,7 @@
       [:div
        {:class "flex items-center"}
        [:img {:class "h-6"
-              :src "/images/parts-logo-mini.svg"}]]
+              :src   "/images/parts-logo-mini.svg"}]]
       [:p
        {:class "mt-4 text-gray-600"}
        "Free, open-source IFS part mapping solution"]]
@@ -132,21 +132,21 @@
   [{:keys [message value]}]
   [:div#signup-form
    [:form
-    {:hx-post "/waitlist-signup"
-     :hx-target "#signup-form"
-     :hx-swap "outerHTML"
+    {:hx-post      "/waitlist-signup"
+     :hx-target    "#signup-form"
+     :hx-swap      "outerHTML"
      :hx-on:submit "plausible('Waitlist Signup', {props: {source: 'homepage'}}); return true;"}
     [:div.join.rounded-xl
      [:input.join-item.input.input-xl.text-gray-800
-      {:type "email"
-       :id "email"
-       :name "email"
+      {:type        "email"
+       :id          "email"
+       :name        "email"
        :placeholder "self@you.com"
-       :value value
+       :value       value
        :hx-on:focus "plausible('Email Field Focus', {props: {source: 'homepage'}}); return true;"}]
-     [:input {:type "hidden"
-              :id "__anti-forgery-token"
-              :name "__anti-forgery-token"
+     [:input {:type  "hidden"
+              :id    "__anti-forgery-token"
+              :name  "__anti-forgery-token"
               :value *anti-forgery-token*}]
      [:input.join-item.btn.btn-xl.btn-primary
       {:type "submit" :value "Sign me up!"}]]]

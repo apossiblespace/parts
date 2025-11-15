@@ -1,10 +1,10 @@
 (ns aps.parts.frontend.api.queue
   "Batching up change events for sending to backend"
   (:require
-   [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]
    [aps.parts.frontend.observe :as o]
+   [aps.parts.frontend.storage.protocol :refer [process-batched-changes]]
    [aps.parts.frontend.storage.registry :as storage-registry]
-   [aps.parts.frontend.storage.protocol :refer [process-batched-changes]]))
+   [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]))
 
 (defn debounce-batch
   "Creates a debounced channel that batches incoming changes from `input-chan`.
@@ -15,7 +15,7 @@
   [input-chan debounce-ms]
   (let [output-chan (chan)]
     (go-loop [batch []]
-      (let [timer (timeout debounce-ms)
+      (let [timer          (timeout debounce-ms)
             [value source] (alts! [input-chan timer])]
         (cond
           ;; 1. Timer fired, send the batch accumulated so far.
@@ -66,51 +66,51 @@
   [entity event]
   (when-not (:dragging event)
     {:entity entity
-     :id (:id event)
-     :type (:type event)
-     :data (:data event)}))
+     :id     (:id event)
+     :type   (:type event)
+     :data   (:data event)}))
 
 (defmethod normalize-event [:part "remove"]
   [entity event]
   {:entity entity
-   :id (:id event)
-   :type (:type event)
-   :data {}})
+   :id     (:id event)
+   :type   (:type event)
+   :data   {}})
 
 (defmethod normalize-event [:part "create"]
   [entity event]
   {:entity entity
-   :id (:id event)
-   :type (:type event)
-   :data (:data event)})
+   :id     (:id event)
+   :type   (:type event)
+   :data   (:data event)})
 
 (defmethod normalize-event [:part "update"]
   [entity event]
   {:entity entity
-   :id (:id event)
-   :type (:type event)
-   :data (:data event)})
+   :id     (:id event)
+   :type   (:type event)
+   :data   (:data event)})
 
 (defmethod normalize-event [:relationship "create"]
   [entity event]
   {:entity entity
-   :id (:id event)
-   :type (:type event)
-   :data (:data event)})
+   :id     (:id event)
+   :type   (:type event)
+   :data   (:data event)})
 
 (defmethod normalize-event [:relationship "update"]
   [entity event]
   {:entity entity
-   :id (:id event)
-   :type (:type event)
-   :data (:data event)})
+   :id     (:id event)
+   :type   (:type event)
+   :data   (:data event)})
 
 (defmethod normalize-event [:relationship "remove"]
   [entity event]
   {:entity entity
-   :id (:id event)
-   :type (:type event)
-   :data {}})
+   :id     (:id event)
+   :type   (:type event)
+   :data   {}})
 
 (defmethod normalize-event :default
   [entity event]

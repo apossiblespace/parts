@@ -14,12 +14,12 @@
   ([attrs]
    (let [id (generate-unique-id)]
      (user/make-user (merge
-                      {:email (str "test" id "@example.com")
-                       :username (str "username" id)
-                       :display_name (str "Test User " id)
-                       :password (str "password" id)
+                      {:email                 (str "test" id "@example.com")
+                       :username              (str "username" id)
+                       :display_name          (str "Test User " id)
+                       :password              (str "password" id)
                        :password_confirmation (str "password" id)
-                       :role "client"}
+                       :role                  "client"}
                       attrs)
                      true))))
 

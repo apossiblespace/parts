@@ -1,11 +1,11 @@
 (ns aps.parts.handlers.waitlist
   (:require
+   [aps.parts.db :as db]
+   [aps.parts.views.partials :as partials]
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
    [hiccup.util :refer [raw-string]]
    [hiccup2.core :refer [html]]
-   [aps.parts.db :as db]
-   [aps.parts.views.partials :as partials]
    [ring.util.response :as response]))
 
 (defn- valid-email?
@@ -30,7 +30,7 @@
            (html
             (partials/waitlist-signup-form
              {:message "Sorry, that's not a valid email address."
-              :value email})))
+              :value   email})))
           (response/status 400))
 
       :else
@@ -57,4 +57,4 @@
   "Get the number of current signups on the waiting list"
   []
   (:total (db/query-one (db/sql-format {:select [[:%count.* :total]]
-                                        :from [:waitlist_signups]}))))
+                                        :from   [:waitlist_signups]}))))

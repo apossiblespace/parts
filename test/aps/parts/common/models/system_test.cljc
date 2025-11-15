@@ -7,16 +7,16 @@
 (deftest make-system-test
   (testing "Creates a valid system with minimal attributes"
     (let [owner-id "test-owner-id"
-          result (system/make-system {:owner_id owner-id})]
+          result   (system/make-system {:owner_id owner-id})]
       (is (string? (:id result)))
       (is (= owner-id (:owner_id result)))
       (is (= "Untitled System" (:title result)))))
 
   (testing "Creates a system with provided attributes"
-    (let [attrs {:id "custom-id"
-                 :owner_id "user-123"
-                 :title "A Test System"
-                 :viewport_settings "{:zoom_level 3}"}
+    (let [attrs  {:id                "custom-id"
+                  :owner_id          "user-123"
+                  :title             "A Test System"
+                  :viewport_settings "{:zoom_level 3}"}
           result (system/make-system attrs)]
       (is (= attrs result))))
 

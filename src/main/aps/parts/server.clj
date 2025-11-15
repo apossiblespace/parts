@@ -2,16 +2,16 @@
   "Primary namespace for the Parts backend, including the entry point and server
   lifecycle management."
   (:require
+   [aps.parts.auth :as auth]
+   [aps.parts.config :as conf]
+   [aps.parts.db :as db]
+   [aps.parts.middleware :as middleware]
+   [aps.parts.routes :as r]
    [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]
    [nrepl.server :as nrepl]
    [org.httpkit.server :as server]
-   [reitit.ring :as ring]
-   [aps.parts.config :as conf]
-   [aps.parts.routes :as r]
-   [aps.parts.db :as db]
-   [aps.parts.auth :as auth]
-   [aps.parts.middleware :as middleware])
+   [reitit.ring :as ring])
   (:gen-class))
 
 (defn app
@@ -45,7 +45,7 @@
 (defn schedule-token-cleanup
   "Schedule periodic cleanup of expired refresh tokens using core.async"
   []
-  (let [stop-ch (async/chan)
+  (let [stop-ch     (async/chan)
         interval-ms (* 6 60 60 1000) ; 6 hours in milliseconds
         run-cleanup (fn []
                       (try
@@ -58,7 +58,7 @@
     (run-cleanup)
     (async/go-loop []
       (let [timeout-ch (async/timeout interval-ms)
-            [_ ch] (async/alts! [stop-ch timeout-ch])]
+            [_ ch]     (async/alts! [stop-ch timeout-ch])]
         (when (not= ch stop-ch)
           (run-cleanup)
           (recur))))
@@ -70,9 +70,9 @@
   []
   (when-let [repl-port (System/getenv "PARTS_REPL_PORT")]
     (try
-      (let [port (Integer/parseInt repl-port)
+      (let [port         (Integer/parseInt repl-port)
             bind-address (or (System/getenv "PARTS_REPL_HOST") "127.0.0.1")
-            server (nrepl/start-server :bind bind-address :port port)]
+            server       (nrepl/start-server :bind bind-address :port port)]
         (mulog/log ::nrepl-started :port port :bind bind-address)
         (println (format "nREPL server started on %s:%d" bind-address port))
         server)
@@ -104,9 +104,9 @@
     (db/init-db)
 
     ;; Start nREPL server if configured
-    (let [nrepl-server (start-nrepl)
+    (let [nrepl-server    (start-nrepl)
           ;; Start server and background processes
-          stop-fn (start-server port)
+          stop-fn         (start-server port)
           cleanup-stop-ch (schedule-token-cleanup)]
       (println "Parts: Server started on port" port)
 

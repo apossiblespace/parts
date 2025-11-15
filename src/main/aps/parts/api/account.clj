@@ -1,13 +1,13 @@
 (ns aps.parts.api.account
   (:require
-   [com.brunobonacci.mulog :as mulog]
    [aps.parts.entity.user :as user]
+   [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
 
 (defn get-account
   "Retrieve own account info"
   [request]
-  (let [user-id (get-in request [:identity :sub])
+  (let [user-id     (get-in request [:identity :sub])
         user-record (user/fetch user-id)]
     (-> (response/response user-record)
         (response/status 200))))
@@ -15,8 +15,8 @@
 (defn update-account
   "Update own account info"
   [request]
-  (let [user-id (get-in request [:identity :sub])
-        body (:body-params request)
+  (let [user-id      (get-in request [:identity :sub])
+        body         (:body-params request)
         updated-user (user/update! user-id body)]
     (mulog/log ::update-account-success :user-id user-id)
     (-> (response/response updated-user)
@@ -34,7 +34,7 @@
   "Delete own account"
   [request]
   (let [user-id (get-in request [:identity :sub])
-        user (user/fetch user-id)
+        user    (user/fetch user-id)
         confirm (get-in request [:query-params "confirm"])]
     (if user
       (if (= (:username user) confirm)

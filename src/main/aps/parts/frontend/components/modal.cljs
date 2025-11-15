@@ -16,18 +16,18 @@
      [show])
 
     ($ :dialog
-       {:class "modal"
-        :ref dialog-ref
-        :on-click (fn [e]
-                    ;; close when clicking backdrop
-                    (when (= (.-target e) @dialog-ref)
-                      (on-close)))
+       {:class     "modal"
+        :ref       dialog-ref
+        :on-click  (fn [e]
+                     ;; close when clicking backdrop
+                     (when (= (.-target e) @dialog-ref)
+                       (on-close)))
         :on-cancel on-close} ;; handles ESC key
        ($ :div
-          {:class "modal-box"
+          {:class    "modal-box"
            :on-click #(.stopPropagation %)}
           ($ :button
-             {:class "btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+             {:class    "btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
               :on-click on-close}
              "✕")
           (when title

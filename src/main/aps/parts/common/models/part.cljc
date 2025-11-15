@@ -1,8 +1,8 @@
 (ns aps.parts.common.models.part
   (:require
-   [clojure.spec.alpha :as s]
+   [aps.parts.common.constants :refer [part-types part-labels]]
    [aps.parts.common.utils :refer [validate-spec]]
-   [aps.parts.common.constants :refer [part-types part-labels]]))
+   [clojure.spec.alpha :as s]))
 
 (s/def ::id string?)
 (s/def ::system_id string?)
@@ -37,15 +37,15 @@
   "Create a new Part with the given attributes"
   [attrs]
   (println "[make-part]" attrs)
-  (let [type (or (:type attrs) "unknown")
+  (let [type  (or (:type attrs) "unknown")
         label (or (:label attrs) (get-in part-labels [(keyword type) :label]))
-        part (merge
-              {:id (str (random-uuid))
-               :type type
-               :label label
-               :position_x 0
-               :position_y 0
-               :notes nil}
-              attrs)]
+        part  (merge
+               {:id         (str (random-uuid))
+                :type       type
+                :label      label
+                :position_x 0
+                :position_y 0
+                :notes      nil}
+               attrs)]
     (validate-spec ::part part)
     part))

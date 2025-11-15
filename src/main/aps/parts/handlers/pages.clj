@@ -1,9 +1,9 @@
 (ns aps.parts.handlers.pages
   (:require
-   [hiccup2.core :refer [html]]
    [aps.parts.handlers.waitlist :refer [signups-count]]
    [aps.parts.views.layouts :as layouts]
    [aps.parts.views.partials :as partials]
+   [hiccup2.core :refer [html]]
    [ring.util.response :as response]))
 
 (defn system-graph
@@ -13,7 +13,7 @@
     (response/response
      (html
       (layouts/fullscreen
-       {:title "System"
+       {:title  "System"
         :styles ["/css/flow.css" "/css/style.css"]}
        [:div#root {:data-demo-mode demo-mode}])))))
 
@@ -29,7 +29,7 @@
     (response/response
      (html
       (layouts/main
-       {:title "Mapping tools for IFS practitioners and their clients"
+       {:title  "Mapping tools for IFS practitioners and their clients"
         :styles ["/css/flow.css" "/css/style.css"]}
        [:section
         [:div
@@ -58,7 +58,7 @@
            [:span " practitioners."]]]
          [:div#root
           {:data-demo-mode "minimal"
-           :class ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
+           :class          ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
        [:section#signup.py-20.text-white
         {:style {:background-color "#4eb48a"}}
         [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8

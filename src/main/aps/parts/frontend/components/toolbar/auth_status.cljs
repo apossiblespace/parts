@@ -1,19 +1,19 @@
 (ns aps.parts.frontend.components.toolbar.auth-status
   (:require
    [aps.parts.frontend.components.login-modal :refer [login-modal]]
+   [re-frame.core :as rf]
    [uix.core :refer [$ defui use-state]]
-   [uix.re-frame :as uix.rf]
-   [re-frame.core :as rf]))
+   [uix.re-frame :as uix.rf]))
 
 (defui auth-status
   "Renders a logged/in out status, and a button to login and log out"
   []
   (let [[show-login-modal set-show-login-modal] (use-state false)
-        user (uix.rf/use-subscribe [:auth/user])
-        loading (uix.rf/use-subscribe [:auth/loading])]
+        user                                    (uix.rf/use-subscribe [:auth/user])
+        loading                                 (uix.rf/use-subscribe [:auth/loading])]
     ($ :section {:class "tools p-2 auth-status border-b-1 border-base-300"}
        ($ login-modal
-          {:show show-login-modal
+          {:show     show-login-modal
            :on-close #(set-show-login-modal false)})
        (when loading
          ($ :span {:class "loading loading-spinner loading-sm"}))

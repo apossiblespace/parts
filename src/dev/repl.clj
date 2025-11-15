@@ -1,13 +1,13 @@
 (ns repl
   (:require
-   [kaocha.repl :as k]
-   [kaocha.watch :as watch]
-   [migratus.core :as migratus]
-   [portal.api :as portal]
-   [mulog-events]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.server :as server]
+   [kaocha.repl :as k]
+   [kaocha.watch :as watch]
+   [migratus.core :as migratus]
+   [mulog-events]
+   [portal.api :as portal]
    [shadow.cljs.devtools.api :as shadow]
    [shadow.cljs.devtools.server :as shadow-server]))
 
@@ -37,10 +37,10 @@
 (defn- start-postcss-watch
   "Start PostCSS watch process"
   []
-  (let [pb (ProcessBuilder. ["pnpm" "exec" "postcss" "resources/styles/*.css" "-o" "resources/public/css/style.css" "--watch"])
-        _ (.redirectErrorStream pb true)
+  (let [pb      (ProcessBuilder. ["pnpm" "exec" "postcss" "resources/styles/*.css" "-o" "resources/public/css/style.css" "--watch"])
+        _       (.redirectErrorStream pb true)
         process (.start pb)
-        reader (java.io.BufferedReader. (java.io.InputStreamReader. (.getInputStream process)))]
+        reader  (java.io.BufferedReader. (java.io.InputStreamReader. (.getInputStream process)))]
     (reset! postcss-process-ref process)
     (println "PostCSS watch started")
     ;; Stream output to REPL in background thread
@@ -87,7 +87,7 @@
   ([]
    (db-migrate :development))
   ([env]
-   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
+   (let [db-spec          {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
          migration-config (assoc db/migration-config :db db-spec)]
      (migratus/migrate migration-config))))
 
@@ -96,7 +96,7 @@
   ([]
    (db-rollback :environment))
   ([env]
-   (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
+   (let [db-spec          {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
          migration-config (assoc db/migration-config :db db-spec)]
      (migratus/rollback migration-config))))
 

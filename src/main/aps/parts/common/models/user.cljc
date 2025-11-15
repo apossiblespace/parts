@@ -1,7 +1,7 @@
 (ns aps.parts.common.models.user
   (:require
-   [clojure.spec.alpha :as s]
-   [aps.parts.common.utils :refer [validate-spec]]))
+   [aps.parts.common.utils :refer [validate-spec]]
+   [clojure.spec.alpha :as s]))
 
 (s/def ::id string?)
 (s/def ::email (s/and string? #(re-matches #"^.+@.+\..+$" %)))

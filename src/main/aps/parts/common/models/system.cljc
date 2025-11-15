@@ -1,7 +1,7 @@
 (ns aps.parts.common.models.system
   (:require
-   [clojure.spec.alpha :as s]
-   [aps.parts.common.utils :refer [validate-spec]]))
+   [aps.parts.common.utils :refer [validate-spec]]
+   [clojure.spec.alpha :as s]))
 
 (s/def ::id string?)
 (s/def ::title string?)
@@ -22,7 +22,7 @@
   [attrs]
   (println "[make-system]" attrs)
   (let [system (merge
-                {:id (str (random-uuid))
+                {:id    (str (random-uuid))
                  :title "Untitled System"}
                 attrs)]
     (validate-spec ::system system)

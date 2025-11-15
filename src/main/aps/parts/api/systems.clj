@@ -1,10 +1,10 @@
 (ns aps.parts.api.systems
   (:require
-   [com.brunobonacci.mulog :as mulog]
-   [next.jdbc :as jdbc]
+   [aps.parts.api.systems-events :as events]
    [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
-   [aps.parts.api.systems-events :as events]
+   [com.brunobonacci.mulog :as mulog]
+   [next.jdbc :as jdbc]
    [ring.util.response :as response]))
 
 (defn list-systems
@@ -18,18 +18,18 @@
 (defn create-system
   "Create a new system"
   [{:keys [identity body-params] :as _request}]
-  (let [user-id (:sub identity)
+  (let [user-id     (:sub identity)
         system-data (assoc body-params :owner_id user-id)
-        created (system/create! system-data)]
+        created     (system/create! system-data)]
     (-> (response/response created)
         (response/status 201))))
 
 (defn get-system
   "Get a system by ID"
   [{:keys [identity parameters] :as _request}]
-  (let [user-id (:sub identity)
+  (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
-        system (system/fetch system-id)]
+        system    (system/fetch system-id)]
     (if (= user-id (:owner_id system))
       (-> (response/response system)
           (response/status 200))
@@ -39,9 +39,9 @@
 (defn update-system
   "Update an existing system"
   [{:keys [identity parameters body-params] :as _request}]
-  (let [user-id (:sub identity)
+  (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
-        existing (system/fetch system-id)]
+        existing  (system/fetch system-id)]
     (if (= user-id (:owner_id existing))
       (let [updated (system/update! system-id
                                     (assoc body-params :owner_id (:owner_id existing)))]
@@ -53,9 +53,9 @@
 (defn delete-system
   "Delete a system"
   [{:keys [identity parameters] :as _request}]
-  (let [user-id (:sub identity)
+  (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
-        existing (system/fetch system-id)]
+        existing  (system/fetch system-id)]
     (if (= user-id (:owner_id existing))
       (do
         (system/delete! system-id)
@@ -88,7 +88,7 @@
   - 400 Bad Request for invalid input
   "
   [{:keys [identity parameters body-params] :as _request}]
-  (let [user-id (:sub identity)
+  (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])]
     (try
       (let [system (system/fetch system-id)]
@@ -109,7 +109,7 @@
                     (response/status 200))
                 (-> (response/response {:success false
                                         :results results
-                                        :error "Some changes failed"})
+                                        :error   "Some changes failed"})
                     (response/status 207))))
 
             (catch Exception e
@@ -117,7 +117,7 @@
                          :user-id user-id
                          :system-id system-id
                          :error (.getMessage e))
-              (-> (response/response {:error "Failed to process changes"
+              (-> (response/response {:error   "Failed to process changes"
                                       :details (.getMessage e)})
                   (response/status 500))))
 

@@ -1,7 +1,7 @@
 (ns aps.parts.middleware-test
   (:require
-   [clojure.test :refer [deftest is testing]]
    [aps.parts.middleware :as middleware]
+   [clojure.test :refer [deftest is testing]]
    [reitit.ring :as ring]
    [ring.mock.request :as mock])
   (:import
@@ -15,63 +15,63 @@
 
 (deftest exception-middleware-test
   (testing "passes through successful responses"
-    (let [app (create-app (fn [_] {:status 200 :body "OK"}))
-          request (mock/request :get "/test")
+    (let [app      (create-app (fn [_] {:status 200 :body "OK"}))
+          request  (mock/request :get "/test")
           response (app request)]
       (is (= 200 (:status response)))
       (is (= "OK" (:body response)))))
 
   (testing "handles validation errors"
-    (let [app (create-app (fn [_] (throw (ex-info "Validation failed" {:type :validation}))))
-          request (mock/request :get "/test")
+    (let [app      (create-app (fn [_] (throw (ex-info "Validation failed" {:type :validation}))))
+          request  (mock/request :get "/test")
           response (app request)]
       (is (= 400 (:status response)))
       (is (= {:error "Validation failed"} (:body response)))))
 
   (testing "handles not found errors"
-    (let [app (create-app (fn [_] (throw (ex-info "User not found" {:type :not-found}))))
-          request (mock/request :get "/test")
+    (let [app      (create-app (fn [_] (throw (ex-info "User not found" {:type :not-found}))))
+          request  (mock/request :get "/test")
           response (app request)]
       (is (= 404 (:status response)))
       (is (= {:error "User not found"} (:body response)))))
 
   (doseq [[sqlite-error expected-message] middleware/sqlite-errors]
     (testing (str "handles SQLite constraint violation:" sqlite-error)
-      (let [app (create-app (fn [_] (throw (SQLiteException. sqlite-error SQLiteErrorCode/SQLITE_CONSTRAINT))))
-            request (mock/request :get "/test")
+      (let [app      (create-app (fn [_] (throw (SQLiteException. sqlite-error SQLiteErrorCode/SQLITE_CONSTRAINT))))
+            request  (mock/request :get "/test")
             response (app request)]
         (is (= 409 (:status response)))
         (is (= {:error expected-message} (:body response)))))))
 
 (deftest test-jwt-auth-middleware
   (testing "jwt-auth middleware allows authenticated requests"
-    (let [handler (middleware/jwt-auth (fn [_] {:status 200 :body "Success"}))
-          request {:identity {:user-id 1}}
+    (let [handler  (middleware/jwt-auth (fn [_] {:status 200 :body "Success"}))
+          request  {:identity {:user-id 1}}
           response (handler request)]
       (is (= 200 (:status response)))
       (is (= "Success" (:body response)))))
 
   (testing "jwt-auth middleware blocks unauthenticated requests"
-    (let [handler (middleware/jwt-auth (fn [_] {:status 200 :body "Success"}))
-          request {}
+    (let [handler  (middleware/jwt-auth (fn [_] {:status 200 :body "Success"}))
+          request  {}
           response (handler request)]
       (is (= 401 (:status response)))
       (is (= {:error "Unauthorized"} (:body response))))))
 
 (deftest test-wrap-html-response
   (testing "sets content-type to HTML and converts body to string"
-    (let [handler (fn [_] {:status 200 :body [:div "Hello, World!"]})
+    (let [handler         (fn [_] {:status 200 :body [:div "Hello, World!"]})
           wrapped-handler (middleware/wrap-html-response handler)
-          request {}
-          response (wrapped-handler request)]
+          request         {}
+          response        (wrapped-handler request)]
       (is (= 200 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (= "[:div \"Hello, World!\"]" (:body response)))))
   (testing "a response that has a content-type set is left as-is"
-    (let [handler (fn [_] {:status 200 :body [:div "Hello, JSON!"] :headers {"Content-Type" "application/json"}})
+    (let [handler         (fn [_] {:status 200 :body [:div "Hello, JSON!"] :headers {"Content-Type" "application/json"}})
           wrapped-handler (middleware/wrap-html-response handler)
-          request {}
-          response (wrapped-handler request)]
+          request         {}
+          response        (wrapped-handler request)]
       (is (= 200 (:status response)))
       (is (= "application/json" (get-in response [:headers "Content-Type"])))
       (is (= [:div "Hello, JSON!"] (:body response))))))

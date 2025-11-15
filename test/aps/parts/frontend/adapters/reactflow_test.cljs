@@ -1,17 +1,17 @@
 (ns aps.parts.frontend.adapters.reactflow-test
   (:require
-   [cljs.test :refer-macros [deftest is testing]]
-   [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.common.models.part :as part]
-   [aps.parts.common.models.relationship :as relationship]))
+   [aps.parts.common.models.relationship :as relationship]
+   [aps.parts.frontend.adapters.reactflow :as adapter]
+   [cljs.test :refer-macros [deftest is testing]]))
 
 (deftest part->node-test
   (testing "Converts part to node with correct structure"
-    (let [part {:id "part-123"
-                :type "manager"
-                :label "Test Manager"
-                :position_x 100
-                :position_y 200}
+    (let [part   {:id         "part-123"
+                  :type       "manager"
+                  :label      "Test Manager"
+                  :position_x 100
+                  :position_y 200}
           result (js->clj (adapter/part->node part) :keywordize-keys true)]
 
       (is (= "part-123" (:id result)))
@@ -22,8 +22,8 @@
 
 (deftest parts->nodes-test
   (testing "Converts collection of parts to array of nodes"
-    (let [parts [{:id "part-1" :type "manager" :label "Manager" :position_x 100 :position_y 100}
-                 {:id "part-2" :type "exile" :label "Exile" :position_x 200 :position_y 200}]
+    (let [parts  [{:id "part-1" :type "manager" :label "Manager" :position_x 100 :position_y 100}
+                  {:id "part-2" :type "exile" :label "Exile" :position_x 200 :position_y 200}]
           result (adapter/parts->nodes parts)]
 
       (is (array? result))
@@ -35,11 +35,11 @@
 
 (deftest node->part-test
   (testing "Converts node to part with correct structure"
-    (let [node #js {:id "node-123"
-                    :position #js {:x 150 :y 250}
-                    :data #js {:label "Test Node" :type "firefighter"}}
+    (let [node      #js {:id       "node-123"
+                         :position #js {:x 150 :y 250}
+                         :data     #js {:label "Test Node" :type "firefighter"}}
           system-id "system-456"
-          result (adapter/node->part node system-id)]
+          result    (adapter/node->part node system-id)]
 
       (is (= "node-123" (:id result)))
       (is (= system-id (:system_id result)))
@@ -50,10 +50,10 @@
 
 (deftest relationship->edge-test
   (testing "Converts relationship to edge with correct structure"
-    (let [rel {:id "rel-123"
-               :source_id "source-123"
-               :target_id "target-456"
-               :type "protective"}
+    (let [rel    {:id        "rel-123"
+                  :source_id "source-123"
+                  :target_id "target-456"
+                  :type      "protective"}
           result (js->clj (adapter/relationship->edge rel) :keywordize-keys true)]
 
       (is (= "rel-123" (:id result)))
@@ -64,8 +64,8 @@
 
 (deftest relationships->edges-test
   (testing "Converts collection of relationships to array of edges"
-    (let [rels [{:id "rel-1" :source_id "s1" :target_id "t1" :type "protective"}
-                {:id "rel-2" :source_id "s2" :target_id "t2" :type "polarization"}]
+    (let [rels   [{:id "rel-1" :source_id "s1" :target_id "t1" :type "protective"}
+                  {:id "rel-2" :source_id "s2" :target_id "t2" :type "polarization"}]
           result (adapter/relationships->edges rels)]
 
       (is (array? result))
@@ -79,12 +79,12 @@
 
 (deftest edge->relationship-test
   (testing "Converts edge to relationship with correct structure"
-    (let [edge #js {:id "edge-123"
-                    :source "source-123"
-                    :target "target-456"
-                    :data #js {:relationship "alliance"}}
+    (let [edge      #js {:id     "edge-123"
+                         :source "source-123"
+                         :target "target-456"
+                         :data   #js {:relationship "alliance"}}
           system-id "system-789"
-          result (adapter/edge->relationship edge system-id)]
+          result    (adapter/edge->relationship edge system-id)]
 
       (is (= "edge-123" (:id result)))
       (is (= system-id (:system_id result)))
@@ -94,24 +94,24 @@
 
 (deftest bidirectional-conversion-test
   (testing "Part -> Node -> Part conversion preserves data"
-    (let [original-part (part/make-part {:id "test-id"
-                                         :system_id "system-id"
-                                         :type "manager"
-                                         :label "Test Manager"
+    (let [original-part (part/make-part {:id         "test-id"
+                                         :system_id  "system-id"
+                                         :type       "manager"
+                                         :label      "Test Manager"
                                          :position_x 100
                                          :position_y 200})
-          node (adapter/part->node original-part)
-          result (adapter/node->part node "system-id")]
+          node          (adapter/part->node original-part)
+          result        (adapter/node->part node "system-id")]
 
       (is (= original-part result))))
 
   (testing "Relationship -> Edge -> Relationship conversion preserves data"
-    (let [original-rel (relationship/make-relationship {:id "test-id"
+    (let [original-rel (relationship/make-relationship {:id        "test-id"
                                                         :system_id "system-id"
-                                                        :type "protective"
+                                                        :type      "protective"
                                                         :source_id "source-id"
                                                         :target_id "target-id"})
-          edge (adapter/relationship->edge original-rel)
-          result (adapter/edge->relationship edge "system-id")]
+          edge         (adapter/relationship->edge original-rel)
+          result       (adapter/edge->relationship edge "system-id")]
 
       (is (= original-rel result)))))

@@ -9,9 +9,9 @@
     (let [system-id "test-system-id"
           source-id "source-123"
           target-id "target-456"
-          result (relationship/make-relationship {:system_id system-id
-                                                  :source_id source-id
-                                                  :target_id target-id})]
+          result    (relationship/make-relationship {:system_id system-id
+                                                     :source_id source-id
+                                                     :target_id target-id})]
       (is (string? (:id result)))
       (is (= system-id (:system_id result)))
       (is (= "unknown" (:type result)))
@@ -20,12 +20,12 @@
       (is (nil? (:notes result)))))
 
   (testing "Creates a relationship with provided attributes"
-    (let [attrs {:id "custom-id"
-                 :system_id "system-123"
-                 :type "protective"
-                 :source_id "source-123"
-                 :target_id "target-456"
-                 :notes "Test notes"}
+    (let [attrs  {:id        "custom-id"
+                  :system_id "system-123"
+                  :type      "protective"
+                  :source_id "source-123"
+                  :target_id "target-456"
+                  :notes     "Test notes"}
           result (relationship/make-relationship attrs)]
       (is (= attrs result))))
 
@@ -36,7 +36,7 @@
          (relationship/make-relationship {:system_id "test"
                                           :source_id "source"
                                           :target_id "target"
-                                          :type "invalid-type"}))))
+                                          :type      "invalid-type"}))))
 
   (testing "Throws exception for missing required attributes"
     (is (thrown-with-msg?

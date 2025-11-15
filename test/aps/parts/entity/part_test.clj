@@ -1,18 +1,18 @@
 (ns aps.parts.entity.part-test
   (:require
-   [clojure.test :refer [deftest is testing use-fixtures]]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.system :as system]
-   [aps.parts.helpers.utils :refer [with-test-db register-test-user]]))
+   [aps.parts.helpers.utils :refer [with-test-db register-test-user]]
+   [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
 (deftest test-part-crud
-  (let [user (register-test-user)
-        system (system/create! {:title "Test System" :owner_id (:id user)})
-        part-data {:system_id (:id system)
-                   :type "manager"
-                   :label "Test Part"
+  (let [user      (register-test-user)
+        system    (system/create! {:title "Test System" :owner_id (:id user)})
+        part-data {:system_id  (:id system)
+                   :type       "manager"
+                   :label      "Test Part"
                    :position_x 100
                    :position_y 100}]
 
@@ -43,7 +43,7 @@
 
     (testing "delete!"
       (let [created (part/create! part-data)
-            result (part/delete! (:id created))]
+            result  (part/delete! (:id created))]
         (is (:deleted result))
         (is (= (:id created) (:id result)))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Part not found"
@@ -55,23 +55,23 @@
                           (part/create! {}))))
 
   (testing "create fails with invalid type"
-    (let [user (register-test-user)
-          system (system/create! {:title "Test System" :owner_id (:id user)})
-          part-data {:system_id (:id system)
-                     :type "invalid-type"
-                     :label "Test Part"
+    (let [user      (register-test-user)
+          system    (system/create! {:title "Test System" :owner_id (:id user)})
+          part-data {:system_id  (:id system)
+                     :type       "invalid-type"
+                     :label      "Test Part"
                      :position_x 100
                      :position_y 100}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (part/create! part-data)))))
 
   (testing "update fails with invalid data"
-    (let [user (register-test-user)
+    (let [user   (register-test-user)
           system (system/create! {:title "Test System" :owner_id (:id user)})
-          part (part/create! {:system_id (:id system)
-                              :type "manager"
-                              :label "Test Part"
-                              :position_x 100
-                              :position_y 100})]
+          part   (part/create! {:system_id  (:id system)
+                                :type       "manager"
+                                :label      "Test Part"
+                                :position_x 100
+                                :position_y 100})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (part/update! (:id part) {:type "invalid-type"}))))))

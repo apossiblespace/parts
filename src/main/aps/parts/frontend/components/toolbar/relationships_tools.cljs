@@ -1,16 +1,16 @@
 (ns aps.parts.frontend.components.toolbar.relationships-tools
   (:require
-   [aps.parts.frontend.components.toolbar.relationship-form :refer [relationship-form]]
    [aps.parts.frontend.components.toolbar.header :refer [header]]
+   [aps.parts.frontend.components.toolbar.relationship-form :refer [relationship-form]]
+   [re-frame.core :as rf]
    [uix.core :refer [$ defui]]
-   [uix.re-frame :as uix.rf]
-   [re-frame.core :as rf]))
+   [uix.re-frame :as uix.rf]))
 
 (defui relationships-tools
   "Renders a tool palette that displays the selected relationships for editing"
   []
   (let [selected-relationships (uix.rf/use-subscribe [:system/selected-relationships])
-        relationship-count (count selected-relationships)
+        relationship-count     (count selected-relationships)
         multiple-relationships (> relationship-count 1)]
     (when (seq selected-relationships)
       ($ :div {:class "tools relationships-tools"}
@@ -18,9 +18,9 @@
          ($ :section {:class "selected-relationships"}
             (map
              (fn [relationship]
-               ($ relationship-form {:key (str (:id relationship) relationship-count)
+               ($ relationship-form {:key          (str (:id relationship) relationship-count)
                                      :relationship relationship
-                                     :collapsed multiple-relationships
-                                     :on-save (fn [id updated-attrs]
-                                                (rf/dispatch [:system/relationship-update id updated-attrs]))}))
+                                     :collapsed    multiple-relationships
+                                     :on-save      (fn [id updated-attrs]
+                                                     (rf/dispatch [:system/relationship-update id updated-attrs]))}))
              selected-relationships))))))

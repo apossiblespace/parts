@@ -15,20 +15,20 @@
 
 (def initial-db
   {:demo-mode false
-   :system {}
-   :systems {:list []
-             :loading false}})
+   :system    {}
+   :systems   {:list    []
+               :loading false}})
 
 (defui app []
   (let [[show-system-list set-show-system-list] (use-state false)
-        current-system-id (uix.rf/use-subscribe [:system/id])
-        demo (uix.rf/use-subscribe [:demo])]
+        current-system-id                       (uix.rf/use-subscribe [:system/id])
+        demo                                    (uix.rf/use-subscribe [:demo])]
 
     ($ :<>
        (when-not demo
          (when-not current-system-id
            ($ system-list-modal
-              {:show show-system-list
+              {:show     show-system-list
                :on-close #(set-show-system-list false)})))
        ($ system))))
 
@@ -45,8 +45,8 @@
 (defn setup-app
   "Setup the app with the root element, create root, init state and render"
   [root-el]
-  (let [root (uix.dom/create-root root-el)
-        demo-mode (get-demo-settings root-el)
+  (let [root                 (uix.dom/create-root root-el)
+        demo-mode            (get-demo-settings root-el)
         initial-db-with-demo (assoc initial-db :demo-mode demo-mode)]
     ;; Initialize storage backend based on demo mode
     (if demo-mode
@@ -55,7 +55,7 @@
     (rf/dispatch-sync [:app/init-db initial-db-with-demo])
     (rf/dispatch [:app/init-system])
     (uix.dom/render-root ($ app) root)
-    {:root root
+    {:root      root
      :demo-mode demo-mode}))
 
 (defonce app-state (atom nil))

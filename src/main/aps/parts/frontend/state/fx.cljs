@@ -1,12 +1,12 @@
 (ns aps.parts.frontend.state.fx
   (:require
-   [cljs.core.async :refer [<! go]]
    [aps.parts.frontend.api.core :as api]
    [aps.parts.frontend.api.queue :as queue]
-   [aps.parts.frontend.storage.registry :as storage-registry]
+   [aps.parts.frontend.api.utils :as utils]
    [aps.parts.frontend.storage.protocol :refer [list-systems load-system create-system update-system]]
-   [re-frame.core :as rf]
-   [aps.parts.frontend.api.utils :as utils]))
+   [aps.parts.frontend.storage.registry :as storage-registry]
+   [cljs.core.async :refer [<! go]]
+   [re-frame.core :as rf]))
 
 (rf/reg-fx
  :queue/add-event

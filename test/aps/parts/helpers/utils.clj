@@ -1,19 +1,19 @@
 (ns aps.parts.helpers.utils
   (:require
-   [clojure.tools.logging :as log]
-   [migratus.core :as migratus]
-   [next.jdbc :as jdbc]
    [aps.parts.config :as conf]
    [aps.parts.entity.user :as user]
-   [aps.parts.helpers.test-factory :as factory]))
+   [aps.parts.helpers.test-factory :as factory]
+   [clojure.tools.logging :as log]
+   [migratus.core :as migratus]
+   [next.jdbc :as jdbc]))
 
 (defn setup-test-db
   []
-  (let [db-spec {:dbtype "sqlite" :dbname (conf/database-file (conf/config))}
-        ds (jdbc/get-datasource db-spec)
-        migration-config {:store :database
+  (let [db-spec          {:dbtype "sqlite" :dbname (conf/database-file (conf/config))}
+        ds               (jdbc/get-datasource db-spec)
+        migration-config {:store         :database
                           :migration-dir "migrations/"
-                          :db db-spec}]
+                          :db            db-spec}]
 
     (migratus/init migration-config)
     (migratus/migrate migration-config)

@@ -1,18 +1,18 @@
 (ns aps.parts.frontend.observe)
 
 (def ^:private log-levels
-  {:debug 0
-   :info 1
-   :warn 2
-   :error 3
+  {:debug  0
+   :info   1
+   :warn   2
+   :error  3
    :silent 4})
 
 (defn- get-initial-log-level
   "Determine initial log level from data attribute or build environment"
   []
-  (let [root-el (when (exists? js/document)
-                  (js/document.getElementById "root"))
-        data-level (when root-el (.getAttribute root-el "data-log-level"))
+  (let [root-el        (when (exists? js/document)
+                         (js/document.getElementById "root"))
+        data-level     (when root-el (.getAttribute root-el "data-log-level"))
         explicit-level (when data-level (keyword data-level))]
     (cond
       (and explicit-level (contains? log-levels explicit-level)) explicit-level
@@ -39,14 +39,14 @@
 
 (def ^:private level-colors
   {:debug "color: #6b7280; font-weight: normal;"  ; gray
-   :info "color: #2563eb; font-weight: bold;"     ; blue  
-   :warn "color: #d97706; font-weight: bold;"     ; orange
+   :info  "color: #2563eb; font-weight: bold;"     ; blue  
+   :warn  "color: #d97706; font-weight: bold;"     ; orange
    :error "color: #dc2626; font-weight: bold;"})  ; red
 
 (defn- format-message
   [namespace level & args]
   (let [level-style (level-colors level)
-        prefix (str "%c[" (name level) "]%c [" namespace "]")]
+        prefix      (str "%c[" (name level) "]%c [" namespace "]")]
     (concat [prefix level-style ""] args)))
 
 (defn debug

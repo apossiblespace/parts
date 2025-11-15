@@ -17,8 +17,8 @@
   (if-let [part (db/query-one
                  (db/sql-format
                   {:select [:*]
-                   :from [:parts]
-                   :where [:= :id id]}))]
+                   :from   [:parts]
+                   :where  [:= :id id]}))]
     part
     (throw (ex-info "Part not found" {:type :not-found :id id}))))
 
@@ -36,5 +36,5 @@
   true if the part was found and deleted."
   [id]
   (let [result (db/delete! :parts [:= :id id])
-        count (or (:next.jdbc/update-count (first result)) 0)]
+        count  (or (:next.jdbc/update-count (first result)) 0)]
     {:id id :deleted (pos? count)}))

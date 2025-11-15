@@ -1,8 +1,8 @@
 (ns aps.parts.common.models.relationship
   (:require
-   [clojure.spec.alpha :as s]
    [aps.parts.common.constants :refer [relationship-types]]
-   [aps.parts.common.utils :refer [validate-spec]]))
+   [aps.parts.common.utils :refer [validate-spec]]
+   [clojure.spec.alpha :as s]))
 
 (s/def ::id string?)
 (s/def ::system_id string?)
@@ -28,8 +28,8 @@
   [attrs]
   (println "[make-relationship]" attrs)
   (let [relationship (merge
-                      {:id (str (random-uuid))
-                       :type "unknown"
+                      {:id    (str (random-uuid))
+                       :type  "unknown"
                        :notes nil}
                       attrs)]
     (validate-spec ::relationship relationship)

@@ -8,8 +8,8 @@
 
 (defui system-list-modal [{:keys [show on-close]}]
   (o/debug "system-list-modal" "Loading system list modal")
-  (let [systems (uix.rf/use-subscribe [:systems/list])
-        loading (uix.rf/use-subscribe [:systems/loading])
+  (let [systems       (uix.rf/use-subscribe [:systems/list])
+        loading       (uix.rf/use-subscribe [:systems/loading])
 
         handle-create (fn []
                         (rf/dispatch [:system/create])
@@ -19,9 +19,9 @@
                         (rf/dispatch [:system/load (:id system)])
                         (on-close))]
     ($ modal
-       {:show show
+       {:show     show
         :on-close on-close
-        :title "Your systems"}
+        :title    "Your systems"}
 
        ($ :div {:class "systems-list"}
           (if loading
@@ -36,6 +36,6 @@
 
           ($ :div {:class "modal-action"}
              ($ :button
-                {:class "btn btn-primary"
+                {:class    "btn btn-primary"
                  :on-click handle-create}
                 "Create a new System"))))))

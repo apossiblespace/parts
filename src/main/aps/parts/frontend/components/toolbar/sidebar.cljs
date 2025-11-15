@@ -11,15 +11,15 @@
 (defui sidebar
   "Display the main sidebar"
   []
-  (let [demo (uix.rf/use-subscribe [:demo])
-        minimal (uix.rf/use-subscribe [:minimal-demo])
+  (let [demo                                          (uix.rf/use-subscribe [:demo])
+        minimal                                       (uix.rf/use-subscribe [:minimal-demo])
         [show-waitlist-modal set-show-waitlist-modal] (use-state false)]
     ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-white shadow-sm"}
        (if demo
          (when-not minimal
            ($ :div {:class "p-2"}
               ($ :button
-                 {:class "btn btn-sm btn-primary w-full"
+                 {:class    "btn btn-sm btn-primary w-full"
                   :on-click #(do
                                (o/track "Signup Modal Open" {:source "playground"})
                                (set-show-waitlist-modal true))}
@@ -29,7 +29,7 @@
           ($ parts-tools)
           ($ relationships-tools))
        ($ waitlist-modal
-          {:show show-waitlist-modal
+          {:show     show-waitlist-modal
            :on-close #(do
                         (o/track "Signup Modal Close" {:source "playground"})
                         (set-show-waitlist-modal false))}))))

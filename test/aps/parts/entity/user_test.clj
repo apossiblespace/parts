@@ -1,18 +1,18 @@
 (ns aps.parts.entity.user-test
   (:require
-   [clojure.test :refer [deftest is testing use-fixtures]]
-   [aps.parts.db :as db]
    [aps.parts.auth :as auth]
-   [aps.parts.entity.user :as user]
+   [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
+   [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
-   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]))
+   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]
+   [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
 (deftest test-fetch
   (testing "returns a user entity when a valid ID is passed"
-    (let [db-user (register-test-user)
+    (let [db-user      (register-test-user)
           fetched-user (user/fetch (:id db-user))]
       (is (= (:id db-user) (:id fetched-user)))))
 
@@ -22,7 +22,7 @@
 
 (deftest test-update!
   (testing "saves the user entity to the database"
-    (let [db-user (register-test-user)
+    (let [db-user      (register-test-user)
           updated-user (user/update! (:id db-user) {:display_name "Bobby"})]
       (is (= (:display_name updated-user) "Bobby"))))
 
@@ -46,21 +46,21 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/update!
                              (:id db-user)
-                             {:password "password12345"
+                             {:password              "password12345"
                               :password_confirmation "wordpass54321"})))))
 
   (testing "throws when no ID is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Missing User ID"
                           (user/update!
                            nil
-                           {:password "password12345"
+                           {:password              "password12345"
                             :password_confirmation "password12345"})))))
 
 (deftest test-create!
   (testing "creates the user entity in the database"
-    (let [attrs (factory/build-test-user)
+    (let [attrs                                      (factory/build-test-user)
           {:keys [email username display_name role]} attrs
-          created-user (user/create! attrs)]
+          created-user                               (user/create! attrs)]
       (is (contains? created-user :id))
       (is (= email (:email created-user)))
       (is (= username (:username created-user)))
@@ -87,29 +87,29 @@
 (deftest test-delete!
   (testing "deletes the user entity from the database"
     (let [user (register-test-user)
-          id (:id user)]
+          id   (:id user)]
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
                             (user/fetch id)))))
 
   (testing "deletes the system entity owned by the user from the database"
-    (let [user (register-test-user)
-          id (:id user)
-          system-data {:title "System To Delete"
-                       :owner_id id}
+    (let [user           (register-test-user)
+          id             (:id user)
+          system-data    {:title    "System To Delete"
+                          :owner_id id}
           system-created (system/create! system-data)]
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"System not found"
                             (system/fetch (:id system-created))))))
 
   (testing "deletes the refresh token entity of the user from the database"
-    (let [user (register-test-user)
-          guid (:id user)
+    (let [user     (register-test-user)
+          guid     (:id user)
           password (apply str "password" (filter #(Character/isDigit %) (:username user)))]
       (auth/authenticate {:email (:email user) :password password})
       (user/delete! guid)
       (is (not (some? (db/query-one (db/sql-format
                                      {:select [:id]
-                                      :from [:refresh_tokens]
-                                      :where [:= :user_id guid]
-                                      :limit 1}))))))))
+                                      :from   [:refresh_tokens]
+                                      :where  [:= :user_id guid]
+                                      :limit  1}))))))))

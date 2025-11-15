@@ -5,16 +5,16 @@
 
 ;; TODO: This is WIP, we need to review all the props being passed here.
 (defui parts-edge [{:keys [id data source-x source-y target-x target-y source-position target-position]}]
-  (let [[edge-path] (getBezierPath #js {:sourceX source-x
-                                        :sourceY source-y
-                                        :targetX target-x
-                                        :targetY target-y
+  (let [[edge-path] (getBezierPath #js {:sourceX        source-x
+                                        :sourceY        source-y
+                                        :targetX        target-x
+                                        :targetY        target-y
                                         :sourcePosition source-position
                                         :targetPosition target-position})
-        class-name (str "edge edge-" (:relationship data))]
-    ($ BaseEdge {:path edge-path
+        class-name  (str "edge edge-" (:relationship data))]
+    ($ BaseEdge {:path      edge-path
                  :className class-name
-                 :id id})))
+                 :id        id})))
 
 ;; Props received by an Edge component:
 ;;
@@ -48,12 +48,12 @@
 (def PartsEdge
   (as-react
    (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition]}]
-     ($ parts-edge {:id id
-                    :data (js->clj data :keywordize-keys true)
-                    :source-x sourceX
-                    :source-y sourceY
-                    :target-x targetX
-                    :target-y targetY
+     ($ parts-edge {:id              id
+                    :data            (js->clj data :keywordize-keys true)
+                    :source-x        sourceX
+                    :source-y        sourceY
+                    :target-x        targetX
+                    :target-y        targetY
                     :source-position sourcePosition
                     :target-position targetPosition}))))
 

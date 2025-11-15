@@ -1,9 +1,9 @@
 (ns aps.parts.entity.user
   (:require
-   [com.brunobonacci.mulog :as mulog]
    [aps.parts.auth :as auth]
    [aps.parts.db :as db]
-   [aps.parts.entity.system :as system]))
+   [aps.parts.entity.system :as system]
+   [com.brunobonacci.mulog :as mulog]))
 
 (def allowed-update-fields #{:email :display_name :password})
 (def sensitive-fields #{:password_hash})
@@ -51,8 +51,8 @@
   (if-let [user (db/query-one
                  (db/sql-format
                   {:select [:id :email :username :display_name :role]
-                   :from [:users]
-                   :where [:= :id id]}))]
+                   :from   [:users]
+                   :where  [:= :id id]}))]
     (remove-sensitive-data user)
     (throw (ex-info "User not found" {:type :not-found :id id}))))
 
@@ -86,14 +86,14 @@
   (let [systems (db/query
                  (db/sql-format
                   {:select [:id]
-                   :from [:systems]
-                   :where [:= :owner_id id]}))]
+                   :from   [:systems]
+                   :where  [:= :owner_id id]}))]
     (doseq [system systems]
       (system/delete! (:id system)))
 
     (db/delete! :refresh_tokens [:= :user_id id])
 
-    (let [result (db/delete! :users [:= :id id])
+    (let [result  (db/delete! :users [:= :id id])
           deleted (pos? (or (:next.jdbc/update-count (first result)) 0))]
       (mulog/log ::delete-user-complete
                  :user-id id

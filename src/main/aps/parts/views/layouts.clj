@@ -1,11 +1,11 @@
 (ns aps.parts.views.layouts
   (:require
-   [hiccup2.core :refer [html]]
-   [aps.parts.views.partials :as partials]))
+   [aps.parts.views.partials :as partials]
+   [hiccup2.core :refer [html]]))
 
 (def default-options
-  {:header true
-   :footer true
+  {:header      true
+   :footer      true
    :description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ aps.parts."})
 
 (defn- base-layout

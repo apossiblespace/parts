@@ -1,10 +1,10 @@
 (ns aps.parts.middleware
   (:require
+   [aps.parts.auth :as auth]
    [buddy.auth :refer [authenticated?]]
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
-   [aps.parts.auth :as auth]
    [reitit.ring.middleware.exception :as exception]
    [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
    [ring.middleware.content-type :refer [wrap-content-type]]
@@ -24,14 +24,14 @@
   (fn [^Exception e _request]
     (let [error-message (.getMessage e)]
       {:status status
-       :body {:error (or error-message message)}})))
+       :body   {:error (or error-message message)}})))
 
 (def sqlite-errors
   "A map containing substrings of a SQLiteException error message, and the
   corresponding user friendly error message."
-  {"UNIQUE constraint failed" "A resource with this unique identifier already exists"
-   "CHECK constraint failed" "The provided data does not meet the required constraints"
-   "NOT NULL constraint failed" "A required field was missing"
+  {"UNIQUE constraint failed"      "A resource with this unique identifier already exists"
+   "CHECK constraint failed"       "The provided data does not meet the required constraints"
+   "NOT NULL constraint failed"    "A required field was missing"
    "FOREIGN KEY constraint failed" "The referenced resource does not exist"})
 
 (defn sqlite-constraint-violation-handler
@@ -43,10 +43,10 @@
   (let [error-message (.getMessage e)]
     (mulog/log ::sqlite-exception :error error-message)
     {:status 409
-     :body {:error (or (some
-                        (fn [[k, v]] (when (str/includes? error-message k) v))
-                        sqlite-errors)
-                       "A database constraint was violated")}}))
+     :body   {:error (or (some
+                          (fn [[k, v]] (when (str/includes? error-message k) v))
+                          sqlite-errors)
+                         "A database constraint was violated")}}))
 
 (def exception
   "Middleware handling exceptions. Combines the default exception handlers from
@@ -56,19 +56,19 @@
    (merge
     exception/default-handlers
     {;; ex-info with :type :validation
-     :validation (exception-handler "Invalid data" 400)
+     :validation                                                (exception-handler "Invalid data" 400)
 
-     :not-found (exception-handler "Resource not found" 404)
+     :not-found                                                 (exception-handler "Resource not found" 404)
 
      ;; SQLite exceptions
-     SQLiteException sqlite-constraint-violation-handler
+     SQLiteException                                            sqlite-constraint-violation-handler
 
      ;; Default
      ::exception/default
      (fn [^Exception e _request]
        (mulog/log ::unhandled-exception :error (.getMessage e))
        {:status 500
-        :body {:error "Internal server error"}})})))
+        :body   {:error "Internal server error"}})})))
 
 (defn logging
   "Middleware logging each incoming request with minimal information.
@@ -79,12 +79,12 @@
   the `:parsed-params` key."
   [handler]
   (fn [request]
-    (let [user-id (get-in request [:identity :sub])
-          request-info {:uri (:uri request)
-                        :request-method (:request-method request)
-                        :query-params (:query-params request)
-                        :remote-addr (:remote-addr request)
-                        :user-agent (get-in request [:headers "user-agent"])}
+    (let [user-id        (get-in request [:identity :sub])
+          request-info   {:uri            (:uri request)
+                          :request-method (:request-method request)
+                          :query-params   (:query-params request)
+                          :remote-addr    (:remote-addr request)
+                          :user-agent     (get-in request [:headers "user-agent"])}
           authenticated? (boolean user-id)]
       (mulog/log ::request :info request-info :authenticated? authenticated? :user-id user-id)
       (handler request))))

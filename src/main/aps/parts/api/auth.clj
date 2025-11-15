@@ -1,7 +1,7 @@
 (ns aps.parts.api.auth
   (:require
-   [com.brunobonacci.mulog :as mulog]
    [aps.parts.auth :as auth]
+   [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
 
 (defn login

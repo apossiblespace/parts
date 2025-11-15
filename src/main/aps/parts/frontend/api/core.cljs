@@ -1,10 +1,10 @@
 (ns aps.parts.frontend.api.core
   "High level API functions that should be used to interact with the backend."
   (:require
-   [cljs.core.async :refer [<! go]]
    [aps.parts.frontend.api.http :as http]
    [aps.parts.frontend.api.utils :as utils]
-   [aps.parts.frontend.observe :as o]))
+   [aps.parts.frontend.observe :as o]
+   [cljs.core.async :refer [<! go]]))
 
 ;; Authentication-related functions
 (defn login

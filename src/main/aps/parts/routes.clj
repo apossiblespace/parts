@@ -1,18 +1,18 @@
 (ns aps.parts.routes
   "Route definitions and middleware configuration"
   (:require
-   [muuntaja.core :as muuntaja]
-   [reitit.coercion.spec :as rcs]
-   [reitit.ring.coercion :as rrc]
-   [reitit.ring.middleware.muuntaja :as muuntaja-middleware]
-
-   [aps.parts.middleware :as middleware]
    [aps.parts.api.account :as api.account]
    [aps.parts.api.auth :as api.auth]
    [aps.parts.api.systems :as api.systems]
-
    [aps.parts.handlers.pages :as pages]
-   [aps.parts.handlers.waitlist :as waitlist]))
+
+   [aps.parts.handlers.waitlist :as waitlist]
+   [aps.parts.middleware :as middleware]
+   [muuntaja.core :as muuntaja]
+   [reitit.coercion.spec :as rcs]
+
+   [reitit.ring.coercion :as rrc]
+   [reitit.ring.middleware.muuntaja :as muuntaja-middleware]))
 
 ;; NOTE: What is coercion and how does it work?
 ;;
@@ -86,18 +86,18 @@
    ;; A form is present on the homepage, so we apply CSRF protection
    ["/" {:middleware [middleware/wrap-html-defaults
                       middleware/wrap-html-response]
-         :get {:handler pages/home-page}}]
+         :get        {:handler pages/home-page}}]
 
    ["/playground" {:middleware [middleware/wrap-html-defaults
                                 middleware/wrap-html-response]
-                   :get {:handler pages/playground}}]
+                   :get        {:handler pages/playground}}]
 
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 
    ;; Form submission endpoint with CSRF protection
    ["/waitlist-signup" {:middleware [middleware/wrap-html-defaults
                                      middleware/wrap-html-response]
-                        :post {:handler waitlist/signup}}]
+                        :post       {:handler waitlist/signup}}]
 
    ;; API Routes
    ;;
@@ -116,8 +116,8 @@
                          rrc/coerce-response-middleware
                          middleware/wrap-jwt-authentication
                          muuntaja-middleware/format-middleware]
-            :muuntaja transit-format
-            :coercion rcs/coercion}
+            :muuntaja   transit-format
+            :coercion   rcs/coercion}
 
     ["/ping" {:get {:handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
 
@@ -125,24 +125,24 @@
      ["/login" {:post {:handler api.auth/login}}]
      ["/refresh" {:post {:handler api.auth/refresh}}]
      ["/logout" {:post {:middleware [middleware/jwt-auth]
-                        :handler api.auth/logout}}]]
+                        :handler    api.auth/logout}}]]
 
     ["/account"
      ["/register" {:post {:handler api.account/register-account}}]
      ["" {:middleware [middleware/jwt-auth]
-          :get {:handler api.account/get-account}
-          :patch {:handler api.account/update-account}
-          :delete {:handler api.account/delete-account}}]]
+          :get        {:handler api.account/get-account}
+          :patch      {:handler api.account/update-account}
+          :delete     {:handler api.account/delete-account}}]]
 
     ["/systems"
-     ["" {:get {:handler api.systems/list-systems}
+     ["" {:get  {:handler api.systems/list-systems}
           :post {:handler api.systems/create-system}}]
 
      ;; This uses coercion for the `parameters`, see the note at the top of this
      ;; namespace.
      ["/:id" {:parameters {:path {:id string?}}}
-      ["" {:get {:handler api.systems/get-system}
-           :put {:handler api.systems/update-system}
+      ["" {:get    {:handler api.systems/get-system}
+           :put    {:handler api.systems/update-system}
            :delete {:handler api.systems/delete-system}}]
       ["/pdf" {:get {:handler api.systems/export-pdf}}]
       ["/changes" {:post {:handler api.systems/process-changes}}]]]]])

@@ -1,12 +1,12 @@
 (ns aps.parts.db
   (:require
+   [aps.parts.config :as conf]
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
    [honey.sql :as sql]
    [migratus.core :as migratus]
    [next.jdbc :as jdbc]
-   [next.jdbc.result-set :as rs]
-   [aps.parts.config :as conf]))
+   [next.jdbc.result-set :as rs]))
 
 (def db-spec
   {:dbtype "sqlite"
@@ -24,10 +24,10 @@
 
 (defn- create-datasource
   [read-only?]
-  (let [url (str "jdbc:sqlite:" (:dbname db-spec))
-        ds-opts (cond-> {:jdbcUrl url
+  (let [url     (str "jdbc:sqlite:" (:dbname db-spec))
+        ds-opts (cond-> {:jdbcUrl           url
                          :connectionInitSql (str/join " " pragmas)
-                         :foreign_keys true}
+                         :foreign_keys      true}
                   read-only? (assoc :mode "ro")
                   (not read-only?) (assoc :mode "rwc" :_txlock "immediate"))]
     (jdbc/get-datasource ds-opts)))
@@ -36,10 +36,10 @@
 (def write-datasource (create-datasource false))
 
 (def migration-config
-  {:store :database
-   :migration-dir "migrations/"
+  {:store                :database
+   :migration-dir        "migrations/"
    :init-in-transaction? false
-   :db db-spec})
+   :db                   db-spec})
 
 (defn init-db
   []
@@ -69,8 +69,8 @@
    (let [data-with-uuid (merge {:id (random-uuid)} data)]
      (first (jdbc/execute! datasource
                            (sql/format {:insert-into (keyword table)
-                                        :values [data-with-uuid]
-                                        :returning :*})
+                                        :values      [data-with-uuid]
+                                        :returning   :*})
                            {:builder-fn rs/as-unqualified-maps})))))
 
 (defn update!
@@ -78,9 +78,9 @@
    (update! table data where-clause write-datasource))
   ([table data where-clause datasource]
    (jdbc/execute! datasource
-                  (sql/format {:update (keyword table)
-                               :set data
-                               :where where-clause
+                  (sql/format {:update    (keyword table)
+                               :set       data
+                               :where     where-clause
                                :returning :*})
                   {:builder-fn rs/as-unqualified-maps})))
 
@@ -90,7 +90,7 @@
   ([table where-clause datasource]
    (jdbc/execute! datasource
                   (sql/format {:delete-from (keyword table)
-                               :where where-clause})
+                               :where       where-clause})
                   {:builder-fn rs/as-unqualified-maps})))
 
 (defn with-transaction
@@ -115,11 +115,11 @@
 
 ;; Connection pool configuration
 (def read-pool-spec
-  {:datasource read-datasource
+  {:datasource        read-datasource
    :maximum-pool-size (max 4 (.availableProcessors (Runtime/getRuntime)))})
 
 (def write-pool-spec
-  {:datasource write-datasource
+  {:datasource        write-datasource
    :maximum-pool-size 1})
 
 (def read-pool (jdbc/get-datasource read-pool-spec))

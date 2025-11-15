@@ -1,17 +1,17 @@
 (ns aps.parts.entity.system-test
   (:require
-   [clojure.test :refer [deftest is testing use-fixtures]]
    [aps.parts.db :as db]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.system :as system]
-   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]))
+   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]
+   [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :each with-test-db)
 
 (deftest test-system-crud
-  (let [user (register-test-user)
-        system-data {:title "Test System"
+  (let [user        (register-test-user)
+        system-data {:title    "Test System"
                      :owner_id (:id user)}]
 
     (testing "create!"
@@ -31,21 +31,21 @@
         (is (vector? (:relationships fetched)))))
 
     (testing "index"
-      (let [_ (system/create! system-data)
+      (let [_       (system/create! system-data)
             systems (system/index (:id user))]
         (is (seq systems))
         (is (every? #(= (:owner_id %) (:id user)) systems))))
 
     (testing "update!"
       (let [created (system/create! system-data)
-            updated (system/update! (:id created) {:title "Updated Title"
+            updated (system/update! (:id created) {:title    "Updated Title"
                                                    :owner_id (:id user)})]
         (is (= "Updated Title" (:title updated)))
         (is (= (:id created) (:id updated)))))
 
     (testing "delete!"
       (let [created (system/create! system-data)
-            result (system/delete! (:id created))]
+            result  (system/delete! (:id created))]
         (is (:success result))
         (is (= (:id created) (:id result)))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"System not found"
@@ -57,34 +57,34 @@
                           (system/create! {}))))
 
   (testing "update fails with invalid data"
-    (let [user (register-test-user)
+    (let [user   (register-test-user)
           system (system/create! {:title "Test" :owner_id (:id user)})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (system/update! (:id system) {:title nil}))))))
 
 (deftest test-delete-with-transaction
   (testing "Deleting a system with parts and relationships removes everything"
-    (let [user (register-test-user)
-          system (system/create! {:title "Transaction Test" :owner_id (:id user)})
+    (let [user                   (register-test-user)
+          system                 (system/create! {:title "Transaction Test" :owner_id (:id user)})
 
-          part1 (part/create! {:system_id (:id system)
-                               :type "manager"
-                               :label "Part 1"
-                               :position_x 0
-                               :position_y 0})
+          part1                  (part/create! {:system_id  (:id system)
+                                                :type       "manager"
+                                                :label      "Part 1"
+                                                :position_x 0
+                                                :position_y 0})
 
-          part2 (part/create! {:system_id (:id system)
-                               :type "exile"
-                               :label "Part 2"
-                               :position_x 100
-                               :position_y 100})
+          part2                  (part/create! {:system_id  (:id system)
+                                                :type       "exile"
+                                                :label      "Part 2"
+                                                :position_x 100
+                                                :position_y 100})
 
-          _relationship (relationship/create! {:system_id (:id system)
-                                               :source_id (:id part1)
-                                               :target_id (:id part2)
-                                               :type "unknown"})
+          _relationship          (relationship/create! {:system_id (:id system)
+                                                        :source_id (:id part1)
+                                                        :target_id (:id part2)
+                                                        :type      "unknown"})
           system-before-deletion (system/fetch (:id system))
-          result (system/delete! (:id system))]
+          result                 (system/delete! (:id system))]
 
       (is (= 2 (count (:parts system-before-deletion))))
       (is (= 1 (count (:relationships system-before-deletion))))
@@ -98,13 +98,13 @@
 
 (deftest test-transaction-rollback
   (testing "Transaction rolls back if an error occurs"
-    (let [user (register-test-user)
-          system (system/create! {:title "Transaction Test" :owner_id (:id user)})
-          _part (part/create! {:system_id (:id system)
-                               :type "manager"
-                               :label "Test Part"
-                               :position_x 0
-                               :position_y 0})
+    (let [user                   (register-test-user)
+          system                 (system/create! {:title "Transaction Test" :owner_id (:id user)})
+          _part                  (part/create! {:system_id  (:id system)
+                                                :type       "manager"
+                                                :label      "Test Part"
+                                                :position_x 0
+                                                :position_y 0})
 
           system-before-deletion (system/fetch (:id system))]
 

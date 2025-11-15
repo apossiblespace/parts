@@ -1,9 +1,9 @@
 (ns aps.parts.frontend.api.http
   "Low level functions for interacting with the backend."
   (:require
+   [aps.parts.frontend.api.utils :as utils]
    [cljs-http.client :as http-client]
-   [cljs.core.async :refer [<! go]]
-   [aps.parts.frontend.api.utils :as utils]))
+   [cljs.core.async :refer [<! go]]))
 
 (defn- add-auth-header
   "Add the Authorization header to REQ if OPTS includes :auth-header; if not
@@ -18,25 +18,25 @@
 (defn- raw-GET [endpoint params & [opts]]
   (go (<! (http-client/get (str "/api" endpoint)
                            (-> {:query-params params
-                                :accept :transit+json}
+                                :accept       :transit+json}
                                (add-auth-header opts))))))
 
 (defn- raw-POST [endpoint data & [opts]]
   (go (<! (http-client/post (str "/api" endpoint)
                             (-> {:transit-params data
-                                 :accept :transit+json}
+                                 :accept         :transit+json}
                                 (add-auth-header opts))))))
 
 (defn- raw-PUT [endpoint data & [opts]]
   (go (<! (http-client/put (str "/api" endpoint)
                            (-> {:transit-params data
-                                :accept :transit+json}
+                                :accept         :transit+json}
                                (add-auth-header opts))))))
 
 (defn- raw-PATCH [endpoint data & [opts]]
   (go (<! (http-client/patch (str "/api" endpoint)
                              (-> {:transit-params data
-                                  :accept :transit+json}
+                                  :accept         :transit+json}
                                  (add-auth-header opts))))))
 
 (defn- raw-DELETE [endpoint & [opts]]
@@ -57,13 +57,13 @@
   [handler]
   (fn [endpoint params & [opts]]
     (go
-      (let [skip-auth? (:skip-auth opts)
-            tokens (utils/get-tokens)
+      (let [skip-auth?  (:skip-auth opts)
+            tokens      (utils/get-tokens)
             auth-header (utils/auth-header tokens)
-            auth-opts (if (and (not skip-auth?) auth-header)
-                        (assoc opts :auth-header auth-header)
-                        opts)
-            resp (<! (handler endpoint params auth-opts))]
+            auth-opts   (if (and (not skip-auth?) auth-header)
+                          (assoc opts :auth-header auth-header)
+                          opts)
+            resp        (<! (handler endpoint params auth-opts))]
         (if (and (= 401 (:status resp))
                  (not skip-auth?)
                  (:refresh_token tokens))
@@ -72,17 +72,17 @@
             (if (= 200 (:status refresh-resp))
               (do
                 (utils/save-tokens (:body refresh-resp))
-                (let [new-tokens (utils/get-tokens)
+                (let [new-tokens      (utils/get-tokens)
                       new-auth-header (utils/auth-header new-tokens)
-                      new-params (assoc-in params [:headers "Authorization"] new-auth-header)]
+                      new-params      (assoc-in params [:headers "Authorization"] new-auth-header)]
                   (<! (handler endpoint new-params))))
               resp))
           resp)))))
 
 ;; Wrapping the raw HTTP handlers in the auth middleware
 ;; Pass {:skip-auth true} to ignore authorization flows.
-(def GET    (wrap-auth raw-GET))
-(def POST   (wrap-auth raw-POST))
-(def PUT    (wrap-auth raw-PUT))
-(def PATCH  (wrap-auth raw-PATCH))
+(def GET (wrap-auth raw-GET))
+(def POST (wrap-auth raw-POST))
+(def PUT (wrap-auth raw-PUT))
+(def PATCH (wrap-auth raw-PATCH))
 (def DELETE (wrap-auth raw-DELETE))
