@@ -38,6 +38,7 @@ resources/public/css/style.css
 !pnpm-lock.yaml
 !tailwind.config.js
 !postcss.config.mjs
+!.npmrc
 
 # ------------------------
 # Include Git & CI workflow
