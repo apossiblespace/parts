@@ -52,7 +52,7 @@ FROM eclipse-temurin:21-alpine
 RUN apk add --no-cache \
     dumb-init~=1.2.5 \
     curl~=8 \
-    jq~=1.7
+    jq~=1.8
 
 # Create Non-root group and user to run service securely
 RUN addgroup -g 1001 clojure && adduser -u 1001 -S clojure -G clojure

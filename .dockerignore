@@ -16,6 +16,7 @@
 !deps.edn
 !shadow-cljs.edn
 !package.json
+!pnpm-lock.yaml
 !postcss.config.mjs
 !tailwind.config.js
 !config.edn
