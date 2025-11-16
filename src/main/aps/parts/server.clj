@@ -110,6 +110,10 @@
           cleanup-stop-ch (schedule-token-cleanup)]
       (println "Parts: Server started on port" port)
 
+      ;; Print configuration on startup
+      (println "\nConfiguration:")
+      (conf/print-config-table)
+
       ;; Return shutdown function
       (fn []
         (stop-fn)

@@ -1,0 +1,8 @@
+{:db/file "db/parts.db"
+ :db/type "sqlite"
+
+ :http/host "localhost"
+ :http/port "3000"
+ :http/protocol "http"
+
+ :auth/secret "secret"}

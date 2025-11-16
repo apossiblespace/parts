@@ -4,12 +4,14 @@
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [clojure.tools.logging :as log]
+   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
    [next.jdbc :as jdbc]))
 
 (defn setup-test-db
   []
-  (let [db-spec          {:dbtype "sqlite" :dbname (conf/database-file (conf/config))}
+  (let [db-spec          {:dbtype (l-config/get conf/config :db/type)
+                          :dbname (l-config/get conf/config :db/file)}
         ds               (jdbc/get-datasource db-spec)
         migration-config {:store         :database
                           :migration-dir "migrations/"

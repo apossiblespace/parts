@@ -4,13 +4,14 @@
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
    [honey.sql :as sql]
+   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]))
 
 (def db-spec
-  {:dbtype "sqlite"
-   :dbname (conf/database-file (conf/config))})
+  {:dbtype (l-config/get conf/config :db/type)
+   :dbname (l-config/get conf/config :db/file)})
 
 ;; NOTE: Optimisations in this file are following this tweet:
 ;; https://x.com/meln1k/status/1813314113705062774

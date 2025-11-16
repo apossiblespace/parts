@@ -78,11 +78,11 @@ COPY --from=builder /build/target/parts-standalone.jar /app/
 # optional over-rides for Integrant configuration
 # ENV HTTP_SERVER_PORT=
 # ENV MYSQL_DATABASE=
-ENV PARTS_ENV="production"
-ENV PARTS_PROTOCOL="https"
-ENV PARTS_HOSTNAME="parts.ifs.tools"
-# TODO: Figure out a way to store PARTS_JWT_SECRET without exposing it in the
-# Dockerfile
+# lambdaisland/config uses double underscore convention: PARTS__KEY__SUBKEY
+ENV PARTS__HTTP__PROTOCOL="https"
+ENV PARTS__HTTP__HOST="parts.ifs.tools"
+# PARTS__AUTH__SECRET should be provided via container orchestration (k8s secrets, etc)
+# TODO: PARTS__AUTH__SECRET must be set in deployment environment
 
 # Expose port of HTTP Server
 EXPOSE 3000
@@ -114,7 +114,7 @@ ENV JDK_JAVA_OPTIONS="-XshowSettings:system -XX:+UseContainerSupport -XX:MaxRAMP
 # Start service using dumb-init and java run-time
 # (overrides `jshell` entrypoint - default in eclipse-temuring image)
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["java", "-jar", "/app/parts-standalone.jar"]
+CMD ["java", "-Dparts.env=prod", "-jar", "/app/parts-standalone.jar"]
 
 
 # Docker Entrypoint documentation

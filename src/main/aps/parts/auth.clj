@@ -5,13 +5,14 @@
    [buddy.auth.backends :as backends]
    [buddy.hashers :as hashers]
    [buddy.sign.jwt :as jwt]
-   [com.brunobonacci.mulog :as mulog])
+   [com.brunobonacci.mulog :as mulog]
+   [lambdaisland.config :as l-config])
   (:import
    (java.time Instant)
    (java.util UUID)))
 
 (def secret
-  (conf/jwt-secret (conf/config)))
+  (l-config/get conf/config :auth/secret))
 
 (def backend
   (backends/jws
@@ -30,7 +31,7 @@
   [user-id]
   (let [now    (Instant/now)
         exp    (.plusSeconds now 900) ; 15 minutes
-        host   (conf/host-uri (conf/config))
+        host   (conf/host-uri)
         claims {:iss  (str host "/api")
                 :sub  (str user-id)
                 :aud  host
@@ -45,7 +46,7 @@
   (let [now      (Instant/now)
         exp      (.plusSeconds now 2592000) ; 30 days
         token-id (str (UUID/randomUUID))
-        host     (conf/host-uri (conf/config))
+        host     (conf/host-uri)
         claims   {:iss  (str host "/api")
                   :sub  user-id
                   :aud  host

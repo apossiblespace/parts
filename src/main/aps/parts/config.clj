@@ -1,41 +1,27 @@
 (ns aps.parts.config
   (:require
-   [aero.core :as aero]
-   [clojure.java.io :as io]))
+   [clojure.pprint :as pprint]
+   [clojure.string :as cstr]
+   [lambdaisland.config :as l-config]))
 
-(def valid-environments #{"development" "test" "production"})
+;; Expose config directly for consumer access
+;; Use (l-config/get config :key) to access configuration values
+(def config
+  (l-config/create {:prefix "parts"}))
 
 (defn get-environment
-  "Get application environment from PARTS_ENV environment variable.
-  Defaults to 'development' if not set or invalid.'"
+  "Get the current environment. lambdaisland/config determines this from:
+  1. parts.env Java system property
+  2. PARTS_ENV environment variable
+  3. CI=true defaults to :test
+  4. Falls back to :dev"
   []
-  (let [env (or (System/getProperty "PARTS_ENV")   ; Try Java property first
-                (System/getenv "PARTS_ENV")        ; Then environment variable
-                "development")]
-    (if (contains? valid-environments env)
-      (keyword env)
-      :development)))
-
-(defn config
-  "Get configuration for current environment.
-  Uses PARTS_ENV environment variable to determine environment."
-  ([]
-   (config (get-environment)))
-  ([profile]
-   (aero/read-config (io/resource "config.edn") {:profile profile})))
-
-(defn database-file
-  [config]
-  (get-in config [:database :file]))
-
-(defn jwt-secret
-  [config]
-  (get-in config [:auth :secret]))
+  (:env config))
 
 (defn prod?
   "Are we in the PRODUCTION environment?"
   []
-  (= (get-environment) :production))
+  (= (get-environment) :prod))
 
 (defn test?
   "Are we in the TEST environment?"
@@ -45,12 +31,29 @@
 (defn dev?
   "Are we in the DEVELOPMENT environment?"
   []
-  (= (get-environment) :development))
+  (= (get-environment) :dev))
 
 (defn host-uri
-  "Get the full qualified application host uri based on the configuration and
-  environment, eg: http://localhost:3000"
-  [config]
-  (str (get-in config [:app :protocol])
+  "Get the full qualified application host URI, eg: http://localhost:3000"
+  []
+  (str (l-config/get config :http/protocol)
        "://"
-       (get-in config [:app :host])))
+       (l-config/get config :http/host)
+       ":"
+       (l-config/get config :http/port)))
+
+(defn print-config-table
+  "Print all accessed configuration keys, values, and sources as a table."
+  []
+  (let [cached @(:values config)
+        rows   (for [[k v] (sort-by key cached)]
+                 {:key    k
+                  :value  (pr-str (:val v))
+                  :source (-> (:source v)
+                              str
+                              (cstr/replace #"^file:" "")
+                              (cstr/replace #".*/resources/" "resources/"))})]
+    (if (seq rows)
+      (pprint/print-table [:key :value :source] rows)
+      (println "No configuration values have been accessed yet."))))
+

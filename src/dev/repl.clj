@@ -5,6 +5,7 @@
    [aps.parts.server :as server]
    [kaocha.repl :as k]
    [kaocha.watch :as watch]
+   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
    [mulog-events]
    [portal.api :as portal]
@@ -83,22 +84,20 @@
   (start))
 
 (defn db-migrate
-  "Migrate the database for ENV (default: development)"
-  ([]
-   (db-migrate :development))
-  ([env]
-   (let [db-spec          {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
-         migration-config (assoc db/migration-config :db db-spec)]
-     (migratus/migrate migration-config))))
+  "Migrate the database (uses current environment from PARTS_ENV)"
+  []
+  (let [db-spec          {:dbtype (l-config/get conf/config :db/type)
+                          :dbname (l-config/get conf/config :db/file)}
+        migration-config (assoc db/migration-config :db db-spec)]
+    (migratus/migrate migration-config)))
 
 (defn db-rollback
-  "Rollback the database for ENV (default: development)"
-  ([]
-   (db-rollback :environment))
-  ([env]
-   (let [db-spec          {:dbtype "sqlite" :dbname (conf/database-file (conf/config env))}
-         migration-config (assoc db/migration-config :db db-spec)]
-     (migratus/rollback migration-config))))
+  "Rollback the database (uses current environment from PARTS_ENV)"
+  []
+  (let [db-spec          {:dbtype (l-config/get conf/config :db/type)
+                          :dbname (l-config/get conf/config :db/file)}
+        migration-config (assoc db/migration-config :db db-spec)]
+    (migratus/rollback migration-config)))
 
 ;; Test running
 (defn with-env [env-map f]

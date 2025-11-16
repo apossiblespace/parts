@@ -1,0 +1,3 @@
+{:db/file "db/parts_test.db"
+
+ :auth/secret "test-secret"}
