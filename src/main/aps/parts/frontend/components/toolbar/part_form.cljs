@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.components.toolbar.part-form
   (:require
    [aps.parts.common.constants :refer [part-labels]]
-   [aps.parts.frontend.observe :as o]
+   [aps.parts.common.observe :as o]
    [uix.core :refer [$ defui use-effect use-state]]
    [uix.re-frame :as uix.rf]))
 

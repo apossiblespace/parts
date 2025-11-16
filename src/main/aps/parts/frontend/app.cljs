@@ -1,9 +1,9 @@
 (ns aps.parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.system :refer [system]]
    [aps.parts.frontend.components.system-list-modal :refer [system-list-modal]]
-   [aps.parts.frontend.observe :as o]
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
    [aps.parts.frontend.state.subs]

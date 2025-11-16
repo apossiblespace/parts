@@ -1,8 +1,8 @@
 (ns aps.parts.frontend.components.waitlist-modal
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as utils]
    [aps.parts.frontend.components.modal :refer [modal]]
-   [aps.parts.frontend.observe :as o]
    [uix.core :refer [defui $ use-state]]))
 
 (defui waitlist-modal [{:keys [show on-close]}]

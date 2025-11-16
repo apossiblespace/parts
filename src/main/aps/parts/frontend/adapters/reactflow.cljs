@@ -2,7 +2,7 @@
   (:require
    [aps.parts.common.models.part :refer [make-part]]
    [aps.parts.common.models.relationship :refer [make-relationship]]
-   [aps.parts.frontend.observe :as o]))
+   [aps.parts.common.observe :as o]))
 
 (defn part->node
   "Convert a Part to a ReactFlow node"
@@ -23,7 +23,10 @@
   nodes for which should be marked as selected."
   ([parts] (parts->nodes parts nil))
   ([parts selected-ids]
-   (o/debug "reactflow.parts->nodes" "converting parts to nodes" (count parts) "selected:" selected-ids)
+   (o/debug
+    "reactflow.parts->nodes"
+    "converting parts to nodes" (count parts)
+    "selected:" selected-ids)
    (let [selected-id-set (when selected-ids (set selected-ids))]
      (to-array (map #(part->node % selected-id-set) parts)))))
 
@@ -57,7 +60,10 @@
   Relationships, the edges for which should be marked as selected."
   ([relationships] (relationships->edges relationships nil))
   ([relationships selected-ids]
-   (o/debug "reactflow.relationships->edges" "converting relationships to edges" (count relationships))
+   (o/debug
+    "reactflow.relationships->edges"
+    "converting relationships to edges"
+    (count relationships))
    (let [selected-id-set (when selected-ids (set selected-ids))]
      (to-array (map #(relationship->edge % selected-id-set) relationships)))))
 

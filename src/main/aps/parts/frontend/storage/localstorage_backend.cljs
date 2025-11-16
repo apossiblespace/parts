@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.storage.localstorage-backend
   "LocalStorage storage backend implementation with single-tab editing enforcement."
   (:require
-   [aps.parts.frontend.observe :as o]
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [go]]))
 

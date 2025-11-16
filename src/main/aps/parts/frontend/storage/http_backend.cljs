@@ -1,8 +1,8 @@
 (ns aps.parts.frontend.storage.http-backend
   "HTTP API storage backend implementation."
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.http :as http]
-   [aps.parts.frontend.observe :as o]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [<! go]]))
 

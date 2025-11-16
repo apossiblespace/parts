@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.api.queue
   "Batching up change events for sending to backend"
   (:require
-   [aps.parts.frontend.observe :as o]
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.storage.protocol :refer [process-batched-changes]]
    [aps.parts.frontend.storage.registry :as storage-registry]
    [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]))
@@ -29,7 +29,8 @@
           value
           (recur (conj batch value))
 
-          ;; 3. Input is closed (value is nil), send any remaining changes, clean up.
+          ;; 3. Input is closed (value is nil), send any remaining changes,
+          ;; clean up.
           :else
           (do
             (when (seq batch)
@@ -41,7 +42,8 @@
 (def debounced-chan (debounce-batch changes-chan 2000))
 
 (defn start
-  "Start a loop sending batched system updates for a specific system ID to the backend"
+  "Start a loop sending batched system updates for a specific system ID to the
+  backend"
   [system-id]
   (o/info "queue.start" "update queue started for system" system-id)
   (go-loop []

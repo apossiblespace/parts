@@ -1,10 +1,10 @@
 (ns aps.parts.frontend.components.toolbar.sidebar
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.toolbar.auth-status :refer [auth-status]]
    [aps.parts.frontend.components.toolbar.parts-tools :refer [parts-tools]]
    [aps.parts.frontend.components.toolbar.relationships-tools :refer [relationships-tools]]
    [aps.parts.frontend.components.waitlist-modal :refer [waitlist-modal]]
-   [aps.parts.frontend.observe :as o]
    [uix.core :refer [$ defui use-state]]
    [uix.re-frame :as uix.rf]))
 

@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.components.system-list-modal
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.modal :refer [modal]]
-   [aps.parts.frontend.observe :as o]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))

@@ -1,13 +1,13 @@
 (ns aps.parts.frontend.components.system
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow]]
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.components.edges :refer [edge-types]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
-   [aps.parts.frontend.observe :as o]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-callback use-effect]]
    [uix.re-frame :as uix.rf]))
