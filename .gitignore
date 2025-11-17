@@ -61,3 +61,7 @@ resources/public/css/style.css
 # Ignore direnv artifacts and local env
 .direnv/
 .envrc.local
+
+# ------------------------
+# Include scripts
+!scripts
