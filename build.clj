@@ -30,9 +30,9 @@
 (def project-config
   "Project configuration to support all tasks"
   {:class-directory "target/classes"
-   :main-namespace  'aps.parts/server
-   :project-basis   (build-api/create-basis)
-   :uberjar-file    "target/parts-standalone.jar"})
+   :main-namespace 'aps.parts/server
+   :project-basis (build-api/create-basis)
+   :uberjar-file "target/parts-standalone.jar"})
 
 (defn config
   "Display build configuration"
@@ -53,7 +53,7 @@
   Checks that `.` and `/` directories are not deleted"
   [directory]
   (when
-    (not (contains? #{"." "/"} directory))
+   (not (contains? #{"." "/"} directory))
     (build-api/delete {:path (or (:path directory) "target")})))
 
 (defn uberjar
@@ -63,14 +63,20 @@
   (let [config (merge project-config options)
         {:keys [class-directory main-namespace project-basis uberjar-file]} config]
     (clean "target")
-    (build-api/copy-dir {:src-dirs   ["src/main" "resources"]
-                         :target-dir class-directory})
 
-    (build-api/compile-clj {:basis     project-basis
+    ;; Copy source and resources, excluding frontend build artifacts
+    (build-api/copy-dir {:src-dirs ["src/main" "src/dev" "resources"]
+                         :target-dir class-directory
+                         :ignores [#"public/js/cljs-runtime/.*"
+                                   #".*\.js\.map$"
+                                   #"public/com/.*"]})
+
+    ;; Only AOT compile src/main (src/dev will be available as source for REPL)
+    (build-api/compile-clj {:basis project-basis
                             :class-dir class-directory
-                            :src-dirs  ["src"]})
+                            :src-dirs ["src/main"]})
 
-    (build-api/uber {:basis     project-basis
+    (build-api/uber {:basis project-basis
                      :class-dir class-directory
-                     :main      main-namespace
+                     :main main-namespace
                      :uber-file uberjar-file})))

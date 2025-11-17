@@ -28,7 +28,7 @@ help: ## This blessed text
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
 
 repl: deps ## Start a Clojure REPL
-	clojure -M -m shadow.cljs.devtools.cli clj-repl
+	clojure -M:dev -m shadow.cljs.devtools.cli clj-repl
 
 css-watch: ## Watch and build CSS
 	pnpm exec postcss resources/styles/*.css -o resources/public/css/style.css --watch
@@ -57,24 +57,25 @@ deps-update:
 npm-deps-update: package.json
 	pnpm update
 
-dist: build-css build-frontend build-uberjar  ## Build project
+dist: build-css build-uberjar  ## Build project
 
 build-css: ## Buld CSS for production
 	NODE_ENV=production pnpm exec postcss resources/styles/*.css -o resources/public/css/style.css
 
 build-frontend: ## Build frontend for production
-	clojure -M -m shadow.cljs.devtools.cli release frontend
+	clojure -M:dev -m shadow.cljs.devtools.cli release frontend
 
 build-config: ## Pretty print build configuration
 	clojure -T:build/task config
 
-build-uberjar: ## Build uberjar for deployment
-	rm target/*.jar
+build-uberjar: build-frontend ## Build uberjar for deployment
+	rm -f target/*.jar
+	rm -rf resources/public/js/cljs-runtime resources/public/com
 	clojure -T:build/task uberjar
 	mv target/*-standalone.jar $(JAR)
 
 run-dist: ## Test dist locally before deploying
-	java -jar target/parts-standalone.jar
+	java -jar target/parts-*-standalone.jar
 
 deploy: dist ## Deploy to production
 	scp $(JAR) $(HOST):$(REMOTE)/releases/
