@@ -47,11 +47,6 @@ resources/public/css/style.css
 !.github/
 
 # ------------------------
-# Include deployment related files
-!config
-!.kamal
-
-# ------------------------
 # Include agentic workflows
 !CLAUDE.md
 !.claude/agents
