@@ -18,6 +18,12 @@
 HELP_SPACING := 20
 CLOJURE_TEST_RUNNER = clojure -X:test/env:test/run
 
+VERSION := $(shell git rev-parse --short HEAD)
+JAR_BASENAME = parts-$(VERSION)-standalone.jar 
+JAR = target/$(JAR_BASENAME)
+REMOTE = /opt/parts
+HOST = parts
+
 help: ## This blessed text
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
 
@@ -63,13 +69,29 @@ build-config: ## Pretty print build configuration
 	clojure -T:build/task config
 
 build-uberjar: ## Build uberjar for deployment
+	rm target/*.jar
 	clojure -T:build/task uberjar
+	mv target/*-standalone.jar $(JAR)
 
 run-dist: ## Test dist locally before deploying
 	java -jar target/parts-standalone.jar
 
-deploy: ## Deploy to production
-	kamal deploy
+deploy: dist ## Deploy to production
+	scp $(JAR) $(HOST):$(REMOTE)/releases/
+	ssh $(HOST) 'set -e; \
+		cd $(REMOTE); \
+		prev=$$(readlink current || true); \
+		if [ -n "$$prev" ]; then ln -nfs $$prev previous; fi; \
+		ln -nfs releases/$(JAR_BASENAME) current; \
+		systemctl restart parts'
+
+rollback:
+	ssh $(HOST) 'set -e; \
+		cd $(REMOTE); \
+		prev=$$(readlink previous || true); \
+		if [ -z "$$prev" ]; then echo "No previous release to roll back to!" >&2; exit 1; fi; \
+		ln -nfs "$$prev" current; \
+		systemctl restart parts'
 
 clean: ## Clean build files
 	rm -rf 	./.cpcache \
