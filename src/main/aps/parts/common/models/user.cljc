@@ -3,7 +3,7 @@
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
 
-(s/def ::id string?)
+(s/def ::id (s/or :string string? :uuid uuid?))
 (s/def ::email (s/and string? #(re-matches #"^.+@.+\..+$" %)))
 (s/def ::username (s/and string? not-empty))
 (s/def ::display_name (s/and string? not-empty))
@@ -12,12 +12,12 @@
 (s/def ::role #{"client" "therapist"})
 
 (s/def ::user
-  (s/keys :req-un [::id
-                   ::email
+  (s/keys :req-un [::email
                    ::username
                    ::display_name
                    ::role]
-          :opt-un [::password
+          :opt-un [::id
+                   ::password
                    ::password_confirmation]))
 
 (defn password-match? [user]
@@ -35,14 +35,15 @@
   ::user-with-password)
 
 (defn make-user
-  "Create a new User with the given attributes"
+  "Create a new User with the given attributes. 
+   In ClojureScript (frontend), generates a string UUID for :id. 
+   In Clojure (backend), :id is set by the database layer."
   ([attrs]
    (make-user attrs false))
   ([attrs validate-password?]
    (println "[make-user]" attrs)
-   (let [user (merge
-               {:id (str (random-uuid))}
-               attrs)]
+   (let [user #?(:cljs (merge {:id (str (random-uuid))} attrs)
+                 :clj attrs)]
      (validate-spec (if validate-password?
                       ::user-with-password
                       ::user)

@@ -8,7 +8,8 @@
   (testing "Creates a valid system with minimal attributes"
     (let [owner-id "test-owner-id"
           result   (system/make-system {:owner_id owner-id})]
-      (is (string? (:id result)))
+      #?(:cljs (is (string? (:id result)))
+         :clj (is (nil? (:id result))))
       (is (= owner-id (:owner_id result)))
       (is (= "Untitled System" (:title result)))))
 

@@ -18,7 +18,7 @@
 
     (testing "create!"
       (let [created (part/create! part-data)]
-        (is (string? (:id created)))
+        (is (uuid? (:id created)))
         (is (= (:type part-data) (:type created)))
         (is (= (:label part-data) (:label created)))
         (is (= (:position_x part-data) (:position_x created)))
