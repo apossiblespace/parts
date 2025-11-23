@@ -52,7 +52,7 @@
                  (db/sql-format
                   {:select [:id :email :username :display_name :role]
                    :from   [:users]
-                   :where  [:= :id id]}))]
+                   :where  [:= :id (db/->uuid id)]}))]
     (remove-sensitive-data user)
     (throw (ex-info "User not found" {:type :not-found :id id}))))
 
@@ -65,7 +65,7 @@
                             validate-attrs
                             set-password-hash)]
     (remove-sensitive-data
-     (first (db/update! :users sanitized-attrs [:= :id id])))))
+     (first (db/update! :users sanitized-attrs [:= :id (db/->uuid id)])))))
 
 (defn create!
   "Create a new user record with the provided attributes"
@@ -83,17 +83,18 @@
   - All parts and relationships in those systems
   - All refresh tokens for the user"
   [id]
-  (let [systems (db/query
+  (let [uuid-id (db/->uuid id)
+        systems (db/query
                  (db/sql-format
                   {:select [:id]
                    :from   [:systems]
-                   :where  [:= :owner_id id]}))]
+                   :where  [:= :owner_id uuid-id]}))]
     (doseq [system systems]
       (system/delete! (:id system)))
 
-    (db/delete! :refresh_tokens [:= :user_id id])
+    (db/delete! :refresh_tokens [:= :user_id uuid-id])
 
-    (let [result  (db/delete! :users [:= :id id])
+    (let [result  (db/delete! :users [:= :id uuid-id])
           deleted (pos? (or (:next.jdbc/update-count (first result)) 0))]
       (mulog/log ::delete-user-complete
                  :user-id id

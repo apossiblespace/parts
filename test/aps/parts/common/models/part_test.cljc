@@ -8,7 +8,8 @@
   (testing "Creates a valid part with minimal attributes"
     (let [system-id "test-system-id"
           result    (part/make-part {:system_id system-id})]
-      (is (string? (:id result)))
+      #?(:cljs (is (string? (:id result)))
+         :clj (is (nil? (:id result))))
       (is (= system-id (:system_id result)))
       (is (= "unknown" (:type result)))
       (is (= "Unknown" (:label result)))

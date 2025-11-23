@@ -12,7 +12,8 @@
           result    (relationship/make-relationship {:system_id system-id
                                                      :source_id source-id
                                                      :target_id target-id})]
-      (is (string? (:id result)))
+      #?(:cljs (is (string? (:id result)))
+         :clj (is (nil? (:id result))))
       (is (= system-id (:system_id result)))
       (is (= "unknown" (:type result)))
       (is (= source-id (:source_id result)))

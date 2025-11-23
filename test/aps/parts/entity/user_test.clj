@@ -16,8 +16,12 @@
           fetched-user (user/fetch (:id db-user))]
       (is (= (:id db-user) (:id fetched-user)))))
 
-  (testing "throws when an invalid ID is passed"
+  (testing "throws when a non-existent user ID is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
+                          (user/fetch "00000000-0000-0000-0000-000000000000"))))
+
+  (testing "throws when an invalid UUID string is passed"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Invalid UUID format"
                           (user/fetch "random")))))
 
 (deftest test-update!

@@ -5,7 +5,7 @@
    [reitit.ring :as ring]
    [ring.mock.request :as mock])
   (:import
-   (org.sqlite SQLiteErrorCode SQLiteException)))
+   (org.postgresql.util PSQLException PSQLState)))
 
 (defn create-app [handler]
   (ring/ring-handler
@@ -35,13 +35,37 @@
       (is (= 404 (:status response)))
       (is (= {:error "User not found"} (:body response)))))
 
-  (doseq [[sqlite-error expected-message] middleware/sqlite-errors]
-    (testing (str "handles SQLite constraint violation:" sqlite-error)
-      (let [app      (create-app (fn [_] (throw (SQLiteException. sqlite-error SQLiteErrorCode/SQLITE_CONSTRAINT))))
-            request  (mock/request :get "/test")
-            response (app request)]
-        (is (= 409 (:status response)))
-        (is (= {:error expected-message} (:body response)))))))
+  (testing "handles PostgreSQL unique violation (23505)"
+    (let [exception (PSQLException. "duplicate key value" PSQLState/UNIQUE_VIOLATION)
+          app       (create-app (fn [_] (throw exception)))
+          request   (mock/request :get "/test")
+          response  (app request)]
+      (is (= 409 (:status response)))
+      (is (= {:error "A resource with this unique identifier already exists"} (:body response)))))
+
+  (testing "handles PostgreSQL check constraint violation (23514)"
+    (let [exception (PSQLException. "check constraint failed" PSQLState/CHECK_VIOLATION)
+          app       (create-app (fn [_] (throw exception)))
+          request   (mock/request :get "/test")
+          response  (app request)]
+      (is (= 409 (:status response)))
+      (is (= {:error "The provided data does not meet the required constraints"} (:body response)))))
+
+  (testing "handles PostgreSQL not null violation (23502)"
+    (let [exception (PSQLException. "null value" PSQLState/NOT_NULL_VIOLATION)
+          app       (create-app (fn [_] (throw exception)))
+          request   (mock/request :get "/test")
+          response  (app request)]
+      (is (= 409 (:status response)))
+      (is (= {:error "A required field was missing"} (:body response)))))
+
+  (testing "handles PostgreSQL foreign key violation (23503)"
+    (let [exception (PSQLException. "foreign key violation" PSQLState/FOREIGN_KEY_VIOLATION)
+          app       (create-app (fn [_] (throw exception)))
+          request   (mock/request :get "/test")
+          response  (app request)]
+      (is (= 409 (:status response)))
+      (is (= {:error "The referenced resource does not exist"} (:body response))))))
 
 (deftest test-jwt-auth-middleware
   (testing "jwt-auth middleware allows authenticated requests"
