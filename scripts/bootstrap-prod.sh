@@ -32,7 +32,28 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-# 5. systemd unit
+# 5. environment file template
+cat >/etc/$APP_NAME.env.example <<EOF
+# Application environment
+PARTS_ENV=prod
+
+# Database connection (password should be set securely)
+PARTS__DB__PASSWORD=change-me
+
+# Authentication secret (MUST be set to a secure random value)
+PARTS__AUTH__SECRET=change-me-to-secure-random-string
+
+# Optional: Override default database settings
+# PARTS__DB__HOST=localhost
+# PARTS__DB__PORT=5432
+# PARTS__DB__NAME=parts_prod
+# PARTS__DB__USER=parts
+# PARTS__DB__SSL=true
+EOF
+
+echo "⚠️  Created /etc/$APP_NAME.env.example - copy to /etc/$APP_NAME.env and set secrets"
+
+# 6. systemd unit
 cat >/etc/systemd/system/$APP_NAME.service <<EOF
 [Unit]
 Description=$APP_NAME clojure app
@@ -42,7 +63,7 @@ After=network.target postgresql.service
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=/etc/$APP_NAME.env
-ExecStart=/usr/bin/java -server -Xms512m -Xmx512m -jar $APP_DIR/current
+ExecStart=/usr/bin/java -server -Xms512m -Xmx512m -Dparts.env=prod -jar $APP_DIR/current
 Restart=on-failure
 RestartSec=5
 
@@ -53,7 +74,7 @@ EOF
 systemctl daemon-reload
 systemctl enable $APP_NAME
 
-# 6. caddy
+# 7. caddy
 cat >/etc/caddy/Caddyfile <<EOF
 $DOMAIN {
     reverse_proxy 127.0.0.1:3000
