@@ -1,52 +1,56 @@
 (ns aps.parts.db
   (:require
    [aps.parts.config :as conf]
-   [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
    [honey.sql :as sql]
-   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]))
 
-(def db-spec
-  {:dbtype (l-config/get conf/config :db/type)
-   :dbname (l-config/get conf/config :db/file)})
+(defn db-spec
+  "Get database specification from config."
+  []
+  (conf/database-config))
 
-;; NOTE: Optimisations in this file are following this tweet:
-;; https://x.com/meln1k/status/1813314113705062774
-(def pragmas
-  ["PRAGMA journal_mode = WAL;"
-   "PRAGMA busy_timeout = 5000;"
-   "PRAGMA synchronous = NORMAL;"
-   "PRAGMA cache_size = -20000;"
-   "PRAGMA foreign_keys = true;"
-   "PRAGMA temp_store = memory;"])
+(defn make-datasource
+  "Create a connection pool for PostgreSQL."
+  []
+  (jdbc/get-datasource (db-spec)))
 
-(defn- create-datasource
-  [read-only?]
-  (let [url     (str "jdbc:sqlite:" (:dbname db-spec))
-        ds-opts (cond-> {:jdbcUrl           url
-                         :connectionInitSql (str/join " " pragmas)
-                         :foreign_keys      true}
-                  read-only? (assoc :mode "ro")
-                  (not read-only?) (assoc :mode "rwc" :_txlock "immediate"))]
-    (jdbc/get-datasource ds-opts)))
+(def datasource
+  "Single connection pool for all database operations."
+  (make-datasource))
 
-(def read-datasource (create-datasource true))
-(def write-datasource (create-datasource false))
+;; Aliases for compatibility during transition
+(def read-datasource datasource)
+(def write-datasource datasource)
 
 (def migration-config
   {:store                :database
    :migration-dir        "migrations/"
-   :init-in-transaction? false
-   :db                   db-spec})
+   :init-in-transaction? true ; PostgreSQL supports transactional DDL
+   :db                   (db-spec)})
 
 (defn init-db
   []
   (mulog/log ::initializing-database)
   (migratus/init migration-config)
   (migratus/migrate migration-config))
+
+(defn ->uuid
+  "Converts a string UUID to a java.util.UUID object if needed.
+   If already a UUID object, returns it unchanged.
+   If nil, returns nil.
+   Throws ex-info with :type :invalid-uuid if the string is not a valid UUID."
+  [id]
+  (cond
+    (nil? id) nil
+    (uuid? id) id
+    (string? id) (try
+                   (java.util.UUID/fromString id)
+                   (catch IllegalArgumentException _
+                     (throw (ex-info "Invalid UUID format" {:type :invalid-uuid :value id}))))
+    :else (throw (ex-info "Invalid UUID type" {:type :invalid-uuid :value id}))))
 
 (defn sql-format
   "Convert a HoneySQL map to a vector of [sql & params]"
@@ -62,17 +66,16 @@
   (first (query q)))
 
 (defn insert!
-  "Inserts `data` into `table`. If `data` does not include an :id key, generate
-  a random UUID for it."
+  "Inserts `data` into `table`. Returns the inserted record with all fields including
+   the database-generated UUID."
   ([table data]
    (insert! table data write-datasource))
   ([table data datasource]
-   (let [data-with-uuid (merge {:id (random-uuid)} data)]
-     (first (jdbc/execute! datasource
-                           (sql/format {:insert-into (keyword table)
-                                        :values      [data-with-uuid]
-                                        :returning   :*})
-                           {:builder-fn rs/as-unqualified-maps})))))
+   (first (jdbc/execute! datasource
+                         (sql/format {:insert-into (keyword table)
+                                      :values      [data]
+                                      :returning   :*})
+                         {:builder-fn rs/as-unqualified-maps}))))
 
 (defn update!
   ([table data where-clause]
@@ -114,14 +117,6 @@
                            (reduce + (map affected-row-count result)))
     :else 0))
 
-;; Connection pool configuration
-(def read-pool-spec
-  {:datasource        read-datasource
-   :maximum-pool-size (max 4 (.availableProcessors (Runtime/getRuntime)))})
-
-(def write-pool-spec
-  {:datasource        write-datasource
-   :maximum-pool-size 1})
-
-(def read-pool (jdbc/get-datasource read-pool-spec))
-(def write-pool (jdbc/get-datasource write-pool-spec))
+;; Connection pool aliases for compatibility
+(def read-pool datasource)
+(def write-pool datasource)

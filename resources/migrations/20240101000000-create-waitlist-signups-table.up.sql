@@ -1,0 +1,5 @@
+CREATE TABLE waitlist_signups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
