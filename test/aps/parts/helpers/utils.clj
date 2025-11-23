@@ -4,18 +4,18 @@
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [clojure.tools.logging :as log]
-   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
-   [next.jdbc :as jdbc]))
+   [next.jdbc :as jdbc]
+   [next.jdbc.result-set :as rs]))
 
 (defn setup-test-db
   []
-  (let [db-spec          {:dbtype (l-config/get conf/config :db/type)
-                          :dbname (l-config/get conf/config :db/file)}
+  (let [db-spec          (conf/database-config)
         ds               (jdbc/get-datasource db-spec)
-        migration-config {:store         :database
-                          :migration-dir "migrations/"
-                          :db            db-spec}]
+        migration-config {:store                :database
+                          :migration-dir        "migrations/"
+                          :init-in-transaction? true
+                          :db                   db-spec}]
 
     (migratus/init migration-config)
     (migratus/migrate migration-config)
@@ -25,11 +25,23 @@
   [ds]
   (try
     (jdbc/with-transaction [tx ds]
-      (jdbc/execute! tx ["PRAGMA foreign_keys = OFF"])
-      (let [tables (jdbc/execute! tx ["SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'schema_migrations'"])]
-        (doseq [{name :sqlite_master/name} tables]
-          (jdbc/execute! tx [(str "DELETE FROM  " name)])))
-      (jdbc/execute! tx ["PRAGMA foreign_keys = ON"]))
+      ;; Disable foreign key checks temporarily
+      (jdbc/execute! tx ["SET session_replication_role = 'replica'"])
+
+      ;; Get all tables except system tables and migrations
+      (let [tables (jdbc/execute!
+                    tx
+                    ["SELECT table_name
+                      FROM information_schema.tables
+                      WHERE table_schema = 'public'
+                      AND table_type = 'BASE TABLE'
+                      AND table_name != 'schema_migrations'"]
+                    {:builder-fn rs/as-unqualified-lower-maps})]
+        (doseq [{:keys [table_name]} tables]
+          (jdbc/execute! tx [(str "TRUNCATE TABLE \"" table_name "\" CASCADE")])))
+
+      ;; Re-enable foreign key checks
+      (jdbc/execute! tx ["SET session_replication_role = 'origin'"]))
     (catch Exception e
       (log/error "Failed to truncate tables from test database")
       (throw e))))

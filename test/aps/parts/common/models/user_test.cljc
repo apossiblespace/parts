@@ -10,7 +10,8 @@
                                   :username     "bobson"
                                   :display_name "Bob Bobson"
                                   :role         "therapist"})]
-      (is (string? (:id result)))
+      #?(:cljs (is (string? (:id result)))
+         :clj (is (nil? (:id result))))
       (is (= "bob@bobson.net" (:email result)))
       (is (= "bobson" (:username result)))
       (is (= "Bob Bobson" (:display_name result)))
@@ -33,7 +34,8 @@
                                   :password              "pass1234"
                                   :password_confirmation "pass1234"}
                                  true)]
-      (is (string? (:id result)))
+      #?(:cljs (is (string? (:id result)))
+         :clj (is (nil? (:id result))))
       (is (= "bob@bobson.net" (:email result)))
       (is (= "bobson" (:username result)))
       (is (= "Bob Bobson" (:display_name result)))

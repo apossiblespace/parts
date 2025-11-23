@@ -5,7 +5,6 @@
    [aps.parts.server :as server]
    [kaocha.repl :as k]
    [kaocha.watch :as watch]
-   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
    [mulog-events]
    [portal.api :as portal]
@@ -86,16 +85,14 @@
 (defn db-migrate
   "Migrate the database (uses current environment from PARTS_ENV)"
   []
-  (let [db-spec          {:dbtype (l-config/get conf/config :db/type)
-                          :dbname (l-config/get conf/config :db/file)}
+  (let [db-spec          (conf/database-config)
         migration-config (assoc db/migration-config :db db-spec)]
     (migratus/migrate migration-config)))
 
 (defn db-rollback
   "Rollback the database (uses current environment from PARTS_ENV)"
   []
-  (let [db-spec          {:dbtype (l-config/get conf/config :db/type)
-                          :dbname (l-config/get conf/config :db/file)}
+  (let [db-spec          (conf/database-config)
         migration-config (assoc db/migration-config :db db-spec)]
     (migratus/rollback migration-config)))
 

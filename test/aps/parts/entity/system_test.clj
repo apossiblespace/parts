@@ -16,7 +16,7 @@
 
     (testing "create!"
       (let [created (system/create! system-data)]
-        (is (string? (:id created)))
+        (is (uuid? (:id created)))
         (is (= (:title system-data) (:title created)))
         (is (= (:owner_id system-data) (:owner_id created)))
         (is (some? (:created_at created)))

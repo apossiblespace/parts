@@ -1,8 +1,13 @@
-{:db/file "db/parts.db"
- :db/type "sqlite"
+{:db/type "postgresql"
+ :db/host "localhost"
+ :db/port 5432
+ :db/name "parts_dev"
+ :db/user "gosha"
+ :db/password ""
+ :db/ssl false
 
  :http/host "localhost"
- :http/port "3000"
+ :http/port 3000
  :http/protocol "http"
 
  :auth/secret "secret"}

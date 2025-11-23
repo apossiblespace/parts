@@ -28,7 +28,7 @@
 
     (testing "create!"
       (let [created (relationship/create! relationship-data)]
-        (is (string? (:id created)))
+        (is (uuid? (:id created)))
         (is (= (:type relationship-data) (:type created)))
         (is (= (:source_id relationship-data) (:source_id created)))
         (is (= (:target_id relationship-data) (:target_id created)))))

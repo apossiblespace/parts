@@ -95,7 +95,7 @@
                                         :from   [:refresh_tokens]
                                         :where  [:and
                                                  [:= :token_id jti]
-                                                 [:= :user_id sub]]}))]
+                                                 [:= :user_id (db/->uuid sub)]]}))]
       (when (and token-record
                  (= type "refresh")
                  (< (System/currentTimeMillis) (* exp 1000)))
@@ -107,14 +107,16 @@
 (defn refresh-auth-tokens
   "Creates new access and refresh tokens if the refresh token is valid"
   [refresh-token]
-  (when-let [user-id (validate-refresh-token refresh-token)]
-    ;; Invalidate the old refresh token
-    (db/delete! :refresh_tokens [:= :token_id (get (jwt/unsign refresh-token secret) :jti)])
+  (when-let [user-id-str (validate-refresh-token refresh-token)]
+    ;; Convert string UUID to UUID object
+    (let [user-id (db/->uuid user-id-str)]
+      ;; Invalidate the old refresh token
+      (db/delete! :refresh_tokens [:= :token_id (get (jwt/unsign refresh-token secret) :jti)])
 
-    ;; Create new tokens
-    {:access_token  (create-access-token user-id)
-     :refresh_token (create-refresh-token user-id)
-     :token_type    "Bearer"}))
+      ;; Create new tokens
+      {:access_token  (create-access-token user-id)
+       :refresh_token (create-refresh-token user-id)
+       :token_type    "Bearer"})))
 
 (defn invalidate-refresh-token
   "Invalidate a refresh token when user logs out"

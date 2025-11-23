@@ -3,7 +3,6 @@
    [aps.parts.auth :as auth]
    [buddy.auth :refer [authenticated?]]
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
-   [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
    [reitit.ring.middleware.exception :as exception]
    [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
@@ -12,7 +11,7 @@
    [ring.middleware.resource :refer [wrap-resource]]
    [ring.util.response :as response])
   (:import
-   (org.sqlite SQLiteException)))
+   (org.postgresql.util PSQLException)))
 
 (defn- exception-handler
   "Generic exceptions handler used by the `exception` middleware.
@@ -26,26 +25,24 @@
       {:status status
        :body   {:error (or error-message message)}})))
 
-(def sqlite-errors
-  "A map containing substrings of a SQLiteException error message, and the
-  corresponding user friendly error message."
-  {"UNIQUE constraint failed"      "A resource with this unique identifier already exists"
-   "CHECK constraint failed"       "The provided data does not meet the required constraints"
-   "NOT NULL constraint failed"    "A required field was missing"
-   "FOREIGN KEY constraint failed" "The referenced resource does not exist"})
+(def postgres-sql-state-errors
+  "A map of PostgreSQL SQL state codes to user-friendly error messages."
+  {"23505" "A resource with this unique identifier already exists" ; unique violation
+   "23514" "The provided data does not meet the required constraints" ; check constraint
+   "23502" "A required field was missing" ; not null violation
+   "23503" "The referenced resource does not exist"}) ; foreign key violation
 
-(defn sqlite-constraint-violation-handler
-  "Handler for SQLite-specific exceptions.
+(defn postgres-constraint-violation-handler
+  "Handler for PostgreSQL-specific exceptions.
 
-  If the error message includes a string that is a key in `sqlite-errors`, the
-  error message will be the corresponding value; otherwise a generic message."
-  [^SQLiteException e _request]
-  (let [error-message (.getMessage e)]
-    (mulog/log ::sqlite-exception :error error-message)
+  Uses SQL state codes to determine the type of constraint violation and
+  provide user-friendly error messages."
+  [^PSQLException e _request]
+  (let [error-message (.getMessage e)
+        sql-state     (.getSQLState e)]
+    (mulog/log ::postgres-exception :error error-message :sql-state sql-state)
     {:status 409
-     :body   {:error (or (some
-                          (fn [[k, v]] (when (str/includes? error-message k) v))
-                          sqlite-errors)
+     :body   {:error (or (get postgres-sql-state-errors sql-state)
                          "A database constraint was violated")}}))
 
 (def exception
@@ -60,8 +57,8 @@
 
      :not-found                                                 (exception-handler "Resource not found" 404)
 
-     ;; SQLite exceptions
-     SQLiteException                                            sqlite-constraint-violation-handler
+     ;; PostgreSQL exceptions
+     PSQLException                                              postgres-constraint-violation-handler
 
      ;; Default
      ::exception/default

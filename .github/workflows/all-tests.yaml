@@ -10,6 +10,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v5
 
@@ -28,6 +43,20 @@ jobs:
       - name: Run linter
         run: nix develop --command clj-kondo --lint src test
 
+      - name: Run migrations
+        run: nix develop --command clojure -X:migrate
+        env:
+          PARTS_ENV: test
+          PARTS_DB_HOST: localhost
+          PARTS_DB_PORT: 5432
+          PARTS_DB_NAME: parts_test
+          PARTS_DB_USER: postgres
+          PARTS_DB_PASSWORD: postgres
+          PARTS_DB_SSL: false
+          # Override flake.nix PG* variables to ensure correct database
+          PGDATABASE: parts_test
+          PGUSER: postgres
+
       - name: Run tests
         run: |
           nix develop --command clojure -X:test/env:test/run || {
@@ -37,5 +66,12 @@ jobs:
           }
         env:
           PARTS_ENV: test
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          PARTS_DB_PATH: ${{ github.workspace }}/db/parts_test.db
+          PARTS_DB_HOST: localhost
+          PARTS_DB_PORT: 5432
+          PARTS_DB_NAME: parts_test
+          PARTS_DB_USER: postgres
+          PARTS_DB_PASSWORD: postgres
+          PARTS_DB_SSL: false
+          # Override flake.nix PG* variables to ensure correct database
+          PGDATABASE: parts_test
+          PGUSER: postgres

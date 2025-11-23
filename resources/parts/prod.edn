@@ -1,4 +1,8 @@
-{:db/file "/app/db/parts.db"
+{:db/host "localhost"
+ :db/name "parts_prod"
+ :db/ssl true
+
  :http/protocol "https"
- :repl/port "7888"
+
+ :repl/port 7888
  :repl/host "127.0.0.1"}

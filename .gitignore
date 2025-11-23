@@ -63,5 +63,9 @@ resources/public/css/style.css
 .envrc.local
 
 # ------------------------
+# Ignore PostgreSQL data directory
+.postgres/
+
+# ------------------------
 # Include scripts
 !scripts
