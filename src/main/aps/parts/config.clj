@@ -42,6 +42,17 @@
        ":"
        (l-config/get config :http/port)))
 
+(defn database-config
+  "Get complete database configuration map suitable for next.jdbc."
+  []
+  {:dbtype   "postgresql"
+   :host     (l-config/get config :db/host)
+   :port     (l-config/get config :db/port)
+   :dbname   (l-config/get config :db/name)
+   :user     (l-config/get config :db/user)
+   :password (l-config/get config :db/password)
+   :ssl      (l-config/get config :db/ssl)})
+
 (defn print-config-table
   "Print all accessed configuration keys, values, and sources as a table."
   []
