@@ -47,12 +47,12 @@ jobs:
         run: nix develop --command clojure -X:migrate
         env:
           PARTS_ENV: test
-          PARTS_DB_HOST: localhost
-          PARTS_DB_PORT: 5432
-          PARTS_DB_NAME: parts_test
-          PARTS_DB_USER: postgres
-          PARTS_DB_PASSWORD: postgres
-          PARTS_DB_SSL: false
+          PARTS__DB__HOST: localhost
+          PARTS__DB__PORT: 5432
+          PARTS__DB__NAME: parts_test
+          PARTS__DB__USER: postgres
+          PARTS__DB__PASSWORD: postgres
+          PARTS__DB__SSL: false
           # Override flake.nix PG* variables to ensure correct database
           PGDATABASE: parts_test
           PGUSER: postgres
@@ -66,12 +66,12 @@ jobs:
           }
         env:
           PARTS_ENV: test
-          PARTS_DB_HOST: localhost
-          PARTS_DB_PORT: 5432
-          PARTS_DB_NAME: parts_test
-          PARTS_DB_USER: postgres
-          PARTS_DB_PASSWORD: postgres
-          PARTS_DB_SSL: false
+          PARTS__DB__HOST: localhost
+          PARTS__DB__PORT: 5432
+          PARTS__DB__NAME: parts_test
+          PARTS__DB__USER: postgres
+          PARTS__DB__PASSWORD: postgres
+          PARTS__DB__SSL: false
           # Override flake.nix PG* variables to ensure correct database
           PGDATABASE: parts_test
           PGUSER: postgres
