@@ -6,28 +6,69 @@
    [kaocha.repl :as k]
    [kaocha.watch :as watch]
    [migratus.core :as migratus]
-   [mulog-events]
-   [portal.api :as portal]
-   [shadow.cljs.devtools.api :as shadow]
-   [shadow.cljs.devtools.server :as shadow-server]))
+   [mulog-events]))
+
+;; Helper functions to check and load dev dependencies
+(defn- try-require
+  "Try to require a namespace, returns true if successful"
+  [ns-sym]
+  (try
+    (require ns-sym)
+    true
+    (catch Exception _
+      false)))
+
+(defn- portal-available?
+  "Check if Portal is available"
+  []
+  (try-require 'portal.api))
+
+(defn- shadow-available?
+  "Check if Shadow-CLJS is available"
+  []
+  (and (try-require 'shadow.cljs.devtools.api)
+       (try-require 'shadow.cljs.devtools.server)))
+
+;; Initialize dev tools if available
+(defonce ^:private dev-tools-initialized (atom false))
+
+(defn- ensure-dev-tools
+  "Initialize dev tools if available and not already done"
+  []
+  (when-not @dev-tools-initialized
+    (when (portal-available?)
+      ;; Initialize Portal
+      (let [portal   (requiring-resolve 'portal.api/open)
+            sessions (requiring-resolve 'portal.api/sessions)
+            submit   (requiring-resolve 'portal.api/submit)]
+        ;; Open portal window if no sessions exist
+        (when (empty? (sessions))
+          (portal {:app false}))
+        ;; Add tap
+        (add-tap submit)))
+    (reset! dev-tools-initialized true)))
 
 (defn cljs-repl []
-  (shadow.cljs.devtools.api/repl :frontend))
-
-(def portal-instance
-  "Open portal window if no portal sessions have been created.
-   A portal session is created when opening a portal window.
-
-   Opens in the default system browser."
-  (or (seq (portal/sessions))
-      (portal/open {:app false})))
-
-(add-tap #'portal.api/submit)
+  (if (shadow-available?)
+    ((requiring-resolve 'shadow.cljs.devtools.api/repl) :frontend)
+    (println "Shadow-CLJS not available. Add :dev alias to use CLJS REPL.")))
 
 (defn portal-open
   "Open a new portal window in the browser"
   []
-  (portal/open {:app false}))
+  (ensure-dev-tools)
+  (if (portal-available?)
+    ((requiring-resolve 'portal.api/open) {:app false})
+    (println "Portal not available. Add :dev alias to use Portal.")))
+
+(defn p
+  "Submit value to Portal if available, otherwise just return it"
+  [x]
+  (ensure-dev-tools)
+  (if (portal-available?)
+    (do ((requiring-resolve 'portal.api/submit) x)
+        x)
+    x))
 
 ;; App server management
 
@@ -63,8 +104,13 @@
     (println "PostCSS watch stopped")))
 
 (defn start []
-  (shadow-server/start!)
-  (shadow/watch :frontend)
+  (ensure-dev-tools)
+  (if (shadow-available?)
+    (do
+      ((requiring-resolve 'shadow.cljs.devtools.server/start!))
+      ((requiring-resolve 'shadow.cljs.devtools.api/watch) :frontend))
+    (println "Shadow-CLJS not available. Frontend compilation disabled."))
+
   (start-postcss-watch)
 
   (reset! server-ref
@@ -84,7 +130,8 @@
 
 (defn db-migrate
   "Migrate the database (uses current environment from PARTS_ENV)"
-  []
+  {:exec-fn true} ; Mark this as an exec function for deps.edn
+  [_] ; Accept args map from -X invocation
   (let [db-spec          (conf/database-config)
         migration-config (assoc db/migration-config :db db-spec)]
     (migratus/migrate migration-config)))
