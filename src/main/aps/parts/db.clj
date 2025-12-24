@@ -12,18 +12,9 @@
   []
   (conf/database-config))
 
-(defn make-datasource
-  "Create a connection pool for PostgreSQL."
-  []
-  (jdbc/get-datasource (db-spec)))
-
 (def datasource
   "Single connection pool for all database operations."
-  (make-datasource))
-
-;; Aliases for compatibility during transition
-(def read-datasource datasource)
-(def write-datasource datasource)
+  (jdbc/get-datasource (db-spec)))
 
 (def migration-config
   {:store                :database
@@ -59,7 +50,7 @@
 
 (defn query
   [q]
-  (jdbc/execute! read-datasource q {:builder-fn rs/as-unqualified-maps}))
+  (jdbc/execute! datasource q {:builder-fn rs/as-unqualified-maps}))
 
 (defn query-one
   [q]
@@ -69,7 +60,7 @@
   "Inserts `data` into `table`. Returns the inserted record with all fields including
    the database-generated UUID."
   ([table data]
-   (insert! table data write-datasource))
+   (insert! table data datasource))
   ([table data datasource]
    (first (jdbc/execute! datasource
                          (sql/format {:insert-into (keyword table)
@@ -79,7 +70,7 @@
 
 (defn update!
   ([table data where-clause]
-   (update! table data where-clause write-datasource))
+   (update! table data where-clause datasource))
   ([table data where-clause datasource]
    (jdbc/execute! datasource
                   (sql/format {:update    (keyword table)
@@ -90,7 +81,7 @@
 
 (defn delete!
   ([table where-clause]
-   (delete! table where-clause write-datasource))
+   (delete! table where-clause datasource))
   ([table where-clause datasource]
    (jdbc/execute! datasource
                   (sql/format {:delete-from (keyword table)
@@ -101,7 +92,7 @@
   "Execute a function f within a transaction on the write datasource.
   f should accept a transaction connection as its argument"
   [f]
-  (jdbc/with-transaction [tx write-datasource]
+  (jdbc/with-transaction [tx datasource]
     (f tx)))
 
 (defn affected-row-count
@@ -117,6 +108,3 @@
                            (reduce + (map affected-row-count result)))
     :else 0))
 
-;; Connection pool aliases for compatibility
-(def read-pool datasource)
-(def write-pool datasource)
