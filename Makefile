@@ -11,7 +11,7 @@
 
 .PHONY: help repl css-watch test test-watch test-config test-profile dist \
 		build-css build-frontend build-config build-uberjar run-dist deploy \
-		clean deps npm-deps
+		clean deps npm-deps pg-start pg-stop pg-status pg-console pg-console-test
 
 .DEFAULT_GOAL := help
 
@@ -26,6 +26,21 @@ HOST = parts
 
 help: ## This blessed text
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
+
+pg-start: ## Start PostgreSQL and create databases
+	@pg_ctl -l $$PGDATA/logfile start && sleep 2 && createdb -E UTF8 parts_dev 2>/dev/null || true && createdb -E UTF8 parts_test 2>/dev/null || true && echo "✓ PostgreSQL started (parts_dev, parts_test)"
+
+pg-stop: ## Stop PostgreSQL
+	@pg_ctl stop && echo "✓ PostgreSQL stopped"
+
+pg-status: ## Check PostgreSQL status
+	@pg_ctl status
+
+pg-console: ## Open psql console (dev DB)
+	@psql -d parts_dev
+
+pg-console-test: ## Open psql console (test DB)
+	@psql -d parts_test
 
 repl: deps ## Start a Clojure REPL
 	clojure -M:dev -m shadow.cljs.devtools.cli clj-repl

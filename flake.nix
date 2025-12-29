@@ -64,21 +64,14 @@
               initdb --auth=trust --no-locale --encoding=UTF8
             fi
 
-            # PostgreSQL management aliases
-            alias pg-start='pg_ctl -l $PGDATA/logfile start && sleep 2 && createdb -E UTF8 parts_dev 2>/dev/null || true && createdb -E UTF8 parts_test 2>/dev/null || true && echo "✓ PostgreSQL started (parts_dev, parts_test)"'
-            alias pg-stop='pg_ctl stop && echo "✓ PostgreSQL stopped"'
-            alias pg-status='pg_ctl status'
-            alias pg-console='psql -d parts_dev'
-            alias pg-console-test='psql -d parts_test'
-
             echo "🌀 Parts Development Environment"
             echo ""
             echo "PostgreSQL commands:"
-            echo "  pg-start        - Start PostgreSQL and create databases"
-            echo "  pg-stop         - Stop PostgreSQL"
-            echo "  pg-status       - Check PostgreSQL status"
-            echo "  pg-console      - Open psql console (dev DB)"
-            echo "  pg-console-test - Open psql console (test DB)"
+            echo "  make pg-start        - Start PostgreSQL and create databases"
+            echo "  make pg-stop         - Stop PostgreSQL"
+            echo "  make pg-status       - Check PostgreSQL status"
+            echo "  make pg-console      - Open psql console (dev DB)"
+            echo "  make pg-console-test - Open psql console (test DB)"
             echo ""
             echo "Available commands:"
             echo "  make help     - Show all available make targets"
