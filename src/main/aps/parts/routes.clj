@@ -92,6 +92,10 @@
                                 middleware/wrap-html-response]
                    :get        {:handler pages/playground}}]
 
+   ["/systems/:id" {:middleware [middleware/wrap-html-defaults
+                                 middleware/wrap-html-response]
+                    :get        {:handler pages/system-page}}]
+
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 
    ;; Form submission endpoint with CSRF protection

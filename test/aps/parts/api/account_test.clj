@@ -65,15 +65,24 @@
       (is (= 204 (:status response)))
       (is (= nil db-user)))))
 
+;; TODO: When we allow roles other than "therapist" during registration,
+;; update this test to verify the role from user-data is respected
 (deftest test-register-account
-  (testing "register creates a new user successfully"
-    (let [user-data                                  (factory/build-test-user)
-          {:keys [email username display_name role]} user-data
-          mock-request                               {:body-params user-data}
-          response                                   (account/register-account mock-request)
-          user                                       (:body response)]
+  (testing "register creates a new user with therapist role and a default system"
+    (let [user-data                             (factory/build-test-user)
+          {:keys [email username display_name]} user-data
+          mock-request                          {:body-params user-data}
+          response                              (account/register-account mock-request)
+          user                                  (:body response)]
       (is (= 201 (:status response)))
       (is (= email (:email user)))
       (is (= username (:username user)))
       (is (= display_name (:display_name user)))
-      (is (= role (:role user))))))
+      ;; Role is always hardcoded to "therapist" regardless of input
+      (is (= "therapist" (:role user)))
+      ;; Registration should return auth tokens
+      (is (some? (:access_token user)))
+      (is (some? (:refresh_token user)))
+      (is (= "Bearer" (:token_type user)))
+      ;; Registration should create a default system
+      (is (some? (:system_id user))))))

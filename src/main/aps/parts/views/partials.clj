@@ -55,11 +55,15 @@
       {:href "/", :class "flex items-center"}
       [:img {:class "w-50"
              :src   "/images/parts-logo-horizontal.svg"}]]
-     [:a
-      {:href    "#signup",
-       :class   "text-ifs-green font-semibold hover:underline"
-       :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
-      "Join Founding Circle"]]]])
+     [:div {:class "flex items-center space-x-4"}
+      [:button
+       {:class   "text-gray-600 hover:text-gray-900 font-medium cursor-pointer"
+        :onclick "window.dispatchEvent(new CustomEvent('parts:open-login'))"}
+       "Log in"]
+      [:button
+       {:class   "btn btn-primary cursor-pointer"
+        :onclick "window.dispatchEvent(new CustomEvent('parts:open-signup')); plausible('Create Account Click', {props: {source: 'homepage-header'}});"}
+       "Create an account"]]]]])
 
 (defn footer
   "Site footer"

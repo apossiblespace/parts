@@ -16,6 +16,17 @@
         (utils/save-tokens (:body response)))
       response)))
 
+(defn register
+  "Register a new user account.
+   PARAMS should be a map containing :email, :username, :display_name, :password, :password_confirmation.
+   On success, saves tokens for auto-login and returns the response with user + system data."
+  [params]
+  (go
+    (let [response (<! (http/POST "/account/register" params {:skip-auth true}))]
+      (when (= 201 (:status response))
+        (utils/save-tokens (select-keys (:body response) [:access_token :refresh_token :token_type])))
+      response)))
+
 (defn logout []
   (utils/clear-tokens))
 

@@ -1,5 +1,7 @@
 (ns aps.parts.api.account
   (:require
+   [aps.parts.auth :as auth]
+   [aps.parts.entity.system :as system]
    [aps.parts.entity.user :as user]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
@@ -23,11 +25,27 @@
         (response/status 200))))
 
 (defn register-account
-  "Creates a record for a new user account"
+  "Creates a record for a new user account.
+   - Hardcodes role to 'therapist'
+   - Creates a default system for the user
+   - Returns auth tokens for auto-login"
   [request]
-  (let [account (user/create! (:body-params request))]
-    (mulog/log ::register :email (:email account) :username (:username account) :status :success)
-    (-> (response/response account)
+  (let [params       (-> (:body-params request)
+                         (assoc :role "therapist"))
+        account      (user/create! params)
+        system-title (str (:username account) "'s System")
+        new-system   (system/create! {:title    system-title
+                                      :owner_id (:id account)})
+        tokens       (auth/authenticate {:email    (:email params)
+                                         :password (:password params)})]
+    (mulog/log ::register
+               :email (:email account)
+               :username (:username account)
+               :system-id (:id new-system)
+               :status :success)
+    (-> (response/response (merge account
+                                  tokens
+                                  {:system_id (:id new-system)}))
         (response/status 201))))
 
 (defn delete-account

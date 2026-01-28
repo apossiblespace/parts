@@ -22,6 +22,11 @@
   [_]
   (system-graph {:demo-mode "true"}))
 
+(defn system-page
+  "Page rendering a user's system graph (requires authentication)"
+  [_]
+  (system-graph {:demo-mode false}))
+
 (defn home-page
   "Page rendered for GET /"
   [_]
@@ -31,6 +36,8 @@
       (layouts/main
        {:title  "Mapping tools for IFS practitioners and their clients"
         :styles ["/css/flow.css" "/css/style.css"]}
+       ;; Auth root for React auth modals
+       [:div#auth-root]
        [:section
         [:div
          {:class ["grid" "grid-cols-1" "md:grid-cols-2"
@@ -39,15 +46,14 @@
          [:div
           [:h1
            {:class ["text-5xl" "md:text-6xl" "font-bold" "my-16"]}
-           "Understand your clients’ parts and their relationships."]
+           "Understand your clients' parts and their relationships."]
           [:h3.my-8.text-xl
            [:strong.font-bold "Parts"]
            " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' aps.parts."]
           [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
-           [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
-            {:role "button"
-             :href "#signup"}
-            "Join the Founding Circle"]
+           [:button.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200.cursor-pointer
+            {:onclick "window.dispatchEvent(new CustomEvent('parts:open-signup')); plausible('Create Account Click', {props: {source: 'homepage-hero'}});"}
+            "Create an account"]
            [:a.btn.btn-lg {:role "button"
                            :href "/playground"}
             "Try the playground"]]

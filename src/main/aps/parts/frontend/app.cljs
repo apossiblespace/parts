@@ -2,6 +2,7 @@
   (:require
    ["htmx.org" :default htmx]
    [aps.parts.common.observe :as o]
+   [aps.parts.frontend.auth-app :as auth-app]
    [aps.parts.frontend.components.system :refer [system]]
    [aps.parts.frontend.components.system-list-modal :refer [system-list-modal]]
    [aps.parts.frontend.state.fx]
@@ -63,17 +64,21 @@
 (defn ^:export init []
   ;; Configure HTMX response handling for validation errors
   (set! (.-responseHandling (.-config htmx))
-        #js [#js {:code "204" :swap false}                    ; 204 - No Content by default does nothing, but is not an error
-             #js {:code "400" :swap true :error false}        ; 400 - Bad Request (validation errors) should swap content
-             #js {:code "409" :swap true :error false}        ; 409 - Conflict (duplicate email) should swap content
-             #js {:code "[23].." :swap true}                  ; 200 & 300 responses are non-errors and are swapped
-             #js {:code "[45].." :swap false :error true}     ; Other 400 & 500 responses are not swapped and are errors
-             #js {:code "..." :swap false}])                  ; catch all for any other response code
+        #js [#js {:code "204" :swap false} ; 204 - No Content by default does nothing, but is not an error
+             #js {:code "400" :swap true :error false} ; 400 - Bad Request (validation errors) should swap content
+             #js {:code "409" :swap true :error false} ; 409 - Conflict (duplicate email) should swap content
+             #js {:code "[23].." :swap true} ; 200 & 300 responses are non-errors and are swapped
+             #js {:code "[45].." :swap false :error true} ; Other 400 & 500 responses are not swapped and are errors
+             #js {:code "..." :swap false}]) ; catch all for any other response code
 
   (.on htmx "htmx:load"
        (fn [_]
+         ;; Initialize main app if #root exists
          (when-let [root-el (js/document.getElementById "root")]
            (reset! app-state (setup-app root-el)))
+         ;; Initialize auth app if #auth-root exists (landing page)
+         (when (js/document.getElementById "auth-root")
+           (auth-app/init))
          (let [version (.-version htmx)]
            (o/info "app.init" "HTMX loaded! Version:" version)))))
 

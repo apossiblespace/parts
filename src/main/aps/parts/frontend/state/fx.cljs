@@ -34,6 +34,20 @@
          (callback resp))))))
 
 (rf/reg-fx
+ :auth/register-fx
+ (fn [{:keys [email username display_name password password_confirmation callback]}]
+   (go
+     (let [resp (<! (api/register {:email                 email
+                                   :username              username
+                                   :display_name          display_name
+                                   :password              password
+                                   :password_confirmation password_confirmation}))]
+       (when (= 201 (:status resp))
+         (rf/dispatch [:auth/check-auth]))
+       (when callback
+         (callback resp))))))
+
+(rf/reg-fx
  :auth/logout-fx
  (fn [_]
    (api/logout)))

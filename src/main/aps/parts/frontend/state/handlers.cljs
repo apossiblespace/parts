@@ -327,3 +327,9 @@
  (fn [{:keys [db]} _]
    {:db                 db
     :auth/check-auth-fx nil}))
+
+(rf/reg-event-fx
+ :auth/register
+ (fn [{:keys [db]} [_ params]]
+   {:db               db
+    :auth/register-fx params}))
