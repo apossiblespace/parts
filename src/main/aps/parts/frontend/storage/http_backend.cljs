@@ -14,30 +14,48 @@
     (go
       (o/debug "http-backend.list-systems" "listing systems")
       (let [response (<! (http/GET "/systems"))]
-        (if (= 200 (:status response))
-          (:body response)
+        (case (:status response)
+          200 (:body response)
+          401 (do
+                (o/warn "http-backend.list-systems" "unauthorized")
+                {:error :unauthorized})
           (do
             (o/error "http-backend.list-systems" "failed to list systems" response)
             [])))))
 
   (load-system [_this system-id]
-    "Loads system by making GET request to /systems/:id endpoint."
+    "Loads system by making GET request to /systems/:id endpoint.
+     Returns the system on success, or {:error :unauthorized} on 401,
+     {:error :forbidden} on 403, {:error :not-found} on 404,
+     or {:error :unknown} on other failures."
     (go
       (o/debug "http-backend.load-system" "loading system" system-id)
       (let [response (<! (http/GET (str "/systems/" system-id)))]
-        (if (= 200 (:status response))
-          (:body response)
+        (case (:status response)
+          200 (:body response)
+          401 (do
+                (o/warn "http-backend.load-system" "unauthorized" system-id)
+                {:error :unauthorized})
+          403 (do
+                (o/warn "http-backend.load-system" "forbidden" system-id)
+                {:error :forbidden})
+          404 (do
+                (o/warn "http-backend.load-system" "not found" system-id)
+                {:error :not-found})
           (do
             (o/error "http-backend.load-system" "failed to load system" system-id response)
-            nil)))))
+            {:error :unknown})))))
 
   (create-system [_this system-data]
     "Creates system by making POST request to /systems endpoint."
     (go
       (o/debug "http-backend.create-system" "creating system" system-data)
       (let [response (<! (http/POST "/systems" system-data))]
-        (if (= 201 (:status response))
-          (:body response)
+        (case (:status response)
+          201 (:body response)
+          401 (do
+                (o/warn "http-backend.create-system" "unauthorized")
+                {:error :unauthorized})
           (do
             (o/error "http-backend.create-system" "failed to create system" response)
             nil)))))

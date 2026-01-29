@@ -5,6 +5,14 @@
 (defn save-current-system-id [id]
   (.setItem js/localStorage current-system-storage-key id))
 
+(defn get-system-id-from-url
+  "Extract system ID from URL path /systems/:id. Returns nil if not on a system page."
+  []
+  (let [pathname (.-pathname js/window.location)
+        match (re-matches #"/systems/([a-f0-9-]+)" pathname)]
+    (when match
+      (second match))))
+
 (defn get-current-system-id []
   (.getItem js/localStorage current-system-storage-key))
 

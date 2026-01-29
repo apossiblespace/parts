@@ -9,7 +9,6 @@
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
    [aps.parts.frontend.state.subs]
-   [aps.parts.frontend.storage.registry :as storage-registry]
    [cljs.core.async :refer [go <!]]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-state use-effect]]
@@ -18,9 +17,9 @@
 
 (def initial-db
   {:demo-mode false
-   :system    {}
-   :systems   {:list    []
-               :loading false}})
+   :system {}
+   :systems {:list []
+             :loading false}})
 
 (defn redirect-to-system!
   "Fetch user's systems and redirect to the first one"
@@ -34,10 +33,10 @@
                   (str "/systems/" system-id))))))))
 
 (defui auth-app []
-  (let [[show-login set-show-login]   (use-state false)
+  (let [[show-login set-show-login] (use-state false)
         [show-signup set-show-signup] (use-state false)
-        user                          (uix.rf/use-subscribe [:auth/user])
-        auth-loading                  (uix.rf/use-subscribe [:auth/loading])]
+        user (uix.rf/use-subscribe [:auth/user])
+        auth-loading (uix.rf/use-subscribe [:auth/loading])]
 
     ;; Redirect logged-in users to their system
     (use-effect
@@ -50,7 +49,7 @@
     ;; Listen for custom events from server-rendered buttons
     (use-effect
      (fn []
-       (let [login-handler  #(set-show-login true)
+       (let [login-handler #(set-show-login true)
              signup-handler #(set-show-signup true)]
          (.addEventListener js/window "parts:open-login" login-handler)
          (.addEventListener js/window "parts:open-signup" signup-handler)
@@ -61,11 +60,11 @@
 
     ($ :<>
        ($ login-modal
-          {:show     show-login
+          {:show show-login
            :on-close #(set-show-login false)})
        ($ signup-modal
-          {:show       show-signup
-           :on-close   #(set-show-signup false)
+          {:show show-signup
+           :on-close #(set-show-signup false)
            :on-success (fn [result]
                          ;; Redirect to the new system after successful signup
                          (when-let [system-id (get-in result [:body :system_id])]
@@ -75,8 +74,9 @@
 (defn ^:export init []
   (when-let [root-el (js/document.getElementById "auth-root")]
     (let [root (uix.dom/create-root root-el)]
-      ;; Initialize HTTP backend for API calls
-      (storage-registry/init-http-backend!)
+      ;; Note: Don't initialize storage backend here - auth-app uses direct API
+      ;; calls and shouldn't override the backend set by the main app (which may
+      ;; be localStorage for demo mode)
       (rf/dispatch-sync [:app/init-db initial-db])
       (rf/dispatch [:auth/check-auth])
       (uix.dom/render-root ($ auth-app) root))))

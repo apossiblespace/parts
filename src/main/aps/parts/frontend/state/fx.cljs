@@ -37,10 +37,10 @@
  :auth/register-fx
  (fn [{:keys [email username display_name password password_confirmation callback]}]
    (go
-     (let [resp (<! (api/register {:email                 email
-                                   :username              username
-                                   :display_name          display_name
-                                   :password              password
+     (let [resp (<! (api/register {:email email
+                                   :username username
+                                   :display_name display_name
+                                   :password password
                                    :password_confirmation password_confirmation}))]
        (when (= 201 (:status resp))
          (rf/dispatch [:auth/check-auth]))
@@ -65,13 +65,33 @@
              (rf/dispatch [:auth/set-user (:body resp)]))))))))
 
 (rf/reg-fx
+ :navigate-to
+ (fn [path]
+   (set! (.-location js/window) path)))
+
+(rf/reg-fx
  :storage/get-system
  (fn [{:keys [id]}]
    (go
      (if-let [backend (storage-registry/get-backend)]
-       (let [system (<! (load-system backend id))]
-         (if system
-           (rf/dispatch [:system/fetch-success system])
+       (let [result (<! (load-system backend id))]
+         (cond
+           ;; Success - got a system with an :id
+           (:id result)
+           (rf/dispatch [:system/fetch-success result])
+
+           ;; Error responses from http-backend
+           (= :unauthorized (:error result))
+           (rf/dispatch [:system/fetch-unauthorized])
+
+           (= :forbidden (:error result))
+           (rf/dispatch [:system/fetch-forbidden])
+
+           (= :not-found (:error result))
+           (rf/dispatch [:system/fetch-not-found])
+
+           ;; Any other error or nil
+           :else
            (rf/dispatch [:system/fetch-failure "Failed to load system"])))
        (rf/dispatch [:system/fetch-failure "No storage backend available"])))))
 
