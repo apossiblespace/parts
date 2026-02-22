@@ -31,25 +31,26 @@
    ;;     :relationships [{:id \"e1\" :source_id \"n1\" ...}]}
    ```"
   [id]
-  (if-let [system (db/query-one
-                   (db/sql-format
-                    {:select [:*]
-                     :from   [:systems]
-                     :where  [:= :id id]}))]
-    (let [parts         (db/query
-                         (db/sql-format
-                          {:select [:*]
-                           :from   [:parts]
-                           :where  [:= :system_id id]}))
-          relationships (db/query
-                         (db/sql-format
-                          {:select [:*]
-                           :from   [:relationships]
-                           :where  [:= :system_id id]}))]
-      (assoc system
-             :parts parts
-             :relationships relationships))
-    (throw (ex-info "System not found" {:type :not-found :id id}))))
+  (let [uuid-id (db/->uuid id)]
+    (if-let [system (db/query-one
+                     (db/sql-format
+                      {:select [:*]
+                       :from   [:systems]
+                       :where  [:= :id uuid-id]}))]
+      (let [parts         (db/query
+                           (db/sql-format
+                            {:select [:*]
+                             :from   [:parts]
+                             :where  [:= :system_id uuid-id]}))
+            relationships (db/query
+                           (db/sql-format
+                            {:select [:*]
+                             :from   [:relationships]
+                             :where  [:= :system_id uuid-id]}))]
+        (assoc system
+               :parts parts
+               :relationships relationships))
+      (throw (ex-info "System not found" {:type :not-found :id id})))))
 
 (defn index
   "List all systems for a user"
@@ -58,7 +59,7 @@
    (db/sql-format
     {:select [:*]
      :from   [:systems]
-     :where  [:= :owner_id owner-id]})))
+     :where  [:= :owner_id (db/->uuid owner-id)]})))
 
 (defn update!
   "Update a system"
@@ -66,7 +67,7 @@
   (validate-spec model/spec (assoc data :id id))
   (let [updated (db/update! :systems
                             (assoc data :last_modified [:raw "CURRENT_TIMESTAMP"])
-                            [:= :id id])]
+                            [:= :id (db/->uuid id)])]
     (if (seq updated)
       (first updated)
       (throw (ex-info "System not found" {:type :not-found :id id})))))
@@ -76,15 +77,14 @@
    where :deleted is true if the system was found and deleted."
   [id]
   (mulog/log ::delete-system-start :system-id id)
-
-  (let [system (fetch id)]
+  (let [system  (fetch id)
+        uuid-id (db/->uuid id)]
     (if system
       (db/with-transaction
         (fn [tx]
-          (let [deleted-relationships (db/delete! :relationships [:= :system_id id] tx)
-                deleted-parts         (db/delete! :parts [:= :system_id id] tx)
-                deleted-system        (db/delete! :systems [:= :id id] tx)
-
+          (let [deleted-relationships (db/delete! :relationships [:= :system_id uuid-id] tx)
+                deleted-parts         (db/delete! :parts [:= :system_id uuid-id] tx)
+                deleted-system        (db/delete! :systems [:= :id uuid-id] tx)
                 rel-count             (db/affected-row-count deleted-relationships)
                 parts-count           (db/affected-row-count deleted-parts)
                 deleted               (pos? (db/affected-row-count deleted-system))]

@@ -19,7 +19,7 @@
                          (db/sql-format
                           {:select [:*]
                            :from   [:relationships]
-                           :where  [:= :id id]}))]
+                           :where  [:= :id (db/->uuid id)]}))]
     relationship
     (throw (ex-info "Relationship not found" {:type :not-found :id id}))))
 
@@ -27,7 +27,7 @@
   "Update an relationship"
   [id data]
   (validate-spec model/spec (assoc data :id id))
-  (let [updated (db/update! :relationships data [:= :id id])]
+  (let [updated (db/update! :relationships data [:= :id (db/->uuid id)])]
     (if (seq updated)
       (first updated)
       (throw (ex-info "Relationship not found" {:type :not-found :id id})))))
@@ -36,6 +36,6 @@
   "Delete an relationship. Returns a map with :id and :deleted keys, where :deleted is
   true if the relationship was found and deleted."
   [id]
-  (let [result (db/delete! :relationships [:= :id id])
+  (let [result (db/delete! :relationships [:= :id (db/->uuid id)])
         count  (or (:next.jdbc/update-count (first result)) 0)]
     {:id id :deleted (pos? count)}))

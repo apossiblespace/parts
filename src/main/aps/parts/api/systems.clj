@@ -30,7 +30,7 @@
   (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
         system    (system/fetch system-id)]
-    (if (= user-id (:owner_id system))
+    (if (= (db/->uuid user-id) (:owner_id system))
       (-> (response/response system)
           (response/status 200))
       (-> (response/response {:error "Not authorized"})
@@ -42,7 +42,7 @@
   (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
         existing  (system/fetch system-id)]
-    (if (= user-id (:owner_id existing))
+    (if (= (db/->uuid user-id) (:owner_id existing))
       (let [updated (system/update! system-id
                                     (assoc body-params :owner_id (:owner_id existing)))]
         (-> (response/response updated)
@@ -56,7 +56,7 @@
   (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
         existing  (system/fetch system-id)]
-    (if (= user-id (:owner_id existing))
+    (if (= (db/->uuid user-id) (:owner_id existing))
       (do
         (system/delete! system-id)
         (response/status 204))
@@ -65,9 +65,9 @@
 
 (defn- user-can-modify-system?
   "Check if the user has permission to modify the system.
-   Currently always returns true as permissions are not implemented."
+   Compares user-id (JWT string) against owner_id (UUID from DB)."
   [user-id system]
-  (= user-id (:owner_id system)))
+  (= (db/->uuid user-id) (:owner_id system)))
 
 (defn process-changes
   "Process batches of changes sent by client

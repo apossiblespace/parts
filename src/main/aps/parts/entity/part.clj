@@ -18,7 +18,7 @@
                  (db/sql-format
                   {:select [:*]
                    :from   [:parts]
-                   :where  [:= :id id]}))]
+                   :where  [:= :id (db/->uuid id)]}))]
     part
     (throw (ex-info "Part not found" {:type :not-found :id id}))))
 
@@ -26,7 +26,7 @@
   "Update a part"
   [id data]
   (validate-spec model/spec (assoc data :id id))
-  (let [updated (db/update! :parts data [:= :id id])]
+  (let [updated (db/update! :parts data [:= :id (db/->uuid id)])]
     (if (seq updated)
       (first updated)
       (throw (ex-info "Part not found" {:type :not-found :id id})))))
@@ -35,6 +35,6 @@
   "Delete a part. Returns a map with :id and :deleted keys, where :deleted is
   true if the part was found and deleted."
   [id]
-  (let [result (db/delete! :parts [:= :id id])
+  (let [result (db/delete! :parts [:= :id (db/->uuid id)])
         count  (or (:next.jdbc/update-count (first result)) 0)]
     {:id id :deleted (pos? count)}))
