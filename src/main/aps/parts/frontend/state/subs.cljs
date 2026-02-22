@@ -76,3 +76,8 @@
  :<- [:auth/user]
  (fn [user _]
    (boolean user)))
+
+(rf/reg-sub
+ :system/pending-id
+ (fn [db _]
+   (:pending-system-id db)))

@@ -52,7 +52,8 @@
 (rf/reg-fx
  :auth/logout-fx
  (fn [_]
-   (api/logout)))
+   (api/logout)
+   (.replace (.-location js/window) "/")))
 
 (rf/reg-fx
  :auth/check-auth-fx
@@ -60,11 +61,13 @@
    (go
      (let [has-token (utils/get-tokens)]
        (rf/dispatch [:auth/set-loading (boolean has-token)])
-       (when has-token
+       (if has-token
          (let [resp (<! (api/get-current-user))]
            (rf/dispatch [:auth/set-loading false])
            (when (= 200 (:status resp))
-             (rf/dispatch [:auth/set-user (:body resp)]))))))))
+             (rf/dispatch [:auth/set-user (:body resp)]))
+           (rf/dispatch [:auth/check-complete]))
+         (rf/dispatch [:auth/check-complete]))))))
 
 (rf/reg-fx
  :navigate-to

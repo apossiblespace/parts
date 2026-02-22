@@ -5,7 +5,7 @@
    [re-frame.core :as rf]
    [uix.core :refer [defui $ use-state]]))
 
-(defui login-modal [{:keys [show on-close]}]
+(defui login-modal [{:keys [show on-close on-success]}]
   (let [[email set-email]       (use-state "")
         [password set-password] (use-state "")
         [error set-error]       (use-state nil)
@@ -28,7 +28,9 @@
                                                              (set-loading false)
                                                              (if (= 401 (:status result))
                                                                (set-error (get-in result [:body :error]))
-                                                               (handle-close)))}]))]
+                                                               (if on-success
+                                                                 (on-success result)
+                                                                 (handle-close))))}]))]
 
     ($ modal
        {:show     show
@@ -91,3 +93,4 @@
                            ($ :span {:class "loading loading-spinner"})
                            "Logging in...")
                         "Log in")))))))))
+

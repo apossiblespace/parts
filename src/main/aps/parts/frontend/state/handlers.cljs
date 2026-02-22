@@ -16,11 +16,11 @@
 
 (rf/reg-event-fx
  :app/init-system
- (fn [_ _]
+ (fn [{:keys [db]} _]
    ;; Prioritize URL path over localStorage for system ID
    (if-let [url-id (api-utils/get-system-id-from-url)]
-     ;; Load system from URL path
-     {:storage/get-system {:id url-id}}
+     ;; Store as pending — wait for auth check to complete before fetching
+     {:db (assoc db :pending-system-id url-id)}
      ;; Fall back to localStorage or create demo
      (if-let [stored-id (api-utils/get-current-system-id)]
        {:storage/get-system {:id stored-id}}
@@ -227,10 +227,14 @@
 (rf/reg-event-fx
  :system/fetch-unauthorized
  (fn [{:keys [db]} _]
-   {:db          (-> db
-                     (assoc-in [:systems :loading] false)
-                     (assoc-in [:systems :error] "Please sign in to view this system"))
-    :navigate-to "/"}))
+   (if-let [url-id (api-utils/get-system-id-from-url)]
+     {:db (-> db
+              (assoc-in [:systems :loading] false)
+              (assoc :pending-system-id url-id))}
+     {:db          (-> db
+                       (assoc-in [:systems :loading] false)
+                       (assoc-in [:systems :error] "Please sign in to view this system"))
+      :navigate-to "/"})))
 
 (rf/reg-event-fx
  :system/fetch-forbidden
@@ -334,6 +338,14 @@
  (fn [{:keys [db]} _]
    {:db                 db
     :auth/check-auth-fx nil}))
+
+(rf/reg-event-fx
+ :auth/check-complete
+ (fn [{:keys [db]} _]
+   (when-let [pending-id (:pending-system-id db)]
+     (when (get-in db [:auth :user])
+       {:db                 (dissoc db :pending-system-id)
+        :storage/get-system {:id pending-id}}))))
 
 (rf/reg-event-fx
  :auth/register

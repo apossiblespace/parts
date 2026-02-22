@@ -3,6 +3,7 @@
    ["htmx.org" :default htmx]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.auth-app :as auth-app]
+   [aps.parts.frontend.components.login-modal :refer [login-modal]]
    [aps.parts.frontend.components.system :refer [system]]
    [aps.parts.frontend.components.system-list-modal :refer [system-list-modal]]
    [aps.parts.frontend.state.fx]
@@ -23,14 +24,22 @@
 (defui app []
   (let [[show-system-list set-show-system-list] (use-state false)
         current-system-id                       (uix.rf/use-subscribe [:system/id])
-        demo                                    (uix.rf/use-subscribe [:demo])]
+        pending-system-id                       (uix.rf/use-subscribe [:system/pending-id])
+        auth-loading                            (uix.rf/use-subscribe [:auth/loading])
+        logged-in                               (uix.rf/use-subscribe [:auth/logged-in])
+        demo                                    (uix.rf/use-subscribe [:demo])
+        show-login                              (and pending-system-id (not auth-loading) (not logged-in))]
 
     ($ :<>
-       (when-not demo
-         (when-not current-system-id
-           ($ system-list-modal
-              {:show     show-system-list
-               :on-close #(set-show-system-list false)})))
+       (when show-login
+         ($ login-modal
+            {:show       true
+             :on-close   #(set! (.-location js/window) "/")
+             :on-success (fn [_] nil)}))
+       (when (and (not demo) (not show-login) (not current-system-id))
+         ($ system-list-modal
+            {:show     show-system-list
+             :on-close #(set-show-system-list false)}))
        ($ system))))
 
 (defn get-demo-settings
