@@ -1,5 +1,6 @@
 (ns aps.parts.frontend.state.handlers
   (:require
+   [aps.parts.common.demo :as demo]
    [aps.parts.common.models.part :refer [make-part]]
    [aps.parts.common.models.relationship :refer [make-relationship]]
    [aps.parts.frontend.api.utils :as api-utils]
@@ -8,9 +9,9 @@
 (rf/reg-event-fx
  :app/init-db
  (fn [_ [_ default-db]]
-   {:db (-> default-db
-            (assoc :auth {:user nil
-                          :loading true}))
+   {:db                 (-> default-db
+                            (assoc :auth {:user    nil
+                                          :loading true}))
     :auth/check-auth-fx nil}))
 
 (rf/reg-event-fx
@@ -28,38 +29,13 @@
 (rf/reg-event-fx
  :app/create-demo-system
  (fn [{:keys [db]} _]
-   (let [system-id (str (random-uuid))
-         demo-parts [(make-part {:type "firefighter"
-                                 :label "Escapist"
-                                 :position_x 300
-                                 :position_y 130
-                                 :notes "Numbs/distracts when the Exile gets activated. Could be substances, scrolling social media, shopping, etc."
-                                 :system_id system-id})
-                     (make-part {:type "exile"
-                                 :label "Disappointed kid"
-                                 :position_x 200
-                                 :position_y 320
-                                 :notes "Carries shame/sadness from childhood events. Can get triggered by criticism/rejection."
-                                 :system_id system-id})
-                     (make-part {:type "manager"
-                                 :label "Overachiever"
-                                 :position_x 100
-                                 :position_y 150
-                                 :notes "Shows up as workaholism, imposter syndrome, etc."
-                                 :system_id system-id})]
-         demo-relationships [(make-relationship {:type "unknown"
-                                                 :source_id (:id (nth demo-parts 0))
-                                                 :target_id (:id (nth demo-parts 1))
-                                                 :system_id system-id})
-                             (make-relationship {:type "protective"
-                                                 :source_id (:id (nth demo-parts 2))
-                                                 :target_id (:id (nth demo-parts 1))
-                                                 :note "Overachieving behaviour protects exile from getting triggered."
-                                                 :system_id system-id})]
-         demo-system {:id system-id
-                      :title "Demo System"
-                      :parts demo-parts
-                      :relationships demo-relationships}]
+   (let [system-id          (str (random-uuid))
+         demo-parts         (mapv #(make-part %) (demo/demo-part-attrs system-id))
+         demo-relationships (mapv #(make-relationship %) (demo/demo-relationship-attrs demo-parts))
+         demo-system        {:id            system-id
+                             :title         "Demo System"
+                             :parts         demo-parts
+                             :relationships demo-relationships}]
      ;; Load demo system into app state immediately
      {:db (assoc-in db [:system] demo-system)
       ;; Persist to storage backend and save current system ID
@@ -100,22 +76,22 @@
 (rf/reg-event-fx
  :system/part-create
  (fn [{:keys [db]} [_ attrs]]
-   (let [system-id (get-in db [:system :id])
+   (let [system-id           (get-in db [:system :id])
          attrs-with-position (merge {:position_x 390
                                      :position_y 290}
                                     attrs)
-         new-part (make-part (merge {:system_id system-id}
-                                    attrs-with-position))
-         part-id (:id new-part)
-         updated-db (-> db
-                        (update-in [:system :parts] conj new-part)
-                        (assoc-in [:ui :selected-node-ids] [part-id])
-                        (assoc-in [:ui :selected-edge-ids] []))]
-     {:db updated-db
+         new-part            (make-part (merge {:system_id system-id}
+                                               attrs-with-position))
+         part-id             (:id new-part)
+         updated-db          (-> db
+                                 (update-in [:system :parts] conj new-part)
+                                 (assoc-in [:ui :selected-node-ids] [part-id])
+                                 (assoc-in [:ui :selected-edge-ids] []))]
+     {:db              updated-db
       :queue/add-event {:entity :part
-                        :id part-id
-                        :type "create"
-                        :data (select-keys new-part [:type :label :position_x :position_y])}})))
+                        :id     part-id
+                        :type   "create"
+                        :data   (select-keys new-part [:type :label :position_x :position_y])}})))
 
 (rf/reg-event-fx
  :system/part-update
@@ -127,11 +103,11 @@
                                            (merge part attrs)
                                            part))
                                        parts)))]
-     {:db updated-db
+     {:db              updated-db
       :queue/add-event {:entity :part
-                        :id part-id
-                        :type "update"
-                        :data attrs}})))
+                        :id     part-id
+                        :type   "update"
+                        :data   attrs}})))
 
 (rf/reg-event-fx
  :system/part-remove
@@ -143,11 +119,11 @@
                         (update-in [:ui :selected-node-ids]
                                    (fn [ids]
                                      (filterv #(not= % part-id) (or ids [])))))]
-     {:db updated-db
+     {:db              updated-db
       :queue/add-event {:entity :part
-                        :id part-id
-                        :type "remove"
-                        :data {}}})))
+                        :id     part-id
+                        :type   "remove"
+                        :data   {}}})))
 
 (rf/reg-event-db
  :system/part-update-position
@@ -165,25 +141,25 @@
 (rf/reg-event-fx
  :system/part-finish-position-change
  (fn [{:keys [db]} [_ node-id position]]
-   {:db db
+   {:db              db
     :queue/add-event {:entity :part
-                      :id node-id
-                      :type "position"
-                      :data position}}))
+                      :id     node-id
+                      :type   "position"
+                      :data   position}}))
 
 (rf/reg-event-fx
  :system/relationship-create
  (fn [{:keys [db]} [_ attrs]]
-   (let [system-id (get-in db [:system :id])
+   (let [system-id        (get-in db [:system :id])
          new-relationship (make-relationship (merge {:system_id system-id}
                                                     attrs))
-         rel-id (:id new-relationship)
-         updated-db (update-in db [:system :relationships] conj new-relationship)]
-     {:db updated-db
+         rel-id           (:id new-relationship)
+         updated-db       (update-in db [:system :relationships] conj new-relationship)]
+     {:db              updated-db
       :queue/add-event {:entity :relationship
-                        :id rel-id
-                        :type "create"
-                        :data (select-keys new-relationship [:type :source_id :target_id])}})))
+                        :id     rel-id
+                        :type   "create"
+                        :data   (select-keys new-relationship [:type :source_id :target_id])}})))
 
 (rf/reg-event-fx
  :system/relationship-update
@@ -195,11 +171,11 @@
                                            (merge relationship attrs)
                                            relationship))
                                        relationships)))]
-     {:db updated-db
+     {:db              updated-db
       :queue/add-event {:entity :relationship
-                        :id relationship-id
-                        :type "update"
-                        :data attrs}})))
+                        :id     relationship-id
+                        :type   "update"
+                        :data   attrs}})))
 (rf/reg-event-fx
  :system/relationship-remove
  (fn [{:keys [db]} [_ relationship-id]]
@@ -210,28 +186,28 @@
                         (update-in [:ui :selected-edge-ids]
                                    (fn [ids]
                                      (filterv #(not= % relationship-id) (or ids [])))))]
-     {:db updated-db
+     {:db              updated-db
       :queue/add-event {:entity :relationship
-                        :id relationship-id
-                        :type "remove"
-                        :data {}}})))
+                        :id     relationship-id
+                        :type   "remove"
+                        :data   {}}})))
 
 (rf/reg-event-fx
  :system/fetch
  (fn [{:keys [db]} [_ system-id]]
-   {:db (assoc-in db [:systems :loading] true)
+   {:db                 (assoc-in db [:systems :loading] true)
     :storage/get-system {:id system-id}}))
 
 (rf/reg-event-fx
  :system/create
  (fn [{:keys [db]} _]
-   {:db (assoc-in db [:systems :loading] true)
+   {:db                    (assoc-in db [:systems :loading] true)
     :storage/create-system {:title "Untitled System"}}))
 
 (rf/reg-event-fx
  :system/fetch-list
  (fn [{:keys [db]} _]
-   {:db (assoc-in db [:systems :loading] true)
+   {:db                  (assoc-in db [:systems :loading] true)
     :storage/get-systems nil}))
 
 (rf/reg-event-db
@@ -251,25 +227,25 @@
 (rf/reg-event-fx
  :system/fetch-unauthorized
  (fn [{:keys [db]} _]
-   {:db (-> db
-            (assoc-in [:systems :loading] false)
-            (assoc-in [:systems :error] "Please sign in to view this system"))
+   {:db          (-> db
+                     (assoc-in [:systems :loading] false)
+                     (assoc-in [:systems :error] "Please sign in to view this system"))
     :navigate-to "/"}))
 
 (rf/reg-event-fx
  :system/fetch-forbidden
  (fn [{:keys [db]} _]
-   {:db (-> db
-            (assoc-in [:systems :loading] false)
-            (assoc-in [:systems :error] "You don't have access to this system"))
+   {:db          (-> db
+                     (assoc-in [:systems :loading] false)
+                     (assoc-in [:systems :error] "You don't have access to this system"))
     :navigate-to "/"}))
 
 (rf/reg-event-fx
  :system/fetch-not-found
  (fn [{:keys [db]} _]
-   {:db (-> db
-            (assoc-in [:systems :loading] false)
-            (assoc-in [:systems :error] "System not found"))
+   {:db          (-> db
+                     (assoc-in [:systems :loading] false)
+                     (assoc-in [:systems :error] "System not found"))
     :navigate-to "/"}))
 
 (rf/reg-event-fx
@@ -309,7 +285,7 @@
 (rf/reg-event-fx
  :system/load
  (fn [{:keys [db]} [_ system-id]]
-   {:db (assoc-in db [:systems :loading] true)
+   {:db                 (assoc-in db [:systems :loading] true)
     :storage/get-system {:id system-id}}))
 
 (rf/reg-event-db
@@ -344,23 +320,23 @@
 (rf/reg-event-fx
  :auth/login
  (fn [{:keys [db]} [_ credentials]]
-   {:db db
+   {:db            db
     :auth/login-fx credentials}))
 
 (rf/reg-event-fx
  :auth/logout
  (fn [{:keys [db]} _]
-   {:db (assoc-in db [:auth :user] nil)
+   {:db             (assoc-in db [:auth :user] nil)
     :auth/logout-fx nil}))
 
 (rf/reg-event-fx
  :auth/check-auth
  (fn [{:keys [db]} _]
-   {:db db
+   {:db                 db
     :auth/check-auth-fx nil}))
 
 (rf/reg-event-fx
  :auth/register
  (fn [{:keys [db]} [_ params]]
-   {:db db
+   {:db               db
     :auth/register-fx params}))

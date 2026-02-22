@@ -9,7 +9,7 @@
   "Extract system ID from URL path /systems/:id. Returns nil if not on a system page."
   []
   (let [pathname (.-pathname js/window.location)
-        match (re-matches #"/systems/([a-f0-9-]+)" pathname)]
+        match    (re-matches #"/systems/([a-f0-9-]+)" pathname)]
     (when match
       (second match))))
 
@@ -18,6 +18,18 @@
 
 (defn clear-current-system-id []
   (.removeItem js/localStorage current-system-storage-key))
+
+(defn clear-playground-data
+  "Clears all playground-related localStorage (systems + current ID)"
+  []
+  (clear-current-system-id)
+  ;; Remove all parts-system-* keys
+  (let [keys-to-remove (for [i     (range (.-length js/localStorage))
+                             :let  [key (.key js/localStorage i)]
+                             :when (and key (.startsWith key "parts-system-"))]
+                         key)]
+    (doseq [key keys-to-remove]
+      (.removeItem js/localStorage key))))
 
 (def ^:private token-storage-key "parts-auth-tokens")
 

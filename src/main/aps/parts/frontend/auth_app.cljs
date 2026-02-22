@@ -3,13 +3,11 @@
    Mounts on #auth-root and handles login/signup modals triggered by custom events.
    Also redirects logged-in users to their system."
   (:require
-   [aps.parts.frontend.api.core :as api]
    [aps.parts.frontend.components.login-modal :refer [login-modal]]
    [aps.parts.frontend.components.signup-modal :refer [signup-modal]]
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
    [aps.parts.frontend.state.subs]
-   [cljs.core.async :refer [go <!]]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-state use-effect]]
    [uix.dom]
@@ -17,39 +15,35 @@
 
 (def initial-db
   {:demo-mode false
-   :system {}
-   :systems {:list []
-             :loading false}})
+   :system    {}
+   :systems   {:list    []
+               :loading false}})
 
 (defn redirect-to-system!
-  "Fetch user's systems and redirect to the first one"
-  []
-  (go
-    (let [response (<! (api/get-systems))]
-      (when (= 200 (:status response))
-        (let [systems (:body response)]
-          (when-let [system-id (:id (first systems))]
-            (set! (.-href js/window.location)
-                  (str "/systems/" system-id))))))))
+  "Redirect to the user's system using system_id from user data"
+  [user]
+  (when-let [system-id (:system_id user)]
+    (set! (.-href js/window.location)
+          (str "/systems/" system-id))))
 
 (defui auth-app []
-  (let [[show-login set-show-login] (use-state false)
+  (let [[show-login set-show-login]   (use-state false)
         [show-signup set-show-signup] (use-state false)
-        user (uix.rf/use-subscribe [:auth/user])
-        auth-loading (uix.rf/use-subscribe [:auth/loading])]
+        user                          (uix.rf/use-subscribe [:auth/user])
+        auth-loading                  (uix.rf/use-subscribe [:auth/loading])]
 
     ;; Redirect logged-in users to their system
     (use-effect
      (fn []
        (when (and user (not auth-loading))
-         (redirect-to-system!))
+         (redirect-to-system! user))
        js/undefined)
      [user auth-loading])
 
     ;; Listen for custom events from server-rendered buttons
     (use-effect
      (fn []
-       (let [login-handler #(set-show-login true)
+       (let [login-handler  #(set-show-login true)
              signup-handler #(set-show-signup true)]
          (.addEventListener js/window "parts:open-login" login-handler)
          (.addEventListener js/window "parts:open-signup" signup-handler)
@@ -60,11 +54,11 @@
 
     ($ :<>
        ($ login-modal
-          {:show show-login
+          {:show     show-login
            :on-close #(set-show-login false)})
        ($ signup-modal
-          {:show show-signup
-           :on-close #(set-show-signup false)
+          {:show       show-signup
+           :on-close   #(set-show-signup false)
            :on-success (fn [result]
                          ;; Redirect to the new system after successful signup
                          (when-let [system-id (get-in result [:body :system_id])]

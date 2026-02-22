@@ -1,6 +1,9 @@
 (ns aps.parts.api.account
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.common.demo :as demo]
+   [aps.parts.entity.part :as part]
+   [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.system :as system]
    [aps.parts.entity.user :as user]
    [com.brunobonacci.mulog :as mulog]
@@ -24,10 +27,19 @@
     (-> (response/response updated-user)
         (response/status 200))))
 
+(defn- populate-initial-system!
+  "Populates a new system with demo parts and relationships."
+  [system-id]
+  (let [created-parts (mapv #(part/create! %)
+                            (demo/demo-part-attrs system-id))]
+    (doseq [rel-data (demo/demo-relationship-attrs created-parts)]
+      (relationship/create! rel-data))))
+
 (defn register-account
   "Creates a record for a new user account.
    - Hardcodes role to 'therapist'
    - Creates a default system for the user
+   - Populates system with demo data
    - Returns auth tokens for auto-login"
   [request]
   (let [params       (-> (:body-params request)
@@ -36,6 +48,7 @@
         system-title (str (:username account) "'s System")
         new-system   (system/create! {:title    system-title
                                       :owner_id (:id account)})
+        _            (populate-initial-system! (:id new-system))
         tokens       (auth/authenticate {:email    (:email params)
                                          :password (:password params)})]
     (mulog/log ::register

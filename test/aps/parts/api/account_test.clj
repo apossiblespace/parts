@@ -18,7 +18,8 @@
               :username     (:username user)
               :display_name (:display_name user)
               :role         (:role user)
-              :id           (:id user)} (:body response)))
+              :id           (:id user)
+              :system_id    nil} (:body response)))
       (is (not (contains? response :password_hash))))))
 
 (deftest test-update-account

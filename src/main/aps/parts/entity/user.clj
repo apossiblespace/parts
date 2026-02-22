@@ -46,13 +46,19 @@
   (apply dissoc attrs sensitive-fields))
 
 (defn fetch
-  "Retrieve a user record from the database"
+  "Retrieve a user record from the database, including their system_id"
   [id]
   (if-let [user (db/query-one
                  (db/sql-format
-                  {:select [:id :email :username :display_name :role]
-                   :from   [:users]
-                   :where  [:= :id (db/->uuid id)]}))]
+                  {:select    [[:u.id :id]
+                               [:u.email :email]
+                               [:u.username :username]
+                               [:u.display_name :display_name]
+                               [:u.role :role]
+                               [:s.id :system_id]]
+                   :from      [[:users :u]]
+                   :left-join [[:systems :s] [:= :s.owner_id :u.id]]
+                   :where     [:= :u.id (db/->uuid id)]}))]
     (remove-sensitive-data user)
     (throw (ex-info "User not found" {:type :not-found :id id}))))
 

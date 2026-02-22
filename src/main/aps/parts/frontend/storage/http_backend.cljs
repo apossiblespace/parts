@@ -6,6 +6,26 @@
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [<! go]]))
 
+(defn- normalize-system-ids
+  "Converts all UUID objects in a system map to strings.
+   Transit decodes Java UUIDs as CLJS UUID objects, but the rest of the app
+   (ReactFlow adapters, localStorage backend) expects plain strings."
+  [system]
+  (-> system
+      (update :id str)
+      (update :parts
+              (fn [parts]
+                (mapv #(-> % (update :id str) (update :system_id str))
+                      parts)))
+      (update :relationships
+              (fn [rels]
+                (mapv #(-> %
+                           (update :id str)
+                           (update :system_id str)
+                           (update :source_id str)
+                           (update :target_id str))
+                      rels)))))
+
 (defrecord HttpBackend []
   StorageBackend
 
@@ -32,7 +52,7 @@
       (o/debug "http-backend.load-system" "loading system" system-id)
       (let [response (<! (http/GET (str "/systems/" system-id)))]
         (case (:status response)
-          200 (:body response)
+          200 (normalize-system-ids (:body response))
           401 (do
                 (o/warn "http-backend.load-system" "unauthorized" system-id)
                 {:error :unauthorized})
