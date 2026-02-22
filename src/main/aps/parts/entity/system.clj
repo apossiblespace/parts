@@ -3,7 +3,6 @@
    Systems are owned by users."
   (:require
    [aps.parts.common.models.system :as model]
-   [aps.parts.common.utils :refer [validate-spec]]
    [aps.parts.db :as db]
    [com.brunobonacci.mulog :as mulog]))
 
@@ -64,7 +63,7 @@
 (defn update!
   "Update a system"
   [id data]
-  (validate-spec model/spec (assoc data :id id))
+  (model/validate-update data)
   (let [updated (db/update! :systems
                             (assoc data :last_modified [:raw "CURRENT_TIMESTAMP"])
                             [:= :id (db/->uuid id)])]

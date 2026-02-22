@@ -3,7 +3,6 @@
   (see aps.parts.entity.system)"
   (:require
    [aps.parts.common.models.relationship :as model]
-   [aps.parts.common.utils :refer [validate-spec]]
    [aps.parts.db :as db]))
 
 (defn create!
@@ -26,7 +25,7 @@
 (defn update!
   "Update an relationship"
   [id data]
-  (validate-spec model/spec (assoc data :id id))
+  (model/validate-update data)
   (let [updated (db/update! :relationships data [:= :id (db/->uuid id)])]
     (if (seq updated)
       (first updated)

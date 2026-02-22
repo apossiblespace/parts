@@ -28,3 +28,14 @@
                   :clj (merge base attrs))]
     (validate-spec ::system system)
     system))
+
+(s/def ::system-update
+  (s/keys :opt-un [::id
+                   ::title
+                   ::owner_id
+                   ::viewport_settings]))
+
+(defn validate-update
+  "Validate a partial system update map. Any fields present must conform to their specs."
+  [attrs]
+  (validate-spec ::system-update attrs))

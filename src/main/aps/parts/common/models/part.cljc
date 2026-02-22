@@ -50,3 +50,21 @@
                  :clj (merge base attrs))]
     (validate-spec ::part part)
     part))
+
+(s/def ::part-update
+  (s/keys :opt-un [::id
+                   ::system_id
+                   ::type
+                   ::label
+                   ::position_x
+                   ::position_y
+                   ::description
+                   ::width
+                   ::height
+                   ::body_location
+                   ::notes]))
+
+(defn validate-update
+  "Validate a partial part update map. Any fields present must conform to their specs."
+  [attrs]
+  (validate-spec ::part-update attrs))

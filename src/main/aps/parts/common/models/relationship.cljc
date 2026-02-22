@@ -35,3 +35,16 @@
                         :clj (merge base attrs))]
     (validate-spec ::relationship relationship)
     relationship))
+
+(s/def ::relationship-update
+  (s/keys :opt-un [::id
+                   ::system_id
+                   ::type
+                   ::source_id
+                   ::target_id
+                   ::notes]))
+
+(defn validate-update
+  "Validate a partial relationship update map. Any fields present must conform to their specs."
+  [attrs]
+  (validate-spec ::relationship-update attrs))
