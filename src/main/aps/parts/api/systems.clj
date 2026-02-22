@@ -95,7 +95,7 @@
         (if (user-can-modify-system? user-id system)
           (try
             (let [changes (if (sequential? body-params) body-params [body-params])
-                  results (jdbc/with-transaction [_tx (db/datasource)]
+                  results (jdbc/with-transaction [_tx db/datasource]
                             (mapv #(events/process-change system-id %) changes))]
 
               (mulog/log ::process-changes
