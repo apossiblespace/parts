@@ -14,8 +14,13 @@
   []
   (let [demo                                      (uix.rf/use-subscribe [:demo])
         minimal                                   (uix.rf/use-subscribe [:minimal-demo])
+        selected-parts                            (uix.rf/use-subscribe [:system/selected-parts])
+        selected-rels                             (uix.rf/use-subscribe [:system/selected-relationships])
+        has-auth                                  (or (not demo) (and demo (not minimal)))
+        has-selection                             (or (seq selected-parts) (seq selected-rels))
         [show-signup-modal set-show-signup-modal] (use-state false)
         [show-login-modal set-show-login-modal]   (use-state false)]
+    (when (or has-auth has-selection)
     ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-white shadow-sm"}
        (if demo
          (when-not minimal
@@ -50,4 +55,5 @@
           {:show     show-login-modal
            :on-close #(do
                         (o/track "Login Modal Close" {:source "playground"})
-                        (set-show-login-modal false))}))))
+                        (set-show-login-modal false))})))))
+
