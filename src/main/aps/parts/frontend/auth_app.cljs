@@ -8,16 +8,9 @@
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
    [aps.parts.frontend.state.subs]
-   [re-frame.core :as rf]
    [uix.core :refer [$ defui use-state use-effect]]
    [uix.dom]
    [uix.re-frame :as uix.rf]))
-
-(def initial-db
-  {:demo-mode false
-   :system    {}
-   :systems   {:list    []
-               :loading false}})
 
 (defn redirect-to-system!
   "Redirect to the user's system using system_id from user data"
@@ -68,9 +61,4 @@
 (defn ^:export init []
   (when-let [root-el (js/document.getElementById "auth-root")]
     (let [root (uix.dom/create-root root-el)]
-      ;; Note: Don't initialize storage backend here - auth-app uses direct API
-      ;; calls and shouldn't override the backend set by the main app (which may
-      ;; be localStorage for demo mode)
-      (rf/dispatch-sync [:app/init-db initial-db])
-      (rf/dispatch [:auth/check-auth])
       (uix.dom/render-root ($ auth-app) root))))
