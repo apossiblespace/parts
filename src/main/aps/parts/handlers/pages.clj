@@ -115,10 +115,7 @@
             [:div.mt-2
              [:a.text-ifs-green.mr-3
               {:href "https://gosha.net"}
-              "Website"]
-             [:a.text-ifs-green
-              {:href "https://bsky.app/profile/gosha.net"}
-              "Bluesky"]]]]
+              "Website"]]]]
           [:div.flex
            [:img.w-20.h-20.rounded-full
             {:src "/images/avatars/tingyi.svg"
