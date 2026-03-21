@@ -13,7 +13,6 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [relationship on-save collapsed]}]
   (let [{:keys [id type notes source_id target_id]} relationship
-        demo                                        (uix.rf/use-subscribe [:demo])
         [form-state set-form-state]                 (use-state
                                                      {:values     {:type  type
                                                                    :notes notes}
@@ -54,6 +53,10 @@
               (assoc-in [:initial :notes] notes)
               (assoc :collapsed? collapsed)))))
      [type relationship notes id collapsed])
+
+    (use-effect
+     (fn [] (o/debug "relationship-form" "Relationship" id "from:" source_id "to:" target_id))
+     [id source_id target_id])
 
     ($ :form {:onSubmit handle-submit
               :class    "fieldset edge-form p-2 border-b border-b-1 border-base-300"}
@@ -99,12 +102,4 @@
             ($ :label {:class "fieldset-label"} "Notes:")
             ($ :textarea {:class    "textarea textarea-sm mb-1"
                           :value    (:notes values)
-                          :onChange #(update-field :notes (.. % -target -value))})
-
-            (when-not demo
-              ($ :div {:class "flex justify-between text-xs text-base-content/70 mt-2"}
-                 ($ :span (str "From: " source_id))
-                 ($ :span (str "To: " target_id))))
-
-            (when-not demo
-              ($ :p {:class "fieldset-label"} (str "id: " id))))))))
+                          :onChange #(update-field :notes (.. % -target -value))}))))))

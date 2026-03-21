@@ -13,7 +13,6 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save collapsed]}]
   (let [{:keys [id type label notes]}       part
-        demo                                (uix.rf/use-subscribe [:demo])
         [form-state set-form-state]         (use-state
                                              {:values     {:type  type
                                                            :label label
@@ -58,6 +57,10 @@
               (assoc-in [:initial :notes] notes)
               (assoc :collapsed? collapsed)))))
      [label type notes id collapsed])
+
+    (use-effect
+     (fn [] (o/debug "part-form" "Part" id))
+     [id])
 
     ($ :form {:onSubmit handle-submit
               :class    "fieldset node-form p-2 border-b border-b-1 border-base-300"}
@@ -109,7 +112,4 @@
             ($ :label {:class "fieldset-label"} "Notes:")
             ($ :textarea {:class    "textarea textarea-sm mb-1"
                           :value    (:notes values)
-                          :onChange #(update-field :notes (.. % -target -value))})
-
-            (when-not demo
-              ($ :p {:class "fieldset-label"} (str "id: " id))))))))
+                          :onChange #(update-field :notes (.. % -target -value))}))))))
