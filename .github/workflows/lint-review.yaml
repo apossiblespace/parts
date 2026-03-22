@@ -27,6 +27,8 @@ jobs:
 
       - name: Setup Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-flakehub: false
 
       - name: Run clj-kondo
         run: |
