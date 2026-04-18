@@ -2,8 +2,7 @@
   (:require
    [aps.parts.common.constants :refer [part-labels]]
    [aps.parts.common.observe :as o]
-   [uix.core :refer [$ defui use-effect use-state]]
-   [uix.re-frame :as uix.rf]))
+   [uix.core :refer [$ defui use-effect use-state]]))
 
 (defui part-form
   "Form for viewing and editing part properties, to render in the sidebar.
