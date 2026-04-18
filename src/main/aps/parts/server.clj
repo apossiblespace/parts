@@ -47,11 +47,12 @@
   "Schedule periodic cleanup of expired refresh tokens using core.async"
   []
   (let [stop-ch     (async/chan)
-        interval-ms (* 6 60 60 1000) ; 6 hours in milliseconds
+        interval-ms (* 6 60 60 1000)        ; 6 hours in milliseconds
         run-cleanup (fn []
                       (try
                         (let [tokens-removed (auth/cleanup-expired-tokens)]
-                          (mulog/log ::token-cleanup-success :tokens_removed (count tokens-removed)))
+                          (mulog/log ::token-cleanup-success
+                                     :tokens_removed (count tokens-removed)))
                         (catch Exception e
                           (mulog/log ::token-cleanup-error
                                      :error (.getMessage e)
@@ -94,7 +95,8 @@
 
 (defn -main
   "Entry point into the application via clojure.main -M.
-   Initializes the application, starts the server, and returns a shutdown function."
+   Initializes the application, starts the server, and returns a shutdown
+   function."
   [& args]
   (let [port (or (some-> (first args) Integer/parseInt) 3000)]
     ;; Set up global logging context

@@ -23,6 +23,7 @@
             # Clojure
             clojure
             clj-kondo
+            cljfmt
 
             # JavaScript tools
             nodejs_20

@@ -74,7 +74,8 @@
   (:valid (hashers/verify password hash)))
 
 (defn authenticate
-  "Checks if a user represented by EMAIL exists in db, checks their PASSWORD if so"
+  "Checks if a user represented by EMAIL exists in db, checks their PASSWORD if
+  so"
   [{:keys [email password]}]
   (when-let [user (db/query-one (db/sql-format {:select [:*]
                                                 :from   [:users]
@@ -111,7 +112,8 @@
     ;; Convert string UUID to UUID object
     (let [user-id (db/->uuid user-id-str)]
       ;; Invalidate the old refresh token
-      (db/delete! :refresh_tokens [:= :token_id (get (jwt/unsign refresh-token secret) :jti)])
+      (db/delete! :refresh_tokens
+                  [:= :token_id (get (jwt/unsign refresh-token secret) :jti)])
 
       ;; Create new tokens
       {:access_token  (create-access-token user-id)
@@ -148,9 +150,11 @@
              :password     "password123"
              :role         "client"})
 
-  (def tokens (authenticate {:email "test@example.com" :password "password123"}))
+  (def tokens
+    (authenticate {:email "test@example.com" :password "password123"}))
 
-  (def invalid-tokens (authenticate {:email "test@example.com" :password "wrongpassword"}))
+  (def invalid-tokens
+    (authenticate {:email "test@example.com" :password "wrongpassword"}))
 
   (when-let [access-token (:access_token tokens)]
     (jwt/unsign access-token secret))

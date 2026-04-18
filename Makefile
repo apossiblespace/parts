@@ -55,10 +55,10 @@ test-watch: ## Run clj/cljs unit tests in watch mode
 	$(CLOJURE_TEST_RUNNER) :watch? true
 
 format-check: ## Check formatting of clj/cljs files
-	clojure -M:cljfmt check
+	cljfmt check
 
 format-fix: ## Fix formatting of clj/cljs files
-	clojure -M:cljfmt fix
+	cljfmt fix
 
 npm-deps: package.json
 	pnpm install
