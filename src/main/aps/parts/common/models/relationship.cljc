@@ -1,6 +1,7 @@
 (ns aps.parts.common.models.relationship
   (:require
    [aps.parts.common.constants :refer [relationship-types]]
+   [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
 
@@ -28,11 +29,11 @@
    In ClojureScript (frontend), generates a string UUID for :id. 
    In Clojure (backend), :id is set by the database layer."
   [attrs]
-  (println "[make-relationship]" attrs)
   (let [base         {:type  "unknown"
                       :notes nil}
         relationship #?(:cljs (merge {:id (str (random-uuid))} base attrs)
                         :clj (merge base attrs))]
+    (o/debug "[make-relationship]" relationship)
     (validate-spec ::relationship relationship)
     relationship))
 

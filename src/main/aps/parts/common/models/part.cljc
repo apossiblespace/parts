@@ -1,6 +1,7 @@
 (ns aps.parts.common.models.part
   (:require
-   [aps.parts.common.constants :refer [part-types part-labels]]
+   [aps.parts.common.constants :refer [part-labels part-types]]
+   [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
 
@@ -38,7 +39,6 @@
    In ClojureScript (frontend), generates a string UUID for :id. 
    In Clojure (backend), :id is set by the database layer."
   [attrs]
-  (println "[make-part]" attrs)
   (let [type  (or (:type attrs) "unknown")
         label (or (:label attrs) (get-in part-labels [(keyword type) :label]))
         base  {:type       type
@@ -48,6 +48,7 @@
                :notes      nil}
         part  #?(:cljs (merge {:id (str (random-uuid))} base attrs)
                  :clj (merge base attrs))]
+    (o/debug "[make-part]" part)
     (validate-spec ::part part)
     part))
 

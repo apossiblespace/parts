@@ -1,5 +1,6 @@
 (ns aps.parts.common.models.user
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
 
@@ -41,9 +42,9 @@
   ([attrs]
    (make-user attrs false))
   ([attrs validate-password?]
-   (println "[make-user]" attrs)
    (let [user #?(:cljs (merge {:id (str (random-uuid))} attrs)
                  :clj attrs)]
+     (o/debug "[make-user]" user)
      (validate-spec (if validate-password?
                       ::user-with-password
                       ::user)

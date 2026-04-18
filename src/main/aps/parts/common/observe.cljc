@@ -1,10 +1,37 @@
 (ns aps.parts.common.observe
-  #?(:clj
-     (:require
-      [aps.parts.config :as config]
-      [clojure.string :as cstr]
-      [com.brunobonacci.mulog :as mulog]
-      [lambdaisland.config :as l-config])))
+  (:require
+   #?@(:clj [[aps.parts.config :as config]
+             [clojure.string :as cstr]
+             [com.brunobonacci.mulog :as mulog]
+             [lambdaisland.config :as l-config]])
+   [clojure.walk :as walk]))
+
+;; =============================================================================
+;; Shared: Redaction
+;;
+;; Values at these keys are replaced with a placeholder before anything reaches
+;; a log sink.
+
+(def ^:private sensitive-log-keys
+  #{:password :password_confirmation :password_hash})
+
+(def ^:private redacted-placeholder "[REDACTED]")
+
+(defn- redact-sensitive
+  "Walk `v` (which may be a scalar, map, vector, or seq) and return the same shape
+   with values at any `sensitive-log-keys` replaced by `redacted-placeholder`.
+   Keys are preserved so the log still shows the field was present."
+  [v]
+  (walk/postwalk
+   (fn [node]
+     (if (map? node)
+       (reduce (fn [m k]
+                 (if (contains? m k)
+                   (assoc m k redacted-placeholder)
+                   m))
+               node
+               sensitive-log-keys)
+       node)) v))
 
 ;; =============================================================================
 ;; Shared: Log Levels and Filtering
@@ -99,66 +126,70 @@
   "Log debug message with namespace context"
   [namespace & args]
   (when (should-log? :debug)
-    #?(:clj
-       (let [modes (get-log-output-modes)]
-         (when (:simple modes)
-           (println (format-plain-message namespace :debug args)))
-         (when (:mulog modes)
-           (mulog/log ::debug
-                      :namespace namespace
-                      :message (cstr/join " " (map pr-str args)))))
+    (let [args (map redact-sensitive args)]
+      #?(:clj
+         (let [modes (get-log-output-modes)]
+           (when (:simple modes)
+             (println (format-plain-message namespace :debug args)))
+           (when (:mulog modes)
+             (mulog/log ::debug
+                        :namespace namespace
+                        :message (cstr/join " " (map pr-str args)))))
 
-       :cljs
-       (apply js/console.log (format-message namespace :debug args)))))
+         :cljs
+         (apply js/console.log (format-message namespace :debug args))))))
 
 (defn info
   "Log info message with namespace context"
   [namespace & args]
   (when (should-log? :info)
-    #?(:clj
-       (let [modes (get-log-output-modes)]
-         (when (:simple modes)
-           (println (format-plain-message namespace :info args)))
-         (when (:mulog modes)
-           (mulog/log ::info
-                      :namespace namespace
-                      :message (cstr/join " " (map pr-str args)))))
+    (let [args (map redact-sensitive args)]
+      #?(:clj
+         (let [modes (get-log-output-modes)]
+           (when (:simple modes)
+             (println (format-plain-message namespace :info args)))
+           (when (:mulog modes)
+             (mulog/log ::info
+                        :namespace namespace
+                        :message (cstr/join " " (map pr-str args)))))
 
-       :cljs
-       (apply js/console.info (format-message namespace :info args)))))
+         :cljs
+         (apply js/console.info (format-message namespace :info args))))))
 
 (defn warn
   "Log warning message with namespace context"
   [namespace & args]
   (when (should-log? :warn)
-    #?(:clj
-       (let [modes (get-log-output-modes)]
-         (when (:simple modes)
-           (println (format-plain-message namespace :warn args)))
-         (when (:mulog modes)
-           (mulog/log ::warn
-                      :namespace namespace
-                      :message (cstr/join " " (map pr-str args)))))
+    (let [args (map redact-sensitive args)]
+      #?(:clj
+         (let [modes (get-log-output-modes)]
+           (when (:simple modes)
+             (println (format-plain-message namespace :warn args)))
+           (when (:mulog modes)
+             (mulog/log ::warn
+                        :namespace namespace
+                        :message (cstr/join " " (map pr-str args)))))
 
-       :cljs
-       (apply js/console.warn (format-message namespace :warn args)))))
+         :cljs
+         (apply js/console.warn (format-message namespace :warn args))))))
 
 (defn error
   "Log error message with namespace context"
   [namespace & args]
   (when (should-log? :error)
-    #?(:clj
-       (let [modes (get-log-output-modes)]
-         (when (:simple modes)
-           (binding [*out* *err*]
-             (println (format-plain-message namespace :error args))))
-         (when (:mulog modes)
-           (mulog/log ::error
-                      :namespace namespace
-                      :message (cstr/join " " (map pr-str args)))))
+    (let [args (map redact-sensitive args)]
+      #?(:clj
+         (let [modes (get-log-output-modes)]
+           (when (:simple modes)
+             (binding [*out* *err*]
+               (println (format-plain-message namespace :error args))))
+           (when (:mulog modes)
+             (mulog/log ::error
+                        :namespace namespace
+                        :message (cstr/join " " (map pr-str args)))))
 
-       :cljs
-       (apply js/console.error (format-message namespace :error args)))))
+         :cljs
+         (apply js/console.error (format-message namespace :error args))))))
 
 ;; =============================================================================
 ;; Event Tracking

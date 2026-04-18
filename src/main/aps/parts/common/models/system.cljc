@@ -1,5 +1,6 @@
 (ns aps.parts.common.models.system
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
 
@@ -22,10 +23,10 @@
    In ClojureScript (frontend), generates a string UUID for :id. 
    In Clojure (backend), :id is set by the database layer."
   [attrs]
-  (println "[make-system]" attrs)
   (let [base   {:title "Untitled System"}
         system #?(:cljs (merge {:id (str (random-uuid))} base attrs)
                   :clj (merge base attrs))]
+    (o/debug "[make-system]" system)
     (validate-spec ::system system)
     system))
 
