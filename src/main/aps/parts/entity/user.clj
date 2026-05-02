@@ -74,13 +74,15 @@
      (first (db/update! :users sanitized-attrs [:= :id (db/->uuid id)])))))
 
 (defn create!
-  "Create a new user record with the provided attributes"
-  [attrs]
-  (let [validated-attrs (-> attrs
-                            validate-attrs
-                            set-password-hash)]
-    (remove-sensitive-data
-     (db/insert! :users validated-attrs))))
+  "Create a new user record with the provided attributes.
+   Accepts an optional datasource-or-transaction to participate in a surrounding tx."
+  ([attrs] (create! attrs db/datasource))
+  ([attrs tx]
+   (let [validated-attrs (-> attrs
+                             validate-attrs
+                             set-password-hash)]
+     (remove-sensitive-data
+      (db/insert! :users validated-attrs tx)))))
 
 ;; TODO: Add unit tests
 (defn delete!

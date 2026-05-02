@@ -6,10 +6,12 @@
    [aps.parts.db :as db]))
 
 (defn create!
-  "Create a new relationship in a system"
-  [data]
-  (let [relationship (model/make-relationship data)]
-    (db/insert! :relationships relationship)))
+  "Create a new relationship in a system.
+   Accepts an optional datasource-or-transaction to participate in a surrounding tx."
+  ([data] (create! data db/datasource))
+  ([data tx]
+   (let [relationship (model/make-relationship data)]
+     (db/insert! :relationships relationship tx))))
 
 (defn fetch
   "Get an relationship by ID"

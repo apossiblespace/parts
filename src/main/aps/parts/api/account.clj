@@ -2,6 +2,7 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.common.demo :as demo]
+   [aps.parts.db :as db]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.system :as system]
@@ -28,37 +29,41 @@
         (response/status 200))))
 
 (defn- populate-initial-system!
-  "Populates a new system with demo parts and relationships."
-  [system-id]
-  (let [created-parts (mapv #(part/create! %)
+  "Populates a new system with demo parts and relationships.
+   Runs all inserts on the provided tx so they share atomicity with the caller."
+  [system-id tx]
+  (let [created-parts (mapv #(part/create! % tx)
                             (demo/demo-part-attrs system-id))]
     (doseq [rel-data (demo/demo-relationship-attrs created-parts)]
-      (relationship/create! rel-data))))
+      (relationship/create! rel-data tx))))
+
+(defn- provision-account!
+  "Creates a user, their default system, and seeds it with demo content.
+   All writes share `tx` so they commit or roll back as one unit.
+   Returns {:account ... :system-id ...}."
+  [params tx]
+  (let [account (user/create! params tx)
+        title   (str (:username account) "'s System")
+        system  (system/create! {:title title :owner_id (:id account)} tx)]
+    (populate-initial-system! (:id system) tx)
+    {:account account :system-id (:id system)}))
 
 (defn register-account
-  "Creates a record for a new user account.
-   - Hardcodes role to 'therapist'
-   - Creates a default system for the user
-   - Populates system with demo data
-   - Returns auth tokens for auto-login"
+  "Register a new user (role hardcoded to 'therapist'), provision their starter
+   system atomically, then return auth tokens for auto-login."
   [request]
-  (let [params       (-> (:body-params request)
-                         (assoc :role "therapist"))
-        account      (user/create! params)
-        system-title (str (:username account) "'s System")
-        new-system   (system/create! {:title    system-title
-                                      :owner_id (:id account)})
-        _            (populate-initial-system! (:id new-system))
-        tokens       (auth/authenticate {:email    (:email params)
-                                         :password (:password params)})]
+  (let [params                      (-> (:body-params request)
+                                        (assoc :role "therapist"))
+        {:keys [account system-id]} (db/with-transaction
+                                      #(provision-account! params %))
+        tokens                      (auth/authenticate {:email    (:email params)
+                                                        :password (:password params)})]
     (mulog/log ::register
                :email (:email account)
                :username (:username account)
-               :system-id (:id new-system)
+               :system-id system-id
                :status :success)
-    (-> (response/response (merge account
-                                  tokens
-                                  {:system_id (:id new-system)}))
+    (-> (response/response (merge account tokens {:system_id system-id}))
         (response/status 201))))
 
 (defn delete-account

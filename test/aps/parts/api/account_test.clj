@@ -2,6 +2,7 @@
   (:require
    [aps.parts.api.account :as account]
    [aps.parts.db :as db]
+   [aps.parts.entity.system :as system]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [register-test-user with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
@@ -86,4 +87,17 @@
       (is (some? (:refresh_token user)))
       (is (= "Bearer" (:token_type user)))
       ;; Registration should create a default system
-      (is (some? (:system_id user))))))
+      (is (some? (:system_id user)))))
+
+  (testing "if a write inside the tx throws, the user insert is rolled back"
+    (let [user-data    (factory/build-test-user)
+          mock-request {:body-params user-data}]
+      (with-redefs [system/create! (fn [_ _]
+                                     (throw (ex-info "Simulated tx error" {})))]
+        (is (thrown? Exception
+                     (account/register-account mock-request))))
+      (let [db-user (db/query-one
+                     (db/sql-format {:select [:id]
+                                     :from   [:users]
+                                     :where  [:= :email (:email user-data)]}))]
+        (is (= nil db-user) "User row should have been rolled back")))))

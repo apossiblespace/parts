@@ -5,10 +5,12 @@
    [aps.parts.db :as db]))
 
 (defn create!
-  "Create a new part in a system"
-  [data]
-  (let [part (model/make-part data)]
-    (db/insert! :parts part)))
+  "Create a new part in a system.
+   Accepts an optional datasource-or-transaction to participate in a surrounding tx."
+  ([data] (create! data db/datasource))
+  ([data tx]
+   (let [part (model/make-part data)]
+     (db/insert! :parts part tx))))
 
 (defn fetch
   "Get a part by ID"

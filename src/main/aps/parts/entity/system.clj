@@ -7,10 +7,12 @@
    [com.brunobonacci.mulog :as mulog]))
 
 (defn create!
-  "Create a new system"
-  [data]
-  (let [system (model/make-system data)]
-    (db/insert! :systems system)))
+  "Create a new system.
+   Accepts an optional datasource-or-transaction to participate in a surrounding tx."
+  ([data] (create! data db/datasource))
+  ([data tx]
+   (let [system (model/make-system data)]
+     (db/insert! :systems system tx))))
 
 (defn fetch
   "Get a system by ID, including all its parts and relationships.

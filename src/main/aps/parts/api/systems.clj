@@ -43,8 +43,9 @@
         system-id (get-in parameters [:path :id])
         existing  (system/fetch system-id)]
     (if (= (db/->uuid user-id) (:owner_id existing))
-      (let [updated (system/update! system-id
-                                    (assoc body-params :owner_id (:owner_id existing)))]
+      (let [updated (system/update!
+                     system-id
+                     (assoc body-params :owner_id (:owner_id existing)))]
         (-> (response/response updated)
             (response/status 200)))
       (-> (response/response {:error "Not authorized"})
