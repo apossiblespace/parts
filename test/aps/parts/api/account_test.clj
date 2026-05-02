@@ -4,14 +4,14 @@
    [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
    [aps.parts.helpers.test-factory :as factory]
-   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
 (deftest test-get-account
   (testing "returns currently signed in user's information"
-    (let [user         (register-test-user)
+    (let [user         (create-test-user!)
           mock-request {:identity {:sub (:id user)}}
           response     (account/get-account mock-request)]
       (is (= 200 (:status response)))
@@ -25,7 +25,7 @@
 
 (deftest test-update-account
   (testing "correctly updates the user data"
-    (let [user           (register-test-user)
+    (let [user           (create-test-user!)
           mock-request   {:identity    {:sub (:id user)}
                           :body-params {:email        (str "added" (:email user))
                                         :display_name "Updated"}}
@@ -38,7 +38,7 @@
           (is (not (contains? (:body response) :password_hash))))))
 
   (testing "does not update where no updatable data is passed"
-    (let [user         (register-test-user)
+    (let [user         (create-test-user!)
           mock-request {:identity    {:sub (:id user)}
                         :body-params {:username "something"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
@@ -46,19 +46,19 @@
 
 (deftest test-delete-account
   (testing "does not delete without a confirmation param"
-    (let [user         (register-test-user)
+    (let [user         (create-test-user!)
           mock-request {:identity {:sub (:id user)}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
                             (account/delete-account mock-request)))))
 
   (testing "does not delete with a confirmation param that does not match the username"
-    (let [user         (register-test-user)
+    (let [user         (create-test-user!)
           mock-request {:identity {:sub (:id user)} :query-params {"confirm" "random"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
                             (account/delete-account mock-request)))))
 
   (testing "deletes the account with a confirmation param"
-    (let [user         (register-test-user)
+    (let [user         (create-test-user!)
           mock-request {:identity {:sub (:id user)} :query-params {"confirm" (:username user)}}
           response     (account/delete-account mock-request)
           db-user      (db/query-one (db/sql-format {:select [:id]

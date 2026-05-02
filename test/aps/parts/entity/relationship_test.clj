@@ -3,13 +3,13 @@
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.system :as system]
-   [aps.parts.helpers.utils :refer [with-test-db register-test-user]]
+   [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
 (deftest test-relationship-crud
-  (let [user              (register-test-user)
+  (let [user              (create-test-user!)
         system            (system/create! {:title "Test System" :owner_id (:id user)})
         part1             (part/create! {:system_id  (:id system)
                                          :type       "manager"
@@ -62,7 +62,7 @@
                           (relationship/create! {}))))
 
   (testing "create fails with invalid type"
-    (let [user              (register-test-user)
+    (let [user              (create-test-user!)
           system            (system/create! {:title "Test System" :owner_id (:id user)})
           part1             (part/create! {:system_id  (:id system)
                                            :type       "manager"
@@ -82,7 +82,7 @@
                             (relationship/create! relationship-data)))))
 
   (testing "update fails with invalid data"
-    (let [user         (register-test-user)
+    (let [user         (create-test-user!)
           system       (system/create! {:title "Test System" :owner_id (:id user)})
           part1        (part/create! {:system_id  (:id system)
                                       :type       "manager"

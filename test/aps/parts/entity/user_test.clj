@@ -5,14 +5,14 @@
    [aps.parts.entity.system :as system]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
-   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
 (deftest test-fetch
   (testing "returns a user entity when a valid ID is passed"
-    (let [db-user      (register-test-user)
+    (let [db-user      (create-test-user!)
           fetched-user (user/fetch (:id db-user))]
       (is (= (:id db-user) (:id fetched-user)))))
 
@@ -26,27 +26,27 @@
 
 (deftest test-update!
   (testing "saves the user entity to the database"
-    (let [db-user      (register-test-user)
+    (let [db-user      (create-test-user!)
           updated-user (user/update! (:id db-user) {:display_name "Bobby"})]
       (is (= (:display_name updated-user) "Bobby"))))
 
   (testing "throws when an empty params map is passed"
-    (let [db-user (register-test-user)]
+    (let [db-user (create-test-user!)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (user/update! (:id db-user) {})))))
 
   (testing "throws when passed a field that does not allow updates"
-    (let [db-user (register-test-user)]
+    (let [db-user (create-test-user!)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (user/update! (:id db-user) {:username "emanresu"})))))
 
   (testing "throws when a password is passed without confirmation"
-    (let [db-user (register-test-user)]
+    (let [db-user (create-test-user!)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/update! (:id db-user) {:password "password12345"})))))
 
   (testing "throws when the passed password and confirmation do not match"
-    (let [db-user (register-test-user)]
+    (let [db-user (create-test-user!)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password and confirmation do not match"
                             (user/update!
                              (:id db-user)
@@ -90,14 +90,14 @@
 
 (deftest test-delete!
   (testing "deletes the user entity from the database"
-    (let [user (register-test-user)
+    (let [user (create-test-user!)
           id   (:id user)]
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
                             (user/fetch id)))))
 
   (testing "deletes the system entity owned by the user from the database"
-    (let [user           (register-test-user)
+    (let [user           (create-test-user!)
           id             (:id user)
           system-data    {:title    "System To Delete"
                           :owner_id id}
@@ -107,7 +107,7 @@
                             (system/fetch (:id system-created))))))
 
   (testing "deletes the refresh token entity of the user from the database"
-    (let [user     (register-test-user)
+    (let [user     (create-test-user!)
           guid     (:id user)
           password (apply str "password" (filter #(Character/isDigit %) (:username user)))]
       (auth/authenticate {:email (:email user) :password password})

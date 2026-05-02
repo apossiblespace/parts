@@ -4,13 +4,13 @@
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.system :as system]
-   [aps.parts.helpers.utils :refer [register-test-user with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :each with-test-db)
 
 (deftest test-system-crud
-  (let [user        (register-test-user)
+  (let [user        (create-test-user!)
         system-data {:title    "Test System"
                      :owner_id (:id user)}]
 
@@ -57,14 +57,14 @@
                           (system/create! {}))))
 
   (testing "update fails with invalid data"
-    (let [user   (register-test-user)
+    (let [user   (create-test-user!)
           system (system/create! {:title "Test" :owner_id (:id user)})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (system/update! (:id system) {:title nil}))))))
 
 (deftest test-delete-with-transaction
   (testing "Deleting a system with parts and relationships removes everything"
-    (let [user                   (register-test-user)
+    (let [user                   (create-test-user!)
           system                 (system/create! {:title "Transaction Test" :owner_id (:id user)})
 
           part1                  (part/create! {:system_id  (:id system)
@@ -98,7 +98,7 @@
 
 (deftest test-transaction-rollback
   (testing "Transaction rolls back if an error occurs"
-    (let [user                   (register-test-user)
+    (let [user                   (create-test-user!)
           system                 (system/create! {:title "Transaction Test" :owner_id (:id user)})
           _part                  (part/create! {:system_id  (:id system)
                                                 :type       "manager"

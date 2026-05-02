@@ -2,7 +2,7 @@
   (:require
    [aps.parts.api.systems :as api]
    [aps.parts.entity.system :as system]
-   [aps.parts.helpers.utils :refer [with-test-db register-test-user]]
+   [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
@@ -16,7 +16,7 @@
 
 (deftest test-list-systems
   (testing "returns systems for authenticated user"
-    (let [user     (register-test-user)
+    (let [user     (create-test-user!)
           _        (system/create! {:title "Test System" :owner_id (:id user)})
           request  (make-request user)
           response (api/list-systems request)]
@@ -26,7 +26,7 @@
 
 (deftest test-create-system
   (testing "creates system for authenticated user"
-    (let [user     (register-test-user)
+    (let [user     (create-test-user!)
           request  (make-request user :body {:title "New System"})
           response (api/create-system request)]
       (is (= 201 (:status response)))
@@ -34,8 +34,8 @@
       (is (= (:id user) (-> response :body :owner_id))))))
 
 (deftest test-get-system
-  (let [user       (register-test-user)
-        other-user (register-test-user)
+  (let [user       (create-test-user!)
+        other-user (create-test-user!)
         system     (system/create! {:title "Test" :owner_id (:id user)})]
 
     (testing "returns system for owner"
@@ -53,8 +53,8 @@
         (is (= "Not authorized" (-> response :body :error)))))))
 
 (deftest test-update-system
-  (let [user       (register-test-user)
-        other-user (register-test-user)
+  (let [user       (create-test-user!)
+        other-user (create-test-user!)
         system     (system/create! {:title "Test" :owner_id (:id user)})]
 
     (testing "updates system for owner"
@@ -74,8 +74,8 @@
         (is (= "Not authorized" (-> response :body :error)))))))
 
 (deftest test-delete-system
-  (let [user       (register-test-user)
-        other-user (register-test-user)
+  (let [user       (create-test-user!)
+        other-user (create-test-user!)
         system     (system/create! {:title "Test" :owner_id (:id user)})]
 
     (testing "returns 403 for non-owner"
@@ -92,7 +92,7 @@
 
 (deftest test-export-pdf
   (testing "returns not implemented"
-    (let [user     (register-test-user)
+    (let [user     (create-test-user!)
           system   (system/create! {:title "Test" :owner_id (:id user)})
           request  (make-request user :params {:id (:id system)})
           response (api/export-pdf request)]

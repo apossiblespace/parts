@@ -54,10 +54,10 @@
       (finally
         (truncate-all-tables ds)))))
 
-(defn register-test-user
+(defn create-test-user!
   "Create a user in the database from the factory"
   ([]
-   (register-test-user {}))
+   (create-test-user! {}))
   ([attrs]
    (let [user-data (factory/build-test-user attrs)]
      (user/create! user-data))))
