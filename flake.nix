@@ -2,7 +2,7 @@
   description = "Parts project development environment";
 
   inputs = {
-    # Use nixpkgs-unstable for latest Clojure 1.12.1
+    # Use nixpkgs-unstable for latest Clojure 1.12.4
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
@@ -27,7 +27,7 @@
 
             # JavaScript tools
             nodejs_20
-            nodePackages.pnpm
+            pnpm
 
             # Database
             postgresql_16
