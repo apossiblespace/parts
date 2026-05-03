@@ -1,8 +1,10 @@
 (ns aps.parts.entity.user
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.common.models.user :as model]
    [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
+   [clojure.spec.alpha :as s]
    [com.brunobonacci.mulog :as mulog]))
 
 (def allowed-update-fields #{:email :display_name :password})
@@ -19,6 +21,13 @@
       (throw (ex-info "Invalid role" {:type :validation}))))
   (let [{:keys [password password_confirmation]} attrs]
     (when password
+      (when-not (s/valid? ::model/password password)
+        (throw (ex-info (str "Password must be between "
+                             model/password-min-length
+                             " and "
+                             model/password-max-length
+                             " characters")
+                        {:type :validation})))
       (when (not= password password_confirmation)
         (throw (ex-info "Password and confirmation do not match" {:type :validation})))))
   attrs)

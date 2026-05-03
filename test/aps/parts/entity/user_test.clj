@@ -86,7 +86,15 @@
                             (user/create!
                              (assoc attrs
                                     :password "password12345"
-                                    :password_confirmation "wordpass54321")))))))
+                                    :password_confirmation "wordpass54321"))))))
+
+  (testing "throws when the password is shorter than the minimum length"
+    (let [attrs (factory/build-test-user)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Password must be between"
+                            (user/create!
+                             (assoc attrs
+                                    :password              "short"
+                                    :password_confirmation "short")))))))
 
 (deftest test-delete!
   (testing "deletes the user entity from the database"

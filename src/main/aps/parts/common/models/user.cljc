@@ -4,11 +4,16 @@
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
 
+(def password-min-length 8)
+(def password-max-length 128)
+
 (s/def ::id (s/or :string string? :uuid uuid?))
 (s/def ::email (s/and string? #(re-matches #"^.+@.+\..+$" %)))
 (s/def ::username (s/and string? not-empty))
 (s/def ::display_name (s/and string? not-empty))
-(s/def ::password (s/and string? not-empty))
+(s/def ::password
+  (s/and string?
+         #(<= password-min-length (count %) password-max-length)))
 (s/def ::password_confirmation (s/and string? not-empty))
 (s/def ::role #{"client" "therapist"})
 
