@@ -1,20 +1,20 @@
 {
   "dependencies": {
-    "@xyflow/react": "^12.9.3",
-    "htmx.org": "^2.0.8",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "@xyflow/react": "^12.10.2",
+    "htmx.org": "^2.0.10",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.17",
-    "autoprefixer": "^10.4.22",
-    "cssnano": "^7.1.2",
-    "daisyui": "^5.5.4",
-    "postcss": "^8.5.6",
+    "@tailwindcss/postcss": "^4.2.4",
+    "autoprefixer": "^10.5.0",
+    "cssnano": "^7.1.8",
+    "daisyui": "^5.5.19",
+    "postcss": "^8.5.13",
     "postcss-cli": "^11.0.1",
     "postcss-nesting": "^13.0.2",
     "shadow-cljs": "^2.28.23",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.2.4",
     "ws": "^7.5.10"
   }
 }
