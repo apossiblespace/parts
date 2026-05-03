@@ -47,18 +47,21 @@
 
 (def exception
   "Middleware handling exceptions. Combines the default exception handlers from
-  Reitit with cutom handlers. New custom handlers should be added to this
-  function."
+   Reitit with cutom handlers. New custom handlers should be added to this
+   function."
   (exception/create-exception-middleware
    (merge
     exception/default-handlers
     {;; ex-info with :type :validation
-     :validation                                                (exception-handler "Invalid data" 400)
+     :validation
+     (exception-handler "Invalid data" 400)
 
-     :not-found                                                 (exception-handler "Resource not found" 404)
+     :not-found
+     (exception-handler "Resource not found" 404)
 
      ;; PostgreSQL exceptions
-     PSQLException                                              postgres-constraint-violation-handler
+     PSQLException
+     postgres-constraint-violation-handler
 
      ;; Default
      ::exception/default
