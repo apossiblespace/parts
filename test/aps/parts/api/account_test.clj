@@ -6,6 +6,7 @@
    [aps.parts.entity.system :as system]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
@@ -111,4 +112,13 @@
                         (select-keys user-data [:email :password]))]
       (is (some? (:access_token login-tokens)))
       (is (some? (:refresh_token login-tokens)))
-      (is (= "Bearer" (:token_type login-tokens))))))
+      (is (= "Bearer" (:token_type login-tokens)))))
+
+  (testing "authenticates case-insensitively against the registered email"
+    (let [user-data    (factory/build-test-user)
+          _            (account/register-account {:body-params user-data})
+          login-tokens (auth/authenticate
+                        {:email    (str/upper-case (:email user-data))
+                         :password (:password user-data)})]
+      (is (some? (:access_token login-tokens))
+          "Uppercased email should still find the (lowercased) stored row"))))
