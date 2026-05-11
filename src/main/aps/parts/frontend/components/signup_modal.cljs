@@ -122,7 +122,7 @@
                       {:type     "button"
                        :class    "btn flex-1"
                        :disabled loading
-                       :on-click on-close}
+                       :on-click handle-close}
                       "Cancel")
                    ($ :button
                       {:type     "submit"
