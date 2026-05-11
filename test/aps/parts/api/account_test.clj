@@ -36,8 +36,8 @@
       (is (= 200 (:status response)))
       (is (= {:email        (str "added" (:email user))
               :display_name "Updated"}
-             updated-fields)
-          (is (not (contains? (:body response) :password_hash))))))
+             updated-fields))
+      (is (not (contains? (:body response) :password_hash)))))
 
   (testing "does not update where no updatable data is passed"
     (let [user         (create-test-user!)

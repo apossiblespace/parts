@@ -6,6 +6,7 @@
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
@@ -98,7 +99,7 @@
 
   (testing "normalizes the email (lowercases + trims) before saving"
     (let [base    (factory/build-test-user)
-          raw     (str "  " (clojure.string/upper-case (:email base)) "  ")
+          raw     (str "  " (str/upper-case (:email base)) "  ")
           created (user/create! (assoc base :email raw))]
       (is (= (:email base) (:email created))))))
 
