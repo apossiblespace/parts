@@ -44,8 +44,6 @@
 (defn- sanitize-attrs
   "Ensure we are not trying to save attributes that cannot be updated"
   [attrs]
-  (-> attrs
-      (select-keys allowed-update-fields))
   (select-keys attrs allowed-update-fields))
 
 (defn- set-password-hash
