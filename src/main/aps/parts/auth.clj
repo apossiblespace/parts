@@ -74,6 +74,14 @@
   [password hash]
   (:valid (hashers/verify password hash)))
 
+(defn issue-tokens
+  "Issue a fresh pair of access + refresh tokens for an already-authenticated
+   user-id. Single source of truth for the token-response shape."
+  [user-id]
+  {:access_token  (create-access-token user-id)
+   :refresh_token (create-refresh-token user-id)
+   :token_type    "Bearer"})
+
 (defn authenticate
   "Checks if a user represented by EMAIL exists in db, checks their PASSWORD if
   so"
@@ -84,9 +92,7 @@
                                      :from   [:users]
                                      :where  [:= :email normalized-email]}))]
       (when (check-password password (:password_hash user))
-        {:access_token  (create-access-token (:id user))
-         :refresh_token (create-refresh-token (:id user))
-         :token_type    "Bearer"}))))
+        (issue-tokens (:id user))))))
 
 (defn validate-refresh-token
   "Validates a refresh token and returns user-id if valid"
@@ -112,16 +118,10 @@
   "Creates new access and refresh tokens if the refresh token is valid"
   [refresh-token]
   (when-let [user-id-str (validate-refresh-token refresh-token)]
-    ;; Convert string UUID to UUID object
     (let [user-id (db/->uuid user-id-str)]
-      ;; Invalidate the old refresh token
       (db/delete! :refresh_tokens
                   [:= :token_id (get (jwt/unsign refresh-token secret) :jti)])
-
-      ;; Create new tokens
-      {:access_token  (create-access-token user-id)
-       :refresh_token (create-refresh-token user-id)
-       :token_type    "Bearer"})))
+      (issue-tokens user-id))))
 
 (defn invalidate-refresh-token
   "Invalidate a refresh token when user logs out"

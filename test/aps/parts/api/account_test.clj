@@ -1,6 +1,7 @@
 (ns aps.parts.api.account-test
   (:require
    [aps.parts.api.account :as account]
+   [aps.parts.auth :as auth]
    [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
    [aps.parts.helpers.test-factory :as factory]
@@ -101,3 +102,13 @@
                                      :from   [:users]
                                      :where  [:= :email (:email user-data)]}))]
         (is (= nil db-user) "User row should have been rolled back")))))
+
+(deftest test-register-then-authenticate
+  (testing "a registered user can immediately authenticate with their credentials"
+    (let [user-data    (factory/build-test-user)
+          _            (account/register-account {:body-params user-data})
+          login-tokens (auth/authenticate
+                        (select-keys user-data [:email :password]))]
+      (is (some? (:access_token login-tokens)))
+      (is (some? (:refresh_token login-tokens)))
+      (is (= "Bearer" (:token_type login-tokens))))))

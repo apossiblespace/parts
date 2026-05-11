@@ -56,8 +56,7 @@
                                         (assoc :role "therapist"))
         {:keys [account system-id]} (db/with-transaction
                                       #(provision-account! params %))
-        tokens                      (auth/authenticate {:email    (:email params)
-                                                        :password (:password params)})]
+        tokens                      (auth/issue-tokens (:id account))]
     (mulog/log ::register
                :email (:email account)
                :username (:username account)
