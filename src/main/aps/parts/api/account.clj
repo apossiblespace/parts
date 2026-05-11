@@ -52,18 +52,29 @@
   "Register a new user (role hardcoded to 'therapist'), provision their starter
    system atomically, then return auth tokens for auto-login."
   [request]
-  (let [params                      (-> (:body-params request)
-                                        (assoc :role "therapist"))
-        {:keys [account system-id]} (db/with-transaction
-                                      #(provision-account! params %))
-        tokens                      (auth/issue-tokens (:id account))]
-    (mulog/log ::register
-               :email (:email account)
-               :username (:username account)
-               :system-id system-id
-               :status :success)
-    (-> (response/response (merge account tokens {:system_id system-id}))
-        (response/status 201))))
+  (let [params (-> (:body-params request) (assoc :role "therapist"))]
+    (try
+      (let [{:keys [account system-id]} (db/with-transaction
+                                          #(provision-account! params %))
+            tokens                      (auth/issue-tokens (:id account))]
+        (mulog/log ::register
+                   :email (:email account)
+                   :username (:username account)
+                   :system-id system-id
+                   :status :success)
+        (-> (response/response (merge account tokens {:system_id system-id}))
+            (response/status 201)))
+      (catch Exception e
+        ;; NOTE: log only safe fields. `params` contains :password and is NOT
+        ;; redacted by mulog (the redaction in observe.cljc only covers the o/*
+        ;; logging façade). Never pass raw params to mulog/log.
+        (mulog/log ::register
+                   :email (:email params)
+                   :username (:username params)
+                   :status :failure
+                   :error-type (:type (ex-data e))
+                   :error-message (.getMessage e))
+        (throw e)))))
 
 (defn delete-account
   "Delete own account"
