@@ -94,7 +94,13 @@
                             (user/create!
                              (assoc attrs
                                     :password              "short"
-                                    :password_confirmation "short")))))))
+                                    :password_confirmation "short"))))))
+
+  (testing "normalizes the email (lowercases + trims) before saving"
+    (let [base    (factory/build-test-user)
+          raw     (str "  " (clojure.string/upper-case (:email base)) "  ")
+          created (user/create! (assoc base :email raw))]
+      (is (= (:email base) (:email created))))))
 
 (deftest test-delete!
   (testing "deletes the user entity from the database"

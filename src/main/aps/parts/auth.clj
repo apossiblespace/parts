@@ -1,5 +1,6 @@
 (ns aps.parts.auth
   (:require
+   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [buddy.auth.backends :as backends]
@@ -77,13 +78,15 @@
   "Checks if a user represented by EMAIL exists in db, checks their PASSWORD if
   so"
   [{:keys [email password]}]
-  (when-let [user (db/query-one (db/sql-format {:select [:*]
-                                                :from   [:users]
-                                                :where  [:= :email email]}))]
-    (when (check-password password (:password_hash user))
-      {:access_token  (create-access-token (:id user))
-       :refresh_token (create-refresh-token (:id user))
-       :token_type    "Bearer"})))
+  (let [normalized-email (normalize-email email)]
+    (when-let [user (db/query-one
+                     (db/sql-format {:select [:*]
+                                     :from   [:users]
+                                     :where  [:= :email normalized-email]}))]
+      (when (check-password password (:password_hash user))
+        {:access_token  (create-access-token (:id user))
+         :refresh_token (create-refresh-token (:id user))
+         :token_type    "Bearer"}))))
 
 (defn validate-refresh-token
   "Validates a refresh token and returns user-id if valid"

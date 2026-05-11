@@ -2,6 +2,7 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.common.models.user :as model]
+   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
    [clojure.spec.alpha :as s]
@@ -10,6 +11,14 @@
 (def allowed-update-fields #{:email :display_name :password})
 (def sensitive-fields #{:password_hash})
 (def valid-roles #{"client" "therapist"})
+
+(defn- normalize-attrs
+  "Canonicalize fields that have a stable storage form (e.g. emails are
+   case-insensitive; we store the lowercased+trimmed form). Runs before
+   validation so the spec sees what will actually be persisted."
+  [attrs]
+  (cond-> attrs
+    (:email attrs) (update :email normalize-email)))
 
 (defn- validate-attrs
   "Perform validations to ensure the user attributes are ready to be persisted"
@@ -77,6 +86,7 @@
   (when (not id) (throw (ex-info "Missing User ID" {:type :validation})))
   (let [sanitized-attrs (-> attrs
                             sanitize-attrs
+                            normalize-attrs
                             validate-attrs
                             set-password-hash)]
     (remove-sensitive-data
@@ -88,6 +98,7 @@
   ([attrs] (create! attrs db/datasource))
   ([attrs tx]
    (let [validated-attrs (-> attrs
+                             normalize-attrs
                              validate-attrs
                              set-password-hash)]
      (remove-sensitive-data
