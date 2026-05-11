@@ -102,7 +102,6 @@
      (remove-sensitive-data
       (db/insert! :users validated-attrs tx)))))
 
-;; TODO: Add unit tests
 (defn delete!
   "Delete a user record and all associated data:
   - All systems owned by the user

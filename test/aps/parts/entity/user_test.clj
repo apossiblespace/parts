@@ -131,4 +131,15 @@
                                      {:select [:id]
                                       :from   [:refresh_tokens]
                                       :where  [:= :user_id guid]
-                                      :limit  1}))))))))
+                                      :limit  1})))))))
+
+  (testing "returns {:id id :deleted true} when a user is successfully deleted"
+    (let [user   (create-test-user!)
+          result (user/delete! (:id user))]
+      (is (= (:id user) (:id result)))
+      (is (true? (:deleted result)))))
+
+  (testing "returns {:id id :deleted false} for a non-existent user (does not throw)"
+    (let [bogus-id "00000000-0000-0000-0000-000000000000"
+          result   (user/delete! bogus-id)]
+      (is (= {:id bogus-id :deleted false} result)))))
