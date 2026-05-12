@@ -66,6 +66,9 @@ EnvironmentFile=/etc/$APP_NAME.env
 ExecStart=/usr/bin/java -server -Xms512m -Xmx512m -Dparts.env=prod -jar $APP_DIR/current
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=$APP_NAME
 
 [Install]
 WantedBy=multi-user.target
@@ -90,3 +93,12 @@ EOF
 
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
+
+# 8. logs
+# mulog emits one JSON object per line to stdout, which systemd captures in journald.
+# Common viewing commands:
+#   journalctl -u $APP_NAME -f                 # live tail
+#   journalctl -u $APP_NAME --since "1 hour ago"
+#   journalctl -t $APP_NAME -o cat | jq .      # pretty-print structured events
+#   journalctl -u $APP_NAME -p err             # error-priority lines only
+echo "✓ Logs: journalctl -u $APP_NAME -f"

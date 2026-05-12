@@ -25,6 +25,7 @@
   ;; Logging and observability
   org.slf4j/slf4j-simple {:mvn/version "2.0.17"}
   com.brunobonacci/mulog {:mvn/version "0.9.0"}
+  com.brunobonacci/mulog-adv-console {:mvn/version "0.9.0"}
   ;;
   ;; Gaiwan's configuration management library.
   ;; https://github.com/lambdaisland/config

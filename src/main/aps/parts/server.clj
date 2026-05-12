@@ -67,6 +67,16 @@
           (recur))))
     stop-ch))
 
+(defn start-log-publisher
+  "Starts a mulog console-json publisher in prod, sending one JSON event per
+   line to stdout (captured by systemd's journald). Returns a 0-arity stop
+   function that flushes the buffer and stops the publisher, or nil in
+   non-prod environments where another mechanism (e.g. the dev tap publisher
+   in src/dev/mulog_events.clj) handles publishing."
+  []
+  (when conf/prod?
+    (mulog/start-publisher! {:type :console-json :pretty? false})))
+
 (defn start-nrepl
   "Starts an nREPL server if enabled via environment configuration.
    Returns the server instance or nil if disabled."
@@ -99,7 +109,8 @@
    Initializes the application, starts the server, and returns a shutdown
    function."
   [& args]
-  (let [port (or (some-> (first args) Integer/parseInt) 3000)]
+  (let [port         (or (some-> (first args) Integer/parseInt) 3000)
+        stop-log-pub (start-log-publisher)]
     ;; Set up global logging context
     (mulog/set-global-context!
      {:app-name "Parts" :version "0.1.0-SNAPSHOT", :env (conf/get-environment)})
@@ -128,4 +139,6 @@
         (when nrepl-server
           (nrepl/stop-server nrepl-server)
           (println "nREPL server stopped"))
+        (mulog/log ::application-shutdown)
+        (when stop-log-pub (stop-log-pub))
         (println "Parts: Server stopped.")))))
