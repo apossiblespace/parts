@@ -85,8 +85,9 @@
                 (process-change ctx change)
                 (catch Throwable t
                   (throw (ex-info (.getMessage t)
-                                  (merge (ex-data t)
-                                         {:type           (or (:type (ex-data t)) :batch-failure)
-                                          :failing-change change})
+                                  (assoc (ex-data t)
+                                         :type           :batch-failure
+                                         :cause-type     (:type (ex-data t))
+                                         :failing-change change)
                                   t)))))
             changes))))
