@@ -7,12 +7,14 @@
 (s/def ::id (s/or :string string? :uuid uuid?))
 (s/def ::title string?)
 (s/def ::owner_id (s/or :string string? :uuid uuid?))
-(s/def ::viewport_settings (s/nilable string?))
+
+;; Note: `viewport_settings` used to live here. It's now browser-local UI
+;; state, not server-stored. If cross-device persistence becomes a product
+;; requirement, add a per-user-per-system table — non-temporal.
 
 (s/def ::system (s/keys :req-un [::title
                                  ::owner_id]
-                        :opt-un [::id
-                                 ::viewport_settings]))
+                        :opt-un [::id]))
 
 (def spec
   "System model spec for reuse outside of the namespace"
@@ -33,8 +35,7 @@
 (s/def ::system-update
   (s/keys :opt-un [::id
                    ::title
-                   ::owner_id
-                   ::viewport_settings]))
+                   ::owner_id]))
 
 (defn validate-update
   "Validate a partial system update map. Any fields present must conform to their specs."

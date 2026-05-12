@@ -1,6 +1,7 @@
 (ns aps.parts.helpers.utils
   (:require
    [aps.parts.config :as conf]
+   [aps.parts.entity.system :as system]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [clojure.tools.logging :as log]
@@ -21,14 +22,17 @@
     (migratus/migrate migration-config)
     ds))
 
+(def ^:private tombstone-user-sql
+  ["INSERT INTO users (id, email, username, display_name, password_hash, role)
+    VALUES ('00000000-0000-0000-0000-000000000000',
+            'deleted@aps.local', '__deleted__', 'Deleted user', '!', 'therapist')
+    ON CONFLICT (id) DO NOTHING"])
+
 (defn truncate-all-tables
   [ds]
   (try
     (jdbc/with-transaction [tx ds]
-      ;; Disable foreign key checks temporarily
       (jdbc/execute! tx ["SET session_replication_role = 'replica'"])
-
-      ;; Get all tables except system tables and migrations
       (let [tables (jdbc/execute!
                     tx
                     ["SELECT table_name
@@ -39,9 +43,9 @@
                     {:builder-fn rs/as-unqualified-lower-maps})]
         (doseq [{:keys [table_name]} tables]
           (jdbc/execute! tx [(str "TRUNCATE TABLE \"" table_name "\" CASCADE")])))
-
-      ;; Re-enable foreign key checks
-      (jdbc/execute! tx ["SET session_replication_role = 'origin'"]))
+      (jdbc/execute! tx ["SET session_replication_role = 'origin'"])
+      ;; The bitemporal audit_log FKs to the tombstone user; restore it.
+      (jdbc/execute! tx tombstone-user-sql))
     (catch Exception e
       (log/error "Failed to truncate tables from test database")
       (throw e))))
@@ -55,9 +59,13 @@
         (truncate-all-tables ds)))))
 
 (defn create-test-user!
-  "Create a user in the database from the factory"
-  ([]
-   (create-test-user! {}))
-  ([attrs]
-   (let [user-data (factory/build-test-user attrs)]
-     (user/create! user-data))))
+  "Create a user in the database from the factory."
+  ([]      (create-test-user! {}))
+  ([attrs] (user/create! (factory/build-test-user attrs))))
+
+(defn create-test-system!
+  "Create a system owned by `user-id` (also used as actor). Goes through the
+   entity layer so the metadata row in `system_metadata` is populated too."
+  ([user-id] (create-test-system! user-id "Test System"))
+  ([user-id title]
+   (system/create! {:owner_id user-id :title title} user-id)))

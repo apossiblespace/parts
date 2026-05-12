@@ -4,7 +4,6 @@
    [aps.parts.db :as db]
    [aps.parts.entity.system :as system]
    [com.brunobonacci.mulog :as mulog]
-   [next.jdbc :as jdbc]
    [ring.util.response :as response]))
 
 (defn list-systems
@@ -20,7 +19,7 @@
   [{:keys [identity body-params] :as _request}]
   (let [user-id     (:sub identity)
         system-data (assoc body-params :owner_id user-id)
-        created     (system/create! system-data)]
+        created     (system/create! system-data user-id)]
     (-> (response/response created)
         (response/status 201))))
 
@@ -45,7 +44,8 @@
     (if (= (db/->uuid user-id) (:owner_id existing))
       (let [updated (system/update!
                      system-id
-                     (assoc body-params :owner_id (:owner_id existing)))]
+                     (assoc body-params :owner_id (:owner_id existing))
+                     user-id)]
         (-> (response/response updated)
             (response/status 200)))
       (-> (response/response {:error "Not authorized"})
@@ -59,7 +59,7 @@
         existing  (system/fetch system-id)]
     (if (= (db/->uuid user-id) (:owner_id existing))
       (do
-        (system/delete! system-id)
+        (system/delete! system-id user-id)
         (response/status 204))
       (-> (response/response {:error "Not authorized"})
           (response/status 403)))))
@@ -71,67 +71,43 @@
   (= (db/->uuid user-id) (:owner_id system)))
 
 (defn process-changes
-  "Process batches of changes sent by client
+  "Apply a batch of changes for a system atomically.
 
-  Handles batches of change events for a system, applying them in a transaction.
-  Each change is processed according to its entity type and operation.
+   Request body: a single change-event map, or a vector of them. Each has:
+   - `entity`: the entity type (`part`, `relationship`)
+   - `id`: the entity ID
+   - `type`: the operation (`create`, `update`, `remove`, `position`)
+   - `data`: operation-specific payload
 
-  The request body should be an array of change objects, each with:
-  - entity: The entity type (part, relationship)
-  - id: The entity ID
-  - type: The operation type (create, update, remove, position)
-  - data: Operation-specific data
+   Atomicity is all-or-nothing: any failure rolls back the entire batch.
 
-  Returns:
-  - 200 OK with results if all changes succeed
-  - 403 Forbidden if user doesn't own the system
-  - 207 Multi-Status if some changes fail
-  - 400 Bad Request for invalid input
-  "
+   Responses:
+   - 200 OK + `{:success true :results [...]}` when every change applied
+   - 403 Forbidden when the user doesn't own the system
+   - 404 Not Found when the system doesn't exist
+   - 422 Unprocessable + `{:error ... :failing_change <change>}` when a
+     domain error rolled the batch back (handled by the exception middleware)
+   - 409 Conflict for DB constraint violations
+   - 500 for unexpected exceptions"
   [{:keys [identity parameters body-params] :as _request}]
   (let [user-id   (:sub identity)
-        system-id (get-in parameters [:path :id])]
-    (try
-      (let [system (system/fetch system-id)]
-        (if (user-can-modify-system? user-id system)
-          (try
-            (let [changes (if (sequential? body-params) body-params [body-params])
-                  results (jdbc/with-transaction [_tx db/datasource]
-                            (mapv #(events/process-change system-id %) changes))]
-
-              (mulog/log ::process-changes
-                         :user-id user-id
-                         :system-id system-id
-                         :change-count (count changes)
-                         :success-count (count (filter :success results)))
-
-              (if (every? :success results)
-                (-> (response/response {:success true :results results})
-                    (response/status 200))
-                (-> (response/response {:success false
-                                        :results results
-                                        :error   "Some changes failed"})
-                    (response/status 207))))
-
-            (catch Exception e
-              (mulog/log ::process-changes-error
-                         :user-id user-id
-                         :system-id system-id
-                         :error (.getMessage e))
-              (-> (response/response {:error   "Failed to process changes"
-                                      :details (.getMessage e)})
-                  (response/status 500))))
-
-          (-> (response/response {:error "Not authorized"})
-              (response/status 403))))
-
-      (catch Exception e
-        (mulog/log ::system-access-error
-                   :user-id user-id
-                   :system-id system-id
-                   :error (.getMessage e))
-        (-> (response/response {:error "System not found"})
-            (response/status 404))))))
+        system-id (get-in parameters [:path :id])
+        system    (system/fetch system-id)]
+    (if-not (user-can-modify-system? user-id system)
+      (-> (response/response {:error "Not authorized"})
+          (response/status 403))
+      (let [changes (if (sequential? body-params) body-params [body-params])
+            results (events/apply-changes!
+                     db/datasource
+                     {:system-id (db/->uuid system-id)
+                      :actor-id  user-id
+                      :changes   changes})]
+        (mulog/log ::process-changes
+                   :user-id      user-id
+                   :system-id    system-id
+                   :change-count (count changes))
+        (-> (response/response {:success true :results results})
+            (response/status 200))))))
 
 ;; TODO: Implement PDF export endpoint once we have the PDF generation service
 (defn export-pdf
