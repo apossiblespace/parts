@@ -5,6 +5,7 @@
    [aps.parts.auth :as auth]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
+   [aps.parts.jobs.deletion-purge :as deletion-purge]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
    [clojure.core.async :as async]
@@ -108,10 +109,11 @@
     (db/init-db)
 
     ;; Start nREPL server if configured
-    (let [nrepl-server    (start-nrepl)
+    (let [nrepl-server     (start-nrepl)
           ;; Start server and background processes
-          stop-fn         (start-server port)
-          cleanup-stop-ch (schedule-token-cleanup)]
+          stop-fn          (start-server port)
+          cleanup-stop-ch  (schedule-token-cleanup)
+          deletion-stop-ch (deletion-purge/schedule!)]
       (println "Parts: Server started on port" port)
 
       ;; Print configuration on startup
@@ -121,7 +123,8 @@
       ;; Return shutdown function
       (fn []
         (stop-fn)
-        (async/close! cleanup-stop-ch) ; Signal the cleanup process to stop
+        (async/close! cleanup-stop-ch)
+        (async/close! deletion-stop-ch)
         (when nrepl-server
           (nrepl/stop-server nrepl-server)
           (println "nREPL server stopped"))
