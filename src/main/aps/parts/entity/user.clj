@@ -4,7 +4,7 @@
    [aps.parts.common.models.user :as model]
    [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.db :as db]
-   [aps.parts.entity.system :as system]
+   [aps.parts.db.erasure :as erasure]
    [clojure.spec.alpha :as s]
    [com.brunobonacci.mulog :as mulog]))
 
@@ -103,26 +103,25 @@
       (db/insert! :users validated-attrs tx)))))
 
 (defn delete!
-  "Delete a user record and all associated data:
-  - All systems owned by the user
-  - All parts and relationships in those systems
-  - All refresh tokens for the user"
+  "Hard-delete a user and all associated data, including past systems, parts,
+   relationships, and refresh tokens. Audit-log entries referencing this user
+   are pseudonymized to the tombstone UUID rather than deleted, preserving the
+   operational trail.
+
+   This is the right-to-erasure path. For the user-initiated 30-day
+   soft-delete flow, see `aps.parts.db.erasure/request-deletion!`."
   [id]
   (let [uuid-id (db/->uuid id)
-        systems (db/query
-                 (db/sql-format
-                  {:select [:id]
-                   :from   [:systems]
-                   :where  [:= :owner_id uuid-id]}))]
-    (doseq [system systems]
-      (system/delete! (:id system)))
-
-    (db/delete! :refresh_tokens [:= :user_id uuid-id])
-
-    (let [result  (db/delete! :users [:= :id uuid-id])
-          deleted (pos? (or (:next.jdbc/update-count (first result)) 0))]
-      (mulog/log ::delete-user-complete
-                 :user-id id
-                 :success deleted
-                 :systems-deleted (count systems))
-      {:id id :deleted deleted})))
+        user    (db/query-one (db/sql-format
+                               {:select [:id] :from [:users] :where [:= :id uuid-id]}))]
+    (if user
+      (do
+        ;; Refresh tokens are not bitemporal and are not handled by the
+        ;; erasure namespace; clean them up here.
+        (db/delete! :refresh_tokens [:= :user_id uuid-id])
+        (erasure/purge-account! db/datasource uuid-id)
+        (mulog/log ::delete-user-complete :user-id id :success true)
+        {:id id :deleted true})
+      (do
+        (mulog/log ::delete-user-not-found :user-id id)
+        {:id id :deleted false}))))

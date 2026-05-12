@@ -19,7 +19,7 @@
 
   (testing "throws when a non-existent user ID is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
-                          (user/fetch "00000000-0000-0000-0000-000000000000"))))
+                          (user/fetch "deadbeef-dead-beef-dead-beefdeadbeef"))))
 
   (testing "throws when an invalid UUID string is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Invalid UUID format"
@@ -116,7 +116,7 @@
           id             (:id user)
           system-data    {:title    "System To Delete"
                           :owner_id id}
-          system-created (system/create! system-data)]
+          system-created (system/create! system-data id)]
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"System not found"
                             (system/fetch (:id system-created))))))
@@ -140,6 +140,6 @@
       (is (true? (:deleted result)))))
 
   (testing "returns {:id id :deleted false} for a non-existent user (does not throw)"
-    (let [bogus-id "00000000-0000-0000-0000-000000000000"
+    (let [bogus-id "deadbeef-dead-beef-dead-beefdeadbeef"
           result   (user/delete! bogus-id)]
       (is (= {:id bogus-id :deleted false} result)))))

@@ -1,6 +1,7 @@
 (ns aps.parts.helpers.utils
   (:require
    [aps.parts.config :as conf]
+   [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.system :as system]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
@@ -23,10 +24,10 @@
     ds))
 
 (def ^:private tombstone-user-sql
-  ["INSERT INTO users (id, email, username, display_name, password_hash, role)
-    VALUES ('00000000-0000-0000-0000-000000000000',
-            'deleted@aps.local', '__deleted__', 'Deleted user', '!', 'therapist')
-    ON CONFLICT (id) DO NOTHING"])
+  [(str "INSERT INTO users (id, email, username, display_name, password_hash, role)
+         VALUES ('" erasure/tombstone-id "',
+                 'deleted@aps.local', '__deleted__', 'Deleted user', '!', 'therapist')
+         ON CONFLICT (id) DO NOTHING")])
 
 (defn truncate-all-tables
   [ds]
@@ -44,7 +45,7 @@
         (doseq [{:keys [table_name]} tables]
           (jdbc/execute! tx [(str "TRUNCATE TABLE \"" table_name "\" CASCADE")])))
       (jdbc/execute! tx ["SET session_replication_role = 'origin'"])
-      ;; The bitemporal audit_log FKs to the tombstone user; restore it.
+      ;; Bitemporal + erasure code FKs to the tombstone user; restore it.
       (jdbc/execute! tx tombstone-user-sql))
     (catch Exception e
       (log/error "Failed to truncate tables from test database")
