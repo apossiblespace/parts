@@ -1,6 +1,9 @@
 (ns aps.parts.api.systems-test
   (:require
    [aps.parts.api.systems :as api]
+   [aps.parts.api.systems-events :as events]
+   [aps.parts.db :as db]
+   [aps.parts.entity.part :as part]
    [aps.parts.entity.system :as system]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
@@ -17,7 +20,7 @@
 (deftest test-list-systems
   (testing "returns systems for authenticated user"
     (let [user     (create-test-user!)
-          _        (system/create! {:title "Test System" :owner_id (:id user)})
+          _        (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
           request  (make-request user)
           response (api/list-systems request)]
       (is (= 200 (:status response)))
@@ -36,7 +39,7 @@
 (deftest test-get-system
   (let [user       (create-test-user!)
         other-user (create-test-user!)
-        system     (system/create! {:title "Test" :owner_id (:id user)})]
+        system     (system/create! {:title "Test" :owner_id (:id user)} (:id user))]
 
     (testing "returns system for owner"
       (let [request  (make-request user :params {:id (:id system)})
@@ -55,7 +58,7 @@
 (deftest test-update-system
   (let [user       (create-test-user!)
         other-user (create-test-user!)
-        system     (system/create! {:title "Test" :owner_id (:id user)})]
+        system     (system/create! {:title "Test" :owner_id (:id user)} (:id user))]
 
     (testing "updates system for owner"
       (let [request  (make-request user
@@ -76,7 +79,7 @@
 (deftest test-delete-system
   (let [user       (create-test-user!)
         other-user (create-test-user!)
-        system     (system/create! {:title "Test" :owner_id (:id user)})]
+        system     (system/create! {:title "Test" :owner_id (:id user)} (:id user))]
 
     (testing "returns 403 for non-owner"
       (let [request  (make-request other-user :params {:id (:id system)})
@@ -90,10 +93,37 @@
         (is (= 204 (:status response)))
         (is (nil? (:body response)))))))
 
+(deftest test-batch-rollback-when-one-change-fails
+  (testing "all-or-nothing batch: one bad change rolls back the rest"
+    (let [user    (create-test-user!)
+          sys     (system/create! {:title "Rollback Test" :owner_id (:id user)} (:id user))
+          part-id (random-uuid)
+          _       (part/create! {:id         part-id
+                                 :system_id  (:id sys)
+                                 :type       "manager"
+                                 :label      "Original"
+                                 :position_x 0
+                                 :position_y 0}
+                                (:id user))
+          ;; A batch that renames the part, then tries to update a nonexistent
+          ;; part. The second change throws :not-found and must roll back the
+          ;; first.
+          batch   [{:entity "part" :type "update" :id part-id :data {:label "Should NOT stick"}}
+                   {:entity "part" :type "update" :id (random-uuid) :data {:label "Doesn't matter"}}]]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (events/apply-changes!
+                    db/datasource
+                    {:system-id (:id sys)
+                     :actor-id  (:id user)
+                     :changes   batch})))
+      (testing "the earlier change in the batch was rolled back"
+        (is (= "Original" (:label (part/fetch part-id)))
+            "label should not have been renamed because the batch failed")))))
+
 (deftest test-export-pdf
   (testing "returns not implemented"
     (let [user     (create-test-user!)
-          system   (system/create! {:title "Test" :owner_id (:id user)})
+          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
           request  (make-request user :params {:id (:id system)})
           response (api/export-pdf request)]
       (is (= 501 (:status response)))

@@ -59,6 +59,21 @@
      :not-found
      (exception-handler "Resource not found" 404)
 
+     :unknown-change-type
+     (exception-handler "Unknown change type" 400)
+
+     ;; A change in a batch threw; the whole batch was rolled back. The
+     ;; ex-data carries `:failing-change` so the client can highlight it.
+     :batch-failure
+     (fn [^Exception e _request]
+       (let [data (ex-data e)]
+         (mulog/log ::batch-failure
+                    :error          (.getMessage e)
+                    :failing-change (:failing-change data))
+         {:status 422
+          :body   {:error          (or (.getMessage e) "Batch change failed")
+                   :failing_change (:failing-change data)}}))
+
      ;; PostgreSQL exceptions
      PSQLException
      postgres-constraint-violation-handler

@@ -31,11 +31,11 @@
 (defn- populate-initial-system!
   "Populates a new system with demo parts and relationships.
    Runs all inserts on the provided tx so they share atomicity with the caller."
-  [system-id tx]
-  (let [created-parts (mapv #(part/create! % tx)
+  [system-id actor-id tx]
+  (let [created-parts (mapv #(part/create! % actor-id tx)
                             (demo/demo-part-attrs system-id))]
     (doseq [rel-data (demo/demo-relationship-attrs created-parts)]
-      (relationship/create! rel-data tx))))
+      (relationship/create! rel-data actor-id tx))))
 
 (defn- provision-account!
   "Creates a user, their default system, and seeds it with demo content.
@@ -44,8 +44,8 @@
   [params tx]
   (let [account (user/create! params tx)
         title   (str (:username account) "'s System")
-        system  (system/create! {:title title :owner_id (:id account)} tx)]
-    (populate-initial-system! (:id system) tx)
+        system  (system/create! {:title title :owner_id (:id account)} (:id account) tx)]
+    (populate-initial-system! (:id system) (:id account) tx)
     {:account account :system-id (:id system)}))
 
 (defn register-account
