@@ -6,4 +6,6 @@
  :http/protocol "https"
 
  :repl/port 7888
- :repl/host "127.0.0.1"}
+ :repl/host "127.0.0.1"
+
+ :launch/launched? false}

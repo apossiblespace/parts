@@ -1,6 +1,7 @@
 (ns aps.parts.middleware
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.launch :as launch]
    [buddy.auth :refer [authenticated?]]
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
    [com.brunobonacci.mulog :as mulog]
@@ -120,6 +121,16 @@
       (handler request)
       (-> (response/response {:error "Unauthorized"})
           (response/status 401)))))
+
+(defn wrap-launch-gated
+  "Middleware that hides a route behind the `aps.parts.launch/launched?` flag.
+   When the toggle is off, throws a `:not-found` ex-info so the standard
+   exception handler renders the same 404 shape as other not-found errors."
+  [handler]
+  (fn [request]
+    (if (launch/launched?)
+      (handler request)
+      (throw (ex-info "Not found" {:type :not-found})))))
 
 (defn wrap-html-defaults
   "Middleware that applies a set of Ring defaults for HTML routes.

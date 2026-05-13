@@ -132,7 +132,8 @@
                         :handler    api.auth/logout}}]]
 
     ["/account"
-     ["/register" {:post {:handler api.account/register-account}}]
+     ["/register" {:middleware [middleware/wrap-launch-gated]
+                   :post       {:handler api.account/register-account}}]
      ["" {:middleware [middleware/jwt-auth]
           :get        {:handler api.account/get-account}
           :patch      {:handler api.account/update-account}

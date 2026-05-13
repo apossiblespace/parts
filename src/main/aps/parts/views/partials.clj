@@ -1,5 +1,6 @@
 (ns aps.parts.views.partials
   (:require
+   [aps.parts.launch :as launch]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
 
 (defn scripts
@@ -42,8 +43,8 @@
               :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
     [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]]))
 
-(defn header
-  "Site header"
+(defn header-signup
+  "Post-launch site header: Log in + Create an account buttons."
   []
   [:header
    {:class "py-6"}
@@ -64,6 +65,33 @@
        {:class   "btn btn-primary cursor-pointer"
         :onclick "window.dispatchEvent(new CustomEvent('parts:open-signup')); plausible('Create Account Click', {props: {source: 'homepage-header'}});"}
        "Create an account"]]]]])
+
+(defn header-waitlist
+  "Pre-launch site header: single anchor down to the founding-circle form."
+  []
+  [:header
+   {:class "py-6"}
+   [:div
+    {:class "container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}
+    [:div
+     {:class "flex justify-between items-center"}
+     [:a
+      {:href "/", :class "flex items-center"}
+      [:img {:class "w-50"
+             :src   "/images/parts-logo-horizontal.svg"}]]
+     [:a
+      {:href    "#signup",
+       :class   "text-ifs-green font-semibold hover:underline"
+       :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
+      "Join Founding Circle"]]]])
+
+(defn header
+  "Site header. Picks the signup or waitlist variant based on the runtime
+   launch toggle (see `aps.parts.launch`)."
+  []
+  (if (launch/launched?)
+    (header-signup)
+    (header-waitlist)))
 
 (defn footer
   "Site footer"

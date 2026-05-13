@@ -10,4 +10,6 @@
  :http/port 3000
  :http/protocol "http"
 
- :auth/secret "secret"}
+ :auth/secret "secret"
+
+ :launch/launched? true}
