@@ -5,6 +5,7 @@
    [aps.parts.server :as server]
    [kaocha.repl :as k]
    [kaocha.watch :as watch]
+   [lambdaisland.config :as l-config]
    [migratus.core :as migratus]
    [mulog-events]))
 
@@ -78,10 +79,17 @@
 (defn- start-postcss-watch
   "Start PostCSS watch process"
   []
-  (let [pb      (ProcessBuilder. ["pnpm" "exec" "postcss" "resources/styles/*.css" "-o" "resources/public/css/style.css" "--watch"])
+  (let [pb      (ProcessBuilder. ["pnpm"
+                                  "exec"
+                                  "postcss"
+                                  "resources/styles/*.css"
+                                  "-o"
+                                  "resources/public/css/style.css"
+                                  "--watch"])
         _       (.redirectErrorStream pb true)
         process (.start pb)
-        reader  (java.io.BufferedReader. (java.io.InputStreamReader. (.getInputStream process)))]
+        reader  (java.io.BufferedReader.
+                 (java.io.InputStreamReader. (.getInputStream process)))]
     (reset! postcss-process-ref process)
     (println "PostCSS watch started")
     ;; Stream output to REPL in background thread
@@ -137,25 +145,35 @@
     (migratus/migrate migration-config)))
 
 (defn db-rollback
-  "Rollback the database (uses current environment from PARTS_ENV)"
+  "Rollback the database (uses current environment from PARTS__ENV)"
   []
   (let [db-spec          (conf/database-config)
         migration-config (assoc db/migration-config :db db-spec)]
     (migratus/rollback migration-config)))
 
 ;; Test running
-(defn with-env [env-map f]
-  (let [old-env (into {} (System/getenv))]
+
+;; NOTE: If we ever enable parallel test execution from the REPL with Kaocha, we
+;; will need to use a different approach, because `with-redefs` redefines Vars
+;; across all threads, rather than in each separate thread (see its docs). This
+;; is race condition territory.
+(defn- with-test-env
+  "Run f under the :test profile. Temporarily sets the `parts.env` JVM
+   system property (lambdaisland/config's in-process override channel,
+   since env vars are immutable inside a running JVM) and re-binds both
+   `conf/config` and `db/datasource` so consumers reading them by var
+   see the test profile. Restores everything on exit."
+  [f]
+  (let [old-prop (System/getProperty "parts.env")]
     (try
-      (doseq [[k v] env-map]
-        (System/setProperty k v))
-      (f)
+      (System/setProperty "parts.env" "test")
+      (with-redefs [conf/config (l-config/create {:prefix "parts"})]
+        (with-redefs [db/datasource (db/make-datasource)]
+          (f)))
       (finally
-        ;; Restore original env vars
-        (doseq [[k _] env-map]
-          (if-let [old-val (get old-env k)]
-            (System/setProperty k old-val)
-            (System/clearProperty k)))))))
+        (if old-prop
+          (System/setProperty "parts.env" old-prop)
+          (System/clearProperty "parts.env"))))))
 
 (defn run-tests
   "Run all tests or specific test(s).
@@ -165,11 +183,9 @@
    (run-tests 'aps.parts.auth-test)   ;; runs specified namespace
    (run-tests #'aps.parts.auth-test/test-authenticate) ;; runs specific test"
   ([]
-   (with-env {"PARTS_ENV" "test"}
-     #(k/run)))
+   (with-test-env #(k/run)))
   ([& args]
-   (with-env {"PARTS_ENV" "test"}
-     #(apply k/run args))))
+   (with-test-env #(apply k/run args))))
 
 (defn run-all-tests
   "Run all test suites"

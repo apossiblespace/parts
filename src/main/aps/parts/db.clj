@@ -12,9 +12,14 @@
   []
   (conf/database-config))
 
+(defn make-datasource
+  "Build a fresh JDBC datasource from the current config."
+  []
+  (jdbc/get-datasource (db-spec)))
+
 (def datasource
   "Single connection pool for all database operations."
-  (jdbc/get-datasource (db-spec)))
+  (make-datasource))
 
 (def migration-config
   {:store                :database
