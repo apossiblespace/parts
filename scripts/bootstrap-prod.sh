@@ -22,7 +22,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 # 3. postgres
 sudo -u postgres psql <<EOF || true
-CREATE USER $APP_NAME WITH PASSWORD 'change-me';
+CREATE USER $APP_NAME WITH PASSWORD 'change-me' CREATEROLE;
 CREATE DATABASE ${APP_NAME}_prod OWNER $APP_NAME;
 EOF
 
