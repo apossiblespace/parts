@@ -1,6 +1,7 @@
 {:db/host "localhost"
  :db/name "parts_prod"
- :db/ssl true
+ :db/user "parts"
+ :db/ssl  false
 
  :http/protocol "https"
 

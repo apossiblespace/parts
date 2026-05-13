@@ -25,7 +25,6 @@
 (defn init-db
   []
   (mulog/log ::initializing-database)
-  (migratus/init migration-config)
   (migratus/migrate migration-config))
 
 (defn ->uuid
