@@ -53,13 +53,26 @@
    :password (l-config/get config :db/password)
    :ssl      (l-config/get config :db/ssl)})
 
+(def ^:private secret-key-substrings
+  #{"password" "secret" "token"})
+
+(defn- secret-key?
+  "True if the key's name suggests it holds a secret value that should not
+   appear in logs (e.g. :db/password, :auth/secret)."
+  [k]
+  (when-let [n (some-> k name cstr/lower-case)]
+    (boolean (some #(cstr/includes? n %) secret-key-substrings))))
+
 (defn print-config-table
-  "Print all accessed configuration keys, values, and sources as a table."
+  "Print all accessed configuration keys, values, and sources as a table.
+   Values for keys matching `secret-key?` are redacted."
   []
   (let [cached @(:values config)
         rows   (for [[k v] (sort-by key cached)]
                  {:key    k
-                  :value  (pr-str (:val v))
+                  :value  (if (secret-key? k)
+                            "<redacted>"
+                            (pr-str (:val v)))
                   :source (-> (:source v)
                               str
                               (cstr/replace #"^file:" "")
