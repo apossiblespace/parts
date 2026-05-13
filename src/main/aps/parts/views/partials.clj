@@ -109,7 +109,7 @@
               :src   "/images/parts-logo-mini.svg"}]]
       [:p
        {:class "mt-4 text-gray-600"}
-       "Free, open-source IFS part mapping solution"]]
+       "Open-source IFS part mapping solution"]]
      [:div
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Quick Links"]
       [:ul
@@ -154,7 +154,7 @@
      {:class
       "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500"}
      [:p
-      "© 2025 "
+      "© 2026 "
       [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]
       ", company number 11617016."
       [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]]]])
