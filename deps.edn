@@ -92,7 +92,7 @@
     binaryage/devtools {:mvn/version "1.0.7"}}}
 
   :test/env
-  {:env-vars {"PARTS_ENV" "test"}}
+  {:env-vars {"PARTS__ENV" "test"}}
 
   :test/run
   {:extra-paths ["test"]

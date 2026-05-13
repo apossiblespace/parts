@@ -35,7 +35,7 @@ ufw --force enable
 # 5. environment file template
 cat >/etc/$APP_NAME.env.example <<EOF
 # Application environment
-PARTS_ENV=prod
+PARTS__ENV=prod
 
 # Database connection (password should be set securely)
 PARTS__DB__PASSWORD=change-me

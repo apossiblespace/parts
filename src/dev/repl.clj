@@ -129,7 +129,7 @@
   (start))
 
 (defn db-migrate
-  "Migrate the database (uses current environment from PARTS_ENV)"
+  "Migrate the database (uses current environment from PARTS__ENV)"
   {:exec-fn true} ; Mark this as an exec function for deps.edn
   [_] ; Accept args map from -X invocation
   (let [db-spec          (conf/database-config)

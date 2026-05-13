@@ -263,6 +263,6 @@
   ;;   #{:simple :mulog} - Both outputs (dual mode)
   ;;
   ;; You can also override via environment:
-  ;; PARTS_LOG_LEVEL=debug clojure -M:run/app
-  ;; PARTS_LOG_OUTPUT_MODES=:simple,:mulog clojure -M:run/app
+  ;; PARTS__LOG_LEVEL=debug clojure -M:run/app
+  ;; PARTS__LOG_OUTPUT_MODES=:simple,:mulog clojure -M:run/app
   )

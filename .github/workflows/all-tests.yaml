@@ -48,7 +48,7 @@ jobs:
       - name: Run migrations
         run: nix develop --command clojure -X:migrate
         env:
-          PARTS_ENV: test
+          PARTS__ENV: test
           PARTS__DB__HOST: localhost
           PARTS__DB__PORT: 5432
           PARTS__DB__NAME: parts_test
@@ -67,7 +67,7 @@ jobs:
             exit 1
           }
         env:
-          PARTS_ENV: test
+          PARTS__ENV: test
           PARTS__DB__HOST: localhost
           PARTS__DB__PORT: 5432
           PARTS__DB__NAME: parts_test

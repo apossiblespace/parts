@@ -12,7 +12,7 @@
 (defn get-environment
   "Get the current environment. lambdaisland/config determines this from:
   1. parts.env Java system property
-  2. PARTS_ENV environment variable
+  2. PARTS__ENV environment variable
   3. CI=true defaults to :test
   4. Falls back to :dev"
   []
