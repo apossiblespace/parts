@@ -109,7 +109,7 @@
    Initializes the application, starts the server, and returns a shutdown
    function."
   [& args]
-  (let [port         (or (some-> (first args) Integer/parseInt) 3000)
+  (let [port         (conf/http-port)
         stop-log-pub (start-log-publisher)]
     ;; Set up global logging context
     (mulog/set-global-context!

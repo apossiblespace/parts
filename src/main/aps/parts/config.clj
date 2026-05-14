@@ -33,6 +33,23 @@
   []
   (= (get-environment) :dev))
 
+(defn- parse-port
+  "Coerce a port value to a long.
+
+   lambdaisland/config does no type coercion: env-var values
+   (PARTS__HTTP__PORT) come back as strings, while config.edn defaults come
+   back as numbers. This normalises both so callers get a consistent type."
+  [v]
+  (if (string? v)
+    (Long/parseLong v)
+    v))
+
+(defn http-port
+  "The port the HTTP server binds to — :http/port resolved from the
+   PARTS__HTTP__PORT env var, or the config.edn default."
+  []
+  (parse-port (l-config/get config :http/port)))
+
 (defn host-uri
   "Get the full qualified application host URI, eg: http://localhost:3000"
   []
@@ -40,7 +57,7 @@
        "://"
        (l-config/get config :http/host)
        ":"
-       (l-config/get config :http/port)))
+       (http-port)))
 
 (defn database-config
   "Get complete database configuration map suitable for next.jdbc."
