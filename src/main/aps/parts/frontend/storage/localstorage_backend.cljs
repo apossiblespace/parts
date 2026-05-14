@@ -56,12 +56,13 @@
   "Applies a single change event to system data"
   [system-data {:keys [entity id type data] :as event}]
   (try
+    ;; A canvas move is a :part :update carrying {:position_x :position_y}
     (case [entity type]
-      [:part "create"]
+      [:part :create]
       (let [new-part (assoc data :id id :system_id (:id system-data))]
         (update system-data :parts conj new-part))
 
-      [:part "update"]
+      [:part :update]
       (update system-data :parts
               (fn [parts]
                 (mapv (fn [part]
@@ -70,26 +71,16 @@
                           part))
                       parts)))
 
-      [:part "position"]
-      (update system-data :parts
-              (fn [parts]
-                (mapv (fn [part]
-                        (if (= (:id part) id)
-                          (merge part {:position_x (int (:x data))
-                                       :position_y (int (:y data))})
-                          part))
-                      parts)))
-
-      [:part "remove"]
+      [:part :remove]
       (update system-data :parts
               (fn [parts]
                 (filterv #(not= (:id %) id) parts)))
 
-      [:relationship "create"]
+      [:relationship :create]
       (let [new-rel (assoc data :id id :system_id (:id system-data))]
         (update system-data :relationships conj new-rel))
 
-      [:relationship "update"]
+      [:relationship :update]
       (update system-data :relationships
               (fn [rels]
                 (mapv (fn [rel]
@@ -98,7 +89,7 @@
                           rel))
                       rels)))
 
-      [:relationship "remove"]
+      [:relationship :remove]
       (update system-data :relationships
               (fn [rels]
                 (filterv #(not= (:id %) id) rels)))
