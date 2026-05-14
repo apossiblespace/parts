@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ADMIN_USER=admin
 APP_USER=parts
 APP_NAME=parts
 APP_DIR=/opt/$APP_NAME
@@ -9,12 +10,37 @@ DOMAIN=parts.example.com
 # 1. basic packages
 apt-get update
 apt-get install -y \
-    curl git ufw \
+    curl git ufw lnav \
     openjdk-21-jre-headless \
     postgresql-16 \
     caddy
 
-# 2. app user + dirs
+# 2. users
+# Admin user — a named account for SSH login + privilege escalation via sudo.
+# Logging in as root over SSH is discouraged; the hardening banner printed at
+# the end of this script covers the follow-up steps to disable root login.
+id -u "$ADMIN_USER" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$ADMIN_USER"
+
+# Grant sudo by adding the user to the `sudo` group — Ubuntu's default
+# /etc/sudoers already grants that group full access, and sudo ships with the
+# base system (no new dependency). Escalation requires the admin user to have
+# a password set (see the hardening banner).
+usermod -aG sudo "$ADMIN_USER"
+
+# Seed the admin user's SSH key from root's, so you can log in as $ADMIN_USER
+# immediately. Guarded: re-running bootstrap won't clobber keys you add later.
+if [[ -f /root/.ssh/authorized_keys && ! -f /home/$ADMIN_USER/.ssh/authorized_keys ]]; then
+    mkdir -p /home/$ADMIN_USER/.ssh
+    cp /root/.ssh/authorized_keys /home/$ADMIN_USER/.ssh/authorized_keys
+    chmod 700 /home/$ADMIN_USER/.ssh
+    chmod 600 /home/$ADMIN_USER/.ssh/authorized_keys
+    chown -R "$ADMIN_USER:$ADMIN_USER" /home/$ADMIN_USER/.ssh
+elif [[ ! -f /root/.ssh/authorized_keys ]]; then
+    echo "⚠️  /root/.ssh/authorized_keys not found — add a key to /home/$ADMIN_USER/.ssh/authorized_keys manually"
+fi
+
+# App user — a system account with no login shell. systemd runs the service;
+# nothing ever needs to interactively be this user.
 id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin "$APP_USER"
 
 mkdir -p "$APP_DIR/releases"
@@ -185,5 +211,78 @@ systemctl reload caddy
 #   journalctl -t $APP_NAME -o cat | jq .      # pretty-print structured events
 #   journalctl -u $APP_NAME -p err             # error-priority lines only
 #   journalctl -u $APP_NAME-backup --since "1 day ago"  # backup runs
+
+# lnav format for mu-log JSON — lets `journalctl -u parts -o cat | lnav` render
+# structured events instead of raw JSON. Installed for the admin user, who is
+# the interactive SSH login. Keep in sync with scripts/parts.lnav.json.
+LNAV_DIR=/home/$ADMIN_USER/.lnav/formats/installed
+sudo -u "$ADMIN_USER" mkdir -p "$LNAV_DIR"
+sudo -u "$ADMIN_USER" tee "$LNAV_DIR/parts.json" >/dev/null <<'EOF'
+{
+  "parts_mulog": {
+    "title": "Parts mu-log JSON",
+    "description": "Structured event log from the Parts Clojure app (mu-log :console-json publisher). Declares only mu-log's stable skeleton; all other event fields are auto-discovered by lnav and stay queryable via SQL.",
+    "json": true,
+    "timestamp-field": "mulog~1timestamp",
+    "timestamp-divisor": 1000,
+    "body-field": "mulog~1event-name",
+    "value": {
+      "mulog~1event-name": {"kind": "string", "identifier": true},
+      "env":               {"kind": "string", "identifier": true}
+    },
+    "line-format": [
+      {"field": "__timestamp__"},
+      "  ",
+      {"field": "env", "default-value": "?", "max-width": 4},
+      "  ",
+      {"field": "mulog~1event-name"}
+    ],
+    "sample": [
+      {"line": "{\"mulog/event-name\":\"aps.parts.server/starting-server\",\"mulog/timestamp\":1747140000000,\"mulog/trace-id\":\"abc123def456\",\"mulog/namespace\":\"aps.parts.server\",\"port\":3000,\"app-name\":\"Parts\",\"version\":\"0.1.0-SNAPSHOT\",\"env\":\"prod\"}"},
+      {"line": "{\"mulog/event-name\":\"aps.parts.middleware/request\",\"mulog/timestamp\":1747140001000,\"mulog/namespace\":\"aps.parts.middleware\",\"app-name\":\"Parts\",\"version\":\"0.1.0-SNAPSHOT\",\"env\":\"prod\",\"user-id\":null,\"authenticated?\":false,\"info\":{\"uri\":\"/\",\"request-method\":\"get\",\"query-params\":null,\"remote-addr\":\"203.0.113.7\",\"user-agent\":\"curl/8.0\"}}"}
+    ]
+  }
+}
+EOF
+
 echo "✓ Logs:        journalctl -u $APP_NAME -f"
 echo "✓ Backup logs: journalctl -u $APP_NAME-backup --since '1 day ago'"
+echo "✓ lnav:        journalctl -u $APP_NAME -o cat -f | lnav"
+
+# 10. SSH hardening
+# Write the hardening config now, but DON'T reload sshd — sshd only reads this
+# file on reload/restart, so it sits inert until the operator activates it
+# after verifying admin login works (see banner below). This keeps the
+# bootstrap run itself from ever locking you out of a fresh server.
+cat >/etc/ssh/sshd_config.d/99-hardening.conf <<'EOF'
+PermitRootLogin no
+PasswordAuthentication no
+EOF
+chmod 644 /etc/ssh/sshd_config.d/99-hardening.conf
+
+cat <<EOF
+
+════════════════════════════════════════════════════════════════════
+  SSH HARDENING — finish this now, before closing your root session
+════════════════════════════════════════════════════════════════════
+  The hardening config is written to
+  /etc/ssh/sshd_config.d/99-hardening.conf but is NOT active yet —
+  sshd will not read it until reloaded.
+
+  1. Set a password for the admin user (sudo needs one to authenticate):
+       passwd $ADMIN_USER
+
+  2. In a SEPARATE terminal, confirm you can log in and escalate:
+       ssh $ADMIN_USER@<this-host>
+       sudo whoami          # must print: root
+
+  3. ONLY after step 2 succeeds, activate the hardening:
+       systemctl reload ssh
+
+  4. From a THIRD fresh connection, confirm that
+     ssh $ADMIN_USER@<this-host> works and ssh root@<this-host> is refused.
+
+  Keep this root session open until step 4 is verified — it is your
+  fallback if anything goes wrong.
+════════════════════════════════════════════════════════════════════
+EOF
