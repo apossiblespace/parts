@@ -1,5 +1,6 @@
 (ns aps.parts.frontend.state.handlers
   (:require
+   [aps.parts.common.change-event :as ce]
    [aps.parts.common.demo :as demo]
    [aps.parts.common.models.part :refer [make-part]]
    [aps.parts.common.models.relationship :refer [make-relationship]]
@@ -88,10 +89,9 @@
                                  (assoc-in [:ui :selected-node-ids] [part-id])
                                  (assoc-in [:ui :selected-edge-ids] []))]
      {:db              updated-db
-      :queue/add-event {:entity :part
-                        :id     part-id
-                        :type   "create"
-                        :data   (select-keys new-part [:type :label :position_x :position_y])}})))
+      :queue/add-event (ce/part-create
+                        part-id
+                        (select-keys new-part [:type :label :position_x :position_y]))})))
 
 (rf/reg-event-fx
  :system/part-update
@@ -104,10 +104,7 @@
                                            part))
                                        parts)))]
      {:db              updated-db
-      :queue/add-event {:entity :part
-                        :id     part-id
-                        :type   "update"
-                        :data   attrs}})))
+      :queue/add-event (ce/part-update part-id attrs)})))
 
 (rf/reg-event-fx
  :system/part-remove
@@ -120,10 +117,7 @@
                                    (fn [ids]
                                      (filterv #(not= % part-id) (or ids [])))))]
      {:db              updated-db
-      :queue/add-event {:entity :part
-                        :id     part-id
-                        :type   "remove"
-                        :data   {}}})))
+      :queue/add-event (ce/part-remove part-id)})))
 
 (rf/reg-event-db
  :system/part-update-position
@@ -142,10 +136,7 @@
  :system/part-finish-position-change
  (fn [{:keys [db]} [_ node-id position]]
    {:db              db
-    :queue/add-event {:entity :part
-                      :id     node-id
-                      :type   "position"
-                      :data   position}}))
+    :queue/add-event (ce/part-moved node-id (:x position) (:y position))}))
 
 (rf/reg-event-fx
  :system/relationship-create
@@ -156,10 +147,9 @@
          rel-id           (:id new-relationship)
          updated-db       (update-in db [:system :relationships] conj new-relationship)]
      {:db              updated-db
-      :queue/add-event {:entity :relationship
-                        :id     rel-id
-                        :type   "create"
-                        :data   (select-keys new-relationship [:type :source_id :target_id])}})))
+      :queue/add-event (ce/relationship-create
+                        rel-id
+                        (select-keys new-relationship [:type :source_id :target_id]))})))
 
 (rf/reg-event-fx
  :system/relationship-update
@@ -172,10 +162,7 @@
                                            relationship))
                                        relationships)))]
      {:db              updated-db
-      :queue/add-event {:entity :relationship
-                        :id     relationship-id
-                        :type   "update"
-                        :data   attrs}})))
+      :queue/add-event (ce/relationship-update relationship-id attrs)})))
 (rf/reg-event-fx
  :system/relationship-remove
  (fn [{:keys [db]} [_ relationship-id]]
@@ -187,10 +174,7 @@
                                    (fn [ids]
                                      (filterv #(not= % relationship-id) (or ids [])))))]
      {:db              updated-db
-      :queue/add-event {:entity :relationship
-                        :id     relationship-id
-                        :type   "remove"
-                        :data   {}}})))
+      :queue/add-event (ce/relationship-remove relationship-id)})))
 
 (rf/reg-event-fx
  :system/fetch
