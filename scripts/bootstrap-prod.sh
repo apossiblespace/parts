@@ -69,7 +69,12 @@ PARTS__DB__PASSWORD=change-me
 # Authentication secret (MUST be set to a secure random value)
 PARTS__AUTH__SECRET=change-me-to-secure-random-string
 
-# Optional: Override default database settings
+# JVM flags — the systemd unit passes these straight through to java.
+# This is the ONLY place they live; the unit hardcodes no heap settings.
+JAVA_OPTS=-server -Xms512m -Xmx512m
+
+# Optional: override defaults from resources/parts/config.edn
+# PARTS__HTTP__PORT=3000
 # PARTS__DB__HOST=localhost
 # PARTS__DB__PORT=5432
 # PARTS__DB__NAME=parts_prod
@@ -79,7 +84,10 @@ EOF
 
 echo "⚠️  Created /etc/$APP_NAME.env.example - copy to /etc/$APP_NAME.env and set secrets"
 
-# 6. systemd unit
+# 6. systemd unit — every runtime parameter comes from the EnvironmentFile;
+# the unit hardcodes nothing tunable. systemd expands $JAVA_OPTS and splits
+# it on whitespace into separate java args. The environment (prod/etc.) is
+# read from PARTS__ENV in the env file, so no -Dparts.env flag is needed.
 cat >/etc/systemd/system/$APP_NAME.service <<EOF
 [Unit]
 Description=$APP_NAME clojure app
@@ -89,7 +97,7 @@ After=network.target postgresql.service
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=/etc/$APP_NAME.env
-ExecStart=/usr/bin/java -server -Xms512m -Xmx512m -Dparts.env=prod -jar $APP_DIR/current
+ExecStart=/usr/bin/java \$JAVA_OPTS -jar $APP_DIR/current
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

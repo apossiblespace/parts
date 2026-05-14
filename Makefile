@@ -11,7 +11,7 @@
 
 .PHONY: help repl css-watch test test-watch test-config test-profile dist \
 		build-css build-frontend build-config build-uberjar run-dist deploy \
-		clean deps npm-deps pg-start pg-stop pg-status pg-console pg-console-test
+		deploy-dev clean deps npm-deps pg-start pg-stop pg-status pg-console pg-console-test
 
 .DEFAULT_GOAL := help
 
@@ -19,7 +19,7 @@ HELP_SPACING := 20
 CLOJURE_TEST_RUNNER = clojure -X:test/env:test/run
 
 VERSION := $(shell git rev-parse --short HEAD)
-JAR_BASENAME = parts-$(VERSION)-standalone.jar 
+JAR_BASENAME = parts-$(VERSION)-standalone.jar
 JAR = target/$(JAR_BASENAME)
 REMOTE = /opt/parts
 HOST = parts
@@ -93,13 +93,24 @@ run-dist: ## Test dist locally before deploying
 	java -jar target/parts-*-standalone.jar
 
 deploy: dist ## Deploy to production
-	scp $(JAR) $(HOST):$(REMOTE)/releases/
-	ssh $(HOST) 'set -e; \
+	scp $(JAR) $(HOST):/tmp/
+	ssh -t $(HOST) 'set -e; \
 		cd $(REMOTE); \
+		sudo mv /tmp/$(JAR_BASENAME) releases/; \
+		sudo chown parts:parts releases/$(JAR_BASENAME); \
 		prev=$$(readlink current || true); \
-		if [ -n "$$prev" ]; then ln -nfs $$prev previous; fi; \
-		ln -nfs releases/$(JAR_BASENAME) current; \
-		systemctl restart parts'
+		if [ -n "$$prev" ]; then sudo ln -nfs $$prev previous; fi; \
+		sudo ln -nfs releases/$(JAR_BASENAME) current; \
+		sudo systemctl restart parts'
+
+deploy-dev: dist ## Deploy to the staging instance
+	scp $(JAR) $(HOST):/tmp/
+	ssh -t $(HOST) 'set -e; \
+		cd $(REMOTE); \
+		sudo mv /tmp/$(JAR_BASENAME) releases/; \
+		sudo chown parts:parts releases/$(JAR_BASENAME); \
+		sudo ln -nfs releases/$(JAR_BASENAME) current-dev; \
+		sudo systemctl restart parts-dev'
 
 rollback:
 	ssh $(HOST) 'set -e; \
