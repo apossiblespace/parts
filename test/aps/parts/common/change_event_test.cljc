@@ -107,3 +107,32 @@
 
   (testing "data-spec returns nil for an unknown [entity type] combination"
     (is (nil? (ce/data-spec {:entity :comment :type :create})))))
+
+(deftest constructors-test
+  (testing "constructors build the canonical event for each operation"
+    (is (= part-create         (ce/part-create "part-1" (:data part-create))))
+    (is (= part-update         (ce/part-update "part-1" (:data part-update))))
+    (is (= part-remove         (ce/part-remove "part-1")))
+    (is (= relationship-create (ce/relationship-create "rel-1" (:data relationship-create))))
+    (is (= relationship-update (ce/relationship-update "rel-1" (:data relationship-update))))
+    (is (= relationship-remove (ce/relationship-remove "rel-1"))))
+
+  (testing "part-moved builds an :update — :position is not a wire type"
+    (let [event (ce/part-moved "part-1" 100 200)]
+      (is (= :update (:type event)))
+      (is (= {:position_x 100 :position_y 200} (:data event)))
+      (is (s/valid? ::ce/change-event event))))
+
+  (testing "part-moved coerces fractional coordinates to ints"
+    (is (= {:position_x 100 :position_y 200}
+           (:data (ce/part-moved "part-1" 100.7 200.2)))))
+
+  (testing "constructors throw on invalid input"
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/part-create "part-1" {:type "manager"})))
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/part-update "part-1" {})))
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/relationship-create "rel-1" {:type      "not-a-type"
+                                                  :source_id "a"
+                                                  :target_id "b"})))))

@@ -17,6 +17,7 @@
   (:require
    [aps.parts.common.models.part :as part]
    [aps.parts.common.models.relationship :as relationship]
+   [aps.parts.common.utils :as utils]
    [clojure.spec.alpha :as s]))
 
 ;; -- envelope --------------------------------------------------------------
@@ -80,3 +81,47 @@
          (fn data-conforms? [ce]
            (when-let [spec (data-spec ce)]
              (s/valid? spec (:data ce))))))
+
+;; -- constructors ----------------------------------------------------------
+;; Producer-side. Each validates eagerly, so a bad event never reaches the queue.
+
+(defn- build [entity type id data]
+  (let [event {:entity entity :type type :id id :data data}]
+    (utils/validate-spec ::change-event event)
+    event))
+
+(defn part-create
+  "Change-event creating a Part with `attrs`."
+  [id attrs]
+  (build :part :create id attrs))
+
+(defn part-update
+  "Change-event updating a Part with `attrs`."
+  [id attrs]
+  (build :part :update id attrs))
+
+(defn part-moved
+  "Change-event for a Part moved to (`x`, `y`). Coordinates are coerced to
+  ints."
+  [id x y]
+  (build :part :update id {:position_x (int x) :position_y (int y)}))
+
+(defn part-remove
+  "Change-event retracting a Part."
+  [id]
+  (build :part :remove id {}))
+
+(defn relationship-create
+  "Change-event creating a Relationship with `attrs`."
+  [id attrs]
+  (build :relationship :create id attrs))
+
+(defn relationship-update
+  "Change-event updating a Relationship with `attrs`."
+  [id attrs]
+  (build :relationship :update id attrs))
+
+(defn relationship-remove
+  "Change-event retracting a Relationship."
+  [id]
+  (build :relationship :remove id {}))
