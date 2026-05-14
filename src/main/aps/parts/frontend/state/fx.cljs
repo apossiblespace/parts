@@ -11,9 +11,7 @@
 (rf/reg-fx
  :queue/add-event
  (fn [event]
-   (queue/add-events!
-    (:entity event)
-    [event])))
+   (queue/add-events! [event])))
 
 (rf/reg-fx
  :api-utils/save-current-system-id

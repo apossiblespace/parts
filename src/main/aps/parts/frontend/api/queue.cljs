@@ -59,75 +59,9 @@
   []
   (o/info "queue.stop" "update queue stopped"))
 
-(defmulti normalize-event
-  "Returns a normalized event to be enqueued"
-  (fn [entity event]
-    [entity (:type event)]))
-
-(defmethod normalize-event [:part "position"]
-  [entity event]
-  (when-not (:dragging event)
-    {:entity entity
-     :id     (:id event)
-     :type   (:type event)
-     :data   (:data event)}))
-
-(defmethod normalize-event [:part "remove"]
-  [entity event]
-  {:entity entity
-   :id     (:id event)
-   :type   (:type event)
-   :data   {}})
-
-(defmethod normalize-event [:part "create"]
-  [entity event]
-  {:entity entity
-   :id     (:id event)
-   :type   (:type event)
-   :data   (:data event)})
-
-(defmethod normalize-event [:part "update"]
-  [entity event]
-  {:entity entity
-   :id     (:id event)
-   :type   (:type event)
-   :data   (:data event)})
-
-(defmethod normalize-event [:relationship "create"]
-  [entity event]
-  {:entity entity
-   :id     (:id event)
-   :type   (:type event)
-   :data   (:data event)})
-
-(defmethod normalize-event [:relationship "update"]
-  [entity event]
-  {:entity entity
-   :id     (:id event)
-   :type   (:type event)
-   :data   (:data event)})
-
-(defmethod normalize-event [:relationship "remove"]
-  [entity event]
-  {:entity entity
-   :id     (:id event)
-   :type   (:type event)
-   :data   {}})
-
-(defmethod normalize-event :default
-  [entity event]
-  (o/warn "queue.normalize-event" "unhandled event type" entity event)
-  nil)
-
-(defn- normalize-events
-  "Normalize a collection of events for enqueuing"
-  [entity events]
-  {:pre [(or (= entity :part) (= entity :relationship))]}
-  (keep #(normalize-event entity %) events))
-
 (defn add-events!
-  "Process and enqueue part or relationship change events"
-  [entity events]
-  (when-let [normalized (seq (normalize-events entity events))]
-    (doseq [event normalized]
-      (put! changes-chan event))))
+  "Enqueue canonical change-events for batched delivery to the backend.
+   Events are built by `aps.parts.common.change-event` constructors."
+  [events]
+  (doseq [event events]
+    (put! changes-chan event)))
