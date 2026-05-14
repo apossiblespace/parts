@@ -16,7 +16,8 @@
       (layouts/fullscreen
        {:title  "System"
         :styles ["/css/flow.css" "/css/style.css"]}
-       [:div#root {:data-demo-mode demo-mode}])))))
+       [:div#root {:data-demo-mode demo-mode
+                   :data-launched  (str (launch/launched?))}])))))
 
 (defn playground
   "Page rendering a playground system graph in demo mode"

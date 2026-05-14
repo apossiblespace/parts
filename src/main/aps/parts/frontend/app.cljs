@@ -17,6 +17,7 @@
 
 (def initial-db
   {:demo-mode false
+   :launched  false
    :system    {}
    :systems   {:list    []
                :loading false}})
@@ -52,12 +53,21 @@
         (= mode "true") true
         :else false))))
 
+(defn get-launched
+  "Read the runtime launch toggle from the root element. Mirrors the
+   server-side `aps.parts.launch/launched?` flag."
+  [root-el]
+  (= "true" (some-> root-el (.getAttribute "data-launched"))))
+
 (defn setup-app
   "Setup the app with the root element, create root, init state and render"
   [root-el]
   (let [root                 (uix.dom/create-root root-el)
         demo-mode            (get-demo-settings root-el)
-        initial-db-with-demo (assoc initial-db :demo-mode demo-mode)]
+        launched             (get-launched root-el)
+        initial-db-with-demo (assoc initial-db
+                                    :demo-mode demo-mode
+                                    :launched  launched)]
     ;; Initialize storage backend based on demo mode
     (if demo-mode
       (storage-registry/init-localstorage-backend!)

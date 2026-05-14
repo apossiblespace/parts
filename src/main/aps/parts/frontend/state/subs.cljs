@@ -13,6 +13,11 @@
    (= (:demo-mode db) :minimal)))
 
 (rf/reg-sub
+ :launched
+ (fn [db _]
+   (boolean (:launched db))))
+
+(rf/reg-sub
  :systems/list
  (fn [db _]
    (get-in db [:systems :list])))
