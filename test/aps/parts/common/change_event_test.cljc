@@ -136,3 +136,44 @@
                  (ce/relationship-create "rel-1" {:type      "not-a-type"
                                                   :source_id "a"
                                                   :target_id "b"})))))
+
+(deftest parse-test
+  (testing "coerces a single wire change (string entity/type) into a canonical vector"
+    (is (= [part-create]
+           (ce/parse {:entity "part"              :type "create" :id "part-1"
+                      :data   (:data part-create)}))))
+
+  (testing "accepts a vector of wire changes"
+    (is (= [part-create part-remove]
+           (ce/parse [{:entity "part" :type "create" :id "part-1" :data (:data part-create)}
+                      {:entity "part" :type "remove" :id "part-1" :data {}}]))))
+
+  (testing "accepts already-canonical keyword input idempotently"
+    (is (= [part-update] (ce/parse part-update))))
+
+  (testing "an empty batch parses to an empty vector"
+    (is (= [] (ce/parse []))))
+
+  (testing "throws on an invalid change, carrying :failing-change and :explain"
+    (let [bad {:entity "part" :type "create" :id "part-1" :data {:type "manager"}}]
+      (try
+        (ce/parse [bad])
+        (is false "expected parse to throw")
+        (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo) e
+          (is (= :validation (:type (ex-data e))))
+          (is (= bad (:failing-change (ex-data e))))
+          (is (string? (:explain (ex-data e))))))))
+
+  (testing "fail-fast: the first invalid change in a batch is the one reported"
+    (let [bad {:entity "part" :type "remove" :id "x" :data {:label "nope"}}]
+      (try
+        (ce/parse [{:entity "part" :type "remove" :id "ok" :data {}}
+                   bad
+                   {:entity "part" :type "remove" :id "also-ok" :data {}}])
+        (is false "expected parse to throw")
+        (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo) e
+          (is (= bad (:failing-change (ex-data e))))))))
+
+  (testing "throws when a change is not a map"
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/parse ["not-a-map"])))))

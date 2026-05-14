@@ -76,8 +76,10 @@
 
 ;; -- the canonical change-event -------------------------------------------
 
+(s/def ::envelope (s/keys :req-un [::entity ::type ::id ::data]))
+
 (s/def ::change-event
-  (s/and (s/keys :req-un [::entity ::type ::id ::data])
+  (s/and ::envelope
          (fn data-conforms? [ce]
            (when-let [spec (data-spec ce)]
              (s/valid? spec (:data ce))))))
@@ -125,3 +127,39 @@
   "Change-event retracting a Relationship."
   [id]
   (build :relationship :remove id {}))
+
+;; -- parse -----------------------------------------------------------------
+;; Consumer-side. Untrusted wire input → a vector of canonical change-events.
+
+(defn- ->keyword [x]
+  (cond
+    (keyword? x) x
+    (string? x)  (keyword x)
+    :else        x))
+
+(defn- explain-event [event]
+  (if (s/valid? ::envelope event)
+    (s/explain-str (data-spec event) (:data event))
+    (s/explain-str ::envelope event)))
+
+(defn- parse-one [raw]
+  (when-not (map? raw)
+    (throw (ex-info "Change-event is not a map"
+                    {:type :validation :failing-change raw})))
+  (let [event (-> raw
+                  (update :entity ->keyword)
+                  (update :type ->keyword))]
+    (if (s/valid? ::change-event event)
+      event
+      (throw (ex-info "Invalid change-event"
+                      {:type           :validation
+                       :failing-change raw
+                       :explain        (explain-event event)})))))
+
+(defn parse
+  "Coerce and validate untrusted wire input into a vector of canonical
+   change-events. Accepts a single change or a sequential of them. Throws
+   `ex-info` (`:type :validation`, `:failing-change` the offending input)
+   on the first invalid change."
+  [raw]
+  (mapv parse-one (if (sequential? raw) raw [raw])))
