@@ -60,6 +60,9 @@ format-check: ## Check formatting of clj/cljs files
 format-fix: ## Fix formatting of clj/cljs files
 	cljfmt fix
 
+lint: ## Lint source files
+	clj-kondo --lint src test
+
 npm-deps: package.json
 	pnpm install
 
