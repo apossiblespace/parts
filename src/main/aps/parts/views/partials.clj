@@ -1,6 +1,7 @@
 (ns aps.parts.views.partials
   (:require
    [aps.parts.launch :as launch]
+   [aps.parts.version :as version]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
 
 (defn scripts
@@ -27,6 +28,7 @@
     [:meta {:name "description" :content description}]
     [:meta {:name "theme-color" :content "#62a294"}]
     [:meta {:name "csrf-token" :content *anti-forgery-token*}]
+    [:meta {:name "version" :content (version/current)}]
     [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
     [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
     [:title (if title
@@ -152,12 +154,14 @@
           "Terms of Service"]]]]]]
     [:div
      {:class
-      "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500"}
+      "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center"}
      [:p
       "© 2026 "
       [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]
       ", company number 11617016."
-      [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]]]])
+      [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]
+     [:p
+      [:span {:class "badge badge-xs text-gray-300 font-mono"} (version/current)]]]]])
 
 (defn waitlist-signup-form
   "Form for signing up for the waiting list"

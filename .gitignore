@@ -19,6 +19,8 @@
 resources/public/js
 # ...and the file compiled by postcss
 resources/public/css/style.css
+# ...and the build-stamped app version file
+resources/parts/version.txt
 
 # ------------------------
 # Include Clojure tools

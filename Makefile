@@ -89,6 +89,7 @@ build-config: ## Pretty print build configuration
 build-uberjar: build-frontend ## Build uberjar for deployment
 	rm -f target/*.jar
 	rm -rf resources/public/js/cljs-runtime resources/public/com
+	echo $(VERSION) > resources/parts/version.txt
 	clojure -T:build/task uberjar
 	mv target/*-standalone.jar $(JAR)
 
