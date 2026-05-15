@@ -145,7 +145,8 @@
 
      ;; This uses coercion for the `parameters`, see the note at the top of this
      ;; namespace.
-     ["/:id" {:parameters {:path {:id string?}}}
+     ["/:id" {:parameters {:path {:id string?}}
+              :middleware [middleware/wrap-system-access]}
       ["" {:get    {:handler api.systems/get-system}
            :put    {:handler api.systems/update-system}
            :delete {:handler api.systems/delete-system}}]

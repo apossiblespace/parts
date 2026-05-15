@@ -24,54 +24,33 @@
         (response/status 201))))
 
 (defn get-system
-  "Get a system by ID"
-  [{:keys [identity parameters] :as _request}]
-  (let [user-id   (:sub identity)
-        system-id (get-in parameters [:path :id])
+  "Get a system by ID. Access is gated by `wrap-system-access` middleware."
+  [{:keys [parameters] :as _request}]
+  (let [system-id (get-in parameters [:path :id])
         system    (system/fetch system-id)]
-    (if (= (db/->uuid user-id) (:owner_id system))
-      (-> (response/response system)
-          (response/status 200))
-      (-> (response/response {:error "Not authorized"})
-          (response/status 403)))))
+    (-> (response/response system)
+        (response/status 200))))
 
 (defn update-system
-  "Update an existing system"
+  "Update an existing system. Access is gated by `wrap-system-access` middleware."
   [{:keys [identity parameters body-params] :as _request}]
   (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
-        existing  (system/fetch system-id)]
-    (if (= (db/->uuid user-id) (:owner_id existing))
-      (let [updated (system/update!
-                     system-id
-                     (assoc body-params :owner_id (:owner_id existing))
-                     user-id)]
-        (-> (response/response updated)
-            (response/status 200)))
-      (-> (response/response {:error "Not authorized"})
-          (response/status 403)))))
+        updated   (system/update! system-id body-params user-id)]
+    (-> (response/response updated)
+        (response/status 200))))
 
 (defn delete-system
-  "Delete a system"
+  "Delete a system. Access is gated by `wrap-system-access` middleware."
   [{:keys [identity parameters] :as _request}]
   (let [user-id   (:sub identity)
-        system-id (get-in parameters [:path :id])
-        existing  (system/fetch system-id)]
-    (if (= (db/->uuid user-id) (:owner_id existing))
-      (do
-        (system/delete! system-id user-id)
-        (response/status 204))
-      (-> (response/response {:error "Not authorized"})
-          (response/status 403)))))
-
-(defn- user-can-modify-system?
-  "Check if the user has permission to modify the system.
-   Compares user-id (JWT string) against owner_id (UUID from DB)."
-  [user-id system]
-  (= (db/->uuid user-id) (:owner_id system)))
+        system-id (get-in parameters [:path :id])]
+    (system/delete! system-id user-id)
+    (response/status 204)))
 
 (defn process-changes
-  "Apply a batch of changes for a system atomically.
+  "Apply a batch of changes for a system atomically. Access is gated by
+   `wrap-system-access` middleware.
 
    Request body: a single change-event map, or a vector of them. Each has:
    - `entity`: the entity type (`part`, `relationship`)
@@ -83,8 +62,7 @@
 
    Responses:
    - 200 OK + `{:success true :results [...]}` when every change applied
-   - 403 Forbidden when the user doesn't own the system
-   - 404 Not Found when the system doesn't exist
+   - 404 Not Found when the System doesn't exist or isn't owned by the caller
    - 422 Unprocessable + `{:error ... :failing_change <change>}` when a
      domain error rolled the batch back (handled by the exception middleware)
    - 409 Conflict for DB constraint violations
@@ -92,21 +70,17 @@
   [{:keys [identity parameters body-params] :as _request}]
   (let [user-id   (:sub identity)
         system-id (get-in parameters [:path :id])
-        system    (system/fetch system-id)]
-    (if-not (user-can-modify-system? user-id system)
-      (-> (response/response {:error "Not authorized"})
-          (response/status 403))
-      (let [results (events/apply-changes!
-                     db/datasource
-                     {:system-id (db/->uuid system-id)
-                      :actor-id  user-id
-                      :changes   body-params})]
-        (mulog/log ::process-changes
-                   :user-id      user-id
-                   :system-id    system-id
-                   :change-count (count results))
-        (-> (response/response {:success true :results results})
-            (response/status 200))))))
+        results   (events/apply-changes!
+                   db/datasource
+                   {:system-id (db/->uuid system-id)
+                    :actor-id  user-id
+                    :changes   body-params})]
+    (mulog/log ::process-changes
+               :user-id      user-id
+               :system-id    system-id
+               :change-count (count results))
+    (-> (response/response {:success true :results results})
+        (response/status 200))))
 
 ;; TODO: Implement PDF export endpoint once we have the PDF generation service
 (defn export-pdf

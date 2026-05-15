@@ -37,61 +37,35 @@
       (is (= (:id user) (-> response :body :owner_id))))))
 
 (deftest test-get-system
-  (let [user       (create-test-user!)
-        other-user (create-test-user!)
-        system     (system/create! {:title "Test" :owner_id (:id user)} (:id user))]
-
-    (testing "returns system for owner"
-      (let [request  (make-request user :params {:id (:id system)})
-            response (api/get-system request)]
-        (is (= 200 (:status response)))
-        (is (= (:id system) (-> response :body :id)))
-        (is (vector? (-> response :body :parts)))
-        (is (vector? (-> response :body :relationships)))))
-
-    (testing "returns 403 for non-owner"
-      (let [request  (make-request other-user :params {:id (:id system)})
-            response (api/get-system request)]
-        (is (= 403 (:status response)))
-        (is (= "Not authorized" (-> response :body :error)))))))
+  (testing "returns the system (non-owner case is `wrap-system-access`'s job)"
+    (let [user     (create-test-user!)
+          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
+          request  (make-request user :params {:id (:id system)})
+          response (api/get-system request)]
+      (is (= 200 (:status response)))
+      (is (= (:id system) (-> response :body :id)))
+      (is (vector? (-> response :body :parts)))
+      (is (vector? (-> response :body :relationships))))))
 
 (deftest test-update-system
-  (let [user       (create-test-user!)
-        other-user (create-test-user!)
-        system     (system/create! {:title "Test" :owner_id (:id user)} (:id user))]
-
-    (testing "updates system for owner"
-      (let [request  (make-request user
-                                   :params {:id (:id system)}
-                                   :body {:title "Updated"})
-            response (api/update-system request)]
-        (is (= 200 (:status response)))
-        (is (= "Updated" (-> response :body :title)))))
-
-    (testing "returns 403 for non-owner"
-      (let [request  (make-request other-user
-                                   :params {:id (:id system)}
-                                   :body {:title "Updated"})
-            response (api/update-system request)]
-        (is (= 403 (:status response)))
-        (is (= "Not authorized" (-> response :body :error)))))))
+  (testing "updates the system (non-owner case is `wrap-system-access`'s job)"
+    (let [user     (create-test-user!)
+          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
+          request  (make-request user
+                                 :params {:id (:id system)}
+                                 :body {:title "Updated"})
+          response (api/update-system request)]
+      (is (= 200 (:status response)))
+      (is (= "Updated" (-> response :body :title))))))
 
 (deftest test-delete-system
-  (let [user       (create-test-user!)
-        other-user (create-test-user!)
-        system     (system/create! {:title "Test" :owner_id (:id user)} (:id user))]
-
-    (testing "returns 403 for non-owner"
-      (let [request  (make-request other-user :params {:id (:id system)})
-            response (api/delete-system request)]
-        (is (= 403 (:status response)))
-        (is (= "Not authorized" (-> response :body :error)))))
-
-    (testing "deletes system for owner"
-      (let [request  (make-request user :params {:id (:id system)})
-            response (api/delete-system request)]
-        (is (= 204 (:status response)))
-        (is (nil? (:body response)))))))
+  (testing "deletes the system (non-owner case is `wrap-system-access`'s job)"
+    (let [user     (create-test-user!)
+          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
+          request  (make-request user :params {:id (:id system)})
+          response (api/delete-system request)]
+      (is (= 204 (:status response)))
+      (is (nil? (:body response))))))
 
 (deftest test-batch-rollback-when-one-change-fails
   (testing "all-or-nothing batch: one bad change rolls back the rest"
