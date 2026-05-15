@@ -13,4 +13,5 @@
                  {:devtools/config {:features-to-install    [:formatters :hints]
                                     :fn-symbol              "F"
                                     :print-config-overrides true}}}}
-   :release    {:optimizations :advanced}}}}
+   :release    {:optimizations :advanced
+                :build-hooks   [(build-hooks/fail-on-warnings)]}}}}

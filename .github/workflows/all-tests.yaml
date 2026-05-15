@@ -77,3 +77,6 @@ jobs:
           # Override flake.nix PG* variables to ensure correct database
           PGDATABASE: parts_test
           PGUSER: postgres
+
+      - name: Build frontend (gates on linter warnings)
+        run: nix develop --command make build-frontend
