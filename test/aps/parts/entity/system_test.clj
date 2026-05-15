@@ -153,3 +153,21 @@
       (let [system-after (system/fetch (:id system))]
         (is system-after "System should still exist")
         (is (= 1 (count (:parts system-after))) "Part should still exist")))))
+
+(deftest test-fetch-identity
+  (let [user   (create-test-user!)
+        system (system/create! {:title "Identity Test" :owner_id (:id user)} (:id user))]
+
+    (testing "returns the identity row — id and owner_id, no enrichment"
+      (let [identity-row (system/fetch-identity (:id system))]
+        (is (= (:id system) (:id identity-row)))
+        (is (= (:id user) (:owner_id identity-row)))
+        (is (not (contains? identity-row :parts)))
+        (is (not (contains? identity-row :relationships)))))
+
+    (testing "returns nil for a nonexistent system — no throw, unlike fetch"
+      (is (nil? (system/fetch-identity (random-uuid)))))
+
+    (testing "returns nil for a soft-deleted system"
+      (system/delete! (:id system) (:id user))
+      (is (nil? (system/fetch-identity (:id system)))))))

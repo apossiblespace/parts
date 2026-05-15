@@ -42,18 +42,25 @@
                  {:actor-id actor})
      (assoc system :title (:title validated)))))
 
+(defn fetch-identity
+  "Get an alive system's identity row (id, owner_id, ...) by ID, or nil.
+   The cheap reader for ownership checks — no metadata, parts, or
+   relationships joined in. See ADR-0002."
+  [id]
+  (db/query-one
+   (db/sql-format
+    {:select [:*]
+     :from   [:systems]
+     :where  [:and
+              [:= :id (db/->uuid id)]
+              [:= :deleted_at nil]]})))
+
 (defn fetch
   "Get an alive system by ID, including its current title and current parts
    and relationships."
   [id]
   (let [uuid-id (db/->uuid id)
-        system  (db/query-one
-                 (db/sql-format
-                  {:select [:*]
-                   :from   [:systems]
-                   :where  [:and
-                            [:= :id uuid-id]
-                            [:= :deleted_at nil]]}))]
+        system  (fetch-identity uuid-id)]
     (when-not system
       (throw (ex-info "System not found" {:type :not-found :id id})))
     (assoc system
