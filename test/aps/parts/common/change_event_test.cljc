@@ -94,7 +94,13 @@
 
   (testing ":data is validated against the matching entity, not another"
     (is (not (s/valid? ::ce/change-event
-                       (assoc part-create :data (:data relationship-create)))))))
+                       (assoc part-create :data (:data relationship-create))))))
+
+  (testing ":data may not carry :id or :system_id — those belong to the envelope / batch"
+    (is (not (s/valid? ::ce/change-event (assoc-in part-create [:data :id] "sneaky"))))
+    (is (not (s/valid? ::ce/change-event (assoc-in part-create [:data :system_id] "sneaky"))))
+    (is (not (s/valid? ::ce/change-event (assoc-in part-update [:data :system_id] "sneaky"))))
+    (is (not (s/valid? ::ce/change-event (assoc-in relationship-update [:data :id] "sneaky"))))))
 
 (deftest data-spec-test
   (testing "data-spec resolves the right :data spec per [entity type]"
@@ -176,4 +182,9 @@
 
   (testing "throws when a change is not a map"
     (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
-                 (ce/parse ["not-a-map"])))))
+                 (ce/parse ["not-a-map"]))))
+
+  (testing "rejects a wire change smuggling :system_id into :data"
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/parse {:entity "part"                                 :type "update" :id "part-1"
+                            :data   {:label "x" :system_id "other-system"}})))))

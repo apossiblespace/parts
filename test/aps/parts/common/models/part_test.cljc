@@ -57,3 +57,17 @@
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (part/make-part {})))))
+
+(deftest validate-update-test
+  (testing "Accepts a partial map of mutable attributes"
+    (is (nil? (part/validate-update {:label "New label"}))))
+
+  (testing "Rejects :id and :system_id — a Part's identity can't be updated"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/validate-update {:label "x" :id "sneaky"})))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/validate-update {:label "x" :system_id "sneaky"})))))

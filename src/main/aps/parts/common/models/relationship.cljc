@@ -37,13 +37,17 @@
     (validate-spec ::relationship relationship)
     relationship))
 
+(defn- no-identity-keys?
+  "A Relationship's id and system_id are identity — an update can't change them."
+  [attrs]
+  (not-any? #{:id :system_id} (keys attrs)))
+
 (s/def ::relationship-update
-  (s/keys :opt-un [::id
-                   ::system_id
-                   ::type
-                   ::source_id
-                   ::target_id
-                   ::notes]))
+  (s/and (s/keys :opt-un [::type
+                          ::source_id
+                          ::target_id
+                          ::notes])
+         no-identity-keys?))
 
 (defn validate-update
   "Validate a partial relationship update map. Any fields present must conform to their specs."

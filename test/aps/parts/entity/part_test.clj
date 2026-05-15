@@ -32,10 +32,9 @@
     (testing "update!"
       (let [created (part/create! part-data (:id user))
             updated (part/update! (:id created)
-                                  (assoc part-data
-                                         :label "Updated Label"
-                                         :position_x 200
-                                         :notes "Updated notes")
+                                  {:label      "Updated Label"
+                                   :position_x 200
+                                   :notes      "Updated notes"}
                                   (:id user))]
         (is (= "Updated Label" (:label updated)))
         (is (= 200 (:position_x updated)))

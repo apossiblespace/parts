@@ -149,3 +149,23 @@
       (is (= "Step 3" (-> (bt/as-of-now db/datasource :parts
                                         [:= :id (:id row)])
                           first :label))))))
+
+(deftest test-update-cannot-relocate-the-row
+  (testing "a sequenced update is keyed on its `id` parameter — an `:id` in
+            `changes` cannot move the entity to a different identity"
+    (let [user     (create-test-user!)
+          system   (create-test-system! (:id user))
+          row      (assoc (part-row (:id system)) :label "Original")
+          _        (bt/insert! db/datasource :parts row {:actor-id (:id user)})
+          rogue-id (random-uuid)
+          updated  (bt/update! db/datasource :parts (:id row)
+                               {:label "Renamed" :id rogue-id}
+                               {:actor-id (:id user)})]
+      (testing "the new history row keeps the entity's real id"
+        (is (= (:id row) (:id updated))))
+      (testing "the real entity is intact and the rename applied"
+        (is (= 1 (count-current :parts (:id row))))
+        (is (= "Renamed" (-> (bt/as-of-now db/datasource :parts [:= :id (:id row)])
+                             first :label))))
+      (testing "no phantom row was created under the rogue id"
+        (is (zero? (count-current :parts rogue-id)))))))

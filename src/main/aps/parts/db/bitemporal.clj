@@ -238,7 +238,9 @@
               old-valid       (:valid_at current)
               old-lower       (:lower old-valid)
               old-values      (internal-cols current)
-              new-values      (merge old-values changes)
+              ;; {:id id} re-asserts the row key: a sequenced update changes
+              ;; attributes, never identity — `changes` can't relocate the row.
+              new-values      (merge old-values changes {:id id})
               past-non-empty? (or (= old-lower :-infinity)
                                   (and (instance? java.time.OffsetDateTime old-lower)
                                        (.isBefore ^java.time.OffsetDateTime old-lower now-ts)))]
@@ -276,7 +278,7 @@
         (close-current-row! tx table id)
         (let [old-valid  (:valid_at current)
               old-values (internal-cols current)
-              new-values (merge old-values changes)]
+              new-values (merge old-values changes {:id id})]
           (insert! tx table new-values
                    {:actor-id actor-id
                     :valid-at old-valid}))))))

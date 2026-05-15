@@ -36,24 +36,38 @@
 ;; `:create` requires the entity's mandatory attributes; `:update` is any
 ;; non-empty subset; `:remove` carries nothing.
 
+(def ^:private forbidden-data-keys
+  "Keys that belong to the envelope (`:id`) or the batch (`:system_id`) and
+   must never appear in `:data`."
+  #{:id :system_id})
+
+(defn- attribute-map?
+  "True when `m` carries only entity attributes — no envelope/batch keys."
+  [m]
+  (not-any? forbidden-data-keys (keys m)))
+
 (s/def ::part-create-data
-  (s/keys :req-un [::part/type ::part/label ::part/position_x ::part/position_y]
-          :opt-un [::part/description ::part/width ::part/height
-                   ::part/notes ::part/body_location]))
+  (s/and (s/keys :req-un [::part/type ::part/label ::part/position_x ::part/position_y]
+                 :opt-un [::part/description ::part/width ::part/height
+                          ::part/notes ::part/body_location])
+         attribute-map?))
 
 (s/def ::part-update-data
   (s/and (s/keys :opt-un [::part/type ::part/label ::part/position_x ::part/position_y
                           ::part/description ::part/width ::part/height
                           ::part/notes ::part/body_location])
+         attribute-map?
          seq))
 
 (s/def ::relationship-create-data
-  (s/keys :req-un [::relationship/type ::relationship/source_id ::relationship/target_id]
-          :opt-un [::relationship/notes]))
+  (s/and (s/keys :req-un [::relationship/type ::relationship/source_id ::relationship/target_id]
+                 :opt-un [::relationship/notes])
+         attribute-map?))
 
 (s/def ::relationship-update-data
   (s/and (s/keys :opt-un [::relationship/type ::relationship/source_id
                           ::relationship/target_id ::relationship/notes])
+         attribute-map?
          seq))
 
 (s/def ::remove-data (s/and map? empty?))

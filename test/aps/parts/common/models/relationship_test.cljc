@@ -44,3 +44,17 @@
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (relationship/make-relationship {})))))
+
+(deftest validate-update-test
+  (testing "Accepts a partial map of mutable attributes"
+    (is (nil? (relationship/validate-update {:notes "New note"}))))
+
+  (testing "Rejects :id and :system_id — a Relationship's identity can't be updated"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (relationship/validate-update {:notes "x" :id "sneaky"})))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (relationship/validate-update {:notes "x" :system_id "sneaky"})))))

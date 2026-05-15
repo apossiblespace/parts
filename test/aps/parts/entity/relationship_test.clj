@@ -43,9 +43,8 @@
     (testing "update!"
       (let [created (relationship/create! relationship-data (:id user))
             updated (relationship/update! (:id created)
-                                          (assoc relationship-data
-                                                 :type "alliance"
-                                                 :notes "Updated notes")
+                                          {:type  "alliance"
+                                           :notes "Updated notes"}
                                           (:id user))]
         (is (= "alliance" (:type updated)))
         (is (= "Updated notes" (:notes updated)))

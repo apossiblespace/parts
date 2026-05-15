@@ -52,18 +52,22 @@
     (validate-spec ::part part)
     part))
 
+(defn- no-identity-keys?
+  "A Part's id and system_id are identity — an update can't change them."
+  [attrs]
+  (not-any? #{:id :system_id} (keys attrs)))
+
 (s/def ::part-update
-  (s/keys :opt-un [::id
-                   ::system_id
-                   ::type
-                   ::label
-                   ::position_x
-                   ::position_y
-                   ::description
-                   ::width
-                   ::height
-                   ::body_location
-                   ::notes]))
+  (s/and (s/keys :opt-un [::type
+                          ::label
+                          ::position_x
+                          ::position_y
+                          ::description
+                          ::width
+                          ::height
+                          ::body_location
+                          ::notes])
+         no-identity-keys?))
 
 (defn validate-update
   "Validate a partial part update map. Any fields present must conform to their specs."
