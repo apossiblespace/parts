@@ -76,7 +76,7 @@
    Request body: a single change-event map, or a vector of them. Each has:
    - `entity`: the entity type (`part`, `relationship`)
    - `id`: the entity ID
-   - `type`: the operation (`create`, `update`, `remove`, `position`)
+   - `type`: the operation (`create`, `update`, `remove`)
    - `data`: operation-specific payload
 
    Atomicity is all-or-nothing: any failure rolls back the entire batch.
@@ -96,16 +96,15 @@
     (if-not (user-can-modify-system? user-id system)
       (-> (response/response {:error "Not authorized"})
           (response/status 403))
-      (let [changes (if (sequential? body-params) body-params [body-params])
-            results (events/apply-changes!
+      (let [results (events/apply-changes!
                      db/datasource
                      {:system-id (db/->uuid system-id)
                       :actor-id  user-id
-                      :changes   changes})]
+                      :changes   body-params})]
         (mulog/log ::process-changes
                    :user-id      user-id
                    :system-id    system-id
-                   :change-count (count changes))
+                   :change-count (count results))
         (-> (response/response {:success true :results results})
             (response/status 200))))))
 

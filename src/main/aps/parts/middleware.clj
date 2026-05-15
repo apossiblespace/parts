@@ -60,9 +60,6 @@
      :not-found
      (exception-handler "Resource not found" 404)
 
-     :unknown-change-type
-     (exception-handler "Unknown change type" 400)
-
      ;; A change in a batch threw; the whole batch was rolled back. The
      ;; ex-data carries `:failing-change` so the client can highlight it.
      :batch-failure

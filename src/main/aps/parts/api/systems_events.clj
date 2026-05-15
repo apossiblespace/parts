@@ -14,16 +14,17 @@
    reporting (the `{:success true ...}` shape) is kept for API stability;
    `:success false` never appears — failures throw instead."
   (:require
+   [aps.parts.common.change-event :as change-event]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [next.jdbc :as jdbc]))
 
 (defmulti process-change
-  "Process a single change event based on entity type and operation.
-   Takes a context map (`{:system-id ... :actor-id ...}`) plus the event.
+  "Apply a single canonical change-event (see `aps.parts.common.change-event`).
+   Takes a context map (`{:system-id ... :actor-id ... :tx ...}`) plus the event.
    Throws on failure; the surrounding transaction rolls back."
   (fn [_ctx event]
-    [(keyword (:entity event)) (keyword (:type event))]))
+    [(:entity event) (:type event)]))
 
 (defmethod process-change [:part :create]
   [{:keys [system-id actor-id tx]} {:keys [id data]}]
@@ -33,12 +34,6 @@
 (defmethod process-change [:part :update]
   [{:keys [actor-id tx]} {:keys [id data]}]
   {:success true :result (part/update! id data actor-id tx)})
-
-(defmethod process-change [:part :position]
-  [{:keys [actor-id tx]} {:keys [id data]}]
-  (let [position-data {:position_x (int (:x data))
-                       :position_y (int (:y data))}]
-    {:success true :result (part/update! id position-data actor-id tx)}))
 
 (defmethod process-change [:part :remove]
   [{:keys [actor-id tx]} {:keys [id]}]
@@ -57,37 +52,37 @@
   [{:keys [actor-id tx]} {:keys [id]}]
   {:success true :result (relationship/delete! id actor-id tx)})
 
-(defmethod process-change :default
-  [_ctx event]
-  (throw (ex-info (str "Unknown change type: " (:entity event) "/" (:type event))
-                  {:type  :unknown-change-type
-                   :event event})))
-
 ;; -- Transport-agnostic batch entry point ---------------------------------
 
+(defn- as-batch-failure
+  "Re-tag an exception raised while applying a batch as a `:batch-failure`,
+   keeping the original `:type` as `:cause-type` and recording the bad change."
+  [t failing-change]
+  (ex-info (ex-message t)
+           (-> (ex-data t)
+               (assoc :type       :batch-failure
+                      :cause-type (:type (ex-data t)))
+               (update :failing-change #(or % failing-change)))
+           t))
+
 (defn apply-changes!
-  "Apply a batch of changes inside one transaction (all-or-nothing).
+  "Apply a batch of changes in one transaction (all-or-nothing).
 
-   `ctx` is `{:system-id UUID :actor-id <user-id>}`. `changes` is a vector
-   of change-event maps shaped like `{:entity ... :type ... :id ... :data ...}`.
-
-   Returns a vector of per-change result maps `{:success true :result ...}`
-   if all succeed. If any change throws, the whole transaction rolls back
-   and the exception propagates — callers (HTTP handler, WebSocket frame
-   handler) are responsible for translating that into a transport response.
-   The exception's `ex-data` carries `:failing-change` so callers can point
-   at the specific event that broke the batch."
+   `changes` is untrusted wire input — a single change-event map or a vector;
+   `change-event/parse` coerces and validates it before any DB work. Returns a
+   vector of per-change `{:success true :result ...}` maps. Any failure, parse-
+   time or process-time, propagates as a `:batch-failure` `ex-info` carrying
+   `:failing-change`, and the transaction rolls back."
   [ds {:keys [system-id actor-id changes]}]
-  (jdbc/with-transaction [tx ds]
-    (let [ctx {:system-id system-id :actor-id actor-id :tx tx}]
-      (mapv (fn [change]
-              (try
-                (process-change ctx change)
-                (catch Throwable t
-                  (throw (ex-info (.getMessage t)
-                                  (assoc (ex-data t)
-                                         :type           :batch-failure
-                                         :cause-type     (:type (ex-data t))
-                                         :failing-change change)
-                                  t)))))
-            changes))))
+  (let [parsed (try
+                 (change-event/parse changes)
+                 (catch Throwable t
+                   (throw (as-batch-failure t nil))))]
+    (jdbc/with-transaction [tx ds]
+      (let [ctx {:system-id system-id :actor-id actor-id :tx tx}]
+        (mapv (fn [change]
+                (try
+                  (process-change ctx change)
+                  (catch Throwable t
+                    (throw (as-batch-failure t change)))))
+              parsed)))))

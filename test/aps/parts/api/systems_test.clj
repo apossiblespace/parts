@@ -120,6 +120,37 @@
         (is (= "Original" (:label (part/fetch part-id)))
             "label should not have been renamed because the batch failed")))))
 
+(deftest test-parse-rejects-invalid-change-before-transaction
+  (testing "a structurally invalid change is rejected as a batch failure, before any DB work"
+    (let [user    (create-test-user!)
+          sys     (system/create! {:title "Parse Test" :owner_id (:id user)} (:id user))
+          part-id (random-uuid)
+          _       (part/create! {:id         part-id
+                                 :system_id  (:id sys)
+                                 :type       "manager"
+                                 :label      "Original"
+                                 :position_x 0
+                                 :position_y 0}
+                                (:id user))
+          ;; The second change has an unknown :type — `parse` rejects the whole
+          ;; batch before `apply-changes!` opens a transaction.
+          bad     {:entity "part" :type "teleport" :id part-id :data {}}
+          batch   [{:entity "part" :type "update" :id part-id :data {:label "Should NOT stick"}}
+                   bad]]
+      (try
+        (events/apply-changes! db/datasource
+                               {:system-id (:id sys)
+                                :actor-id  (:id user)
+                                :changes   batch})
+        (is false "expected apply-changes! to throw")
+        (catch clojure.lang.ExceptionInfo e
+          (let [data (ex-data e)]
+            (is (= :batch-failure (:type data)))
+            (is (= :validation (:cause-type data)))
+            (is (= bad (:failing-change data))))))
+      (testing "the valid earlier change was never applied"
+        (is (= "Original" (:label (part/fetch part-id))))))))
+
 (deftest test-export-pdf
   (testing "returns not implemented"
     (let [user     (create-test-user!)
