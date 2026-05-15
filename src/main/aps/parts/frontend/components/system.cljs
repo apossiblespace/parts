@@ -23,55 +23,64 @@
         nodes               (adapter/parts->nodes parts selected-node-ids)
         edges               (adapter/relationships->edges relationships selected-edge-ids)
 
+        dispatch-intent     (use-callback
+                             (fn [intent]
+                               (case (:intent intent)
+                                 :part-position-frame
+                                 (rf/dispatch [:system/part-update-position
+                                               (:id intent)
+                                               (:position intent)])
+
+                                 :part-moved
+                                 (rf/dispatch [:system/part-finish-position-change
+                                               (:id intent)
+                                               (:position intent)])
+
+                                 :part-selected
+                                 (rf/dispatch [:selection/toggle-node
+                                               (:id intent)
+                                               (:selected? intent)])
+
+                                 :part-removed
+                                 (do (o/track "Part deleted" {:demo demo})
+                                     (rf/dispatch [:system/part-remove (:id intent)]))
+
+                                 :relationship-selected
+                                 (rf/dispatch [:selection/toggle-edge
+                                               (:id intent)
+                                               (:selected? intent)])
+
+                                 :relationship-removed
+                                 (do (o/track "Relationship deleted" {:demo demo})
+                                     (rf/dispatch [:system/relationship-remove (:id intent)]))
+
+                                 :relationship-connected
+                                 (do (o/track "Relationship created" {:demo demo})
+                                     (rf/dispatch [:system/relationship-create
+                                                   (select-keys intent [:source_id :target_id])]))
+
+                                 (o/warn "system.dispatch-intent" "unknown intent" intent)))
+                             [demo])
+
         on-nodes-change     (use-callback
                              (fn [changes]
                                (o/debug "system.on-nodes-change" "nodes changed" changes)
-                               (->> (js->clj changes :keywordize-keys true)
-                                    (run! (fn [change]
-                                            (case (:type change)
-                                              "position" (when-let [position (:position change)]
-                                                           (rf/dispatch [:system/part-update-position
-                                                                         (:id change)
-                                                                         position])
-                                                           (when-not (:dragging change)
-                                                             (rf/dispatch [:system/part-finish-position-change
-                                                                           (:id change)
-                                                                           position])))
-                                              "select" (rf/dispatch [:selection/toggle-node
-                                                                     (:id change)
-                                                                     (:selected change)])
-                                              "remove" (do
-                                                         (o/track "Part deleted" {:demo demo})
-                                                         (rf/dispatch [:system/part-remove
-                                                                       (:id change)]))
-                                              (o/warn "system.on-nodes-change" "unhandled change type" change)))))) [demo])
+                               (run! dispatch-intent
+                                     (adapter/translate-nodes-change changes)))
+                             [dispatch-intent])
 
         on-edges-change     (use-callback
                              (fn [changes]
                                (o/debug "system.on-edges-change" "edges changed" changes)
-                               (->> (js->clj changes :keywordize-keys true)
-                                    (run! (fn [change]
-                                            (case (:type change)
-                                              "select" (rf/dispatch [:selection/toggle-edge
-                                                                     (:id change)
-                                                                     (:selected change)])
-                                              "remove" (do
-                                                         (o/track "Relationship deleted" {:demo demo})
-                                                         (rf/dispatch [:system/relationship-remove
-                                                                       (:id change)]))
-                                              (o/warn "system.on-edges-change" "unhandled change type" change)))))) [demo])
+                               (run! dispatch-intent
+                                     (adapter/translate-edges-change changes)))
+                             [dispatch-intent])
 
         on-connect          (use-callback
                              (fn [connection]
                                (o/debug "system.on-connect" "connection created" connection)
-                               (o/track "Relationship created" {:demo demo})
-                               (let [params    (js->clj connection :keywordize-keys true)
-                                     source-id (:source params)
-                                     target-id (:target params)]
-                                 (rf/dispatch [:system/relationship-create
-                                               {:source_id source-id
-                                                :target_id target-id}])))
-                             [demo])
+                               (dispatch-intent (adapter/translate-connect connection)))
+                             [dispatch-intent])
 
         ;; FIXME: We might need to remove this in order to properly handle
         ;; selection by dragging. When this callback is set, dragging does not
