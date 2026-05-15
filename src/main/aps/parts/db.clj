@@ -47,6 +47,15 @@
                      (throw (ex-info "Invalid UUID format" {:type :invalid-uuid :value id}))))
     :else (throw (ex-info "Invalid UUID type" {:type :invalid-uuid :value id}))))
 
+(defn coerce-uuid-keys
+  "Coerce each key in `ks` to a UUID via `->uuid` if present (and non-nil) in `m`.
+   Missing or nil values are left as-is."
+  [m ks]
+  (reduce (fn [m k]
+            (cond-> m (k m) (update k ->uuid)))
+          m
+          ks))
+
 (defn sql-format
   "Convert a HoneySQL map to a vector of [sql & params]"
   [sql-map]

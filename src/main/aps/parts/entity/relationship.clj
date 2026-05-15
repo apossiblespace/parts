@@ -5,19 +5,12 @@
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]))
 
-(defn- with-uuid-keys [r]
-  (cond-> r
-    (:id r)        (update :id db/->uuid)
-    (:system_id r) (update :system_id db/->uuid)
-    (:source_id r) (update :source_id db/->uuid)
-    (:target_id r) (update :target_id db/->uuid)))
-
 (defn create!
   ([data actor-id] (create! data actor-id db/datasource))
   ([data actor-id tx]
    (let [rel (-> (model/make-relationship data)
                  (update :id #(or % (random-uuid)))
-                 with-uuid-keys)]
+                 (db/coerce-uuid-keys [:id :system_id :source_id :target_id]))]
      (bt/insert! tx :relationships rel {:actor-id (db/->uuid actor-id)}))))
 
 (defn fetch

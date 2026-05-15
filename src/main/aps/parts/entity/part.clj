@@ -6,11 +6,6 @@
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]))
 
-(defn- with-uuid-keys [part]
-  (cond-> part
-    (:id part)        (update :id db/->uuid)
-    (:system_id part) (update :system_id db/->uuid)))
-
 (defn create!
   "Create a new part. Requires `actor-id` (the user making the change).
    Optional `tx` lets the caller participate in a surrounding transaction."
@@ -18,7 +13,7 @@
   ([data actor-id tx]
    (let [part (-> (model/make-part data)
                   (update :id #(or % (random-uuid)))
-                  with-uuid-keys)]
+                  (db/coerce-uuid-keys [:id :system_id]))]
      (bt/insert! tx :parts part {:actor-id (db/->uuid actor-id)}))))
 
 (defn fetch
