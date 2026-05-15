@@ -74,107 +74,121 @@
                       (conj current-ids edge-id))
                     (filterv #(not= edge-id %) current-ids)))))))
 
+;; -- optimistic mutation helpers ------------------------------------------
+;; Each :system/* handler below does the same two-beat: mutate :db optimistically,
+;; then enqueue a change-event. These name the mutation half; the change-event
+;; half is named by the constructors in `ce/*`.
+
+(defn- add-part
+  "Append `new-part` to the System and select it (clearing edge selection)."
+  [db new-part]
+  (-> db
+      (update-in [:system :parts] conj new-part)
+      (assoc-in [:ui :selected-node-ids] [(:id new-part)])
+      (assoc-in [:ui :selected-edge-ids] [])))
+
+(defn- merge-part
+  "Merge `attrs` into the part with `part-id`."
+  [db part-id attrs]
+  (update-in db [:system :parts]
+             (fn [parts]
+               (mapv (fn [part]
+                       (if (= (:id part) part-id)
+                         (merge part attrs)
+                         part))
+                     parts))))
+
+(defn- remove-part
+  "Drop the part with `part-id` and clear it from selection."
+  [db part-id]
+  (-> db
+      (update-in [:system :parts]
+                 (fn [parts] (filterv #(not= (:id %) part-id) parts)))
+      (update-in [:ui :selected-node-ids]
+                 (fn [ids] (filterv #(not= % part-id) (or ids []))))))
+
+(defn- add-relationship
+  "Append `new-relationship` to the System."
+  [db new-relationship]
+  (update-in db [:system :relationships] conj new-relationship))
+
+(defn- merge-relationship
+  "Merge `attrs` into the relationship with `relationship-id`."
+  [db relationship-id attrs]
+  (update-in db [:system :relationships]
+             (fn [rels]
+               (mapv (fn [rel]
+                       (if (= (:id rel) relationship-id)
+                         (merge rel attrs)
+                         rel))
+                     rels))))
+
+(defn- remove-relationship
+  "Drop the relationship with `relationship-id` and clear it from selection."
+  [db relationship-id]
+  (-> db
+      (update-in [:system :relationships]
+                 (fn [rels] (filterv #(not= (:id %) relationship-id) rels)))
+      (update-in [:ui :selected-edge-ids]
+                 (fn [ids] (filterv #(not= % relationship-id) (or ids []))))))
+
 (rf/reg-event-fx
  :system/part-create
  (fn [{:keys [db]} [_ attrs]]
-   (let [system-id           (get-in db [:system :id])
-         attrs-with-position (merge {:position_x 390
-                                     :position_y 290}
-                                    attrs)
-         new-part            (make-part (merge {:system_id system-id}
-                                               attrs-with-position))
-         part-id             (:id new-part)
-         updated-db          (-> db
-                                 (update-in [:system :parts] conj new-part)
-                                 (assoc-in [:ui :selected-node-ids] [part-id])
-                                 (assoc-in [:ui :selected-edge-ids] []))]
-     {:db              updated-db
+   (let [system-id (get-in db [:system :id])
+         new-part  (make-part (merge {:system_id  system-id
+                                      :position_x 390
+                                      :position_y 290}
+                                     attrs))]
+     {:db              (add-part db new-part)
       :queue/add-event (ce/part-create
-                        part-id
+                        (:id new-part)
                         (select-keys new-part [:type :label :position_x :position_y]))})))
 
 (rf/reg-event-fx
  :system/part-update
  (fn [{:keys [db]} [_ part-id attrs]]
-   (let [updated-db (update-in db [:system :parts]
-                               (fn [parts]
-                                 (mapv (fn [part]
-                                         (if (= (:id part) part-id)
-                                           (merge part attrs)
-                                           part))
-                                       parts)))]
-     {:db              updated-db
-      :queue/add-event (ce/part-update part-id attrs)})))
+   {:db              (merge-part db part-id attrs)
+    :queue/add-event (ce/part-update part-id attrs)}))
 
 (rf/reg-event-fx
  :system/part-remove
  (fn [{:keys [db]} [_ part-id]]
-   (let [updated-db (-> db
-                        (update-in [:system :parts]
-                                   (fn [parts]
-                                     (filterv #(not= (:id %) part-id) parts)))
-                        (update-in [:ui :selected-node-ids]
-                                   (fn [ids]
-                                     (filterv #(not= % part-id) (or ids [])))))]
-     {:db              updated-db
-      :queue/add-event (ce/part-remove part-id)})))
+   {:db              (remove-part db part-id)
+    :queue/add-event (ce/part-remove part-id)}))
 
 (rf/reg-event-db
  :system/part-update-position
  (fn [db [_ node-id position]]
-   (update-in db [:system :parts]
-              (fn [parts]
-                (mapv (fn [part]
-                        (if (= (:id part) node-id)
-                          (-> part
-                              (assoc :position_x (int (:x position)))
-                              (assoc :position_y (int (:y position))))
-                          part))
-                      parts)))))
+   (merge-part db node-id {:position_x (int (:x position))
+                           :position_y (int (:y position))})))
 
 (rf/reg-event-fx
  :system/part-finish-position-change
- (fn [{:keys [db]} [_ node-id position]]
-   {:db              db
-    :queue/add-event (ce/part-moved node-id (:x position) (:y position))}))
+ (fn [_ [_ node-id position]]
+   {:queue/add-event (ce/part-moved node-id (:x position) (:y position))}))
 
 (rf/reg-event-fx
  :system/relationship-create
  (fn [{:keys [db]} [_ attrs]]
    (let [system-id        (get-in db [:system :id])
-         new-relationship (make-relationship (merge {:system_id system-id}
-                                                    attrs))
-         rel-id           (:id new-relationship)
-         updated-db       (update-in db [:system :relationships] conj new-relationship)]
-     {:db              updated-db
+         new-relationship (make-relationship (merge {:system_id system-id} attrs))]
+     {:db              (add-relationship db new-relationship)
       :queue/add-event (ce/relationship-create
-                        rel-id
+                        (:id new-relationship)
                         (select-keys new-relationship [:type :source_id :target_id]))})))
 
 (rf/reg-event-fx
  :system/relationship-update
  (fn [{:keys [db]} [_ relationship-id attrs]]
-   (let [updated-db (update-in db [:system :relationships]
-                               (fn [relationships]
-                                 (mapv (fn [relationship]
-                                         (if (= (:id relationship) relationship-id)
-                                           (merge relationship attrs)
-                                           relationship))
-                                       relationships)))]
-     {:db              updated-db
-      :queue/add-event (ce/relationship-update relationship-id attrs)})))
+   {:db              (merge-relationship db relationship-id attrs)
+    :queue/add-event (ce/relationship-update relationship-id attrs)}))
+
 (rf/reg-event-fx
  :system/relationship-remove
  (fn [{:keys [db]} [_ relationship-id]]
-   (let [updated-db (-> db
-                        (update-in [:system :relationships]
-                                   (fn [relationships]
-                                     (filterv #(not= (:id %) relationship-id) relationships)))
-                        (update-in [:ui :selected-edge-ids]
-                                   (fn [ids]
-                                     (filterv #(not= % relationship-id) (or ids [])))))]
-     {:db              updated-db
-      :queue/add-event (ce/relationship-remove relationship-id)})))
+   {:db              (remove-relationship db relationship-id)
+    :queue/add-event (ce/relationship-remove relationship-id)}))
 
 (rf/reg-event-fx
  :system/fetch
