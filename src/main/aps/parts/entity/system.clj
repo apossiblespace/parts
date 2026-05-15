@@ -120,6 +120,7 @@
         parts   (bt/as-of-now tx :parts [:= :system_id uuid-id])
         rels    (bt/as-of-now tx :relationships [:= :system_id uuid-id])
         meta    (current-metadata tx uuid-id)]
+    ;; Child cascade: mirror in `db.erasure/purge-account!`.
     (doseq [r rels]
       (bt/retract! tx :relationships (:id r) {:actor-id actor}))
     (doseq [p parts]

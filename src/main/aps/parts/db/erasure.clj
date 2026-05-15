@@ -93,6 +93,7 @@
     (mulog/log ::purge-account-start :user-id user-id)
     (jdbc/with-transaction [tx ds]
       (bt/set-actor! tx tombstone-id)
+      ;; Child cascade: mirror in `entity.system/delete-impl!`.
       (jdbc/execute! tx
                      ["DELETE FROM relationships
                        WHERE system_id IN (SELECT id FROM systems WHERE owner_id = ?)"
