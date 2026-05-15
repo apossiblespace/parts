@@ -115,3 +115,69 @@
           result       (adapter/edge->relationship edge "system-id")]
 
       (is (= original-rel result)))))
+
+(deftest translate-nodes-change-test
+  (testing "a position change while dragging yields only a frame intent"
+    (let [changes #js [#js {:type     "position"
+                            :id       "p1"
+                            :position #js {:x 50 :y 75}
+                            :dragging true}]]
+      (is (= [{:intent :part-position-frame :id "p1" :position {:x 50 :y 75}}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "a settled position change yields a frame and a moved intent, in order"
+    (let [changes #js [#js {:type     "position"
+                            :id       "p1"
+                            :position #js {:x 50 :y 75}
+                            :dragging false}]]
+      (is (= [{:intent :part-position-frame :id "p1" :position {:x 50 :y 75}}
+              {:intent :part-moved :id "p1" :position {:x 50 :y 75}}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "a position change without a :position is skipped"
+    (let [changes #js [#js {:type "position" :id "p1"}]]
+      (is (= [] (adapter/translate-nodes-change changes)))))
+
+  (testing "select translates to :part-selected"
+    (let [changes #js [#js {:type "select" :id "p1" :selected true}]]
+      (is (= [{:intent :part-selected :id "p1" :selected? true}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "remove translates to :part-removed"
+    (let [changes #js [#js {:type "remove" :id "p1"}]]
+      (is (= [{:intent :part-removed :id "p1"}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "a mixed batch yields a flat intent vector preserving order"
+    (let [changes #js [#js {:type "select" :id "p1" :selected true}
+                       #js {:type     "position"
+                            :id       "p2"
+                            :position #js {:x 10 :y 20}
+                            :dragging false}
+                       #js {:type "remove" :id "p3"}]]
+      (is (= [{:intent :part-selected :id "p1" :selected? true}
+              {:intent :part-position-frame :id "p2" :position {:x 10 :y 20}}
+              {:intent :part-moved :id "p2" :position {:x 10 :y 20}}
+              {:intent :part-removed :id "p3"}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "unhandled change types are dropped (e.g. ReactFlow's `dimensions`)"
+    (let [changes #js [#js {:type "dimensions" :id "p1"}]]
+      (is (= [] (adapter/translate-nodes-change changes))))))
+
+(deftest translate-edges-change-test
+  (testing "select translates to :relationship-selected"
+    (let [changes #js [#js {:type "select" :id "e1" :selected true}]]
+      (is (= [{:intent :relationship-selected :id "e1" :selected? true}]
+             (adapter/translate-edges-change changes)))))
+
+  (testing "remove translates to :relationship-removed"
+    (let [changes #js [#js {:type "remove" :id "e1"}]]
+      (is (= [{:intent :relationship-removed :id "e1"}]
+             (adapter/translate-edges-change changes))))))
+
+(deftest translate-connect-test
+  (testing "a connection translates to a :relationship-connected intent"
+    (let [conn #js {:source "p1" :target "p2"}]
+      (is (= {:intent :relationship-connected :source_id "p1" :target_id "p2"}
+             (adapter/translate-connect conn))))))

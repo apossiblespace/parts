@@ -77,3 +77,60 @@
                         :target_id (:target edge)
                         :type      (get-in edge [:data :relationship])
                         :notes     (get-in edge [:data :notes])})))
+
+;; -- ReactFlow event translation ------------------------------------------
+;; ReactFlow's change-event vocabulary lives here. Consumers receive
+;; domain-level intents and never `case`-match on "position" / "select" / "remove".
+
+(defn- translate-node-change [change]
+  (case (:type change)
+    "position" (when-let [position (:position change)]
+                 (let [frame {:intent   :part-position-frame
+                              :id       (:id change)
+                              :position position}]
+                   (if (:dragging change)
+                     [frame]
+                     [frame {:intent   :part-moved
+                             :id       (:id change)
+                             :position position}])))
+    "select"   [{:intent    :part-selected
+                 :id        (:id change)
+                 :selected? (:selected change)}]
+    "remove"   [{:intent :part-removed :id (:id change)}]
+    (do (o/warn "reactflow.translate-node-change" "unhandled change type" change)
+        nil)))
+
+(defn translate-nodes-change
+  "Translate a ReactFlow `onNodesChange` JS payload into a vector of domain
+   intents. A position change always yields `:part-position-frame`; when not
+   dragging, it additionally yields `:part-moved`."
+  [js-changes]
+  (->> (js->clj js-changes :keywordize-keys true)
+       (mapcat translate-node-change)
+       vec))
+
+(defn- translate-edge-change [change]
+  (case (:type change)
+    "select" [{:intent    :relationship-selected
+               :id        (:id change)
+               :selected? (:selected change)}]
+    "remove" [{:intent :relationship-removed :id (:id change)}]
+    (do (o/warn "reactflow.translate-edge-change" "unhandled change type" change)
+        nil)))
+
+(defn translate-edges-change
+  "Translate a ReactFlow `onEdgesChange` JS payload into a vector of domain
+   intents."
+  [js-changes]
+  (->> (js->clj js-changes :keywordize-keys true)
+       (mapcat translate-edge-change)
+       vec))
+
+(defn translate-connect
+  "Translate a ReactFlow `onConnect` JS connection payload into a
+   `:relationship-connected` intent."
+  [js-connection]
+  (let [conn (js->clj js-connection :keywordize-keys true)]
+    {:intent    :relationship-connected
+     :source_id (:source conn)
+     :target_id (:target conn)}))
