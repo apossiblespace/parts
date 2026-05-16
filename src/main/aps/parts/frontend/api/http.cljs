@@ -52,18 +52,25 @@
   2. Intercepts 401s and attempts token refresh
   3. Retries failed reqs with fresh credentials
 
+  The initial call and the post-refresh retry share a single call shape
+  (`call-with`), parameterised over which tokens to derive the auth header
+  from. There is exactly one place that assembles the handler call, so the
+  retry cannot drift from the original — the two paths only differ in their
+  `tokens` input.
+
   OPTIONS:
     :skip-auth - bypasses ALL auth logic (both header injection and refresh)"
   [handler]
   (fn [endpoint params & [opts]]
     (go
-      (let [skip-auth?  (:skip-auth opts)
-            tokens      (utils/get-tokens)
-            auth-header (utils/auth-header tokens)
-            auth-opts   (if (and (not skip-auth?) auth-header)
-                          (assoc opts :auth-header auth-header)
-                          opts)
-            resp        (<! (handler endpoint params auth-opts))]
+      (let [skip-auth? (:skip-auth opts)
+            call-with  (fn [tokens]
+                         (let [h (when-not skip-auth? (utils/auth-header tokens))]
+                           (handler endpoint
+                                    params
+                                    (cond-> opts h (assoc :auth-header h)))))
+            tokens     (utils/get-tokens)
+            resp       (<! (call-with tokens))]
         (if (and (= 401 (:status resp))
                  (not skip-auth?)
                  (:refresh_token tokens))
@@ -72,10 +79,7 @@
             (if (= 200 (:status refresh-resp))
               (do
                 (utils/save-tokens (:body refresh-resp))
-                (let [new-tokens      (utils/get-tokens)
-                      new-auth-header (utils/auth-header new-tokens)
-                      new-params      (assoc-in params [:headers "Authorization"] new-auth-header)]
-                  (<! (handler endpoint new-params))))
+                (<! (call-with (utils/get-tokens))))
               resp))
           resp)))))
 
