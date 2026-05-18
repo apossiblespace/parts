@@ -229,7 +229,7 @@ a.btn {
         /* Whole-node connect overlay. The two stacked Handles (source +
            target) cover the node body so a drag from anywhere inside it
            starts/completes a connection. pointer-events default to none
-           so Select-mode node dragging keeps working; the .mode-connect
+           so Move-mode node dragging keeps working; the .mode-connect
            rule below switches it on. */
         .connect-handle.react-flow__handle {
             position: absolute;
@@ -247,6 +247,29 @@ a.btn {
         &.mode-connect .connect-handle.react-flow__handle {
             pointer-events: auto;
             cursor: crosshair;
+        }
+
+        /* Per-mode cursors — per-region honesty: each cursor describes
+           what a click here will do, not just which tool is held. The
+           toolbar's active-state carries tool identity; cursors carry
+           per-region affordance. */
+        &.mode-move .react-flow__node {
+            cursor: grab;
+        }
+        &.mode-connect .react-flow__node {
+            cursor: crosshair;
+        }
+        &.mode-add-unknown .react-flow__pane,
+        &.mode-add-exile .react-flow__pane,
+        &.mode-add-firefighter .react-flow__pane,
+        &.mode-add-manager .react-flow__pane {
+            cursor: crosshair;
+        }
+        &.mode-add-unknown .react-flow__node,
+        &.mode-add-exile .react-flow__node,
+        &.mode-add-firefighter .react-flow__node,
+        &.mode-add-manager .react-flow__node {
+            cursor: pointer;
         }
 
         .logo {

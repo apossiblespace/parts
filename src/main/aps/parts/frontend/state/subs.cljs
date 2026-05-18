@@ -55,7 +55,7 @@
 (rf/reg-sub
  :ui/tool-mode
  (fn [db _]
-   (get-in db [:ui :tool-mode] :select)))
+   (get-in db [:ui :tool-mode] :move)))
 
 (rf/reg-sub
  :system/selected-parts

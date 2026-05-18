@@ -16,13 +16,13 @@
 
 ;; Tool selector — drives the canvas mode. Two groups, rendered as separate
 ;; `.join` button strips with a small gap between them:
-;; - `mode-tools` change *how* the canvas responds (Select / Connect),
+;; - `mode-tools` change *how* the canvas responds (Move / Connect),
 ;;   shown as icon-only Lucide glyphs with text via tooltip.
 ;; - `part-tools` are "armed creation" modes; clicking the canvas places a
 ;;   part of the matching type. Kept as text labels — Part shapes have
 ;;   their own visual identity in the canvas, no need to add tool icons.
 (def ^:private mode-tools
-  [{:mode :select :icon MousePointer2 :tooltip "Select"}
+  [{:mode :move :icon MousePointer2 :tooltip "Move"}
    {:mode :connect :icon Spline :tooltip "Connect"}])
 
 (def ^:private part-tools
@@ -149,7 +149,7 @@
        (let [handler (fn [^js e]
                        (when (non-input-target? e)
                          (case (.-key e)
-                           ("v" "V" "Escape") (set-tool-mode :select)
+                           ("v" "V" "Escape") (set-tool-mode :move)
                            ("c" "C")          (set-tool-mode :connect)
                            nil)))]
          (.addEventListener js/document "keydown" handler)
@@ -188,7 +188,7 @@
                         :nodeTypes               node-types
                         :edgeTypes               edge-types
                         :connectionLineComponent PartsConnectionLine
-                        :nodesDraggable          (= tool-mode :select)
+                        :nodesDraggable          (= tool-mode :move)
                         :zoomOnScroll            (not minimal)
                         :preventScrolling        (not minimal)}
              ($ Controls)
