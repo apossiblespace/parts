@@ -54,23 +54,42 @@
    "burden"       "#ff9800"
    "blended"      "#9c27b0"})
 
+;; Handle ids used by the easy-connect pattern. Both nodes.cljs (Handle :id)
+;; and the edge construction below must agree — if these drift, ReactFlow's
+;; connectionLookup collides keys for bidirectional pairs and drag-select
+;; silently misses one edge of every pair.
+(def source-handle-id "src")
+(def target-handle-id "tgt")
+
 (defn relationship->edge
-  "Convert a Relationship to a ReactFlow edge"
-  ([relationship] (relationship->edge relationship nil))
-  ([{:keys [id source_id target_id notes type]} selected-ids]
+  "Convert a Relationship to a ReactFlow edge.
+
+   sourceHandle/targetHandle are pinned to constants so ReactFlow's
+   internal connectionLookup gives A->B and B->A distinct keys; without
+   that, drag-select misses one edge of every bidirectional pair (see
+   updateConnectionLookup in @xyflow/system).
+
+   `bidir?` is precomputed by `relationships->edges` and threaded into
+   `:data` so the edge component can pick its curve shape without doing
+   its own O(N) reverse-sibling scan per render."
+  ([relationship] (relationship->edge relationship nil false))
+  ([{:keys [id source_id target_id notes type]} selected-id-set bidir?]
    (let [type-name (name type)
          color     (get relationship-colors type-name "#999999")]
-     #js {:id        id
-          :source    source_id
-          :target    target_id
-          :selected  (when selected-ids (contains? selected-ids id))
-          :data      #js {:relationship type-name
-                          :notes        notes}
-          :className (str "edge-" type-name)
-          :markerEnd #js {:type   "arrowclosed"
-                          :color  color
-                          :width  18
-                          :height 18}})))
+     #js {:id           id
+          :source       source_id
+          :sourceHandle source-handle-id
+          :target       target_id
+          :targetHandle target-handle-id
+          :selected     (when selected-id-set (contains? selected-id-set id))
+          :data         #js {:relationship type-name
+                             :notes        notes
+                             :bidir        bidir?}
+          :className    (str "edge-" type-name)
+          :markerEnd    #js {:type   "arrowclosed"
+                             :color  color
+                             :width  18
+                             :height 18}})))
 
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges.
@@ -82,8 +101,11 @@
     "reactflow.relationships->edges"
     "converting relationships to edges"
     (count relationships))
-   (let [selected-id-set (when selected-ids (set selected-ids))]
-     (to-array (map #(relationship->edge % selected-id-set) relationships)))))
+   (let [selected-id-set (when selected-ids (set selected-ids))
+         pair-set        (into #{} (map (juxt :source_id :target_id)) relationships)
+         bidir?          (fn [{:keys [source_id target_id]}]
+                           (contains? pair-set [target_id source_id]))]
+     (to-array (map #(relationship->edge % selected-id-set (bidir? %)) relationships)))))
 
 (defn edge->relationship
   "Convert ReactFlow edge to a Relationship"

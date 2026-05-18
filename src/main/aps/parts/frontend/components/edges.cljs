@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.components.edges
   (:require
    ["@xyflow/react" :refer [BaseEdge Position
-                            getBezierPath useInternalNode useStore]]
+                            getBezierPath useInternalNode]]
    [uix.core :refer [$ as-react defui]]))
 
 (def ^:private bow-offset-px
@@ -107,20 +107,11 @@
         cy  (+ my (* offset ny))]
     (str "M" sx "," sy " Q" cx "," cy " " tx "," ty)))
 
-(defn- has-reverse-edge?
-  "Return true if the edges store contains any edge whose source/target
-   are the reverse of the given pair. Used to decide whether to bow."
-  [^js state source-id target-id]
-  (boolean (some #(and (= (.-source %) target-id)
-                       (= (.-target %) source-id))
-                 (.-edges state))))
-
 (defui parts-edge [{:keys [id data source-id target-id marker-end]}]
   (let [source-node (useInternalNode source-id)
         target-node (useInternalNode target-id)
         rel-type    (:relationship data)
-        bidir?      (useStore (fn [^js state]
-                                (has-reverse-edge? state source-id target-id)))]
+        bidir?      (:bidir data)]
     (when (and source-node target-node
                (.-measured source-node) (.-measured target-node))
       (let [params     (floating-edge-params source-node target-node)
@@ -143,4 +134,4 @@
                     :marker-end markerEnd}))))
 
 (def edge-types
-  {"default" PartsEdge})
+  #js {:default PartsEdge})

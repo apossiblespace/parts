@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.system
   (:require
-   ["@xyflow/react" :refer [Background ConnectionMode Controls MiniMap Panel
+   ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
@@ -161,9 +161,8 @@
                         :onConnect        on-connect
                         :onPaneClick      on-pane-click
                         ;; :onSelectionChange on-selection-change
-                        :nodeTypes        (clj->js node-types)
-                        :edgeTypes        (clj->js edge-types)
-                        :connectionMode   (.-Loose ConnectionMode)
+                        :nodeTypes        node-types
+                        :edgeTypes        edge-types
                         :nodesDraggable   (= tool-mode :select)
                         :zoomOnScroll     (not minimal)
                         :preventScrolling (not minimal)}
