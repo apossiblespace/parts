@@ -43,12 +43,12 @@
     /* Per-relationship edge colours. Single source of truth — both the
        SVG path stroke (.edge-* selectors) and the JS arrowhead-marker
        fill read these. */
-    --edge-color-unknown:      #999999;
-    --edge-color-protective:   #4caf50;
+    --edge-color-unknown: #999999;
+    --edge-color-protective: #4caf50;
     --edge-color-polarization: #f44336;
-    --edge-color-alliance:     #2196f3;
-    --edge-color-burden:       #ff9800;
-    --edge-color-blended:      #9c27b0;
+    --edge-color-alliance: #2196f3;
+    --edge-color-burden: #ff9800;
+    --edge-color-blended: #9c27b0;
 
     scroll-behavior: smooth;
 }
@@ -197,12 +197,24 @@ a.btn {
         /* Custom edge styles per relationship type.
            Colours live on :root (below) so JS can read them via
            getComputedStyle and the arrowhead marker matches. */
-        .edge-unknown      { stroke: var(--edge-color-unknown); }
-        .edge-protective   { stroke: var(--edge-color-protective); }
-        .edge-polarization { stroke: var(--edge-color-polarization); }
-        .edge-alliance     { stroke: var(--edge-color-alliance); }
-        .edge-burden       { stroke: var(--edge-color-burden); }
-        .edge-blended      { stroke: var(--edge-color-blended); }
+        .edge-unknown {
+            stroke: var(--edge-color-unknown);
+        }
+        .edge-protective {
+            stroke: var(--edge-color-protective);
+        }
+        .edge-polarization {
+            stroke: var(--edge-color-polarization);
+        }
+        .edge-alliance {
+            stroke: var(--edge-color-alliance);
+        }
+        .edge-burden {
+            stroke: var(--edge-color-burden);
+        }
+        .edge-blended {
+            stroke: var(--edge-color-blended);
+        }
 
         .node-wrapper {
             padding: 0.5rem;
@@ -256,6 +268,12 @@ a.btn {
             border-radius: var(--radius-box);
             padding: 0.2rem 0.5rem;
             border: 1px solid #cccccc;
+        }
+
+        /* Shrink toolbar tooltip text — DaisyUI's default 0.875rem is
+           heavier than we want for the small icon buttons. */
+        .toolbar .tooltip[data-tip]::before {
+            font-size: 0.65rem;
         }
     }
 

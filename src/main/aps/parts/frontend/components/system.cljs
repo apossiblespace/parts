@@ -2,6 +2,7 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
+   ["lucide-react" :refer [MousePointer2 Spline]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
@@ -13,14 +14,19 @@
    [uix.core :refer [$ defui use-callback use-effect]]
    [uix.re-frame :as uix.rf]))
 
-;; Tool selector — drives the canvas mode. The order here is the toolbar's
-;; left-to-right rendering order. :select and :connect are interaction modes;
-;; the :add-* entries are "armed creation" modes (click on the canvas places
-;; a part of the matching type).
-(def ^:private tools
-  [{:mode :select :label "Select"}
-   {:mode :connect :label "Connect"}
-   {:mode :add-unknown :label "Unknown"}
+;; Tool selector — drives the canvas mode. Two groups, rendered as separate
+;; `.join` button strips with a small gap between them:
+;; - `mode-tools` change *how* the canvas responds (Select / Connect),
+;;   shown as icon-only Lucide glyphs with text via tooltip.
+;; - `part-tools` are "armed creation" modes; clicking the canvas places a
+;;   part of the matching type. Kept as text labels — Part shapes have
+;;   their own visual identity in the canvas, no need to add tool icons.
+(def ^:private mode-tools
+  [{:mode :select :icon MousePointer2 :tooltip "Select"}
+   {:mode :connect :icon Spline :tooltip "Connect"}])
+
+(def ^:private part-tools
+  [{:mode :add-unknown :label "Unknown"}
    {:mode :add-exile :label "Exile"}
    {:mode :add-firefighter :label "Firefighter"}
    {:mode :add-manager :label "Manager"}])
@@ -202,13 +208,18 @@
                     ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))))
              ($ Panel {:position (if minimal "top-left" "top-center")
                        :class    "toolbar shadow-xs"}
-                ($ :div {:class "join"}
-                   (map (fn [{:keys [mode label]}]
-                          ($ button {:key      (name mode)
-                                     :label    label
-                                     :on-click #(set-tool-mode mode)
-                                     :active?  (= tool-mode mode)}))
-                        tools)))
+                ($ :div {:class "flex gap-2"}
+                   (for [group [mode-tools part-tools]]
+                     ($ :div {:key   (-> group first :mode name)
+                              :class "join"}
+                        (map (fn [{:keys [mode label icon tooltip]}]
+                               ($ button {:key      (name mode)
+                                          :label    label
+                                          :icon     (when icon ($ icon {:size 16}))
+                                          :tooltip  tooltip
+                                          :on-click #(set-tool-mode mode)
+                                          :active?  (= tool-mode mode)}))
+                             group)))))
              ($ Panel {:position "top-right" :className "sidebar-container"}
                 ($ sidebar))
              (when-not minimal
