@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.components.system
   (:require
-   ["@xyflow/react" :refer [Background Controls MiniMap Panel ReactFlow]]
+   ["@xyflow/react" :refer [Background ConnectionMode Controls MiniMap Panel
+                            ReactFlow ReactFlowProvider useReactFlow]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
@@ -12,91 +13,120 @@
    [uix.core :refer [$ defui use-callback use-effect]]
    [uix.re-frame :as uix.rf]))
 
-(defui system []
-  (let [demo                (uix.rf/use-subscribe [:demo])
-        minimal             (uix.rf/use-subscribe [:minimal-demo])
-        system-id           (uix.rf/use-subscribe [:system/id])
-        parts               (uix.rf/use-subscribe [:system/parts])
-        relationships       (uix.rf/use-subscribe [:system/relationships])
-        selected-node-ids   (uix.rf/use-subscribe [:ui/selected-node-ids])
-        selected-edge-ids   (uix.rf/use-subscribe [:ui/selected-edge-ids])
-        tool-mode           (uix.rf/use-subscribe [:ui/tool-mode])
-        nodes               (adapter/parts->nodes parts selected-node-ids)
-        edges               (adapter/relationships->edges relationships selected-edge-ids)
+;; Tool selector — drives the canvas mode. The order here is the toolbar's
+;; left-to-right rendering order. :select and :connect are interaction modes;
+;; the :add-* entries are "armed creation" modes (click on the canvas places
+;; a part of the matching type).
+(def ^:private tools
+  [{:mode :select :label "Select"}
+   {:mode :connect :label "Connect"}
+   {:mode :add-unknown :label "Unknown"}
+   {:mode :add-exile :label "Exile"}
+   {:mode :add-firefighter :label "Firefighter"}
+   {:mode :add-manager :label "Manager"}])
 
-        dispatch-intent     (use-callback
-                             (fn [intent]
-                               (case (:intent intent)
-                                 :part-position-frame
-                                 (rf/dispatch [:system/part-update-position
-                                               (:id intent)
-                                               (:position intent)])
+(def ^:private add-mode->part-type
+  {:add-unknown     "unknown"
+   :add-exile       "exile"
+   :add-firefighter "firefighter"
+   :add-manager     "manager"})
 
-                                 :part-moved
-                                 (rf/dispatch [:system/part-finish-position-change
-                                               (:id intent)
-                                               (:position intent)])
+(defn- non-input-target?
+  "True unless the keydown originated inside a form input. Lets V/C/Esc
+   not steal keystrokes from the sidebar's relationship/notes editors."
+  [^js event]
+  (let [tag (.. event -target -tagName)]
+    (not (or (= "INPUT" tag) (= "TEXTAREA" tag)))))
 
-                                 :part-selected
-                                 (rf/dispatch [:selection/toggle-node
-                                               (:id intent)
-                                               (:selected? intent)])
+(defui system-canvas []
+  (let [demo              (uix.rf/use-subscribe [:demo])
+        minimal           (uix.rf/use-subscribe [:minimal-demo])
+        system-id         (uix.rf/use-subscribe [:system/id])
+        parts             (uix.rf/use-subscribe [:system/parts])
+        relationships     (uix.rf/use-subscribe [:system/relationships])
+        selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
+        selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
+        tool-mode         (uix.rf/use-subscribe [:ui/tool-mode])
+        nodes             (adapter/parts->nodes parts selected-node-ids)
+        edges             (adapter/relationships->edges relationships selected-edge-ids)
+        rf-instance       (useReactFlow)
 
-                                 :part-removed
-                                 (do (o/track "Part deleted" {:demo demo})
-                                     (rf/dispatch [:system/part-remove (:id intent)]))
+        set-tool-mode     (use-callback
+                           (fn [mode] (rf/dispatch [:ui/tool-mode-set mode]))
+                           [])
 
-                                 :relationship-selected
-                                 (rf/dispatch [:selection/toggle-edge
-                                               (:id intent)
-                                               (:selected? intent)])
+        dispatch-intent   (use-callback
+                           (fn [intent]
+                             (case (:intent intent)
+                               :part-position-frame
+                               (rf/dispatch [:system/part-update-position
+                                             (:id intent)
+                                             (:position intent)])
 
-                                 :relationship-removed
-                                 (do (o/track "Relationship deleted" {:demo demo})
-                                     (rf/dispatch [:system/relationship-remove (:id intent)]))
+                               :part-moved
+                               (rf/dispatch [:system/part-finish-position-change
+                                             (:id intent)
+                                             (:position intent)])
 
-                                 :relationship-connected
-                                 (do (o/track "Relationship created" {:demo demo})
-                                     (rf/dispatch [:system/relationship-create
-                                                   (select-keys intent [:source_id :target_id])]))
+                               :part-selected
+                               (rf/dispatch [:selection/toggle-node
+                                             (:id intent)
+                                             (:selected? intent)])
 
-                                 (o/warn "system.dispatch-intent" "unknown intent" intent)))
-                             [demo])
+                               :part-removed
+                               (do (o/track "Part deleted" {:demo demo})
+                                   (rf/dispatch [:system/part-remove (:id intent)]))
 
-        on-nodes-change     (use-callback
-                             (fn [changes]
-                               (o/debug "system.on-nodes-change" "nodes changed" changes)
-                               (run! dispatch-intent
-                                     (adapter/translate-nodes-change changes)))
-                             [dispatch-intent])
+                               :relationship-selected
+                               (rf/dispatch [:selection/toggle-edge
+                                             (:id intent)
+                                             (:selected? intent)])
 
-        on-edges-change     (use-callback
-                             (fn [changes]
-                               (o/debug "system.on-edges-change" "edges changed" changes)
-                               (run! dispatch-intent
-                                     (adapter/translate-edges-change changes)))
-                             [dispatch-intent])
+                               :relationship-removed
+                               (do (o/track "Relationship deleted" {:demo demo})
+                                   (rf/dispatch [:system/relationship-remove (:id intent)]))
 
-        on-connect          (use-callback
-                             (fn [connection]
-                               (o/debug "system.on-connect" "connection created" connection)
-                               (dispatch-intent (adapter/translate-connect connection)))
-                             [dispatch-intent])
+                               :relationship-connected
+                               (do (o/track "Relationship created" {:demo demo})
+                                   (rf/dispatch [:system/relationship-create
+                                                 (select-keys intent [:source_id :target_id])]))
 
-        ;; FIXME: We might need to remove this in order to properly handle
-        ;; selection by dragging. When this callback is set, dragging does not
-        ;; select any edges, for reasons yet unclear.
-        ;; on-selection-change (use-callback
-        ;;                      (fn [selection]
-        ;;                        (o/debug "system.on-selection-change" "selection changed" selection)
-        ;;                        (let [sel (js->clj selection :keywordize-keys true)]
-        ;;                          (rf/dispatch [:selection/set sel])))
-        ;;                      [])
+                               (o/warn "system.dispatch-intent" "unknown intent" intent)))
+                           [demo])
 
-        create-part-by-type (fn [type]
-                              (o/debug "system.create-part-by-type" "creating part" type)
-                              (o/track "Part created" {:type type :demo demo})
-                              (rf/dispatch [:system/part-create {:type type}]))]
+        on-nodes-change   (use-callback
+                           (fn [changes]
+                             (o/debug "system.on-nodes-change" "nodes changed" changes)
+                             (run! dispatch-intent
+                                   (adapter/translate-nodes-change changes)))
+                           [dispatch-intent])
+
+        on-edges-change   (use-callback
+                           (fn [changes]
+                             (o/debug "system.on-edges-change" "edges changed" changes)
+                             (run! dispatch-intent
+                                   (adapter/translate-edges-change changes)))
+                           [dispatch-intent])
+
+        on-connect        (use-callback
+                           (fn [connection]
+                             (o/debug "system.on-connect" "connection created" connection)
+                             (dispatch-intent (adapter/translate-connect connection)))
+                           [dispatch-intent])
+
+        on-pane-click     (use-callback
+                           (fn [^js event]
+                             (when-let [part-type (add-mode->part-type tool-mode)]
+                               (let [pos (.screenToFlowPosition
+                                          rf-instance
+                                          #js {:x (.-clientX event)
+                                               :y (.-clientY event)})]
+                                 (o/track "Part created" {:type part-type :demo demo})
+                                 (rf/dispatch [:system/part-create
+                                               {:type       part-type
+                                                :position_x (.-x pos)
+                                                :position_y (.-y pos)}]))))
+                           [tool-mode rf-instance demo])]
 
     (use-effect
      (fn []
@@ -108,6 +138,18 @@
            (queue/stop))))
      [system-id])
 
+    (use-effect
+     (fn []
+       (let [handler (fn [^js e]
+                       (when (non-input-target? e)
+                         (case (.-key e)
+                           ("v" "V" "Escape") (set-tool-mode :select)
+                           ("c" "C")          (set-tool-mode :connect)
+                           nil)))]
+         (.addEventListener js/document "keydown" handler)
+         (fn [] (.removeEventListener js/document "keydown" handler))))
+     [set-tool-mode])
+
     ($ :div {:class "system-container"}
        ($ :div {:class (cond-> "system-view"
                          minimal   (str " minimal")
@@ -117,9 +159,11 @@
                         :onNodesChange    on-nodes-change
                         :onEdgesChange    on-edges-change
                         :onConnect        on-connect
+                        :onPaneClick      on-pane-click
                         ;; :onSelectionChange on-selection-change
                         :nodeTypes        (clj->js node-types)
                         :edgeTypes        (clj->js edge-types)
+                        :connectionMode   (.-Loose ConnectionMode)
                         :nodesDraggable   (= tool-mode :select)
                         :zoomOnScroll     (not minimal)
                         :preventScrolling (not minimal)}
@@ -141,14 +185,12 @@
              ($ Panel {:position (if minimal "top-left" "top-center")
                        :class    "toolbar shadow-xs"}
                 ($ :div {:class "join"}
-                   ($ button {:label    "Unknown"
-                              :on-click #(create-part-by-type "unknown")})
-                   ($ button {:label    "Exile"
-                              :on-click #(create-part-by-type "exile")})
-                   ($ button {:label    "Firefighter"
-                              :on-click #(create-part-by-type "firefighter")})
-                   ($ button {:label    "Manager"
-                              :on-click #(create-part-by-type "manager")})))
+                   (map (fn [{:keys [mode label]}]
+                          ($ button {:key      (name mode)
+                                     :label    label
+                                     :on-click #(set-tool-mode mode)
+                                     :active?  (= tool-mode mode)}))
+                        tools)))
              ($ Panel {:position "top-right" :className "sidebar-container"}
                 ($ sidebar))
              (when-not minimal
@@ -162,3 +204,7 @@
                ($ Background {:variant "dots"
                               :gap     12
                               :size    1})))))))
+
+(defui system []
+  ($ ReactFlowProvider
+     ($ system-canvas)))
