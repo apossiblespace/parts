@@ -42,17 +42,35 @@
                 :position_x (get-in node [:position :x])
                 :position_y (get-in node [:position :y])})))
 
+;; Edge stroke colours per relationship type, used to colour the arrowhead
+;; marker. These must mirror the .edge-<type> rules in resources/styles/main.css
+;; so the marker fill matches the line stroke. Single source of truth in CLJS
+;; for now; collapse later if it drifts.
+(def ^:private relationship-colors
+  {"unknown"      "#999999"
+   "protective"   "#4caf50"
+   "polarization" "#f44336"
+   "alliance"     "#2196f3"
+   "burden"       "#ff9800"
+   "blended"      "#9c27b0"})
+
 (defn relationship->edge
   "Convert a Relationship to a ReactFlow edge"
   ([relationship] (relationship->edge relationship nil))
   ([{:keys [id source_id target_id notes type]} selected-ids]
-   #js {:id        id
-        :source    source_id
-        :target    target_id
-        :selected  (when selected-ids (contains? selected-ids id))
-        :data      #js {:relationship (name type)
-                        :notes        notes}
-        :className (str "edge-" (name type))}))
+   (let [type-name (name type)
+         color     (get relationship-colors type-name "#999999")]
+     #js {:id        id
+          :source    source_id
+          :target    target_id
+          :selected  (when selected-ids (contains? selected-ids id))
+          :data      #js {:relationship type-name
+                          :notes        notes}
+          :className (str "edge-" type-name)
+          :markerEnd #js {:type   "arrowclosed"
+                          :color  color
+                          :width  18
+                          :height 18}})))
 
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges.

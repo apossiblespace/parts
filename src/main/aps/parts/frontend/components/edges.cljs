@@ -1,61 +1,108 @@
 (ns aps.parts.frontend.components.edges
   (:require
-   ["@xyflow/react" :refer [BaseEdge getBezierPath]]
+   ["@xyflow/react" :refer [BaseEdge Position
+                            getBezierPath useInternalNode]]
    [uix.core :refer [$ as-react defui]]))
 
-;; TODO: This is WIP, we need to review all the props being passed here.
-(defui parts-edge [{:keys [id data source-x source-y target-x target-y source-position target-position]}]
-  (let [[edge-path] (getBezierPath #js {:sourceX        source-x
-                                        :sourceY        source-y
-                                        :targetX        target-x
-                                        :targetY        target-y
-                                        :sourcePosition source-position
-                                        :targetPosition target-position})
-        class-name  (str "edge edge-" (:relationship data))]
-    ($ BaseEdge {:path      edge-path
-                 :className class-name
-                 :id        id})))
+(defn- node-intersection
+  "Return the {:x :y} point on the border of `intersection-node` where the
+   straight line from the centre of `other-node` to the centre of
+   `intersection-node` crosses the border.
 
-;; Props received by an Edge component:
-;;
-;; export type EdgeProps<EdgeType extends Edge = Edge> = {
-;;   id: string;
-;;   animated: boolean;
-;;   data: EdgeType['data'];
-;;   style: React.CSSProperties;
-;;   selected: boolean;
-;;   source: string;
-;;   target: string;
-;;   sourceHandleId?: string | null;
-;;   targetHandleId?: string | null;
-;;   interactionWidth: number;
-;;   sourceX: number;
-;;   sourceY: number;
-;;   targetX: number;
-;;   targetY: number;
-;;   sourcePosition: Position;
-;;   targetPosition: Position;
-;;   label?: string | React.ReactNode;
-;;   labelStyle?: React.CSSProperties;
-;;   labelShowBg?: boolean;
-;;   labelBgStyle?: CSSProperties;
-;;   labelBgPadding?: [number, number];
-;;   labelBgBorderRadius?: number;
-;;   markerStart?: string;
-;;   markerEnd?: string;
-;;   pathOptions?: any;
-;; };
+   Both nodes are React Flow internal nodes:
+     (.. node -internals -positionAbsolute) -> #js {:x :y}   (top-left)
+     (.. node -measured -width)              -> number
+     (.. node -measured -height)             -> number
+
+   Used to make edges 'float' to a node's nearest visible border point
+   rather than binding to a fixed top/bottom handle.
+
+   Algorithm (from the React Flow floating-edges example): normalise the
+   centre-to-centre vector against the rectangle's half-extents, then map
+   the unit vector onto the border. Compact but opaque — see the linked
+   example for derivation."
+  [^js intersection-node ^js other-node]
+  (let [i-pos (.. intersection-node -internals -positionAbsolute)
+        i-w   (.. intersection-node -measured -width)
+        i-h   (.. intersection-node -measured -height)
+        o-pos (.. other-node -internals -positionAbsolute)
+        o-w   (.. other-node -measured -width)
+        o-h   (.. other-node -measured -height)
+        w     (/ i-w 2)
+        h     (/ i-h 2)
+        x2    (+ (.-x i-pos) w)
+        y2    (+ (.-y i-pos) h)
+        x1    (+ (.-x o-pos) (/ o-w 2))
+        y1    (+ (.-y o-pos) (/ o-h 2))
+        xx1   (- (/ (- x1 x2) (* 2 w)) (/ (- y1 y2) (* 2 h)))
+        yy1   (+ (/ (- x1 x2) (* 2 w)) (/ (- y1 y2) (* 2 h)))
+        a     (/ 1 (+ (Math/abs xx1) (Math/abs yy1)))
+        xx3   (* a xx1)
+        yy3   (* a yy1)]
+    {:x (+ (* w (+ xx3 yy3)) x2)
+     :y (+ (* h (+ (- xx3) yy3)) y2)}))
+
+(defn- edge-side
+  "Classify which side of `node` an intersection point `{:x :y}` lies on.
+   Returns one of Position/Top, Position/Right, Position/Bottom, Position/Left."
+  [^js node {:keys [x y]}]
+  (let [pos    (.. node -internals -positionAbsolute)
+        nx     (.-x pos)
+        ny     (.-y pos)
+        width  (.. node -measured -width)
+        height (.. node -measured -height)
+        px     (Math/round x)
+        py     (Math/round y)]
+    (cond
+      (<= px (inc nx))            (.-Left Position)
+      (>= px (dec (+ nx width)))  (.-Right Position)
+      (<= py (inc ny))            (.-Top Position)
+      (>= py (dec (+ ny height))) (.-Bottom Position)
+      :else                       (.-Top Position))))
+
+(defn- floating-edge-params
+  "Compute floating endpoint coordinates and side-positions for an edge
+   between two measured React Flow nodes."
+  [^js source-node ^js target-node]
+  (let [s (node-intersection source-node target-node)
+        t (node-intersection target-node source-node)]
+    {:sx         (:x s)
+     :sy         (:y s)
+     :tx         (:x t)
+     :ty         (:y t)
+     :source-pos (edge-side source-node s)
+     :target-pos (edge-side target-node t)}))
+
+(defn- bezier-path
+  [{:keys [sx sy tx ty source-pos target-pos]}]
+  (first (getBezierPath #js {:sourceX        sx
+                             :sourceY        sy
+                             :targetX        tx
+                             :targetY        ty
+                             :sourcePosition source-pos
+                             :targetPosition target-pos})))
+
+(defui parts-edge [{:keys [id data source-id target-id marker-end]}]
+  (let [source-node (useInternalNode source-id)
+        target-node (useInternalNode target-id)
+        rel-type    (:relationship data)]
+    (when (and source-node target-node
+               (.-measured source-node) (.-measured target-node))
+      (let [params     (floating-edge-params source-node target-node)
+            class-name (str "edge edge-" rel-type)]
+        ($ BaseEdge {:path      (bezier-path params)
+                     :className class-name
+                     :id        id
+                     :markerEnd marker-end})))))
+
 (def PartsEdge
   (as-react
-   (fn [{:keys [id data sourceX sourceY targetX targetY sourcePosition targetPosition]}]
-     ($ parts-edge {:id              id
-                    :data            (js->clj data :keywordize-keys true)
-                    :source-x        sourceX
-                    :source-y        sourceY
-                    :target-x        targetX
-                    :target-y        targetY
-                    :source-position sourcePosition
-                    :target-position targetPosition}))))
+   (fn [{:keys [id data source target markerEnd]}]
+     ($ parts-edge {:id         id
+                    :data       (js->clj data :keywordize-keys true)
+                    :source-id  source
+                    :target-id  target
+                    :marker-end markerEnd}))))
 
 (def edge-types
   {"default" PartsEdge})
