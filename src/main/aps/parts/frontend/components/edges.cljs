@@ -135,3 +135,43 @@
 
 (def edge-types
   #js {:default PartsEdge})
+
+;; -- Connection preview line --------------------------------------------
+;; While the user drags from one node to another in Connect mode, ReactFlow
+;; renders a "connection line" preview. Default is a straight Bezier from
+;; the source handle to the cursor; we want it to match the floating-edge
+;; shape — same source-border intersection and same Bezier curvature so the
+;; preview previews what will land.
+
+(defn- opposite-position [pos]
+  (condp = pos
+    (.-Top Position)    (.-Bottom Position)
+    (.-Bottom Position) (.-Top Position)
+    (.-Left Position)   (.-Right Position)
+    (.-Right Position)  (.-Left Position)
+    (.-Bottom Position)))
+
+(defui parts-connection-line [{:keys [from-node to-x to-y]}]
+  (when (and from-node (.-measured from-node))
+    (let [cursor-node #js {:internals #js {:positionAbsolute #js {:x to-x :y to-y}}
+                           :measured  #js {:width 0 :height 0}}
+          from-point  (node-intersection from-node cursor-node)
+          source-pos  (edge-side from-node from-point)
+          path        (bezier-path {:sx         (:x from-point)
+                                    :sy         (:y from-point)
+                                    :tx         to-x
+                                    :ty         to-y
+                                    :source-pos source-pos
+                                    :target-pos (opposite-position source-pos)})]
+      ($ :path {:d         path
+                :className "react-flow__connection-path"
+                :style     #js {:stroke      "#999999"
+                                :strokeWidth 1.5
+                                :fill        "none"}}))))
+
+(def PartsConnectionLine
+  (as-react
+   (fn [{:keys [fromNode toX toY]}]
+     ($ parts-connection-line {:from-node fromNode
+                               :to-x      toX
+                               :to-y      toY}))))

@@ -5,7 +5,7 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
-   [aps.parts.frontend.components.edges :refer [edge-types]]
+   [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
@@ -172,18 +172,19 @@
        ($ :div {:class (cond-> "system-view"
                          minimal   (str " minimal")
                          tool-mode (str " mode-" (name tool-mode)))}
-          ($ ReactFlow {:nodes            nodes
-                        :edges            edges
-                        :onNodesChange    on-nodes-change
-                        :onEdgesChange    on-edges-change
-                        :onConnect        on-connect
-                        :onPaneClick      on-pane-click
+          ($ ReactFlow {:nodes                   nodes
+                        :edges                   edges
+                        :onNodesChange           on-nodes-change
+                        :onEdgesChange           on-edges-change
+                        :onConnect               on-connect
+                        :onPaneClick             on-pane-click
                         ;; :onSelectionChange on-selection-change
-                        :nodeTypes        node-types
-                        :edgeTypes        edge-types
-                        :nodesDraggable   (= tool-mode :select)
-                        :zoomOnScroll     (not minimal)
-                        :preventScrolling (not minimal)}
+                        :nodeTypes               node-types
+                        :edgeTypes               edge-types
+                        :connectionLineComponent PartsConnectionLine
+                        :nodesDraggable          (= tool-mode :select)
+                        :zoomOnScroll            (not minimal)
+                        :preventScrolling        (not minimal)}
              ($ Controls)
              (when-not minimal
                ($ Panel {:position "top-left" :class "logo"}
