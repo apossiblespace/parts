@@ -151,6 +151,24 @@
      [set-tool-mode])
 
     ($ :div {:class "system-container"}
+       ;; Single SVG marker definition for every edge arrowhead.
+       ;; fill="context-stroke" makes the marker fill inherit the
+       ;; referencing path's stroke colour — so the .edge-<type> CSS
+       ;; rules drive both the line and the arrowhead.
+       ($ :svg {:width  0
+                :height 0
+                :style  #js {:position "absolute"}}
+          ($ :defs
+             ($ :marker {:id           "edge-arrow"
+                         :viewBox      "0 0 10 10"
+                         :refX         9
+                         :refY         5
+                         :markerUnits  "strokeWidth"
+                         :markerWidth  6
+                         :markerHeight 6
+                         :orient       "auto-start-reverse"}
+                ($ :path {:d    "M 0 0 L 10 5 L 0 10 z"
+                          :fill "context-stroke"}))))
        ($ :div {:class (cond-> "system-view"
                          minimal   (str " minimal")
                          tool-mode (str " mode-" (name tool-mode)))}

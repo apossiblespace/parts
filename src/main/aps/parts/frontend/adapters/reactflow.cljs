@@ -42,18 +42,6 @@
                 :position_x (get-in node [:position :x])
                 :position_y (get-in node [:position :y])})))
 
-;; Edge stroke colours per relationship type, used to colour the arrowhead
-;; marker. These must mirror the .edge-<type> rules in resources/styles/main.css
-;; so the marker fill matches the line stroke. Single source of truth in CLJS
-;; for now; collapse later if it drifts.
-(def ^:private relationship-colors
-  {"unknown"      "#999999"
-   "protective"   "#4caf50"
-   "polarization" "#f44336"
-   "alliance"     "#2196f3"
-   "burden"       "#ff9800"
-   "blended"      "#9c27b0"})
-
 ;; Handle ids used by the easy-connect pattern. Both nodes.cljs (Handle :id)
 ;; and the edge construction below must agree — if these drift, ReactFlow's
 ;; connectionLookup collides keys for bidirectional pairs and drag-select
@@ -74,8 +62,7 @@
    its own O(N) reverse-sibling scan per render."
   ([relationship] (relationship->edge relationship nil false))
   ([{:keys [id source_id target_id notes type]} selected-id-set bidir?]
-   (let [type-name (name type)
-         color     (get relationship-colors type-name "#999999")]
+   (let [type-name (name type)]
      #js {:id           id
           :source       source_id
           :sourceHandle source-handle-id
@@ -86,10 +73,10 @@
                              :notes        notes
                              :bidir        bidir?}
           :className    (str "edge-" type-name)
-          :markerEnd    #js {:type   "arrowclosed"
-                             :color  color
-                             :width  18
-                             :height 18}})))
+          ;; ReactFlow's EdgeWrapper wraps `:markerEnd` in `url('#...')`
+          ;; itself, so we pass just the bare marker id. Passing the
+          ;; already-wrapped form yields `url('#url(#edge-arrow)')`.
+          :markerEnd    "edge-arrow"})))
 
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges.

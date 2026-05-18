@@ -39,6 +39,17 @@
     --ifs-green: #4eb48a;
     --ifs-yellow: #d3be2a;
     --ifs-orange: #faae17;
+
+    /* Per-relationship edge colours. Single source of truth — both the
+       SVG path stroke (.edge-* selectors) and the JS arrowhead-marker
+       fill read these. */
+    --edge-color-unknown:      #999999;
+    --edge-color-protective:   #4caf50;
+    --edge-color-polarization: #f44336;
+    --edge-color-alliance:     #2196f3;
+    --edge-color-burden:       #ff9800;
+    --edge-color-blended:      #9c27b0;
+
     scroll-behavior: smooth;
 }
 
@@ -183,30 +194,15 @@ a.btn {
             }
         }
 
-        /* Custom edge styles based on relationship */
-        .edge-unknown {
-            stroke: #999999;
-        }
-
-        .edge-protective {
-            stroke: #4caf50;
-        }
-
-        .edge-polarization {
-            stroke: #f44336;
-        }
-
-        .edge-alliance {
-            stroke: #2196f3;
-        }
-
-        .edge-burden {
-            stroke: #ff9800;
-        }
-
-        .edge-blended {
-            stroke: #9c27b0;
-        }
+        /* Custom edge styles per relationship type.
+           Colours live on :root (below) so JS can read them via
+           getComputedStyle and the arrowhead marker matches. */
+        .edge-unknown      { stroke: var(--edge-color-unknown); }
+        .edge-protective   { stroke: var(--edge-color-protective); }
+        .edge-polarization { stroke: var(--edge-color-polarization); }
+        .edge-alliance     { stroke: var(--edge-color-alliance); }
+        .edge-burden       { stroke: var(--edge-color-burden); }
+        .edge-blended      { stroke: var(--edge-color-blended); }
 
         .node-wrapper {
             padding: 0.5rem;
