@@ -1,8 +1,14 @@
 (ns aps.parts.frontend.components.edges
   (:require
    ["@xyflow/react" :refer [BaseEdge Position
-                            getBezierPath useInternalNode]]
+                            getBezierPath useInternalNode useStore]]
    [uix.core :refer [$ as-react defui]]))
+
+(def ^:private bow-offset-px
+  "Perpendicular distance each edge in a bidirectional pair is bowed off
+   the straight chord. Both edges use the same sign — opposite chord
+   vectors flip the perpendicular for free."
+  50)
 
 (defn- node-intersection
   "Return the {:x :y} point on the border of `intersection-node` where the
@@ -82,15 +88,47 @@
                              :sourcePosition source-pos
                              :targetPosition target-pos})))
 
+(defn- quadratic-path
+  "Build a quadratic SVG path from (sx,sy) to (tx,ty) bowed perpendicular
+   to the chord by `offset` pixels. Used for bidirectional pairs so the
+   two opposing edges don't draw on top of each other."
+  [{:keys [sx sy tx ty]} offset]
+  (let [mx  (/ (+ sx tx) 2)
+        my  (/ (+ sy ty) 2)
+        dx  (- tx sx)
+        dy  (- ty sy)
+        len (Math/sqrt (+ (* dx dx) (* dy dy)))
+        ;; Perpendicular unit vector (chord rotated 90° CCW). The two edges
+        ;; of a bidirectional pair have opposite chord vectors, so they
+        ;; naturally get opposite perpendiculars — same offset sign for both.
+        nx  (if (zero? len) 0 (/ (- dy) len))
+        ny  (if (zero? len) 0 (/ dx len))
+        cx  (+ mx (* offset nx))
+        cy  (+ my (* offset ny))]
+    (str "M" sx "," sy " Q" cx "," cy " " tx "," ty)))
+
+(defn- has-reverse-edge?
+  "Return true if the edges store contains any edge whose source/target
+   are the reverse of the given pair. Used to decide whether to bow."
+  [^js state source-id target-id]
+  (boolean (some #(and (= (.-source %) target-id)
+                       (= (.-target %) source-id))
+                 (.-edges state))))
+
 (defui parts-edge [{:keys [id data source-id target-id marker-end]}]
   (let [source-node (useInternalNode source-id)
         target-node (useInternalNode target-id)
-        rel-type    (:relationship data)]
+        rel-type    (:relationship data)
+        bidir?      (useStore (fn [^js state]
+                                (has-reverse-edge? state source-id target-id)))]
     (when (and source-node target-node
                (.-measured source-node) (.-measured target-node))
       (let [params     (floating-edge-params source-node target-node)
-            class-name (str "edge edge-" rel-type)]
-        ($ BaseEdge {:path      (bezier-path params)
+            class-name (str "edge edge-" rel-type)
+            path       (if bidir?
+                         (quadratic-path params bow-offset-px)
+                         (bezier-path params))]
+        ($ BaseEdge {:path      path
                      :className class-name
                      :id        id
                      :markerEnd marker-end})))))
