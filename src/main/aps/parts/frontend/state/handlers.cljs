@@ -182,15 +182,14 @@
          new-relationship (make-relationship (merge {:system_id system-id} attrs))]
      (if (relationship/can-connect? relationships
                                     (:source_id new-relationship)
-                                    (:target_id new-relationship)
-                                    (:type new-relationship))
+                                    (:target_id new-relationship))
        {:db              (add-relationship db new-relationship)
         :queue/add-event (ce/relationship-create
                           (:id new-relationship)
                           (select-keys new-relationship [:type :source_id :target_id]))}
        (do (o/info "handlers.relationship-create"
-                   "blocked duplicate (same source, target, type)"
-                   (select-keys new-relationship [:source_id :target_id :type]))
+                   "blocked duplicate (one relationship per ordered pair)"
+                   (select-keys new-relationship [:source_id :target_id]))
            {})))))
 
 (rf/reg-event-fx

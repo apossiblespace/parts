@@ -67,25 +67,23 @@
               {:source_id s :target_id t :type type})]
 
     (testing "Empty relationships always permit a new connection"
-      (is (relationship/can-connect? [] a b "unknown")))
+      (is (relationship/can-connect? [] a b)))
 
     (testing "Different source/target permitted"
-      (is (relationship/can-connect? [(rel a b "unknown")] a c "unknown")))
+      (is (relationship/can-connect? [(rel a b "unknown")] a c)))
 
     (testing "Reverse direction permitted — A->B + B->A is the motivating case"
-      (is (relationship/can-connect? [(rel a b "protective")] b a "polarization"))
-      (is (relationship/can-connect? [(rel a b "unknown")]    b a "unknown")))
+      (is (relationship/can-connect? [(rel a b "protective")] b a))
+      (is (relationship/can-connect? [(rel a b "unknown")]    b a)))
 
-    (testing "Different type between the same pair permitted"
-      (is (relationship/can-connect? [(rel a b "protective")] a b "polarization")))
+    (testing "Self-loops permitted on empty / on unrelated edges"
+      (is (relationship/can-connect? [] a a))
+      (is (relationship/can-connect? [(rel a b "unknown")] a a)))
 
-    (testing "Self-loops permitted"
-      (is (relationship/can-connect? [] a a "burden"))
-      (is (relationship/can-connect? [(rel a b "unknown")] a a "unknown")))
+    (testing "Same source/target blocked regardless of existing type"
+      (is (not (relationship/can-connect? [(rel a b "unknown")]    a b)))
+      (is (not (relationship/can-connect? [(rel a b "protective")] a b)))
+      (is (not (relationship/can-connect? [(rel a b "burden")]     a b))))
 
-    (testing "Same source, target and type is blocked"
-      (is (not (relationship/can-connect? [(rel a b "unknown")] a b "unknown")))
-      (is (not (relationship/can-connect? [(rel a b "protective")] a b "protective"))))
-
-    (testing "Duplicate self-loop of the same type blocked"
-      (is (not (relationship/can-connect? [(rel a a "burden")] a a "burden"))))))
+    (testing "Duplicate self-loop blocked"
+      (is (not (relationship/can-connect? [(rel a a "burden")] a a))))))

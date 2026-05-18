@@ -55,16 +55,13 @@
   (validate-spec ::relationship-update attrs))
 
 (defn can-connect?
-  "Return true if a new Relationship with the given source/target/type can be
-   added to `relationships` without creating a same-direction same-type
-   duplicate. Allows: reverse direction (A->B with B->A), different types
-   between the same pair, and self-loops (A->A). Blocks only the exact
-   (source_id, target_id, type) triple already present."
-  [relationships source-id target-id type]
+  "Return true if a new Relationship from `source-id` to `target-id` can be
+   added to `relationships`. Blocks any duplicate (source_id, target_id) —
+   only one relationship is allowed per ordered pair. Reverse direction
+   (A->B alongside B->A) and self-loops (A->A) stay allowed."
+  [relationships source-id target-id]
   (not-any? (fn [{existing-source :source_id
-                  existing-target :target_id
-                  existing-type   :type}]
+                  existing-target :target_id}]
               (and (= existing-source source-id)
-                   (= existing-target target-id)
-                   (= existing-type type)))
+                   (= existing-target target-id)))
             relationships))
