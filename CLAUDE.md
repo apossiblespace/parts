@@ -25,6 +25,7 @@ GitHub Actions workflows use Nix for consistency with local development:
 - Work autonomously in small, testable increments
 - Run targeted tests, and lint continuously during development
 - Prioritise understanding existing patterns before implementing
+- Prioritise simplicity; avoid over-engineering. If you can deliver ~80% of the result with ~20% of the code or complexity, always surface that option before implementing the fuller version
 - Don't commit changes, leave it for the user to review and make commits
 
 ## Build & Test Commands
@@ -44,7 +45,7 @@ GitHub Actions workflows use Nix for consistency with local development:
 ## Code Style Guidelines
 - **Namespaces**: Use kebab-case (e.g., `parts.entity.user`)
 - **Functions**: Use kebab-case with clear descriptive names
-- **Docstrings**: Add docstrings to public functions explaining purpose and args
+- **Docstrings & comments**: Explanatory length is fine when the thing being explained is genuinely complex; what matters is plain, simple language. Avoid jargon where a plain word works; don't restate what the code already says
 - **Error handling**: Use `ex-info` with `:type` key for classification
 - **Testing**: Use fixtures when appropriate, name tests with `test-` prefix
 - **Formatting**: Follow cljfmt rules, 2-space indentation

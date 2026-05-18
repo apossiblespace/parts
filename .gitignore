@@ -52,6 +52,7 @@ resources/parts/version.txt
 # ------------------------
 # Include agentic workflows
 !CLAUDE.md
+!CONTEXT.md
 !.claude/agents
 !.mcp.json
 
