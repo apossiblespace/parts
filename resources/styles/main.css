@@ -218,6 +218,29 @@ a.btn {
             border-radius: 0.5em;
         }
 
+        /* Whole-node connect overlay. The two stacked Handles (source +
+           target) cover the node body so a drag from anywhere inside it
+           starts/completes a connection. pointer-events default to none
+           so Select-mode node dragging keeps working; the .mode-connect
+           rule below switches it on. */
+        .connect-handle.react-flow__handle {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            transform: none;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        &.mode-connect .connect-handle.react-flow__handle {
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
         .logo {
             margin-top: 1em;
             a {

@@ -20,6 +20,7 @@
         relationships       (uix.rf/use-subscribe [:system/relationships])
         selected-node-ids   (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids   (uix.rf/use-subscribe [:ui/selected-edge-ids])
+        tool-mode           (uix.rf/use-subscribe [:ui/tool-mode])
         nodes               (adapter/parts->nodes parts selected-node-ids)
         edges               (adapter/relationships->edges relationships selected-edge-ids)
 
@@ -108,9 +109,9 @@
      [system-id])
 
     ($ :div {:class "system-container"}
-       ($ :div {:class (if minimal
-                         "system-view minimal"
-                         "system-view")}
+       ($ :div {:class (cond-> "system-view"
+                         minimal   (str " minimal")
+                         tool-mode (str " mode-" (name tool-mode)))}
           ($ ReactFlow {:nodes            nodes
                         :edges            edges
                         :onNodesChange    on-nodes-change
@@ -119,6 +120,7 @@
                         ;; :onSelectionChange on-selection-change
                         :nodeTypes        (clj->js node-types)
                         :edgeTypes        (clj->js edge-types)
+                        :nodesDraggable   (= tool-mode :select)
                         :zoomOnScroll     (not minimal)
                         :preventScrolling (not minimal)}
              ($ Controls)
