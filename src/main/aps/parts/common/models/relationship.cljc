@@ -53,3 +53,18 @@
   "Validate a partial relationship update map. Any fields present must conform to their specs."
   [attrs]
   (validate-spec ::relationship-update attrs))
+
+(defn can-connect?
+  "Return true if a new Relationship with the given source/target/type can be
+   added to `relationships` without creating a same-direction same-type
+   duplicate. Allows: reverse direction (A->B with B->A), different types
+   between the same pair, and self-loops (A->A). Blocks only the exact
+   (source_id, target_id, type) triple already present."
+  [relationships source-id target-id type]
+  (not-any? (fn [{existing-source :source_id
+                  existing-target :target_id
+                  existing-type   :type}]
+              (and (= existing-source source-id)
+                   (= existing-target target-id)
+                   (= existing-type type)))
+            relationships))

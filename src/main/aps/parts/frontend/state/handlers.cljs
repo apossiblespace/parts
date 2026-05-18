@@ -3,7 +3,8 @@
    [aps.parts.common.change-event :as ce]
    [aps.parts.common.demo :as demo]
    [aps.parts.common.models.part :refer [make-part]]
-   [aps.parts.common.models.relationship :refer [make-relationship]]
+   [aps.parts.common.models.relationship :as relationship :refer [make-relationship]]
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as api-utils]
    [re-frame.core :as rf]))
 
@@ -177,11 +178,20 @@
  :system/relationship-create
  (fn [{:keys [db]} [_ attrs]]
    (let [system-id        (get-in db [:system :id])
+         relationships    (get-in db [:system :relationships])
          new-relationship (make-relationship (merge {:system_id system-id} attrs))]
-     {:db              (add-relationship db new-relationship)
-      :queue/add-event (ce/relationship-create
-                        (:id new-relationship)
-                        (select-keys new-relationship [:type :source_id :target_id]))})))
+     (if (relationship/can-connect? relationships
+                                    (:source_id new-relationship)
+                                    (:target_id new-relationship)
+                                    (:type new-relationship))
+       {:db              (add-relationship db new-relationship)
+        :queue/add-event (ce/relationship-create
+                          (:id new-relationship)
+                          (select-keys new-relationship [:type :source_id :target_id]))}
+       (do (o/info "handlers.relationship-create"
+                   "blocked duplicate (same source, target, type)"
+                   (select-keys new-relationship [:source_id :target_id :type]))
+           {})))))
 
 (rf/reg-event-fx
  :system/relationship-update

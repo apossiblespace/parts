@@ -58,3 +58,34 @@
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (relationship/validate-update {:notes "x" :system_id "sneaky"})))))
+
+(deftest can-connect?-test
+  (let [a   "part-a"
+        b   "part-b"
+        c   "part-c"
+        rel (fn [s t type]
+              {:source_id s :target_id t :type type})]
+
+    (testing "Empty relationships always permit a new connection"
+      (is (relationship/can-connect? [] a b "unknown")))
+
+    (testing "Different source/target permitted"
+      (is (relationship/can-connect? [(rel a b "unknown")] a c "unknown")))
+
+    (testing "Reverse direction permitted — A->B + B->A is the motivating case"
+      (is (relationship/can-connect? [(rel a b "protective")] b a "polarization"))
+      (is (relationship/can-connect? [(rel a b "unknown")]    b a "unknown")))
+
+    (testing "Different type between the same pair permitted"
+      (is (relationship/can-connect? [(rel a b "protective")] a b "polarization")))
+
+    (testing "Self-loops permitted"
+      (is (relationship/can-connect? [] a a "burden"))
+      (is (relationship/can-connect? [(rel a b "unknown")] a a "unknown")))
+
+    (testing "Same source, target and type is blocked"
+      (is (not (relationship/can-connect? [(rel a b "unknown")] a b "unknown")))
+      (is (not (relationship/can-connect? [(rel a b "protective")] a b "protective"))))
+
+    (testing "Duplicate self-loop of the same type blocked"
+      (is (not (relationship/can-connect? [(rel a a "burden")] a a "burden"))))))
