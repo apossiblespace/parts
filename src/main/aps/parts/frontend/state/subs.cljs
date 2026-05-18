@@ -53,6 +53,11 @@
    (get-in db [:ui :selected-edge-ids] [])))
 
 (rf/reg-sub
+ :ui/tool-mode
+ (fn [db _]
+   (get-in db [:ui :tool-mode] :select)))
+
+(rf/reg-sub
  :system/selected-parts
  :<- [:ui/selected-node-ids]
  :<- [:system/parts]

@@ -74,6 +74,11 @@
                       (conj current-ids edge-id))
                     (filterv #(not= edge-id %) current-ids)))))))
 
+(rf/reg-event-db
+ :ui/tool-mode-set
+ (fn [db [_ mode]]
+   (assoc-in db [:ui :tool-mode] mode)))
+
 ;; -- optimistic mutation helpers ------------------------------------------
 ;; Each :system/* handler below does the same two-beat: mutate :db optimistically,
 ;; then enqueue a change-event. These name the mutation half; the change-event
