@@ -6,12 +6,13 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
+   [aps.parts.frontend.components.delete-confirmation-modal :refer [delete-confirmation-modal]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-callback use-effect]]
+   [uix.core :refer [$ defui use-callback use-effect use-state]]
    [uix.re-frame :as uix.rf]))
 
 ;; Tool selector — drives the canvas mode. Two groups, rendered as separate
@@ -44,95 +45,160 @@
   (let [tag (.. event -target -tagName)]
     (not (or (= "INPUT" tag) (= "TEXTAREA" tag)))))
 
+(defn- plural [n one many] (if (= 1 n) one many))
+
+(defn- delete-prompt
+  "Given a non-nil pending-deletes map of `{:parts #{ids} :relationships #{ids}}`,
+   return the copy for the confirmation modal as
+   `{:title ... :body ... :confirm-label ...}`."
+  [{:keys [parts relationships]}]
+  (let [part-count (count parts)
+        rel-count  (count relationships)]
+    (cond
+      (and (pos? part-count) (pos? rel-count))
+      {:title         "Delete selection?"
+       :body          (str part-count " " (plural part-count "part" "parts")
+                           " and "
+                           rel-count " " (plural rel-count "connection" "connections")
+                           " will be removed from the map.")
+       :confirm-label "Delete"}
+
+      (pos? part-count)
+      {:title         (if (= 1 part-count)
+                        "Delete this part?"
+                        (str "Delete " part-count " parts?"))
+       :body          (plural part-count
+                              "It will be removed from the map, along with any connections to it."
+                              "They will be removed from the map, along with any connections to them.")
+       :confirm-label (plural part-count "Delete part" "Delete parts")}
+
+      :else
+      {:title         (if (= 1 rel-count)
+                        "Delete this connection?"
+                        (str "Delete " rel-count " connections?"))
+       :body          (plural rel-count
+                              "The link between these parts will be removed from the map."
+                              "These links will be removed from the map.")
+       :confirm-label (plural rel-count "Delete connection" "Delete connections")})))
+
 (defui system-canvas []
-  (let [demo              (uix.rf/use-subscribe [:demo])
-        minimal           (uix.rf/use-subscribe [:minimal-demo])
-        system-id         (uix.rf/use-subscribe [:system/id])
-        parts             (uix.rf/use-subscribe [:system/parts])
-        relationships     (uix.rf/use-subscribe [:system/relationships])
-        selected-node-ids (uix.rf/use-subscribe [:ui/selected-node-ids])
-        selected-edge-ids (uix.rf/use-subscribe [:ui/selected-edge-ids])
-        tool-mode         (uix.rf/use-subscribe [:ui/tool-mode])
-        nodes             (adapter/parts->nodes parts selected-node-ids)
-        edges             (adapter/relationships->edges relationships selected-edge-ids)
-        rf-instance       (useReactFlow)
+  (let [demo                  (uix.rf/use-subscribe [:demo])
+        minimal               (uix.rf/use-subscribe [:minimal-demo])
+        system-id             (uix.rf/use-subscribe [:system/id])
+        parts                 (uix.rf/use-subscribe [:system/parts])
+        relationships         (uix.rf/use-subscribe [:system/relationships])
+        selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
+        selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
+        tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
+        nodes                 (adapter/parts->nodes parts selected-node-ids)
+        edges                 (adapter/relationships->edges relationships selected-edge-ids)
+        rf-instance           (useReactFlow)
 
-        set-tool-mode     (use-callback
-                           (fn [mode] (rf/dispatch [:ui/tool-mode-set mode]))
-                           [])
+        set-tool-mode         (use-callback
+                               (fn [mode] (rf/dispatch [:ui/tool-mode-set mode]))
+                               [])
 
-        dispatch-intent   (use-callback
-                           (fn [intent]
-                             (case (:intent intent)
-                               :part-position-frame
-                               (rf/dispatch [:system/part-update-position
-                                             (:id intent)
-                                             (:position intent)])
+        [pending-deletes
+         set-pending-deletes] (use-state nil)
 
-                               :part-moved
-                               (rf/dispatch [:system/part-finish-position-change
-                                             (:id intent)
-                                             (:position intent)])
+        queue-delete          (use-callback
+                               (fn [entity-key id]
+                                 ;; Functional update so concurrent calls from
+                                 ;; onNodesChange + onEdgesChange (same Delete
+                                 ;; keypress, mixed selection) accumulate
+                                 ;; instead of clobbering.
+                                 (set-pending-deletes
+                                  (fn [prev]
+                                    (-> (or prev {:parts #{} :relationships #{}})
+                                        (update entity-key conj id)))))
+                               [])
 
-                               :part-selected
-                               (rf/dispatch [:selection/toggle-node
-                                             (:id intent)
-                                             (:selected? intent)])
+        cancel-delete         (use-callback
+                               (fn [] (set-pending-deletes nil))
+                               [])
 
-                               :part-removed
-                               (do (o/track "Part deleted" {:demo demo})
-                                   (rf/dispatch [:system/part-remove (:id intent)]))
+        confirm-delete        (use-callback
+                               (fn []
+                                 (let [{:keys [parts relationships]} pending-deletes]
+                                   (doseq [id parts]
+                                     (o/track "Part deleted" {:demo demo})
+                                     (rf/dispatch [:system/part-remove id]))
+                                   (doseq [id relationships]
+                                     (o/track "Relationship deleted" {:demo demo})
+                                     (rf/dispatch [:system/relationship-remove id]))
+                                   (set-pending-deletes nil)))
+                               [pending-deletes demo])
 
-                               :relationship-selected
-                               (rf/dispatch [:selection/toggle-edge
-                                             (:id intent)
-                                             (:selected? intent)])
+        dispatch-intent       (use-callback
+                               (fn [intent]
+                                 (case (:intent intent)
+                                   :part-position-frame
+                                   (rf/dispatch [:system/part-update-position
+                                                 (:id intent)
+                                                 (:position intent)])
 
-                               :relationship-removed
-                               (do (o/track "Relationship deleted" {:demo demo})
-                                   (rf/dispatch [:system/relationship-remove (:id intent)]))
+                                   :part-moved
+                                   (rf/dispatch [:system/part-finish-position-change
+                                                 (:id intent)
+                                                 (:position intent)])
 
-                               :relationship-connected
-                               (do (o/track "Relationship created" {:demo demo})
-                                   (rf/dispatch [:system/relationship-create
-                                                 (select-keys intent [:source_id :target_id])]))
+                                   :part-selected
+                                   (rf/dispatch [:selection/toggle-node
+                                                 (:id intent)
+                                                 (:selected? intent)])
 
-                               (o/warn "system.dispatch-intent" "unknown intent" intent)))
-                           [demo])
+                                   :part-removed
+                                   (queue-delete :parts (:id intent))
 
-        on-nodes-change   (use-callback
-                           (fn [changes]
-                             (o/debug "system.on-nodes-change" "nodes changed" changes)
-                             (run! dispatch-intent
-                                   (adapter/translate-nodes-change changes)))
-                           [dispatch-intent])
+                                   :relationship-selected
+                                   (rf/dispatch [:selection/toggle-edge
+                                                 (:id intent)
+                                                 (:selected? intent)])
 
-        on-edges-change   (use-callback
-                           (fn [changes]
-                             (o/debug "system.on-edges-change" "edges changed" changes)
-                             (run! dispatch-intent
-                                   (adapter/translate-edges-change changes)))
-                           [dispatch-intent])
+                                   :relationship-removed
+                                   (queue-delete :relationships (:id intent))
 
-        on-connect        (use-callback
-                           (fn [connection]
-                             (o/debug "system.on-connect" "connection created" connection)
-                             (dispatch-intent (adapter/translate-connect connection)))
-                           [dispatch-intent])
+                                   :relationship-connected
+                                   (do (o/track "Relationship created" {:demo demo})
+                                       (rf/dispatch [:system/relationship-create
+                                                     (select-keys intent [:source_id :target_id])]))
 
-        on-pane-click     (use-callback
-                           (fn [^js event]
-                             (when-let [part-type (add-mode->part-type tool-mode)]
-                               (let [pos (.screenToFlowPosition
-                                          rf-instance
-                                          #js {:x (.-clientX event)
-                                               :y (.-clientY event)})]
-                                 (o/track "Part created" {:type part-type :demo demo})
-                                 (rf/dispatch [:system/part-create
-                                               {:type       part-type
-                                                :position_x (.-x pos)
-                                                :position_y (.-y pos)}]))))
-                           [tool-mode rf-instance demo])]
+                                   (o/warn "system.dispatch-intent" "unknown intent" intent)))
+                               [demo queue-delete])
+
+        on-nodes-change       (use-callback
+                               (fn [changes]
+                                 (o/debug "system.on-nodes-change" "nodes changed" changes)
+                                 (run! dispatch-intent
+                                       (adapter/translate-nodes-change changes)))
+                               [dispatch-intent])
+
+        on-edges-change       (use-callback
+                               (fn [changes]
+                                 (o/debug "system.on-edges-change" "edges changed" changes)
+                                 (run! dispatch-intent
+                                       (adapter/translate-edges-change changes)))
+                               [dispatch-intent])
+
+        on-connect            (use-callback
+                               (fn [connection]
+                                 (o/debug "system.on-connect" "connection created" connection)
+                                 (dispatch-intent (adapter/translate-connect connection)))
+                               [dispatch-intent])
+
+        on-pane-click         (use-callback
+                               (fn [^js event]
+                                 (when-let [part-type (add-mode->part-type tool-mode)]
+                                   (let [pos (.screenToFlowPosition
+                                              rf-instance
+                                              #js {:x (.-clientX event)
+                                                   :y (.-clientY event)})]
+                                     (o/track "Part created" {:type part-type :demo demo})
+                                     (rf/dispatch [:system/part-create
+                                                   {:type       part-type
+                                                    :position_x (.-x pos)
+                                                    :position_y (.-y pos)}]))))
+                               [tool-mode rf-instance demo])]
 
     (use-effect
      (fn []
@@ -232,7 +298,16 @@
              (when-not minimal
                ($ Background {:variant "dots"
                               :gap     12
-                              :size    1})))))))
+                              :size    1}))))
+       (let [{:keys [title body confirm-label]} (when pending-deletes
+                                                  (delete-prompt pending-deletes))]
+         ($ delete-confirmation-modal
+            {:show          (some? pending-deletes)
+             :title         title
+             :body          body
+             :confirm-label confirm-label
+             :on-confirm    confirm-delete
+             :on-close      cancel-delete})))))
 
 (defui system []
   ($ ReactFlowProvider
