@@ -223,13 +223,12 @@ a.btn {
             stroke: var(--edge-color-blended);
         }
 
-        .node-wrapper {
-            padding: 0.5rem;
-            margin: -0.5rem;
-        }
-
+        /* No padding/margin on .node-wrapper: ReactFlow measures this element
+           to position edge endpoints. Any inflation here pushes the edge's
+           rectangle-intersection point outside the visible SVG. Selection
+           uses box-shadow so the ring sits outside the measured box. */
         .selected .node-wrapper {
-            background-color: rgba(0, 0, 0, 0.08);
+            box-shadow: 0 0 0 0.5rem rgba(0, 0, 0, 0.08);
             border-radius: 0.5em;
         }
 

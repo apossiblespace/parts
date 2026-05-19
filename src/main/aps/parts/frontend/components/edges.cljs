@@ -2,6 +2,7 @@
   (:require
    ["@xyflow/react" :refer [BaseEdge Position
                             getBezierPath useInternalNode]]
+   [aps.parts.frontend.geometry :as geometry]
    [uix.core :refer [$ as-react defui]]))
 
 (def ^:private bow-offset-px
@@ -11,22 +12,16 @@
   50)
 
 (defn- node-intersection
-  "Return the {:x :y} point on the border of `intersection-node` where the
-   straight line from the centre of `other-node` to the centre of
-   `intersection-node` crosses the border.
+  "Point on `intersection-node`'s visible shape where the centre-to-centre
+   line from `other-node` crosses. Dispatches on the Part type so each
+   shape's actual outline is used — see `geometry/shape-for` for the
+   per-type definitions.
 
    Both nodes are React Flow internal nodes:
      (.. node -internals -positionAbsolute) -> #js {:x :y}   (top-left)
      (.. node -measured -width)              -> number
      (.. node -measured -height)             -> number
-
-   Used to make edges 'float' to a node's nearest visible border point
-   rather than binding to a fixed top/bottom handle.
-
-   Algorithm (from the React Flow floating-edges example): normalise the
-   centre-to-centre vector against the rectangle's half-extents, then map
-   the unit vector onto the border. Compact but opaque — see the linked
-   example for derivation."
+     (.. node -data -type)                   -> Part type string"
   [^js intersection-node ^js other-node]
   (let [i-pos (.. intersection-node -internals -positionAbsolute)
         i-w   (.. intersection-node -measured -width)
@@ -34,37 +29,24 @@
         o-pos (.. other-node -internals -positionAbsolute)
         o-w   (.. other-node -measured -width)
         o-h   (.. other-node -measured -height)
-        w     (/ i-w 2)
-        h     (/ i-h 2)
-        x2    (+ (.-x i-pos) w)
-        y2    (+ (.-y i-pos) h)
-        x1    (+ (.-x o-pos) (/ o-w 2))
-        y1    (+ (.-y o-pos) (/ o-h 2))
-        xx1   (- (/ (- x1 x2) (* 2 w)) (/ (- y1 y2) (* 2 h)))
-        yy1   (+ (/ (- x1 x2) (* 2 w)) (/ (- y1 y2) (* 2 h)))
-        a     (/ 1 (+ (Math/abs xx1) (Math/abs yy1)))
-        xx3   (* a xx1)
-        yy3   (* a yy1)]
-    {:x (+ (* w (+ xx3 yy3)) x2)
-     :y (+ (* h (+ (- xx3) yy3)) y2)}))
+        o-cx  (+ (.-x o-pos) (/ o-w 2))
+        o-cy  (+ (.-y o-pos) (/ o-h 2))
+        shape (geometry/shape-for (.. intersection-node -data -type))]
+    (geometry/intersection-for-shape shape (.-x i-pos) (.-y i-pos)
+                                     i-w i-h o-cx o-cy)))
 
 (defn- edge-side
-  "Classify which side of `node` an intersection point `{:x :y}` lies on.
-   Returns one of Position/Top, Position/Right, Position/Bottom, Position/Left."
-  [^js node {:keys [x y]}]
-  (let [pos    (.. node -internals -positionAbsolute)
-        nx     (.-x pos)
-        ny     (.-y pos)
-        width  (.. node -measured -width)
-        height (.. node -measured -height)
-        px     (Math/round x)
-        py     (Math/round y)]
-    (cond
-      (<= px (inc nx))            (.-Left Position)
-      (>= px (dec (+ nx width)))  (.-Right Position)
-      (<= py (inc ny))            (.-Top Position)
-      (>= py (dec (+ ny height))) (.-Bottom Position)
-      :else                       (.-Top Position))))
+  "Map the intersection point on `node`'s outline to a ReactFlow Position
+   enum (Top/Right/Bottom/Left) so getBezierPath can pick a tangent."
+  [^js node intersection]
+  (let [pos (.. node -internals -positionAbsolute)
+        cx  (+ (.-x pos) (/ (.. node -measured -width) 2))
+        cy  (+ (.-y pos) (/ (.. node -measured -height) 2))]
+    (case (geometry/classify-side intersection cx cy)
+      :top    (.-Top Position)
+      :right  (.-Right Position)
+      :bottom (.-Bottom Position)
+      :left   (.-Left Position))))
 
 (defn- floating-edge-params
   "Compute floating endpoint coordinates and side-positions for an edge
