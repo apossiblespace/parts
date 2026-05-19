@@ -48,10 +48,10 @@
          [:div
           [:h1
            {:class ["text-5xl" "md:text-6xl" "font-bold" "my-16"]}
-           "Understand your clients' parts and their relationships."]
+           "Understand your clients’ parts and their relationships."]
           [:h3.my-8.text-xl
            [:strong.font-bold "Parts"]
-           " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' aps.parts."]
+           " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
           [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
            [:button.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200.cursor-pointer
             {:onclick "window.dispatchEvent(new CustomEvent('parts:open-signup')); plausible('Create Account Click', {props: {source: 'homepage-hero'}});"}
@@ -148,10 +148,10 @@
          [:div
           [:h1
            {:class ["text-5xl" "md:text-6xl" "font-bold" "my-16"]}
-           "Understand your clients' parts and their relationships."]
+           "Understand your clients’ parts and their relationships."]
           [:h3.my-8.text-xl
            [:strong.font-bold "Parts"]
-           " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients' aps.parts."]
+           " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
           [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
            [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
             {:role "button"
