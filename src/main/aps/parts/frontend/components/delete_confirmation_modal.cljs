@@ -36,16 +36,16 @@
         :title    title
         :on-close on-close}
        ($ :<>
-          ($ :p {:class "text-gray-700 mb-6"} body)
+          ($ :p {:class "text-xs text-gray-700 mb-6"} body)
           ($ :div {:class "modal-action space-x-2 flex"}
              ($ :button
                 {:type     "button"
-                 :class    "btn flex-1"
+                 :class    "btn btn-sm flex-1"
                  :on-click on-close}
                 "Cancel")
              ($ :button
                 {:ref      confirm-ref
                  :type     "button"
-                 :class    "btn btn-error flex-1"
+                 :class    "btn btn-sm btn-error flex-1"
                  :on-click on-confirm}
                 (or confirm-label "Delete")))))))

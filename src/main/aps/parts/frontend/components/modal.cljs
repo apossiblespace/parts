@@ -27,9 +27,9 @@
           {:class    "modal-box"
            :on-click #(.stopPropagation %)}
           ($ :button
-             {:class    "btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+             {:class    "btn btn-xs btn-circle btn-ghost absolute right-2 top-2.5"
               :on-click on-close}
              "✕")
           (when title
-            ($ :h3 {:class "text-lg font-bold mb-4"} title))
+            ($ :h3 {:class "text-xs font-bold mb-2"} title))
           children))))

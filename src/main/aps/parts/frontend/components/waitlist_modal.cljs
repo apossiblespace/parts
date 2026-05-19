@@ -130,7 +130,7 @@
                         {:type        "email"
                          :id          "email"
                          :placeholder "self@you.com"
-                         :class       "input w-full"
+                         :class       "input input-sm w-full"
                          :value       email
                          :disabled    loading
                          :on-change   #(set-email (.. % -target -value))

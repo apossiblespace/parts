@@ -53,14 +53,14 @@
 
              ($ :fieldset
                 {:class "fieldset w-full"}
-                ($ :div {:class "form-control mb-3"}
+                ($ :div {:class "form-control"}
                    ($ :label {:class "fieldset-label" :for "email"}
                       "Email")
                    ($ :input
                       {:type        "email"
                        :id          "email"
                        :placeholder "self@you.com"
-                       :class       "input w-full"
+                       :class       "input input-sm w-full"
                        :value       email
                        :disabled    loading
                        :on-change   #(set-email (.. % -target -value))
@@ -72,22 +72,22 @@
                    ($ :input
                       {:type      "password"
                        :id        "password"
-                       :class     "input w-full"
+                       :class     "input input-sm w-full"
                        :value     password
                        :disabled  loading
                        :on-change #(set-password (.. % -target -value))
                        :required  true}))
-                ($ :div {:class "modal-action mt-6 space-x-2 flex"}
+                ($ :div {:class "modal-action mt-4 space-x-2 flex"}
                    ($ :button
                       {:type     "button"
-                       :class    "btn flex-1"
+                       :class    "btn btn-sm flex-1"
                        :disabled loading
                        :on-click on-close}
                       "Cancel")
                    ($ :button
                       {:type     "submit"
                        :disabled loading
-                       :class    "btn btn-primary flex-1"}
+                       :class    "btn btn-sm btn-primary flex-1"}
                       (if loading
                         ($ :<>
                            ($ :span {:class "loading loading-spinner"})
