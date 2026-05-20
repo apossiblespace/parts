@@ -27,7 +27,7 @@
                 (if launched
                   ($ :a
                      {:class    "btn btn-sm btn-primary w-full"
-                      :href     "/app"
+                      :href     "/app/signup"
                       :on-click #(o/track "Create Account Click" {:source "playground"})}
                      "Create an account")
                   ($ :button
@@ -39,7 +39,7 @@
                 (when launched
                   ($ :a
                      {:class    "btn btn-sm btn-ghost w-full"
-                      :href     "/app"
+                      :href     "/app/login"
                       :on-click #(o/track "Login Click" {:source "playground"})}
                      "Log in"))))
            ($ auth-status))

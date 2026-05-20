@@ -62,7 +62,7 @@
           [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
            [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
             {:role    "button"
-             :href    "/app"
+             :href    "/app/signup"
              :onclick "plausible('Create Account Click', {props: {source: 'homepage-hero'}}); return true;"}
             "Create an account"]
            [:a.btn.btn-lg {:role "button"

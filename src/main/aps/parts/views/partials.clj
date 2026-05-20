@@ -61,11 +61,11 @@
      [:div {:class "flex items-center space-x-4"}
       [:a
        {:class "text-gray-600 hover:text-gray-900 font-medium"
-        :href  "/app"}
+        :href  "/app/login"}
        "Log in"]
       [:a
        {:class   "btn btn-primary"
-        :href    "/app"
+        :href    "/app/signup"
         :onclick "plausible('Create Account Click', {props: {source: 'homepage-header'}}); return true;"}
        "Create an account"]]]]])
 

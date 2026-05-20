@@ -16,9 +16,15 @@
 (def routes
   "Route table for the SPA. Names are keywords used by `rfe/href` and
    programmatic navigation. The maps list is the app home at /app; an
-   individual map's canvas is at /app/maps/:id."
+   individual map's canvas is at /app/maps/:id; /app/login and /app/signup
+   are the auth screens. /app and /app/maps/:id are protected — the SPA
+   root gates them in place when the user isn't authenticated."
   [["/app"
     {:name ::maps-list}]
+   ["/app/login"
+    {:name ::login}]
+   ["/app/signup"
+    {:name ::signup}]
    ["/app/maps/:id"
     {:name ::map}]])
 
@@ -59,12 +65,22 @@
 
 (defn- on-navigate
   "Called by reitit on every route change. A matched route stores its
-   match for views to subscribe to; an unmatched /app/* URL (e.g. a stale
-   `/app/maps`) falls back to the maps list at /app."
+   match for views to subscribe to. Two cases redirect instead:
+   - an unmatched /app/* URL falls back to the maps list at /app;
+   - /app/signup before launch falls back to /app/login — signup is
+     invite-only (via /invite/:token) until the app has launched.
+   Both use `replace-state` so the bounced URL leaves no history entry."
   [match _history]
-  (if match
-    (rf/dispatch [:router/match match])
-    (rfe/replace-state ::maps-list)))
+  (cond
+    (nil? match)
+    (rfe/replace-state ::maps-list)
+
+    (and (= ::signup (get-in match [:data :name]))
+         (not @(rf/subscribe [:launched])))
+    (rfe/replace-state ::login)
+
+    :else
+    (rf/dispatch [:router/match match])))
 
 (defn start!
   "Begin listening to URL changes and dispatch the initial match."

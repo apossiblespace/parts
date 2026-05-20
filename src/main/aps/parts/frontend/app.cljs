@@ -48,21 +48,46 @@
       ;; nothing rather than flashing wrong content.
       nil)))
 
+(defn- spinner []
+  ($ :div {:class "min-h-screen flex items-center justify-center bg-gray-50"}
+     ($ :span {:class "loading loading-spinner loading-lg"})))
+
 (defui app-root
-  "SPA root, three-way switch:
-   - auth check in flight  → spinner
-   - not logged in         → auth screen (URL unchanged; gate in place)
-   - logged in             → the client-side router."
+  "SPA root. Decides what to show from the current route + auth state:
+   - auth check in flight                  → spinner
+   - /app/signup (launched, not logged in) → signup screen
+   - not logged in                         → login screen. Covers
+       /app/login, a protected route hit while unauthed (gate-in-place —
+       the URL stays put), and /app/signup pre-launch (degrades to login).
+   - logged in on an auth route            → redirected into the app
+   - logged in on a protected route        → the client-side router."
   []
   (let [auth-loading (uix.rf/use-subscribe [:auth/loading])
-        logged-in    (uix.rf/use-subscribe [:auth/logged-in])]
+        logged-in    (uix.rf/use-subscribe [:auth/logged-in])
+        launched     (uix.rf/use-subscribe [:launched])
+        route-name   (uix.rf/use-subscribe [:router/route-name])
+        auth-route?  (contains? #{::router/login ::router/signup} route-name)]
+    ;; A logged-in user who lands on an auth route belongs in the app.
+    (use-effect
+     (fn []
+       (when (and logged-in auth-route?)
+         (rf/dispatch [:router/navigate {:name ::router/maps-list}]))
+       js/undefined)
+     [logged-in auth-route?])
     (cond
       auth-loading
-      ($ :div {:class "min-h-screen flex items-center justify-center bg-gray-50"}
-         ($ :span {:class "loading loading-spinner loading-lg"}))
+      (spinner)
+
+      (and (= route-name ::router/signup) launched (not logged-in))
+      ($ auth-screen {:mode :signup})
 
       (not logged-in)
-      ($ auth-screen)
+      ($ auth-screen {:mode :login})
+
+      ;; Logged in but still on /app/login or /app/signup — the effect
+      ;; above is navigating into the app; hold a spinner meanwhile.
+      auth-route?
+      (spinner)
 
       :else
       ($ router-view))))
