@@ -70,7 +70,8 @@
        "Create an account"]]]]])
 
 (defn header-waitlist
-  "Pre-launch site header: single anchor down to the founding-circle form."
+  "Pre-launch site header: a jump to the founding-circle form, plus a
+   Log in link for already-onboarded Circle members."
   []
   [:header
    {:class "py-6"}
@@ -82,11 +83,17 @@
       {:href "/", :class "flex items-center"}
       [:img {:class "w-50"
              :src   "/images/parts-logo-horizontal.svg"}]]
-     [:a
-      {:href    "#signup",
-       :class   "text-ifs-green font-semibold hover:underline"
-       :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
-      "Join Founding Circle"]]]])
+     [:div {:class "flex items-center space-x-4"}
+      [:a
+       {:href    "#signup",
+        :class   "text-ifs-green font-semibold hover:underline"
+        :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
+       "Join Founding Circle"]
+      [:a
+       {:href    "/app/login"
+        :class   "btn btn-soft"
+        :onclick "plausible('Login Click', {props: {source: 'homepage'}}); return true;"}
+       "Log in"]]]]])
 
 (defn header
   "Site header. Picks the signup or waitlist variant based on the runtime
