@@ -10,18 +10,35 @@
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]))
 
+(def ^:private test-db-name
+  "The only database the test fixtures are permitted to touch. The suite's
+   destructive TRUNCATE must never reach parts_dev or any other database."
+  "parts_test")
+
+(defn- assert-test-database!
+  "Throw unless `dbname` is the designated test database. Destructive
+   fixtures call this before doing anything, so a misconfigured environment
+   fails loudly instead of silently wiping the wrong database."
+  [dbname]
+  (when-not (= test-db-name dbname)
+    (throw (ex-info
+            (str "Refusing to run test fixtures against database "
+                 (pr-str dbname) " — expected " (pr-str test-db-name) ". "
+                 "Check that -Dparts.env=test is set (deps.edn :test/env alias).")
+            {:type :unsafe-test-database :dbname dbname}))))
+
 (defn setup-test-db
   []
-  (let [db-spec          (conf/database-config)
-        ds               (jdbc/get-datasource db-spec)
-        migration-config {:store                :database
-                          :migration-dir        "migrations/"
-                          :init-in-transaction? true
-                          :db                   db-spec}]
-
-    (migratus/init migration-config)
-    (migratus/migrate migration-config)
-    ds))
+  (let [db-spec (conf/database-config)]
+    (assert-test-database! (:dbname db-spec))
+    (let [ds               (jdbc/get-datasource db-spec)
+          migration-config {:store                :database
+                            :migration-dir        "migrations/"
+                            :init-in-transaction? true
+                            :db                   db-spec}]
+      (migratus/init migration-config)
+      (migratus/migrate migration-config)
+      ds)))
 
 (def ^:private tombstone-user-sql
   [(str "INSERT INTO users (id, email, username, display_name, password_hash, role)
@@ -33,6 +50,12 @@
   [ds]
   (try
     (jdbc/with-transaction [tx ds]
+      ;; Last-line guard: ask the live connection which database it is —
+      ;; config is exactly the thing that can be wrong.
+      (assert-test-database!
+       (:current_database
+        (jdbc/execute-one! tx ["SELECT current_database()"]
+                           {:builder-fn rs/as-unqualified-lower-maps})))
       (jdbc/execute! tx ["SET session_replication_role = 'replica'"])
       (let [tables (jdbc/execute!
                     tx
