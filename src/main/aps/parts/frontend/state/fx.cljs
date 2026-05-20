@@ -59,18 +59,11 @@
    (go
      (let [has-token (utils/get-tokens)]
        (rf/dispatch [:auth/set-loading (boolean has-token)])
-       (if has-token
+       (when has-token
          (let [resp (<! (api/get-current-user))]
            (rf/dispatch [:auth/set-loading false])
            (when (= 200 (:status resp))
-             (rf/dispatch [:auth/set-user (:body resp)]))
-           (rf/dispatch [:auth/check-complete]))
-         (rf/dispatch [:auth/check-complete]))))))
-
-(rf/reg-fx
- :navigate-to
- (fn [path]
-   (set! (.-location js/window) path)))
+             (rf/dispatch [:auth/set-user (:body resp)]))))))))
 
 (rf/reg-fx
  :storage/get-map

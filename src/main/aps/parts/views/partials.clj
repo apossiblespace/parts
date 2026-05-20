@@ -59,13 +59,14 @@
       [:img {:class "w-50"
              :src   "/images/parts-logo-horizontal.svg"}]]
      [:div {:class "flex items-center space-x-4"}
-      [:button
-       {:class   "text-gray-600 hover:text-gray-900 font-medium cursor-pointer"
-        :onclick "window.dispatchEvent(new CustomEvent('parts:open-login'))"}
+      [:a
+       {:class "text-gray-600 hover:text-gray-900 font-medium"
+        :href  "/app"}
        "Log in"]
-      [:button
-       {:class   "btn btn-primary cursor-pointer"
-        :onclick "window.dispatchEvent(new CustomEvent('parts:open-signup')); plausible('Create Account Click', {props: {source: 'homepage-header'}});"}
+      [:a
+       {:class   "btn btn-primary"
+        :href    "/app"
+        :onclick "plausible('Create Account Click', {props: {source: 'homepage-header'}}); return true;"}
        "Create an account"]]]]])
 
 (defn header-waitlist

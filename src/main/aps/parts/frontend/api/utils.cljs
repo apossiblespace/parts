@@ -5,14 +5,6 @@
 (defn save-current-map-id [id]
   (.setItem js/localStorage current-map-storage-key id))
 
-(defn get-map-id-from-url
-  "Extract map ID from URL path /maps/:id. Returns nil if not on a map page."
-  []
-  (let [pathname (.-pathname js/window.location)
-        match    (re-matches #"/maps/([a-f0-9-]+)" pathname)]
-    (when match
-      (second match))))
-
 (defn get-current-map-id []
   (.getItem js/localStorage current-map-storage-key))
 

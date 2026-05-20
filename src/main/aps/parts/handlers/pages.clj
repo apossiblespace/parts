@@ -24,13 +24,22 @@
   [_]
   (map-graph {:demo-mode "true"}))
 
-(defn map-page
-  "Page rendering a user's map graph (requires authentication)"
+(defn app-shell
+  "Server-rendered shell for the React SPA mounted under /app.
+   Renders an empty #root that the client-side router fills in. No
+   data-demo-mode — this is the real app, not the playground demo. The
+   client router matches the URL; the catch-all route makes deep links
+   survive a refresh."
   [_]
-  (map-graph {:demo-mode false}))
+  (response/response
+   (html
+    (layouts/fullscreen
+     {:title  "Map"
+      :styles ["/css/flow.css" "/css/style.css"]}
+     [:div#root {:data-launched (str (launch/launched?))}]))))
 
 (defn home-page-signup
-  "Post-launch landing page: signup CTA wired to the React auth modal."
+  "Post-launch landing page: header and hero CTAs link to the /app SPA."
   [_]
   (let [waitlist-count (signups-count)]
     (response/response
@@ -38,8 +47,6 @@
       (layouts/main
        {:title  "Mapping tools for IFS practitioners and their clients"
         :styles ["/css/flow.css" "/css/style.css"]}
-       ;; Auth root for React auth modals
-       [:div#auth-root]
        [:section
         [:div
          {:class ["grid" "grid-cols-1" "md:grid-cols-2"
@@ -53,8 +60,10 @@
            [:strong.font-bold "Parts"]
            " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
           [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
-           [:button.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200.cursor-pointer
-            {:onclick "window.dispatchEvent(new CustomEvent('parts:open-signup')); plausible('Create Account Click', {props: {source: 'homepage-hero'}});"}
+           [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
+            {:role    "button"
+             :href    "/app"
+             :onclick "plausible('Create Account Click', {props: {source: 'homepage-hero'}}); return true;"}
             "Create an account"]
            [:a.btn.btn-lg {:role "button"
                            :href "/playground"}

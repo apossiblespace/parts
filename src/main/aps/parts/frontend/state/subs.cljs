@@ -33,6 +33,11 @@
    (get-in db [:map :id])))
 
 (rf/reg-sub
+ :map/title
+ (fn [db _]
+   (get-in db [:map :title])))
+
+(rf/reg-sub
  :map/parts
  (fn [db _]
    (get-in db [:map :parts])))
@@ -86,8 +91,3 @@
  :<- [:auth/user]
  (fn [user _]
    (boolean user)))
-
-(rf/reg-sub
- :map/pending-id
- (fn [db _]
-   (:pending-map-id db)))

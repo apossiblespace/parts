@@ -2,16 +2,16 @@
   (:require
    ["htmx.org" :default htmx]
    [aps.parts.common.observe :as o]
-   [aps.parts.frontend.auth-app :as auth-app]
-   [aps.parts.frontend.components.login-modal :refer [login-modal]]
+   [aps.parts.frontend.components.auth-screen :refer [auth-screen]]
    [aps.parts.frontend.components.map :refer [map-view]]
-   [aps.parts.frontend.components.map-list-modal :refer [map-list-modal]]
+   [aps.parts.frontend.components.maps-list :refer [maps-list]]
+   [aps.parts.frontend.router :as router]
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
    [aps.parts.frontend.state.subs]
    [aps.parts.frontend.storage.registry :as storage-registry]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-state]]
+   [uix.core :refer [$ defui use-effect]]
    [uix.dom]
    [uix.re-frame :as uix.rf]))
 
@@ -22,26 +22,50 @@
    :maps      {:list    []
                :loading false}})
 
-(defui app []
-  (let [[show-map-list set-show-map-list] (use-state false)
-        current-map-id                    (uix.rf/use-subscribe [:map/id])
-        pending-map-id                    (uix.rf/use-subscribe [:map/pending-id])
-        auth-loading                      (uix.rf/use-subscribe [:auth/loading])
-        logged-in                         (uix.rf/use-subscribe [:auth/logged-in])
-        demo                              (uix.rf/use-subscribe [:demo])
-        show-login                        (and pending-map-id (not auth-loading) (not logged-in))]
+(defui map-route
+  "Canvas route (/app/maps/:id). Fetches the routed Map when the id
+   changes, then renders the canvas."
+  [{:keys [map-id]}]
+  (let [loaded-id (uix.rf/use-subscribe [:map/id])]
+    (use-effect
+     (fn []
+       (when (and map-id (not= map-id loaded-id))
+         (rf/dispatch [:map/fetch map-id]))
+       js/undefined)
+     [map-id loaded-id])
+    ($ map-view)))
 
-    ($ :<>
-       (when show-login
-         ($ login-modal
-            {:show       true
-             :on-close   #(set! (.-location js/window) "/")
-             :on-success (fn [_] nil)}))
-       (when (and (not demo) (not show-login) (not current-map-id))
-         ($ map-list-modal
-            {:show     show-map-list
-             :on-close #(set-show-map-list false)}))
-       ($ map-view))))
+(defui router-view
+  "Renders the matched SPA route. Shown only once the user is
+   authenticated."
+  []
+  (let [route-name  (uix.rf/use-subscribe [:router/route-name])
+        path-params (uix.rf/use-subscribe [:router/path-params])]
+    (case route-name
+      ::router/maps-list ($ maps-list)
+      ::router/map       ($ map-route {:map-id (:id path-params)})
+      ;; No match yet (initial render before the router fires) — show
+      ;; nothing rather than flashing wrong content.
+      nil)))
+
+(defui app-root
+  "SPA root, three-way switch:
+   - auth check in flight  → spinner
+   - not logged in         → auth screen (URL unchanged; gate in place)
+   - logged in             → the client-side router."
+  []
+  (let [auth-loading (uix.rf/use-subscribe [:auth/loading])
+        logged-in    (uix.rf/use-subscribe [:auth/logged-in])]
+    (cond
+      auth-loading
+      ($ :div {:class "min-h-screen flex items-center justify-center bg-gray-50"}
+         ($ :span {:class "loading loading-spinner loading-lg"}))
+
+      (not logged-in)
+      ($ auth-screen)
+
+      :else
+      ($ router-view))))
 
 (defn get-demo-settings
   "Extract demo mode configuration from root element"
@@ -50,8 +74,8 @@
     (let [mode (.getAttribute root-el "data-demo-mode")]
       (cond
         (= mode "minimal") :minimal
-        (= mode "true") true
-        :else false))))
+        (= mode "true")    true
+        :else              false))))
 
 (defn get-launched
   "Read the runtime launch toggle from the root element. Mirrors the
@@ -59,29 +83,52 @@
   [root-el]
   (= "true" (some-> root-el (.getAttribute "data-launched"))))
 
+(defn- setup-demo
+  "Playground boot path: localStorage storage, no router, no auth gate —
+   mount the canvas directly."
+  [demo-mode launched]
+  (storage-registry/init-localstorage-backend!)
+  (rf/dispatch-sync [:app/init-db (assoc initial-db
+                                         :demo-mode demo-mode
+                                         :launched  launched)])
+  (rf/dispatch [:app/init-demo-map])
+  ($ map-view))
+
+(defn- setup-spa
+  "App boot path (/app/*): HTTP storage, start the client-side router and
+   the auth gate."
+  [launched]
+  (storage-registry/init-http-backend!)
+  (rf/dispatch-sync [:app/init-db (assoc initial-db :launched launched)])
+  (router/start!)
+  ($ app-root))
+
 (defn setup-app
-  "Setup the app with the root element, create root, init state and render"
+  "Set up the app: create the React root, pick the boot path from the
+   shell's data attributes, render. The playground renders a server shell
+   with data-demo-mode; the /app shell does not."
   [root-el]
-  (let [root                 (uix.dom/create-root root-el)
-        demo-mode            (get-demo-settings root-el)
-        launched             (get-launched root-el)
-        initial-db-with-demo (assoc initial-db
-                                    :demo-mode demo-mode
-                                    :launched  launched)]
-    ;; Initialize storage backend based on demo mode
-    (if demo-mode
-      (storage-registry/init-localstorage-backend!)
-      (storage-registry/init-http-backend!))
-    (rf/dispatch-sync [:app/init-db initial-db-with-demo])
-    (rf/dispatch [:app/init-map])
-    (uix.dom/render-root ($ app) root)
+  (let [root      (uix.dom/create-root root-el)
+        demo-mode (get-demo-settings root-el)
+        launched  (get-launched root-el)
+        element   (if demo-mode
+                    (setup-demo demo-mode launched)
+                    (setup-spa launched))]
+    (uix.dom/render-root element root)
     {:root      root
      :demo-mode demo-mode}))
 
 (defonce app-state (atom nil))
 
+(defn- boot!
+  "Mount the React app on #root if the page has one."
+  []
+  (when-let [root-el (js/document.getElementById "root")]
+    (reset! app-state (setup-app root-el))))
+
 (defn ^:export init []
-  ;; Configure HTMX response handling for validation errors
+  ;; Configure HTMX response handling for validation errors. HTMX still
+  ;; drives the marketing page's server-rendered forms (waitlist signup).
   (set! (.-responseHandling (.-config htmx))
         #js [#js {:code "204" :swap false} ; 204 - No Content by default does nothing, but is not an error
              #js {:code "400" :swap true :error false} ; 400 - Bad Request (validation errors) should swap content
@@ -90,18 +137,24 @@
              #js {:code "[45].." :swap false :error true} ; Other 400 & 500 responses are not swapped and are errors
              #js {:code "..." :swap false}]) ; catch all for any other response code
 
-  (.on htmx "htmx:load"
-       (fn [_]
-         ;; Initialize main app if #root exists
-         (when-let [root-el (js/document.getElementById "root")]
-           (reset! app-state (setup-app root-el)))
-         ;; Initialize auth app if #auth-root exists (landing page)
-         (when (js/document.getElementById "auth-root")
-           (auth-app/init))
-         (let [version (.-version htmx)]
-           (o/info "app.init" "HTMX loaded! Version:" version)))))
+  ;; The /app shell has no htmx, so boot the React app once the DOM is
+  ;; ready. The landing page still loads htmx; its forms work the same.
+  ;; If the document already finished parsing (script at end of body),
+  ;; boot immediately rather than waiting for an event that already fired.
+  (if (= "loading" (.-readyState js/document))
+    (.addEventListener js/document "DOMContentLoaded" boot!)
+    (boot!))
+  (let [version (.-version htmx)]
+    (o/info "app.init" "HTMX loaded! Version:" version)))
+
+(defn- render-root!
+  "Re-render whichever boot path is active. Used by hot-reload."
+  [root-el root]
+  (let [demo-mode (get-demo-settings root-el)]
+    (uix.dom/render-root (if demo-mode ($ map-view) ($ app-root)) root)))
 
 (defn ^:dev/after-load reload! []
   (o/info "app.reload" "Reloading app...")
   (when-let [root (:root @app-state)]
-    (uix.dom/render-root ($ app) root)))
+    (when-let [root-el (js/document.getElementById "root")]
+      (render-root! root-el root))))

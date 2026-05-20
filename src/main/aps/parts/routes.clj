@@ -12,7 +12,8 @@
    [reitit.coercion.spec :as rcs]
 
    [reitit.ring.coercion :as rrc]
-   [reitit.ring.middleware.muuntaja :as muuntaja-middleware]))
+   [reitit.ring.middleware.muuntaja :as muuntaja-middleware]
+   [ring.util.response :as response]))
 
 ;; NOTE: What is coercion and how does it work?
 ;;
@@ -92,9 +93,20 @@
                                 middleware/wrap-html-response]
                    :get        {:handler pages/playground}}]
 
-   ["/maps/:id" {:middleware [middleware/wrap-html-defaults
-                              middleware/wrap-html-response]
-                 :get        {:handler pages/map-page}}]
+   ;; The React SPA. `/app` and any nested path render the same server
+   ;; shell; the client-side router (reitit.frontend) takes over from
+   ;; there. The catch-all is what makes a deep link such as
+   ;; /app/maps/:id survive a refresh or direct navigation.
+   ["/app" {:middleware [middleware/wrap-html-defaults
+                         middleware/wrap-html-response]
+            :get        {:handler pages/app-shell}}]
+   ["/app{*path}" {:middleware [middleware/wrap-html-defaults
+                                middleware/wrap-html-response]
+                   :get        {:handler pages/app-shell}}]
+
+   ;; Legacy map URLs now live under /app. Redirect existing bookmarks.
+   ["/maps/:id" {:get {:handler (fn [{{:keys [id]} :path-params}]
+                                  (response/redirect (str "/app/maps/" id)))}}]
 
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 

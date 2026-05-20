@@ -2,7 +2,7 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
-   ["lucide-react" :refer [MousePointer2 Spline]]
+   ["lucide-react" :refer [ChevronLeft MousePointer2 Spline]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
@@ -85,6 +85,7 @@
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
         map-id                (uix.rf/use-subscribe [:map/id])
+        map-title             (uix.rf/use-subscribe [:map/title])
         parts                 (uix.rf/use-subscribe [:map/parts])
         relationships         (uix.rf/use-subscribe [:map/relationships])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
@@ -259,8 +260,9 @@
                         :preventScrolling        (not minimal)}
              ($ Controls)
              (when-not minimal
-               ($ Panel {:position "top-left" :class "logo"}
-                  (if demo
+               (if demo
+                 ;; Playground: mini logo linking back to the marketing site.
+                 ($ Panel {:position "top-left" :class "logo"}
                     ($ :a {:href     "/"
                            :on-click #(o/track "Playground logo click" {:demo demo})}
                        ($ :svg
@@ -270,8 +272,17 @@
                            :xmlns      "http://www.w3.org/2000/svg",
                            :viewBox    "0 0 24 24"}
                           ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
-                       ($ :img {:src "/images/parts-logo-mini.svg"}))
-                    ($ :img {:src "/images/parts-logo-horizontal.svg" :width 150}))))
+                       ($ :img {:src "/images/parts-logo-mini.svg"})))
+                 ;; Authenticated map view: back-to-list chevron + map name,
+                 ;; styled as a button group to match the part-creation tools.
+                 ($ Panel {:position "top-left"}
+                    ($ :div {:class "join shadow-xs"}
+                       ($ :a {:href       "/app"
+                              :class      "btn btn-sm join-item bg-white"
+                              :aria-label "Back to maps"}
+                          ($ ChevronLeft {:size 16}))
+                       ($ :span {:class "btn btn-sm join-item bg-white pointer-events-none"}
+                          map-title)))))
              ($ Panel {:position (if minimal "top-left" "top-center")
                        :class    "toolbar shadow-xs"}
                 ($ :div {:class "flex gap-2"}

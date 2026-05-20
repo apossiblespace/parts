@@ -17,16 +17,14 @@
     :auth/check-auth-fx nil}))
 
 (rf/reg-event-fx
- :app/init-map
- (fn [{:keys [db]} _]
-   ;; Prioritize URL path over localStorage for map ID
-   (if-let [url-id (api-utils/get-map-id-from-url)]
-     ;; Store as pending — wait for auth check to complete before fetching
-     {:db (assoc db :pending-map-id url-id)}
-     ;; Fall back to localStorage or create demo
-     (if-let [stored-id (api-utils/get-current-map-id)]
-       {:storage/get-map {:id stored-id}}
-       {:dispatch [:app/create-demo-map]}))))
+ :app/init-demo-map
+ (fn [_ _]
+   ;; Playground boot path only: restore the last demo Map from
+   ;; localStorage, or seed a fresh one. The authenticated app loads its
+   ;; Map through the client-side router instead.
+   (if-let [stored-id (api-utils/get-current-map-id)]
+     {:storage/get-map {:id stored-id}}
+     {:dispatch [:app/create-demo-map]})))
 
 (rf/reg-event-fx
  :app/create-demo-map
@@ -239,30 +237,29 @@
 (rf/reg-event-fx
  :map/fetch-unauthorized
  (fn [{:keys [db]} _]
-   (if-let [url-id (api-utils/get-map-id-from-url)]
-     {:db (-> db
-              (assoc-in [:maps :loading] false)
-              (assoc :pending-map-id url-id))}
-     {:db          (-> db
-                       (assoc-in [:maps :loading] false)
-                       (assoc-in [:maps :error] "Please sign in to view this map"))
-      :navigate-to "/"})))
+   ;; The session expired or was never there. Drop the loaded user so the
+   ;; SPA root's auth gate shows the login screen; the router keeps
+   ;; matching the deep-linked URL, so login lands the user right back here.
+   {:db (-> db
+            (assoc-in [:maps :loading] false)
+            (assoc-in [:auth :user] nil)
+            (assoc-in [:maps :error] "Please sign in to view this map"))}))
 
 (rf/reg-event-fx
  :map/fetch-forbidden
  (fn [{:keys [db]} _]
-   {:db          (-> db
-                     (assoc-in [:maps :loading] false)
-                     (assoc-in [:maps :error] "You don't have access to this map"))
-    :navigate-to "/"}))
+   {:db              (-> db
+                         (assoc-in [:maps :loading] false)
+                         (assoc-in [:maps :error] "You don't have access to this map"))
+    :router/navigate {:name :aps.parts.frontend.router/maps-list}}))
 
 (rf/reg-event-fx
  :map/fetch-not-found
  (fn [{:keys [db]} _]
-   {:db          (-> db
-                     (assoc-in [:maps :loading] false)
-                     (assoc-in [:maps :error] "Map not found"))
-    :navigate-to "/"}))
+   {:db              (-> db
+                         (assoc-in [:maps :loading] false)
+                         (assoc-in [:maps :error] "Map not found"))
+    :router/navigate {:name :aps.parts.frontend.router/maps-list}}))
 
 (rf/reg-event-fx
  :map/fetch-failure
@@ -271,10 +268,11 @@
      (cond-> {:db (-> db
                       (assoc-in [:maps :loading] false)
                       (assoc-in [:maps :error] "Failed to load map"))}
-       ;; Only create demo map when in demo mode (localStorage backend)
-       ;; When using HTTP backend, redirect to home instead
-       demo-mode? (assoc :dispatch [:app/create-demo-map])
-       (not demo-mode?) (assoc :navigate-to "/")))))
+       ;; Only create demo map when in demo mode (localStorage backend).
+       ;; In the app, fall back to the Maps list.
+       demo-mode?       (assoc :dispatch [:app/create-demo-map])
+       (not demo-mode?) (assoc :router/navigate
+                               {:name :aps.parts.frontend.router/maps-list})))))
 
 (rf/reg-event-db
  :map/create-failure
@@ -290,13 +288,18 @@
        (assoc-in [:maps :loading] false)
        (assoc-in [:map] the-map))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :map/create-success
- (fn [db [_ the-map]]
-   (-> db
-       (assoc-in [:maps :loading] false)
-       (assoc-in [:map] the-map)
-       (update-in [:maps :list] conj the-map))))
+ (fn [{:keys [db]} [_ the-map]]
+   (cond-> {:db (-> db
+                    (assoc-in [:maps :loading] false)
+                    (assoc-in [:map] the-map)
+                    (update-in [:maps :list] conj the-map))}
+     ;; In the app (not the playground demo) a freshly created Map opens
+     ;; its canvas via the client-side router.
+     (not (:demo-mode db))
+     (assoc :router/navigate {:name        :aps.parts.frontend.router/map
+                              :path-params {:id (:id the-map)}}))))
 
 (rf/reg-event-fx
  :map/load
@@ -350,14 +353,6 @@
  (fn [{:keys [db]} _]
    {:db                 db
     :auth/check-auth-fx nil}))
-
-(rf/reg-event-fx
- :auth/check-complete
- (fn [{:keys [db]} _]
-   (when-let [pending-id (:pending-map-id db)]
-     (when (get-in db [:auth :user])
-       {:db              (dissoc db :pending-map-id)
-        :storage/get-map {:id pending-id}}))))
 
 (rf/reg-event-fx
  :auth/register

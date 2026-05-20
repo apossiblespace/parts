@@ -1,20 +1,16 @@
 (ns aps.parts.frontend.components.toolbar.auth-status
   (:require
-   [aps.parts.frontend.components.login-modal :refer [login-modal]]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-state]]
+   [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))
 
 (defui auth-status
-  "Renders a logged/in out status, and a button to login and log out"
+  "Renders a logged in/out status, with a log out button or a link into
+   the /app login screen."
   []
-  (let [[show-login-modal set-show-login-modal] (use-state false)
-        user                                    (uix.rf/use-subscribe [:auth/user])
-        loading                                 (uix.rf/use-subscribe [:auth/loading])]
+  (let [user    (uix.rf/use-subscribe [:auth/user])
+        loading (uix.rf/use-subscribe [:auth/loading])]
     ($ :section {:class "tools p-2 auth-status border-b-1 border-base-300"}
-       ($ login-modal
-          {:show     show-login-modal
-           :on-close #(set-show-login-modal false)})
        (when loading
          ($ :span {:class "loading loading-spinner loading-sm"}))
        (if user
@@ -28,5 +24,5 @@
             ($ :div
                ($ :span {:class "status status-error mr-1" :aria-label "Status: logged-out"})
                ($ :span "Signed out"))
-            ($ :button {:class "btn btn-xs ml-1" :on-click #(set-show-login-modal true)}
+            ($ :a {:class "btn btn-xs ml-1" :href "/app"}
                "Log in"))))))
