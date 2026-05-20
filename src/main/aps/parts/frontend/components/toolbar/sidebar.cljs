@@ -16,8 +16,8 @@
   (let [demo                                          (uix.rf/use-subscribe [:demo])
         minimal                                       (uix.rf/use-subscribe [:minimal-demo])
         launched                                      (uix.rf/use-subscribe [:launched])
-        selected-parts                                (uix.rf/use-subscribe [:system/selected-parts])
-        selected-rels                                 (uix.rf/use-subscribe [:system/selected-relationships])
+        selected-parts                                (uix.rf/use-subscribe [:map/selected-parts])
+        selected-rels                                 (uix.rf/use-subscribe [:map/selected-relationships])
         has-auth                                      (or (not demo) (and demo (not minimal)))
         has-selection                                 (or (seq selected-parts) (seq selected-rels))
         [show-signup-modal set-show-signup-modal]     (use-state false)
@@ -58,10 +58,10 @@
                             (o/track "Signup Modal Close" {:source "playground"})
                             (set-show-signup-modal false))
              :on-success (fn [result]
-                           ;; Redirect to the new system after successful signup
-                           (when-let [system-id (get-in result [:body :system_id])]
+                           ;; Redirect to the new map after successful signup
+                           (when-let [map-id (get-in result [:body :map_id])]
                              (set! (.-href js/window.location)
-                                   (str "/systems/" system-id))))})
+                                   (str "/maps/" map-id))))})
          ($ login-modal
             {:show     show-login-modal
              :on-close #(do

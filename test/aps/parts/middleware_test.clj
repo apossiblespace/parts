@@ -1,6 +1,6 @@
 (ns aps.parts.middleware-test
   (:require
-   [aps.parts.entity.system :as system]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.middleware :as middleware]
    [clojure.test :refer [deftest is testing]]
    [reitit.ring :as ring]
@@ -101,39 +101,39 @@
       (is (= "application/json" (get-in response [:headers "Content-Type"])))
       (is (= [:div "Hello, JSON!"] (:body response))))))
 
-(deftest test-wrap-system-access
+(deftest test-wrap-map-access
   (let [owner-uuid   (random-uuid)
-        system-uuid  (random-uuid)
-        identity-row {:id system-uuid :owner_id owner-uuid}
+        map-uuid     (random-uuid)
+        identity-row {:id map-uuid :owner_id owner-uuid}
         ok-handler   (fn [_] {:status 200 :body "reached handler"})
         request-for  (fn [user-id]
                        {:identity   {:sub (str user-id)}
-                        :parameters {:path {:id (str system-uuid)}}})]
+                        :parameters {:path {:id (str map-uuid)}}})]
 
     (testing "the owner reaches the handler"
-      (with-redefs [system/fetch-identity (fn [_] identity-row)]
-        (let [handler  (middleware/wrap-system-access ok-handler)
+      (with-redefs [parts-map/fetch-identity (fn [_] identity-row)]
+        (let [handler  (middleware/wrap-map-access ok-handler)
               response (handler (request-for owner-uuid))]
           (is (= 200 (:status response))))))
 
     (testing "a non-owner is rejected and never reaches the handler"
-      (with-redefs [system/fetch-identity (fn [_] identity-row)]
-        (let [handler (middleware/wrap-system-access ok-handler)]
+      (with-redefs [parts-map/fetch-identity (fn [_] identity-row)]
+        (let [handler (middleware/wrap-map-access ok-handler)]
           (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not found"
                                 (handler (request-for (random-uuid))))))))
 
-    (testing "a missing system is rejected"
-      (with-redefs [system/fetch-identity (fn [_] nil)]
-        (let [handler (middleware/wrap-system-access ok-handler)]
+    (testing "a missing map is rejected"
+      (with-redefs [parts-map/fetch-identity (fn [_] nil)]
+        (let [handler (middleware/wrap-map-access ok-handler)]
           (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not found"
                                 (handler (request-for owner-uuid)))))))
 
     (testing "rejections carry :type :not-found — missing and not-owned are indistinguishable (ADR-0006)"
-      (with-redefs [system/fetch-identity (fn [_] nil)]
-        (let [handler (middleware/wrap-system-access ok-handler)]
+      (with-redefs [parts-map/fetch-identity (fn [_] nil)]
+        (let [handler (middleware/wrap-map-access ok-handler)]
           (try
             (handler (request-for owner-uuid))
-            (is false "expected wrap-system-access to throw")
+            (is false "expected wrap-map-access to throw")
             (catch clojure.lang.ExceptionInfo e
               (is (= :not-found (:type (ex-data e)))))))))))
 

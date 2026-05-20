@@ -15,7 +15,7 @@
    [aps.parts.common.constants :as const]
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
-   [aps.parts.helpers.utils :refer [create-test-system! create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [clojure.test.check.clojure-test :refer [defspec]]
    [clojure.test.check.generators :as gen]
@@ -27,8 +27,8 @@
 
 ;; -- Fixtures ---------------------------------------------------------------
 
-(defn- base-part [system-id]
-  {:system_id  (db/->uuid system-id)
+(defn- base-part [map-id]
+  {:map_id     (db/->uuid map-id)
    :type       "manager"
    :label      "Initial"
    :position_x 0
@@ -37,7 +37,7 @@
 (defn- clean! []
   ;; Each spec iteration starts from a known-empty state for predictable
   ;; history shape.
-  (jdbc/execute! db/datasource ["TRUNCATE parts, systems, audit_log CASCADE"]))
+  (jdbc/execute! db/datasource ["TRUNCATE parts, maps, audit_log CASCADE"]))
 
 ;; -- Generators -------------------------------------------------------------
 
@@ -80,7 +80,7 @@
 
 ;; -- Op replay --------------------------------------------------------------
 
-(defn- replay-op [user-id system-id part-id op]
+(defn- replay-op [user-id map-id part-id op]
   (let [actor user-id]
     (try
       (case (first op)
@@ -105,7 +105,7 @@
           ;; the EXCLUDE constraint (expected behavior, not a property
           ;; violation).
           (bt/insert! db/datasource :parts
-                      (assoc (base-part system-id) :id part-id)
+                      (assoc (base-part map-id) :id part-id)
                       {:actor-id actor})))
       (catch clojure.lang.ExceptionInfo e
         ;; "Row not found in current state" is an expected failure mode when
@@ -121,13 +121,13 @@
    [ops ops-gen]
    (clean!)
    (let [user    (create-test-user!)
-         system  (create-test-system! (:id user))
+         the-map (create-test-map! (:id user))
          part-id (random-uuid)]
      (bt/insert! db/datasource :parts
-                 (assoc (base-part (:id system)) :id part-id)
+                 (assoc (base-part (:id the-map)) :id part-id)
                  {:actor-id (:id user)})
      (doseq [op ops]
-       (replay-op (:id user) (:id system) part-id op))
+       (replay-op (:id user) (:id the-map) part-id op))
      (<= (count-current part-id) 1))))
 
 (defspec invariant-no-double-overlap 25
@@ -135,13 +135,13 @@
    [ops ops-gen]
    (clean!)
    (let [user    (create-test-user!)
-         system  (create-test-system! (:id user))
+         the-map (create-test-map! (:id user))
          part-id (random-uuid)]
      (bt/insert! db/datasource :parts
-                 (assoc (base-part (:id system)) :id part-id)
+                 (assoc (base-part (:id the-map)) :id part-id)
                  {:actor-id (:id user)})
      (doseq [op ops]
-       (replay-op (:id user) (:id system) part-id op))
+       (replay-op (:id user) (:id the-map) part-id op))
      (zero? (count-overlap-violations part-id)))))
 
 (defspec invariant-audit-trail-grows 25
@@ -149,16 +149,16 @@
    [ops ops-gen]
    (clean!)
    (let [user    (create-test-user!)
-         system  (create-test-system! (:id user))
+         the-map (create-test-map! (:id user))
          part-id (random-uuid)]
      (bt/insert! db/datasource :parts
-                 (assoc (base-part (:id system)) :id part-id)
+                 (assoc (base-part (:id the-map)) :id part-id)
                  {:actor-id (:id user)})
      (doseq [op ops]
-       (replay-op (:id user) (:id system) part-id op))
+       (replay-op (:id user) (:id the-map) part-id op))
      ;; Every successful op produces at least one audit_log entry — so the
      ;; trail size is monotonically non-decreasing. With the initial insert
-     ;; on top, audit count >= 2 (the system insert + the part insert).
+     ;; on top, audit count >= 2 (the map insert + the part insert).
      (let [audit-count (-> (jdbc/execute-one!
                             db/datasource
                             ["SELECT count(*) AS c FROM audit_log"]
@@ -171,10 +171,10 @@
 (deftest correction-preserves-valid-at
   (testing "after correction!, valid_at on the new row matches the prior valid_at"
     (let [user    (create-test-user!)
-          system  (create-test-system! (:id user))
+          the-map (create-test-map! (:id user))
           part-id (random-uuid)]
       (bt/insert! db/datasource :parts
-                  (assoc (base-part (:id system)) :id part-id)
+                  (assoc (base-part (:id the-map)) :id part-id)
                   {:actor-id (:id user)})
       (let [before-row (jdbc/execute-one!
                         db/datasource

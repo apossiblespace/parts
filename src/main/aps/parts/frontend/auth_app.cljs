@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.auth-app
   "Minimal auth app for the landing page.
    Mounts on #auth-root and handles login/signup modals triggered by custom events.
-   Also redirects logged-in users to their system."
+   Also redirects logged-in users to their map."
   (:require
    [aps.parts.frontend.components.login-modal :refer [login-modal]]
    [aps.parts.frontend.components.signup-modal :refer [signup-modal]]
@@ -12,12 +12,12 @@
    [uix.dom]
    [uix.re-frame :as uix.rf]))
 
-(defn redirect-to-system!
-  "Redirect to the user's system using system_id from user data"
+(defn redirect-to-map!
+  "Redirect to the user's map using map_id from user data"
   [user]
-  (when-let [system-id (:system_id user)]
+  (when-let [map-id (:map_id user)]
     (set! (.-href js/window.location)
-          (str "/systems/" system-id))))
+          (str "/maps/" map-id))))
 
 (defui auth-app []
   (let [[show-login set-show-login]   (use-state false)
@@ -25,11 +25,11 @@
         user                          (uix.rf/use-subscribe [:auth/user])
         auth-loading                  (uix.rf/use-subscribe [:auth/loading])]
 
-    ;; Redirect logged-in users to their system
+    ;; Redirect logged-in users to their map
     (use-effect
      (fn []
        (when (and user (not auth-loading))
-         (redirect-to-system! user))
+         (redirect-to-map! user))
        js/undefined)
      [user auth-loading])
 
@@ -53,10 +53,10 @@
           {:show       show-signup
            :on-close   #(set-show-signup false)
            :on-success (fn [result]
-                         ;; Redirect to the new system after successful signup
-                         (when-let [system-id (get-in result [:body :system_id])]
+                         ;; Redirect to the new map after successful signup
+                         (when-let [map-id (get-in result [:body :map_id])]
                            (set! (.-href js/window.location)
-                                 (str "/systems/" system-id))))}))))
+                                 (str "/maps/" map-id))))}))))
 
 (defn ^:export init []
   (when-let [root-el (js/document.getElementById "auth-root")]

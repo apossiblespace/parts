@@ -7,27 +7,27 @@
    [hiccup2.core :refer [html]]
    [ring.util.response :as response]))
 
-(defn system-graph
-  "Page rendering the graph of a system"
+(defn map-graph
+  "Page rendering the graph of a map"
   [{:keys [demo-mode]}]
   (let [demo-mode (or demo-mode false)]
     (response/response
      (html
       (layouts/fullscreen
-       {:title  "System"
+       {:title  "Map"
         :styles ["/css/flow.css" "/css/style.css"]}
        [:div#root {:data-demo-mode demo-mode
                    :data-launched  (str (launch/launched?))}])))))
 
 (defn playground
-  "Page rendering a playground system graph in demo mode"
+  "Page rendering a playground map graph in demo mode"
   [_]
-  (system-graph {:demo-mode "true"}))
+  (map-graph {:demo-mode "true"}))
 
-(defn system-page
-  "Page rendering a user's system graph (requires authentication)"
+(defn map-page
+  "Page rendering a user's map graph (requires authentication)"
   [_]
-  (system-graph {:demo-mode false}))
+  (map-graph {:demo-mode false}))
 
 (defn home-page-signup
   "Post-launch landing page: signup CTA wired to the React auth modal."

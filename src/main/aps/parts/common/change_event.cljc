@@ -1,5 +1,5 @@
 (ns aps.parts.common.change-event
-  "A change-event is the intent to mutate a System's contents.
+  "A change-event is the intent to mutate a Map's contents.
 
    A change-event is `{:entity :type :id :data}`: a keyworded entity (`:part` /
    `:relationship`), a keyworded operation (`:create` / `:update` / `:remove`),
@@ -29,17 +29,17 @@
 
 ;; -- per-operation :data payloads -----------------------------------------
 ;; :data composes the attribute specs registered by `common.models.*`.
-;; 
-;; :data never carries :id (lives on the envelope) or :system_id (a property of
+;;
+;; :data never carries :id (lives on the envelope) or :map_id (a property of
 ;; the batch).
-;; 
+;;
 ;; `:create` requires the entity's mandatory attributes; `:update` is any
 ;; non-empty subset; `:remove` carries nothing.
 
 (def ^:private forbidden-data-keys
-  "Keys that belong to the envelope (`:id`) or the batch (`:system_id`) and
+  "Keys that belong to the envelope (`:id`) or the batch (`:map_id`) and
    must never appear in `:data`."
-  #{:id :system_id})
+  #{:id :map_id})
 
 (defn- attribute-map?
   "True when `m` carries only entity attributes — no envelope/batch keys."

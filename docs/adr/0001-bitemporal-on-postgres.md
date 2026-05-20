@@ -4,9 +4,11 @@
 
 Accepted — 2026-05-12.
 
+> Terminology: 'System' renamed to 'Map' (2026-05, TASK-015) — the decision below is unchanged, only the noun.
+
 ## Context
 
-The scrubber feature requires that we replay a System's state at any past moment. Therapists also routinely *correct* past records ("last session that was a manager, not a firefighter") — so we need to distinguish "when a fact was true in the world" (valid time) from "when we recorded it" (transaction time). This is the textbook **bitemporal** problem.
+The scrubber feature requires that we replay a Map's state at any past moment. Therapists also routinely *correct* past records ("last session that was a manager, not a firefighter") — so we need to distinguish "when a fact was true in the world" (valid time) from "when we recorded it" (transaction time). This is the textbook **bitemporal** problem.
 
 We evaluated XTDB v2 early on (native bitemporal database) but eliminated it because its v2 storage architecture doesn't support PostgreSQL as a backend. The codebase already depends on PostgreSQL; running two databases for one product is operationally too expensive.
 
@@ -28,5 +30,5 @@ We pay one trade-off explicitly: **`relationships.source_id` / `relationships.ta
 
 - The scrubber, audit trail, and right-to-erasure flow all build on this foundation.
 - Migration to PG18+ becomes a pure schema change (swap `EXCLUDE USING gist` for `WITHOUT OVERLAPS`; add `PERIOD valid_at` FKs). No application code changes.
-- The "no FK on bitemporal-id" pattern is established once. ADR-0002 chose to *avoid* extending it to `parts.system_id` by splitting systems instead.
+- The "no FK on bitemporal-id" pattern is established once. ADR-0002 chose to *avoid* extending it to `parts.map_id` by splitting maps instead.
 - New temporal tables follow the same shape: bitemporal columns + EXCLUDE constraint + audit trigger.

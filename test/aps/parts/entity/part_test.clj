@@ -1,7 +1,7 @@
 (ns aps.parts.entity.part-test
   (:require
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
-   [aps.parts.entity.system :as system]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
@@ -9,8 +9,8 @@
 
 (deftest test-part-crud
   (let [user      (create-test-user!)
-        system    (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
-        part-data {:system_id  (:id system)
+        the-map   (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
+        part-data {:map_id     (:id the-map)
                    :type       "manager"
                    :label      "Test Part"
                    :position_x 100
@@ -57,8 +57,8 @@
 
   (testing "create fails with invalid type"
     (let [user      (create-test-user!)
-          system    (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
-          part-data {:system_id  (:id system)
+          the-map   (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
+          part-data {:map_id     (:id the-map)
                      :type       "invalid-type"
                      :label      "Test Part"
                      :position_x 100
@@ -67,13 +67,13 @@
                             (part/create! part-data (:id user))))))
 
   (testing "update fails with invalid data"
-    (let [user   (create-test-user!)
-          system (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
-          part   (part/create! {:system_id  (:id system)
-                                :type       "manager"
-                                :label      "Test Part"
-                                :position_x 100
-                                :position_y 100}
-                               (:id user))]
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
+          part    (part/create! {:map_id     (:id the-map)
+                                 :type       "manager"
+                                 :label      "Test Part"
+                                 :position_x 100
+                                 :position_y 100}
+                                (:id user))]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (part/update! (:id part) {:type "invalid-type"} (:id user)))))))

@@ -121,7 +121,7 @@ Connection: keep-alive
 Content-Type: application/json
 DNT: 1
 Pragma: no-cache
-Referer: http://127.0.0.1:3000/system
+Referer: http://127.0.0.1:3000/maps
 Sec-Fetch-Dest: empty
 Sec-Fetch-Mode: cors
 Sec-Fetch-Site: same-origin

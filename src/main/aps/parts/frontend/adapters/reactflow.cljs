@@ -32,10 +32,10 @@
 
 (defn node->part
   "Convert ReactFlow node to a Part"
-  [node system-id]
+  [node map-id]
   (let [node (js->clj node :keywordize-keys true)]
     (make-part {:id         (:id node)
-                :system_id  system-id
+                :map_id     map-id
                 :type       (get-in node [:data :type])
                 :label      (get-in node [:data :label])
                 :notes      (get-in node [:data :notes])
@@ -96,10 +96,10 @@
 
 (defn edge->relationship
   "Convert ReactFlow edge to a Relationship"
-  [edge system-id]
+  [edge map-id]
   (let [edge (js->clj edge :keywordize-keys true)]
     (make-relationship {:id        (:id edge)
-                        :system_id system-id
+                        :map_id    map-id
                         :source_id (:source edge)
                         :target_id (:target edge)
                         :type      (get-in edge [:data :relationship])

@@ -1,4 +1,4 @@
-(ns aps.parts.frontend.components.system
+(ns aps.parts.frontend.components.map
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
@@ -81,12 +81,12 @@
                               "These links will be removed from the map.")
        :confirm-label (plural rel-count "Delete connection" "Delete connections")})))
 
-(defui system-canvas []
+(defui map-canvas []
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
-        system-id             (uix.rf/use-subscribe [:system/id])
-        parts                 (uix.rf/use-subscribe [:system/parts])
-        relationships         (uix.rf/use-subscribe [:system/relationships])
+        map-id                (uix.rf/use-subscribe [:map/id])
+        parts                 (uix.rf/use-subscribe [:map/parts])
+        relationships         (uix.rf/use-subscribe [:map/relationships])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
         tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
@@ -122,10 +122,10 @@
                                  (let [{:keys [parts relationships]} pending-deletes]
                                    (doseq [id parts]
                                      (o/track "Part deleted" {:demo demo})
-                                     (rf/dispatch [:system/part-remove id]))
+                                     (rf/dispatch [:map/part-remove id]))
                                    (doseq [id relationships]
                                      (o/track "Relationship deleted" {:demo demo})
-                                     (rf/dispatch [:system/relationship-remove id]))
+                                     (rf/dispatch [:map/relationship-remove id]))
                                    (set-pending-deletes nil)))
                                [pending-deletes demo])
 
@@ -133,12 +133,12 @@
                                (fn [intent]
                                  (case (:intent intent)
                                    :part-position-frame
-                                   (rf/dispatch [:system/part-update-position
+                                   (rf/dispatch [:map/part-update-position
                                                  (:id intent)
                                                  (:position intent)])
 
                                    :part-moved
-                                   (rf/dispatch [:system/part-finish-position-change
+                                   (rf/dispatch [:map/part-finish-position-change
                                                  (:id intent)
                                                  (:position intent)])
 
@@ -160,29 +160,29 @@
 
                                    :relationship-connected
                                    (do (o/track "Relationship created" {:demo demo})
-                                       (rf/dispatch [:system/relationship-create
+                                       (rf/dispatch [:map/relationship-create
                                                      (select-keys intent [:source_id :target_id])]))
 
-                                   (o/warn "system.dispatch-intent" "unknown intent" intent)))
+                                   (o/warn "map.dispatch-intent" "unknown intent" intent)))
                                [demo queue-delete])
 
         on-nodes-change       (use-callback
                                (fn [changes]
-                                 (o/debug "system.on-nodes-change" "nodes changed" changes)
+                                 (o/debug "map.on-nodes-change" "nodes changed" changes)
                                  (run! dispatch-intent
                                        (adapter/translate-nodes-change changes)))
                                [dispatch-intent])
 
         on-edges-change       (use-callback
                                (fn [changes]
-                                 (o/debug "system.on-edges-change" "edges changed" changes)
+                                 (o/debug "map.on-edges-change" "edges changed" changes)
                                  (run! dispatch-intent
                                        (adapter/translate-edges-change changes)))
                                [dispatch-intent])
 
         on-connect            (use-callback
                                (fn [connection]
-                                 (o/debug "system.on-connect" "connection created" connection)
+                                 (o/debug "map.on-connect" "connection created" connection)
                                  (dispatch-intent (adapter/translate-connect connection)))
                                [dispatch-intent])
 
@@ -194,7 +194,7 @@
                                               #js {:x (.-clientX event)
                                                    :y (.-clientY event)})]
                                      (o/track "Part created" {:type part-type :demo demo})
-                                     (rf/dispatch [:system/part-create
+                                     (rf/dispatch [:map/part-create
                                                    {:type       part-type
                                                     :position_x (.-x pos)
                                                     :position_y (.-y pos)}]))))
@@ -202,13 +202,13 @@
 
     (use-effect
      (fn []
-       (when system-id
-         (o/info "system.lifecycle" "starting event queue for system" system-id)
-         (queue/start system-id)
+       (when map-id
+         (o/info "map.lifecycle" "starting event queue for map" map-id)
+         (queue/start map-id)
          (fn []
-           (o/info "system.lifecycle" "stopping event queue")
+           (o/info "map.lifecycle" "stopping event queue")
            (queue/stop))))
-     [system-id])
+     [map-id])
 
     (use-effect
      (fn []
@@ -222,7 +222,7 @@
          (fn [] (.removeEventListener js/document "keydown" handler))))
      [set-tool-mode])
 
-    ($ :div {:class "system-container"}
+    ($ :div {:class "map-container"}
        ;; Single SVG marker definition for every edge arrowhead.
        ;; fill="context-stroke" makes the marker fill inherit the
        ;; referencing path's stroke colour — so the .edge-<type> CSS
@@ -241,7 +241,7 @@
                          :orient       "auto-start-reverse"}
                 ($ :path {:d    "M 0 0 L 10 5 L 0 10 z"
                           :fill "context-stroke"}))))
-       ($ :div {:class (cond-> "system-view"
+       ($ :div {:class (cond-> "map-view"
                          minimal   (str " minimal")
                          tool-mode (str " mode-" (name tool-mode)))}
           ($ ReactFlow {:nodes                   nodes
@@ -309,6 +309,6 @@
              :on-confirm    confirm-delete
              :on-close      cancel-delete})))))
 
-(defui system []
+(defui map-view []
   ($ ReactFlowProvider
-     ($ system-canvas)))
+     ($ map-canvas)))

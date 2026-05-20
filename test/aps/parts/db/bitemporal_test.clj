@@ -5,7 +5,7 @@
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
-   [aps.parts.helpers.utils :refer [create-test-system! create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs])
@@ -14,9 +14,9 @@
 
 (use-fixtures :each with-test-db)
 
-(defn- part-row [system-id]
+(defn- part-row [map-id]
   {:id         (random-uuid)
-   :system_id  (db/->uuid system-id)
+   :map_id     (db/->uuid map-id)
    :type       "manager"
    :label      "Test"
    :position_x 0
@@ -33,10 +33,10 @@
       :c))
 
 (deftest test-insert-and-fetch
-  (let [user   (create-test-user!)
-        system (create-test-system! (:id user))
-        row    (assoc (part-row (:id system)) :label "Hello")
-        result (bt/insert! db/datasource :parts row {:actor-id (:id user)})]
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        row     (assoc (part-row (:id the-map)) :label "Hello")
+        result  (bt/insert! db/datasource :parts row {:actor-id (:id user)})]
     (testing "insert returns the row, without internal columns"
       (is (= (:id row) (:id result)))
       (is (= "Hello" (:label result)))
@@ -51,8 +51,8 @@
 
 (deftest test-update-preserves-history
   (let [user     (create-test-user!)
-        system   (create-test-system! (:id user))
-        row      (assoc (part-row (:id system)) :label "Original")
+        the-map  (create-test-map! (:id user))
+        row      (assoc (part-row (:id the-map)) :label "Original")
         _        (bt/insert! db/datasource :parts row {:actor-id (:id user)})
         t-insert (OffsetDateTime/now)
         _        (Thread/sleep 100)
@@ -82,8 +82,8 @@
 
 (deftest test-retract-disappears-from-current-view
   (let [user    (create-test-user!)
-        system  (create-test-system! (:id user))
-        row     (assoc (part-row (:id system)) :type "exile" :label "Ephemeral")
+        the-map (create-test-map! (:id user))
+        row     (assoc (part-row (:id the-map)) :type "exile" :label "Ephemeral")
         _       (bt/insert! db/datasource :parts row {:actor-id (:id user)})
         t-alive (OffsetDateTime/now)
         _       (Thread/sleep 100)
@@ -101,9 +101,9 @@
                                        [:= :id (:id row)])))))))
 
 (deftest test-no-overlap-constraint-rejects-conflict
-  (let [user   (create-test-user!)
-        system (create-test-system! (:id user))
-        row    (part-row (:id system))]
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        row     (part-row (:id the-map))]
     (bt/insert! db/datasource :parts row {:actor-id (:id user)})
     (testing "second insert with same id + overlapping valid_at is rejected"
       (is (thrown-with-msg?
@@ -113,9 +113,9 @@
                        {:actor-id (:id user)}))))))
 
 (deftest test-audit-log-captures-actor
-  (let [user   (create-test-user!)
-        system (create-test-system! (:id user))
-        row    (assoc (part-row (:id system)) :label "Audited")]
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        row     (assoc (part-row (:id the-map)) :label "Audited")]
     (bt/insert! db/datasource :parts row {:actor-id (:id user)})
     (testing "audit_log has at least one row for the insert"
       (let [entries (jdbc/execute! db/datasource
@@ -130,16 +130,16 @@
 
 (deftest test-three-step-timeline
   (testing "the bitemporal API supports the scrubber's exact use case"
-    (let [user   (create-test-user!)
-          system (create-test-system! (:id user))
-          row    (assoc (part-row (:id system)) :label "Step 1")
-          _      (bt/insert! db/datasource :parts row {:actor-id (:id user)})
-          t1     (do (Thread/sleep 50) (OffsetDateTime/now))
-          _      (Thread/sleep 50)
-          _      (bt/update! db/datasource :parts (:id row) {:label "Step 2"} {:actor-id (:id user)})
-          t2     (do (Thread/sleep 50) (OffsetDateTime/now))
-          _      (Thread/sleep 50)
-          _      (bt/update! db/datasource :parts (:id row) {:label "Step 3"} {:actor-id (:id user)})]
+    (let [user    (create-test-user!)
+          the-map (create-test-map! (:id user))
+          row     (assoc (part-row (:id the-map)) :label "Step 1")
+          _       (bt/insert! db/datasource :parts row {:actor-id (:id user)})
+          t1      (do (Thread/sleep 50) (OffsetDateTime/now))
+          _       (Thread/sleep 50)
+          _       (bt/update! db/datasource :parts (:id row) {:label "Step 2"} {:actor-id (:id user)})
+          t2      (do (Thread/sleep 50) (OffsetDateTime/now))
+          _       (Thread/sleep 50)
+          _       (bt/update! db/datasource :parts (:id row) {:label "Step 3"} {:actor-id (:id user)})]
       (is (= "Step 1" (-> (bt/as-of-valid db/datasource :parts (str t1)
                                           [:= :id (:id row)])
                           first :label)))
@@ -154,8 +154,8 @@
   (testing "a sequenced update is keyed on its `id` parameter — an `:id` in
             `changes` cannot move the entity to a different identity"
     (let [user     (create-test-user!)
-          system   (create-test-system! (:id user))
-          row      (assoc (part-row (:id system)) :label "Original")
+          the-map  (create-test-map! (:id user))
+          row      (assoc (part-row (:id the-map)) :label "Original")
           _        (bt/insert! db/datasource :parts row {:actor-id (:id user)})
           rogue-id (random-uuid)
           updated  (bt/update! db/datasource :parts (:id row)

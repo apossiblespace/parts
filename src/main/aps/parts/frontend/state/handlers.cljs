@@ -17,32 +17,32 @@
     :auth/check-auth-fx nil}))
 
 (rf/reg-event-fx
- :app/init-system
+ :app/init-map
  (fn [{:keys [db]} _]
-   ;; Prioritize URL path over localStorage for system ID
-   (if-let [url-id (api-utils/get-system-id-from-url)]
+   ;; Prioritize URL path over localStorage for map ID
+   (if-let [url-id (api-utils/get-map-id-from-url)]
      ;; Store as pending — wait for auth check to complete before fetching
-     {:db (assoc db :pending-system-id url-id)}
+     {:db (assoc db :pending-map-id url-id)}
      ;; Fall back to localStorage or create demo
-     (if-let [stored-id (api-utils/get-current-system-id)]
-       {:storage/get-system {:id stored-id}}
-       {:dispatch [:app/create-demo-system]}))))
+     (if-let [stored-id (api-utils/get-current-map-id)]
+       {:storage/get-map {:id stored-id}}
+       {:dispatch [:app/create-demo-map]}))))
 
 (rf/reg-event-fx
- :app/create-demo-system
+ :app/create-demo-map
  (fn [{:keys [db]} _]
-   (let [system-id          (str (random-uuid))
-         demo-parts         (mapv #(make-part %) (demo/demo-part-attrs system-id))
+   (let [map-id             (str (random-uuid))
+         demo-parts         (mapv #(make-part %) (demo/demo-part-attrs map-id))
          demo-relationships (mapv #(make-relationship %) (demo/demo-relationship-attrs demo-parts))
-         demo-system        {:id            system-id
-                             :title         "Demo System"
+         demo-map           {:id            map-id
+                             :title         "Demo Map"
                              :parts         demo-parts
                              :relationships demo-relationships}]
-     ;; Load demo system into app state immediately
-     {:db (assoc-in db [:system] demo-system)
-      ;; Persist to storage backend and save current system ID
-      :fx [[:storage/create-system demo-system]
-           [:api-utils/save-current-system-id system-id]]})))
+     ;; Load demo map into app state immediately
+     {:db (assoc-in db [:map] demo-map)
+      ;; Persist to storage backend and save current map ID
+      :fx [[:storage/create-map demo-map]
+           [:api-utils/save-current-map-id map-id]]})))
 
 (rf/reg-event-db
  :selection/set
@@ -81,22 +81,22 @@
    (assoc-in db [:ui :tool-mode] mode)))
 
 ;; -- optimistic mutation helpers ------------------------------------------
-;; Each :system/* handler below does the same two-beat: mutate :db optimistically,
+;; Each :map/* handler below does the same two-beat: mutate :db optimistically,
 ;; then enqueue a change-event. These name the mutation half; the change-event
 ;; half is named by the constructors in `ce/*`.
 
 (defn- add-part
-  "Append `new-part` to the System and select it (clearing edge selection)."
+  "Append `new-part` to the Map and select it (clearing edge selection)."
   [db new-part]
   (-> db
-      (update-in [:system :parts] conj new-part)
+      (update-in [:map :parts] conj new-part)
       (assoc-in [:ui :selected-node-ids] [(:id new-part)])
       (assoc-in [:ui :selected-edge-ids] [])))
 
 (defn- merge-part
   "Merge `attrs` into the part with `part-id`."
   [db part-id attrs]
-  (update-in db [:system :parts]
+  (update-in db [:map :parts]
              (fn [parts]
                (mapv (fn [part]
                        (if (= (:id part) part-id)
@@ -108,20 +108,20 @@
   "Drop the part with `part-id` and clear it from selection."
   [db part-id]
   (-> db
-      (update-in [:system :parts]
+      (update-in [:map :parts]
                  (fn [parts] (filterv #(not= (:id %) part-id) parts)))
       (update-in [:ui :selected-node-ids]
                  (fn [ids] (filterv #(not= % part-id) (or ids []))))))
 
 (defn- add-relationship
-  "Append `new-relationship` to the System."
+  "Append `new-relationship` to the Map."
   [db new-relationship]
-  (update-in db [:system :relationships] conj new-relationship))
+  (update-in db [:map :relationships] conj new-relationship))
 
 (defn- merge-relationship
   "Merge `attrs` into the relationship with `relationship-id`."
   [db relationship-id attrs]
-  (update-in db [:system :relationships]
+  (update-in db [:map :relationships]
              (fn [rels]
                (mapv (fn [rel]
                        (if (= (:id rel) relationship-id)
@@ -133,53 +133,53 @@
   "Drop the relationship with `relationship-id` and clear it from selection."
   [db relationship-id]
   (-> db
-      (update-in [:system :relationships]
+      (update-in [:map :relationships]
                  (fn [rels] (filterv #(not= (:id %) relationship-id) rels)))
       (update-in [:ui :selected-edge-ids]
                  (fn [ids] (filterv #(not= % relationship-id) (or ids []))))))
 
 (rf/reg-event-fx
- :system/part-create
+ :map/part-create
  (fn [{:keys [db]} [_ attrs]]
-   (let [system-id (get-in db [:system :id])
-         new-part  (make-part (merge {:system_id  system-id
-                                      :position_x 390
-                                      :position_y 290}
-                                     attrs))]
+   (let [map-id   (get-in db [:map :id])
+         new-part (make-part (merge {:map_id     map-id
+                                     :position_x 390
+                                     :position_y 290}
+                                    attrs))]
      {:db              (add-part db new-part)
       :queue/add-event (ce/part-create
                         (:id new-part)
                         (select-keys new-part [:type :label :position_x :position_y]))})))
 
 (rf/reg-event-fx
- :system/part-update
+ :map/part-update
  (fn [{:keys [db]} [_ part-id attrs]]
    {:db              (merge-part db part-id attrs)
     :queue/add-event (ce/part-update part-id attrs)}))
 
 (rf/reg-event-fx
- :system/part-remove
+ :map/part-remove
  (fn [{:keys [db]} [_ part-id]]
    {:db              (remove-part db part-id)
     :queue/add-event (ce/part-remove part-id)}))
 
 (rf/reg-event-db
- :system/part-update-position
+ :map/part-update-position
  (fn [db [_ node-id position]]
    (merge-part db node-id {:position_x (int (:x position))
                            :position_y (int (:y position))})))
 
 (rf/reg-event-fx
- :system/part-finish-position-change
+ :map/part-finish-position-change
  (fn [_ [_ node-id position]]
    {:queue/add-event (ce/part-moved node-id (:x position) (:y position))}))
 
 (rf/reg-event-fx
- :system/relationship-create
+ :map/relationship-create
  (fn [{:keys [db]} [_ attrs]]
-   (let [system-id        (get-in db [:system :id])
-         relationships    (get-in db [:system :relationships])
-         new-relationship (make-relationship (merge {:system_id system-id} attrs))]
+   (let [map-id           (get-in db [:map :id])
+         relationships    (get-in db [:map :relationships])
+         new-relationship (make-relationship (merge {:map_id map-id} attrs))]
      (if (relationship/can-connect? relationships
                                     (:source_id new-relationship)
                                     (:target_id new-relationship))
@@ -193,135 +193,135 @@
            {})))))
 
 (rf/reg-event-fx
- :system/relationship-update
+ :map/relationship-update
  (fn [{:keys [db]} [_ relationship-id attrs]]
    {:db              (merge-relationship db relationship-id attrs)
     :queue/add-event (ce/relationship-update relationship-id attrs)}))
 
 (rf/reg-event-fx
- :system/relationship-remove
+ :map/relationship-remove
  (fn [{:keys [db]} [_ relationship-id]]
    {:db              (remove-relationship db relationship-id)
     :queue/add-event (ce/relationship-remove relationship-id)}))
 
 (rf/reg-event-fx
- :system/fetch
- (fn [{:keys [db]} [_ system-id]]
-   {:db                 (assoc-in db [:systems :loading] true)
-    :storage/get-system {:id system-id}}))
+ :map/fetch
+ (fn [{:keys [db]} [_ map-id]]
+   {:db              (assoc-in db [:maps :loading] true)
+    :storage/get-map {:id map-id}}))
 
 (rf/reg-event-fx
- :system/create
+ :map/create
  (fn [{:keys [db]} _]
-   {:db                    (assoc-in db [:systems :loading] true)
-    :storage/create-system {:title "Untitled System"}}))
+   {:db                 (assoc-in db [:maps :loading] true)
+    :storage/create-map {:title "Untitled Map"}}))
 
 (rf/reg-event-fx
- :system/fetch-list
+ :map/fetch-list
  (fn [{:keys [db]} _]
-   {:db                  (assoc-in db [:systems :loading] true)
-    :storage/get-systems nil}))
+   {:db               (assoc-in db [:maps :loading] true)
+    :storage/get-maps nil}))
 
 (rf/reg-event-db
- :system/fetch-list-success
- (fn [db [_ systems]]
+ :map/fetch-list-success
+ (fn [db [_ maps]]
    (-> db
-       (assoc-in [:systems :loading] false)
-       (assoc-in [:systems :list] systems))))
+       (assoc-in [:maps :loading] false)
+       (assoc-in [:maps :list] maps))))
 
 (rf/reg-event-db
- :system/fetch-list-failure
+ :map/fetch-list-failure
  (fn [db [_ _error]]
    (-> db
-       (assoc-in [:systems :loading] false)
-       (assoc-in [:systems :error] "Failed to load systems"))))
+       (assoc-in [:maps :loading] false)
+       (assoc-in [:maps :error] "Failed to load maps"))))
 
 (rf/reg-event-fx
- :system/fetch-unauthorized
+ :map/fetch-unauthorized
  (fn [{:keys [db]} _]
-   (if-let [url-id (api-utils/get-system-id-from-url)]
+   (if-let [url-id (api-utils/get-map-id-from-url)]
      {:db (-> db
-              (assoc-in [:systems :loading] false)
-              (assoc :pending-system-id url-id))}
+              (assoc-in [:maps :loading] false)
+              (assoc :pending-map-id url-id))}
      {:db          (-> db
-                       (assoc-in [:systems :loading] false)
-                       (assoc-in [:systems :error] "Please sign in to view this system"))
+                       (assoc-in [:maps :loading] false)
+                       (assoc-in [:maps :error] "Please sign in to view this map"))
       :navigate-to "/"})))
 
 (rf/reg-event-fx
- :system/fetch-forbidden
+ :map/fetch-forbidden
  (fn [{:keys [db]} _]
    {:db          (-> db
-                     (assoc-in [:systems :loading] false)
-                     (assoc-in [:systems :error] "You don't have access to this system"))
+                     (assoc-in [:maps :loading] false)
+                     (assoc-in [:maps :error] "You don't have access to this map"))
     :navigate-to "/"}))
 
 (rf/reg-event-fx
- :system/fetch-not-found
+ :map/fetch-not-found
  (fn [{:keys [db]} _]
    {:db          (-> db
-                     (assoc-in [:systems :loading] false)
-                     (assoc-in [:systems :error] "System not found"))
+                     (assoc-in [:maps :loading] false)
+                     (assoc-in [:maps :error] "Map not found"))
     :navigate-to "/"}))
 
 (rf/reg-event-fx
- :system/fetch-failure
+ :map/fetch-failure
  (fn [{:keys [db]} [_ _error]]
    (let [demo-mode? (:demo-mode db)]
      (cond-> {:db (-> db
-                      (assoc-in [:systems :loading] false)
-                      (assoc-in [:systems :error] "Failed to load system"))}
-       ;; Only create demo system when in demo mode (localStorage backend)
+                      (assoc-in [:maps :loading] false)
+                      (assoc-in [:maps :error] "Failed to load map"))}
+       ;; Only create demo map when in demo mode (localStorage backend)
        ;; When using HTTP backend, redirect to home instead
-       demo-mode? (assoc :dispatch [:app/create-demo-system])
+       demo-mode? (assoc :dispatch [:app/create-demo-map])
        (not demo-mode?) (assoc :navigate-to "/")))))
 
 (rf/reg-event-db
- :system/create-failure
+ :map/create-failure
  (fn [db [_ _error]]
    (-> db
-       (assoc-in [:systems :loading] false)
-       (assoc-in [:systems :error] "Failed to create system"))))
+       (assoc-in [:maps :loading] false)
+       (assoc-in [:maps :error] "Failed to create map"))))
 
 (rf/reg-event-db
- :system/fetch-success
- (fn [db [_ system]]
+ :map/fetch-success
+ (fn [db [_ the-map]]
    (-> db
-       (assoc-in [:systems :loading] false)
-       (assoc-in [:system] system))))
+       (assoc-in [:maps :loading] false)
+       (assoc-in [:map] the-map))))
 
 (rf/reg-event-db
- :system/create-success
- (fn [db [_ system]]
+ :map/create-success
+ (fn [db [_ the-map]]
    (-> db
-       (assoc-in [:systems :loading] false)
-       (assoc-in [:system] system)
-       (update-in [:systems :list] conj system))))
+       (assoc-in [:maps :loading] false)
+       (assoc-in [:map] the-map)
+       (update-in [:maps :list] conj the-map))))
 
 (rf/reg-event-fx
- :system/load
- (fn [{:keys [db]} [_ system-id]]
-   {:db                 (assoc-in db [:systems :loading] true)
-    :storage/get-system {:id system-id}}))
+ :map/load
+ (fn [{:keys [db]} [_ map-id]]
+   {:db              (assoc-in db [:maps :loading] true)
+    :storage/get-map {:id map-id}}))
 
 (rf/reg-event-db
- :system/update-success
- (fn [db [_ updated-system]]
+ :map/update-success
+ (fn [db [_ updated-map]]
    (-> db
-       (assoc-in [:system] updated-system)
-       (update-in [:systems :list]
-                  (fn [systems]
-                    (mapv (fn [sys]
-                            (if (= (:id sys) (:id updated-system))
-                              updated-system
-                              sys))
-                          systems))))))
+       (assoc-in [:map] updated-map)
+       (update-in [:maps :list]
+                  (fn [maps]
+                    (mapv (fn [m]
+                            (if (= (:id m) (:id updated-map))
+                              updated-map
+                              m))
+                          maps))))))
 
 (rf/reg-event-db
- :system/update-failure
+ :map/update-failure
  (fn [db [_ error]]
    (-> db
-       (assoc-in [:systems :error] error))))
+       (assoc-in [:maps :error] error))))
 
 (rf/reg-event-db
  :auth/set-user
@@ -354,10 +354,10 @@
 (rf/reg-event-fx
  :auth/check-complete
  (fn [{:keys [db]} _]
-   (when-let [pending-id (:pending-system-id db)]
+   (when-let [pending-id (:pending-map-id db)]
      (when (get-in db [:auth :user])
-       {:db                 (dissoc db :pending-system-id)
-        :storage/get-system {:id pending-id}}))))
+       {:db              (dissoc db :pending-map-id)
+        :storage/get-map {:id pending-id}}))))
 
 (rf/reg-event-fx
  :auth/register

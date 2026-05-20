@@ -2,7 +2,7 @@
   (:require
    [aps.parts.config :as conf]
    [aps.parts.db.erasure :as erasure]
-   [aps.parts.entity.system :as system]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [clojure.tools.logging :as log]
@@ -64,9 +64,9 @@
   ([]      (create-test-user! {}))
   ([attrs] (user/create! (factory/build-test-user attrs))))
 
-(defn create-test-system!
-  "Create a system owned by `user-id` (also used as actor). Goes through the
-   entity layer so the metadata row in `system_metadata` is populated too."
-  ([user-id] (create-test-system! user-id "Test System"))
+(defn create-test-map!
+  "Create a map owned by `user-id` (also used as actor). Goes through the
+   entity layer so the metadata row in `map_metadata` is populated too."
+  ([user-id] (create-test-map! user-id "Test Map"))
   ([user-id title]
-   (system/create! {:owner_id user-id :title title} user-id)))
+   (parts-map/create! {:owner_id user-id :title title} user-id)))

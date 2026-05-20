@@ -42,15 +42,15 @@
 (def debounced-chan (debounce-batch changes-chan 2000))
 
 (defn start
-  "Start a loop sending batched system updates for a specific system ID to the
+  "Start a loop sending batched map updates for a specific map ID to the
   backend"
-  [system-id]
-  (o/info "queue.start" "update queue started for system" system-id)
+  [map-id]
+  (o/info "queue.start" "update queue started for map" map-id)
   (go-loop []
     (let [batch (<! debounced-chan)]
       (when batch
         (when-let [backend (storage-registry/get-backend)]
-          (let [response (<! (process-batched-changes backend system-id batch))]
+          (let [response (<! (process-batched-changes backend map-id batch))]
             (o/debug "queue.batch-response" "batch update response" response)))))
     (recur)))
 

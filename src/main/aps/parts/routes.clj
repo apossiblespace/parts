@@ -3,7 +3,7 @@
   (:require
    [aps.parts.api.account :as api.account]
    [aps.parts.api.auth :as api.auth]
-   [aps.parts.api.systems :as api.systems]
+   [aps.parts.api.maps :as api.maps]
    [aps.parts.handlers.pages :as pages]
 
    [aps.parts.handlers.waitlist :as waitlist]
@@ -35,13 +35,13 @@
 ;; 5. Responses validated against :responses specs
 ;;
 ;; Example:
-;; ["/systems/:id"
+;; ["/maps/:id"
 ;;   {:parameters {:path {:id string?}           ; URL path parameters
 ;;                 :query {:include boolean?}    ; Query string parameters
 ;;                 :body {:name string?}}        ; Request body structure
 ;;    :responses {200 {:body map?}               ; Success response
 ;;                404 {:body {:error string?}}}  ; Error response
-;;   :handler get-system}]
+;;   :handler get-map}]
 ;;
 ;; Benefits:
 ;; - Declarative API contract in route definitions
@@ -92,9 +92,9 @@
                                 middleware/wrap-html-response]
                    :get        {:handler pages/playground}}]
 
-   ["/systems/:id" {:middleware [middleware/wrap-html-defaults
-                                 middleware/wrap-html-response]
-                    :get        {:handler pages/system-page}}]
+   ["/maps/:id" {:middleware [middleware/wrap-html-defaults
+                              middleware/wrap-html-response]
+                 :get        {:handler pages/map-page}}]
 
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 
@@ -139,16 +139,16 @@
           :patch      {:handler api.account/update-account}
           :delete     {:handler api.account/delete-account}}]]
 
-    ["/systems" {:middleware [middleware/jwt-auth]}
-     ["" {:get  {:handler api.systems/list-systems}
-          :post {:handler api.systems/create-system}}]
+    ["/maps" {:middleware [middleware/jwt-auth]}
+     ["" {:get  {:handler api.maps/list-maps}
+          :post {:handler api.maps/create-map}}]
 
      ;; This uses coercion for the `parameters`, see the note at the top of this
      ;; namespace.
      ["/:id" {:parameters {:path {:id string?}}
-              :middleware [middleware/wrap-system-access]}
-      ["" {:get    {:handler api.systems/get-system}
-           :put    {:handler api.systems/update-system}
-           :delete {:handler api.systems/delete-system}}]
-      ["/pdf" {:get {:handler api.systems/export-pdf}}]
-      ["/changes" {:post {:handler api.systems/process-changes}}]]]]])
+              :middleware [middleware/wrap-map-access]}
+      ["" {:get    {:handler api.maps/get-map}
+           :put    {:handler api.maps/update-map}
+           :delete {:handler api.maps/delete-map}}]
+      ["/pdf" {:get {:handler api.maps/export-pdf}}]
+      ["/changes" {:post {:handler api.maps/process-changes}}]]]]])

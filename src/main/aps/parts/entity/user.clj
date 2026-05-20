@@ -62,7 +62,7 @@
   (apply dissoc attrs sensitive-fields))
 
 (defn fetch
-  "Retrieve a user record from the database, including their system_id"
+  "Retrieve a user record from the database, including their map_id"
   [id]
   (if-let [user (db/query-one
                  (db/sql-format
@@ -71,9 +71,9 @@
                                [:u.username :username]
                                [:u.display_name :display_name]
                                [:u.role :role]
-                               [:s.id :system_id]]
+                               [:m.id :map_id]]
                    :from      [[:users :u]]
-                   :left-join [[:systems :s] [:= :s.owner_id :u.id]]
+                   :left-join [[:maps :m] [:= :m.owner_id :u.id]]
                    :where     [:= :u.id (db/->uuid id)]}))]
     (remove-sensitive-data user)
     (throw (ex-info "User not found" {:type :not-found :id id}))))
@@ -103,7 +103,7 @@
       (db/insert! :users validated-attrs tx)))))
 
 (defn delete!
-  "Hard-delete a user and all associated data, including past systems, parts,
+  "Hard-delete a user and all associated data, including past maps, parts,
    relationships, and refresh tokens. Audit-log entries referencing this user
    are pseudonymized to the tombstone UUID rather than deleted, preserving the
    operational trail.

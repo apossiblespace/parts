@@ -9,7 +9,7 @@
 (defui parts-tools
   "Renders a tool palette that displays the selected Parts for editing"
   []
-  (let [selected-parts (uix.rf/use-subscribe [:system/selected-parts])
+  (let [selected-parts (uix.rf/use-subscribe [:map/selected-parts])
         part-count     (count selected-parts)
         multiple-parts (> part-count 1)]
     (when (seq selected-parts)
@@ -22,5 +22,5 @@
                              :part      part
                              :collapsed multiple-parts
                              :on-save   (fn [id updated-attrs]
-                                          (rf/dispatch [:system/part-update id updated-attrs]))}))
+                                          (rf/dispatch [:map/part-update id updated-attrs]))}))
              selected-parts))))))

@@ -96,10 +96,10 @@
     (is (not (s/valid? ::ce/change-event
                        (assoc part-create :data (:data relationship-create))))))
 
-  (testing ":data may not carry :id or :system_id — those belong to the envelope / batch"
+  (testing ":data may not carry :id or :map_id — those belong to the envelope / batch"
     (is (not (s/valid? ::ce/change-event (assoc-in part-create [:data :id] "sneaky"))))
-    (is (not (s/valid? ::ce/change-event (assoc-in part-create [:data :system_id] "sneaky"))))
-    (is (not (s/valid? ::ce/change-event (assoc-in part-update [:data :system_id] "sneaky"))))
+    (is (not (s/valid? ::ce/change-event (assoc-in part-create [:data :map_id] "sneaky"))))
+    (is (not (s/valid? ::ce/change-event (assoc-in part-update [:data :map_id] "sneaky"))))
     (is (not (s/valid? ::ce/change-event (assoc-in relationship-update [:data :id] "sneaky"))))))
 
 (deftest data-spec-test
@@ -184,7 +184,7 @@
     (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
                  (ce/parse ["not-a-map"]))))
 
-  (testing "rejects a wire change smuggling :system_id into :data"
+  (testing "rejects a wire change smuggling :map_id into :data"
     (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
-                 (ce/parse {:entity "part"                                 :type "update" :id "part-1"
-                            :data   {:label "x" :system_id "other-system"}})))))
+                 (ce/parse {:entity "part"                           :type "update" :id "part-1"
+                            :data   {:label "x" :map_id "other-map"}})))))

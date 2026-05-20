@@ -10,7 +10,7 @@
   ([data actor-id tx]
    (let [rel (-> (model/make-relationship data)
                  (update :id #(or % (random-uuid)))
-                 (db/coerce-uuid-keys [:id :system_id :source_id :target_id]))]
+                 (db/coerce-uuid-keys [:id :map_id :source_id :target_id]))]
      (bt/insert! tx :relationships rel {:actor-id (db/->uuid actor-id)}))))
 
 (defn fetch

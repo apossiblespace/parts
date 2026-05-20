@@ -52,7 +52,7 @@
 
 (deftest hard-delete-is-quarantined
   (testing "DELETE FROM on temporal tables appears only in db/erasure"
-    (let [patterns  [#"(?i)DELETE FROM (parts|relationships|systems|system_metadata)\b"]
+    (let [patterns  [#"(?i)DELETE FROM (parts|relationships|maps|map_metadata)\b"]
           allowed   ["db/erasure"]
           offenders (offending-files patterns allowed)]
       (is (empty? offenders)

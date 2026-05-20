@@ -2,7 +2,7 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.db :as db]
-   [aps.parts.entity.system :as system]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
@@ -111,15 +111,15 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
                             (user/fetch id)))))
 
-  (testing "deletes the system entity owned by the user from the database"
-    (let [user           (create-test-user!)
-          id             (:id user)
-          system-data    {:title    "System To Delete"
-                          :owner_id id}
-          system-created (system/create! system-data id)]
+  (testing "deletes the map entity owned by the user from the database"
+    (let [user        (create-test-user!)
+          id          (:id user)
+          map-data    {:title    "Map To Delete"
+                       :owner_id id}
+          map-created (parts-map/create! map-data id)]
       (user/delete! id)
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"System not found"
-                            (system/fetch (:id system-created))))))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Map not found"
+                            (parts-map/fetch (:id map-created))))))
 
   (testing "deletes the refresh token entity of the user from the database"
     (let [user     (create-test-user!)

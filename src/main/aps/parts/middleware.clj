@@ -2,7 +2,7 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.db :as db]
-   [aps.parts.entity.system :as system]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.launch :as launch]
    [buddy.auth :refer [authenticated?]]
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
@@ -131,23 +131,23 @@
       (handler request)
       (throw (ex-info "Not found" {:type :not-found})))))
 
-(defn- owns-system?
-  "True when `user-id` (a JWT subject string) owns `system` (its identity row)."
-  [user-id system]
-  (= (db/->uuid user-id) (:owner_id system)))
+(defn- owns-map?
+  "True when `user-id` (a JWT subject string) owns `the-map` (its identity row)."
+  [user-id the-map]
+  (= (db/->uuid user-id) (:owner_id the-map)))
 
-(defn wrap-system-access
-  "Middleware for routes scoped to a single System. The System must exist and
+(defn wrap-map-access
+  "Middleware for routes scoped to a single Map. The Map must exist and
    be owned by the authenticated user, or the request is rejected as
    `:not-found` (404)."
   [handler]
   (fn [request]
-    (let [user-id   (get-in request [:identity :sub])
-          system-id (get-in request [:parameters :path :id])
-          system    (system/fetch-identity system-id)]
-      (if (and system (owns-system? user-id system))
+    (let [user-id (get-in request [:identity :sub])
+          map-id  (get-in request [:parameters :path :id])
+          the-map (parts-map/fetch-identity map-id)]
+      (if (and the-map (owns-map? user-id the-map))
         (handler request)
-        (throw (ex-info "System not found" {:type :not-found :id system-id}))))))
+        (throw (ex-info "Map not found" {:type :not-found :id map-id}))))))
 
 (defn wrap-html-defaults
   "Middleware that applies a set of Ring defaults for HTML routes.

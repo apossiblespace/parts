@@ -6,14 +6,14 @@
    [clojure.spec.alpha :as s]))
 
 (s/def ::id (s/or :string string? :uuid uuid?))
-(s/def ::system_id (s/or :string string? :uuid uuid?))
+(s/def ::map_id (s/or :string string? :uuid uuid?))
 (s/def ::type #(contains? relationship-types %))
 (s/def ::source_id (s/or :string string? :uuid uuid?))
 (s/def ::target_id (s/or :string string? :uuid uuid?))
 (s/def ::notes (s/nilable string?))
 
 (s/def ::relationship
-  (s/keys :req-un [::system_id
+  (s/keys :req-un [::map_id
                    ::type
                    ::source_id
                    ::target_id]
@@ -38,9 +38,9 @@
     relationship))
 
 (defn- no-identity-keys?
-  "A Relationship's id and system_id are identity — an update can't change them."
+  "A Relationship's id and map_id are identity — an update can't change them."
   [attrs]
-  (not-any? #{:id :system_id} (keys attrs)))
+  (not-any? #{:id :map_id} (keys attrs)))
 
 (s/def ::relationship-update
   (s/and (s/keys :opt-un [::type

@@ -35,14 +35,14 @@
 
 (deftest node->part-test
   (testing "Converts node to part with correct structure"
-    (let [node      #js {:id       "node-123"
-                         :position #js {:x 150 :y 250}
-                         :data     #js {:label "Test Node" :type "firefighter"}}
-          system-id "system-456"
-          result    (adapter/node->part node system-id)]
+    (let [node   #js {:id       "node-123"
+                      :position #js {:x 150 :y 250}
+                      :data     #js {:label "Test Node" :type "firefighter"}}
+          map-id "map-456"
+          result (adapter/node->part node map-id)]
 
       (is (= "node-123" (:id result)))
-      (is (= system-id (:system_id result)))
+      (is (= map-id (:map_id result)))
       (is (= "firefighter" (:type result)))
       (is (= "Test Node" (:label result)))
       (is (= 150 (:position_x result)))
@@ -79,15 +79,15 @@
 
 (deftest edge->relationship-test
   (testing "Converts edge to relationship with correct structure"
-    (let [edge      #js {:id     "edge-123"
-                         :source "source-123"
-                         :target "target-456"
-                         :data   #js {:relationship "alliance"}}
-          system-id "system-789"
-          result    (adapter/edge->relationship edge system-id)]
+    (let [edge   #js {:id     "edge-123"
+                      :source "source-123"
+                      :target "target-456"
+                      :data   #js {:relationship "alliance"}}
+          map-id "map-789"
+          result (adapter/edge->relationship edge map-id)]
 
       (is (= "edge-123" (:id result)))
-      (is (= system-id (:system_id result)))
+      (is (= map-id (:map_id result)))
       (is (= "source-123" (:source_id result)))
       (is (= "target-456" (:target_id result)))
       (is (= "alliance" (:type result))))))
@@ -95,24 +95,24 @@
 (deftest bidirectional-conversion-test
   (testing "Part -> Node -> Part conversion preserves data"
     (let [original-part (part/make-part {:id         "test-id"
-                                         :system_id  "system-id"
+                                         :map_id     "map-id"
                                          :type       "manager"
                                          :label      "Test Manager"
                                          :position_x 100
                                          :position_y 200})
           node          (adapter/part->node original-part)
-          result        (adapter/node->part node "system-id")]
+          result        (adapter/node->part node "map-id")]
 
       (is (= original-part result))))
 
   (testing "Relationship -> Edge -> Relationship conversion preserves data"
     (let [original-rel (relationship/make-relationship {:id        "test-id"
-                                                        :system_id "system-id"
+                                                        :map_id    "map-id"
                                                         :type      "protective"
                                                         :source_id "source-id"
                                                         :target_id "target-id"})
           edge         (adapter/relationship->edge original-rel)
-          result       (adapter/edge->relationship edge "system-id")]
+          result       (adapter/edge->relationship edge "map-id")]
 
       (is (= original-rel result)))))
 

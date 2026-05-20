@@ -9,7 +9,7 @@
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
    [aps.parts.db.erasure :as erasure]
-   [aps.parts.helpers.utils :refer [create-test-system! create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]))
@@ -78,46 +78,46 @@
 
 (deftest test-purge-account-hard-deletes-owned-data
   (let [user    (create-test-user!)
-        system  (create-test-system! (:id user) "Doomed")
+        the-map (create-test-map! (:id user) "Doomed")
         part-id (random-uuid)]
     (bt/insert! db/datasource :parts
                 {:id         part-id
-                 :system_id  (:id system)
+                 :map_id     (:id the-map)
                  :type       "manager"
                  :label      "Goodbye"
-                 :position_x 0            :position_y 0}
+                 :position_x 0             :position_y 0}
                 {:actor-id (:id user)})
 
     (erasure/purge-account! db/datasource (:id user))
 
-    (let [parts-left   (jdbc/execute-one!
-                        db/datasource
-                        ["SELECT count(*) AS c FROM parts WHERE id = ?::uuid" (str part-id)]
-                        {:builder-fn rs/as-unqualified-maps})
-          systems-left (jdbc/execute-one!
-                        db/datasource
-                        ["SELECT count(*) AS c FROM systems WHERE owner_id = ?::uuid"
-                         (str (:id user))]
-                        {:builder-fn rs/as-unqualified-maps})
-          users-left   (jdbc/execute-one!
-                        db/datasource
-                        ["SELECT count(*) AS c FROM users WHERE id = ?::uuid"
-                         (str (:id user))]
-                        {:builder-fn rs/as-unqualified-maps})]
+    (let [parts-left (jdbc/execute-one!
+                      db/datasource
+                      ["SELECT count(*) AS c FROM parts WHERE id = ?::uuid" (str part-id)]
+                      {:builder-fn rs/as-unqualified-maps})
+          maps-left  (jdbc/execute-one!
+                      db/datasource
+                      ["SELECT count(*) AS c FROM maps WHERE owner_id = ?::uuid"
+                       (str (:id user))]
+                      {:builder-fn rs/as-unqualified-maps})
+          users-left (jdbc/execute-one!
+                      db/datasource
+                      ["SELECT count(*) AS c FROM users WHERE id = ?::uuid"
+                       (str (:id user))]
+                      {:builder-fn rs/as-unqualified-maps})]
       (testing "all parts physically gone"
         (is (zero? (:c parts-left))))
-      (testing "all systems physically gone"
-        (is (zero? (:c systems-left))))
+      (testing "all maps physically gone"
+        (is (zero? (:c maps-left))))
       (testing "user row physically gone"
         (is (zero? (:c users-left)))))))
 
 (deftest test-purge-pseudonymizes-audit-trail
-  (let [user   (create-test-user!)
-        system (create-test-system! (:id user) "Pre-purge")]
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user) "Pre-purge")]
     ;; Generate some audit history attributed to the user.
     (bt/insert! db/datasource :parts
                 {:id         (random-uuid)
-                 :system_id  (:id system)
+                 :map_id     (:id the-map)
                  :type       "manager"
                  :label      "Audited"
                  :position_x 0             :position_y 0}

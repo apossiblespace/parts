@@ -1,8 +1,8 @@
 (ns aps.parts.entity.relationship-test
   (:require
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
-   [aps.parts.entity.system :as system]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
@@ -10,20 +10,20 @@
 
 (deftest test-relationship-crud
   (let [user              (create-test-user!)
-        system            (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
-        part1             (part/create! {:system_id  (:id system)
+        the-map           (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
+        part1             (part/create! {:map_id     (:id the-map)
                                          :type       "manager"
                                          :label      "Source Part"
                                          :position_x 100
                                          :position_y 100}
                                         (:id user))
-        part2             (part/create! {:system_id  (:id system)
+        part2             (part/create! {:map_id     (:id the-map)
                                          :type       "exile"
                                          :label      "Target Part"
                                          :position_x 200
                                          :position_y 200}
                                         (:id user))
-        relationship-data {:system_id (:id system)
+        relationship-data {:map_id    (:id the-map)
                            :source_id (:id part1)
                            :target_id (:id part2)
                            :type      "protective"}]
@@ -66,20 +66,20 @@
 
   (testing "create fails with invalid type"
     (let [user              (create-test-user!)
-          system            (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
-          part1             (part/create! {:system_id  (:id system)
+          the-map           (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
+          part1             (part/create! {:map_id     (:id the-map)
                                            :type       "manager"
                                            :label      "Source Part"
                                            :position_x 100
                                            :position_y 100}
                                           (:id user))
-          part2             (part/create! {:system_id  (:id system)
+          part2             (part/create! {:map_id     (:id the-map)
                                            :type       "exile"
                                            :label      "Target Part"
                                            :position_x 200
                                            :position_y 200}
                                           (:id user))
-          relationship-data {:system_id (:id system)
+          relationship-data {:map_id    (:id the-map)
                              :source_id (:id part1)
                              :target_id (:id part2)
                              :type      "invalid-type"}]
@@ -88,20 +88,20 @@
 
   (testing "update fails with invalid data"
     (let [user         (create-test-user!)
-          system       (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
-          part1        (part/create! {:system_id  (:id system)
+          the-map      (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
+          part1        (part/create! {:map_id     (:id the-map)
                                       :type       "manager"
                                       :label      "Source Part"
                                       :position_x 100
                                       :position_y 100}
                                      (:id user))
-          part2        (part/create! {:system_id  (:id system)
+          part2        (part/create! {:map_id     (:id the-map)
                                       :type       "exile"
                                       :label      "Target Part"
                                       :position_x 200
                                       :position_y 200}
                                      (:id user))
-          relationship (relationship/create! {:system_id (:id system)
+          relationship (relationship/create! {:map_id    (:id the-map)
                                               :source_id (:id part1)
                                               :target_id (:id part2)
                                               :type      "protective"}

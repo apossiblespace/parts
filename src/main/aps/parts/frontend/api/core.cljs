@@ -45,27 +45,27 @@
   []
   (http/GET "/account" {}))
 
-(defn get-systems
-  "Retrieve a list of systems for the currently signed in user:"
+(defn get-maps
+  "Retrieve a list of maps for the currently signed in user:"
   []
-  (http/GET "/systems"))
+  (http/GET "/maps"))
 
-(defn get-system
-  "Retrieve a single system identified by `id`"
+(defn get-map
+  "Retrieve a single map identified by `id`"
   [id]
-  (http/GET (str "/systems/" id)))
+  (http/GET (str "/maps/" id)))
 
-(defn create-system
-  "Create a system with the given `params`"
+(defn create-map
+  "Create a map with the given `params`"
   [params]
-  (http/POST "/systems" params))
+  (http/POST "/maps" params))
 
 ;; NOTE: This function is called in the queue processing go-loop in
 ;; aps.parts.frontend.api.queue/start. The idea is that a processing queue is
-;; started _per system_, so it makes sense to enclose the system-id in the
+;; started _per map_, so it makes sense to enclose the map-id in the
 ;; `start` function.
 (defn send-batched-updates
-  [system-id batch]
+  [map-id batch]
   (go
     (o/debug "api.send-batched-updates" "sending batch" batch)
-    (<! (http/POST (str "/systems/" system-id "/changes") batch))))
+    (<! (http/POST (str "/maps/" map-id "/changes") batch))))

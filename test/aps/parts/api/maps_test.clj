@@ -1,10 +1,10 @@
-(ns aps.parts.api.systems-test
+(ns aps.parts.api.maps-test
   (:require
-   [aps.parts.api.systems :as api]
-   [aps.parts.api.systems-events :as events]
+   [aps.parts.api.maps :as api]
+   [aps.parts.api.maps-events :as events]
    [aps.parts.db :as db]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
-   [aps.parts.entity.system :as system]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
@@ -17,63 +17,63 @@
    :parameters  {:path params}
    :body-params body})
 
-(deftest test-list-systems
-  (testing "returns systems for authenticated user"
+(deftest test-list-maps
+  (testing "returns maps for authenticated user"
     (let [user     (create-test-user!)
-          _        (system/create! {:title "Test System" :owner_id (:id user)} (:id user))
+          _        (parts-map/create! {:title "Test Map" :owner_id (:id user)} (:id user))
           request  (make-request user)
-          response (api/list-systems request)]
+          response (api/list-maps request)]
       (is (= 200 (:status response)))
       (is (= 1 (count (:body response))))
       (is (= (:id user) (-> response :body first :owner_id))))))
 
-(deftest test-create-system
-  (testing "creates system for authenticated user"
+(deftest test-create-map
+  (testing "creates map for authenticated user"
     (let [user     (create-test-user!)
-          request  (make-request user :body {:title "New System"})
-          response (api/create-system request)]
+          request  (make-request user :body {:title "New Map"})
+          response (api/create-map request)]
       (is (= 201 (:status response)))
-      (is (= "New System" (-> response :body :title)))
+      (is (= "New Map" (-> response :body :title)))
       (is (= (:id user) (-> response :body :owner_id))))))
 
-(deftest test-get-system
-  (testing "returns the system (non-owner case is `wrap-system-access`'s job)"
+(deftest test-get-map
+  (testing "returns the map (non-owner case is `wrap-map-access`'s job)"
     (let [user     (create-test-user!)
-          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
-          request  (make-request user :params {:id (:id system)})
-          response (api/get-system request)]
+          the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
+          request  (make-request user :params {:id (:id the-map)})
+          response (api/get-map request)]
       (is (= 200 (:status response)))
-      (is (= (:id system) (-> response :body :id)))
+      (is (= (:id the-map) (-> response :body :id)))
       (is (vector? (-> response :body :parts)))
       (is (vector? (-> response :body :relationships))))))
 
-(deftest test-update-system
-  (testing "updates the system (non-owner case is `wrap-system-access`'s job)"
+(deftest test-update-map
+  (testing "updates the map (non-owner case is `wrap-map-access`'s job)"
     (let [user     (create-test-user!)
-          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
+          the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
           request  (make-request user
-                                 :params {:id (:id system)}
+                                 :params {:id (:id the-map)}
                                  :body {:title "Updated"})
-          response (api/update-system request)]
+          response (api/update-map request)]
       (is (= 200 (:status response)))
       (is (= "Updated" (-> response :body :title))))))
 
-(deftest test-delete-system
-  (testing "deletes the system (non-owner case is `wrap-system-access`'s job)"
+(deftest test-delete-map
+  (testing "deletes the map (non-owner case is `wrap-map-access`'s job)"
     (let [user     (create-test-user!)
-          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
-          request  (make-request user :params {:id (:id system)})
-          response (api/delete-system request)]
+          the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
+          request  (make-request user :params {:id (:id the-map)})
+          response (api/delete-map request)]
       (is (= 204 (:status response)))
       (is (nil? (:body response))))))
 
 (deftest test-batch-rollback-when-one-change-fails
   (testing "all-or-nothing batch: one bad change rolls back the rest"
     (let [user    (create-test-user!)
-          sys     (system/create! {:title "Rollback Test" :owner_id (:id user)} (:id user))
+          the-map (parts-map/create! {:title "Rollback Test" :owner_id (:id user)} (:id user))
           part-id (random-uuid)
           _       (part/create! {:id         part-id
-                                 :system_id  (:id sys)
+                                 :map_id     (:id the-map)
                                  :type       "manager"
                                  :label      "Original"
                                  :position_x 0
@@ -87,9 +87,9 @@
       (is (thrown? clojure.lang.ExceptionInfo
                    (events/apply-changes!
                     db/datasource
-                    {:system-id (:id sys)
-                     :actor-id  (:id user)
-                     :changes   batch})))
+                    {:map-id   (:id the-map)
+                     :actor-id (:id user)
+                     :changes  batch})))
       (testing "the earlier change in the batch was rolled back"
         (is (= "Original" (:label (part/fetch part-id)))
             "label should not have been renamed because the batch failed")))))
@@ -97,10 +97,10 @@
 (deftest test-parse-rejects-invalid-change-before-transaction
   (testing "a structurally invalid change is rejected as a batch failure, before any DB work"
     (let [user    (create-test-user!)
-          sys     (system/create! {:title "Parse Test" :owner_id (:id user)} (:id user))
+          the-map (parts-map/create! {:title "Parse Test" :owner_id (:id user)} (:id user))
           part-id (random-uuid)
           _       (part/create! {:id         part-id
-                                 :system_id  (:id sys)
+                                 :map_id     (:id the-map)
                                  :type       "manager"
                                  :label      "Original"
                                  :position_x 0
@@ -113,9 +113,9 @@
                    bad]]
       (try
         (events/apply-changes! db/datasource
-                               {:system-id (:id sys)
-                                :actor-id  (:id user)
-                                :changes   batch})
+                               {:map-id   (:id the-map)
+                                :actor-id (:id user)
+                                :changes  batch})
         (is false "expected apply-changes! to throw")
         (catch clojure.lang.ExceptionInfo e
           (let [data (ex-data e)]
@@ -128,8 +128,8 @@
 (deftest test-export-pdf
   (testing "returns not implemented"
     (let [user     (create-test-user!)
-          system   (system/create! {:title "Test" :owner_id (:id user)} (:id user))
-          request  (make-request user :params {:id (:id system)})
+          the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
+          request  (make-request user :params {:id (:id the-map)})
           response (api/export-pdf request)]
       (is (= 501 (:status response)))
       (is (= "Not implemented" (-> response :body :error))))))

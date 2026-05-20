@@ -4,8 +4,8 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.auth-app :as auth-app]
    [aps.parts.frontend.components.login-modal :refer [login-modal]]
-   [aps.parts.frontend.components.system :refer [system]]
-   [aps.parts.frontend.components.system-list-modal :refer [system-list-modal]]
+   [aps.parts.frontend.components.map :refer [map-view]]
+   [aps.parts.frontend.components.map-list-modal :refer [map-list-modal]]
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
    [aps.parts.frontend.state.subs]
@@ -18,18 +18,18 @@
 (def initial-db
   {:demo-mode false
    :launched  false
-   :system    {}
-   :systems   {:list    []
+   :map       {}
+   :maps      {:list    []
                :loading false}})
 
 (defui app []
-  (let [[show-system-list set-show-system-list] (use-state false)
-        current-system-id                       (uix.rf/use-subscribe [:system/id])
-        pending-system-id                       (uix.rf/use-subscribe [:system/pending-id])
-        auth-loading                            (uix.rf/use-subscribe [:auth/loading])
-        logged-in                               (uix.rf/use-subscribe [:auth/logged-in])
-        demo                                    (uix.rf/use-subscribe [:demo])
-        show-login                              (and pending-system-id (not auth-loading) (not logged-in))]
+  (let [[show-map-list set-show-map-list] (use-state false)
+        current-map-id                    (uix.rf/use-subscribe [:map/id])
+        pending-map-id                    (uix.rf/use-subscribe [:map/pending-id])
+        auth-loading                      (uix.rf/use-subscribe [:auth/loading])
+        logged-in                         (uix.rf/use-subscribe [:auth/logged-in])
+        demo                              (uix.rf/use-subscribe [:demo])
+        show-login                        (and pending-map-id (not auth-loading) (not logged-in))]
 
     ($ :<>
        (when show-login
@@ -37,11 +37,11 @@
             {:show       true
              :on-close   #(set! (.-location js/window) "/")
              :on-success (fn [_] nil)}))
-       (when (and (not demo) (not show-login) (not current-system-id))
-         ($ system-list-modal
-            {:show     show-system-list
-             :on-close #(set-show-system-list false)}))
-       ($ system))))
+       (when (and (not demo) (not show-login) (not current-map-id))
+         ($ map-list-modal
+            {:show     show-map-list
+             :on-close #(set-show-map-list false)}))
+       ($ map-view))))
 
 (defn get-demo-settings
   "Extract demo mode configuration from root element"
@@ -73,7 +73,7 @@
       (storage-registry/init-localstorage-backend!)
       (storage-registry/init-http-backend!))
     (rf/dispatch-sync [:app/init-db initial-db-with-demo])
-    (rf/dispatch [:app/init-system])
+    (rf/dispatch [:app/init-map])
     (uix.dom/render-root ($ app) root)
     {:root      root
      :demo-mode demo-mode}))

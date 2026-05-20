@@ -73,17 +73,17 @@
    Inside one transaction:
      1. Set the session actor to the tombstone so audit triggers on the
         DELETEs below write rows that don't FK-reference the dying user.
-     2. Hard-DELETE relationships / parts / systems owned by the user.
+     2. Hard-DELETE relationships / parts / maps owned by the user.
      3. Pseudonymize any historical `audit_log` rows still attributing
         pre-deletion activity to this user — they survive but are anonymous.
      4. Mark `deletion_completed_at` (sentinel for log correlation).
      5. Hard-DELETE the user row.
 
-   For the v1 owner-only model, every part/relationship in a user's system
+   For the v1 owner-only model, every part/relationship in a user's map
    was authored by that same user, so the pseudonymization in step 3 makes
-   the system's audit history anonymous — that's the design. Other users'
+   the map's audit history anonymous — that's the design. Other users'
    audit entries that *also* reference this user (as actor on rows in
-   another user's system, in a future multi-user world) are pseudonymized
+   another user's map, in a future multi-user world) are pseudonymized
    the same way."
   [ds user-id]
   (let [user-uuid (db/->uuid user-id)]
@@ -93,21 +93,21 @@
     (mulog/log ::purge-account-start :user-id user-id)
     (jdbc/with-transaction [tx ds]
       (bt/set-actor! tx tombstone-id)
-      ;; Child cascade: mirror in `entity.system/delete-impl!`.
+      ;; Child cascade: mirror in `entity.map/delete-impl!`.
       (jdbc/execute! tx
                      ["DELETE FROM relationships
-                       WHERE system_id IN (SELECT id FROM systems WHERE owner_id = ?)"
+                       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
                       user-uuid])
       (jdbc/execute! tx
                      ["DELETE FROM parts
-                       WHERE system_id IN (SELECT id FROM systems WHERE owner_id = ?)"
+                       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
                       user-uuid])
       (jdbc/execute! tx
-                     ["DELETE FROM system_metadata
-                       WHERE system_id IN (SELECT id FROM systems WHERE owner_id = ?)"
+                     ["DELETE FROM map_metadata
+                       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
                       user-uuid])
       (jdbc/execute! tx
-                     ["DELETE FROM systems WHERE owner_id = ?" user-uuid])
+                     ["DELETE FROM maps WHERE owner_id = ?" user-uuid])
       (db/update! :audit_log
                   {:actor_id [:cast (str tombstone-id) :uuid]}
                   [:= :actor_id user-uuid]

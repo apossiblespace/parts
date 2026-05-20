@@ -1,5 +1,5 @@
 (ns aps.parts.entity.part
-  "A part is one of the components of a system map. Wraps the bitemporal
+  "A part is one of the components of a Map. Wraps the bitemporal
    layer; entity callers never see `valid_at` or `sys_period`."
   (:require
    [aps.parts.common.models.part :as model]
@@ -13,7 +13,7 @@
   ([data actor-id tx]
    (let [part (-> (model/make-part data)
                   (update :id #(or % (random-uuid)))
-                  (db/coerce-uuid-keys [:id :system_id]))]
+                  (db/coerce-uuid-keys [:id :map_id]))]
      (bt/insert! tx :parts part {:actor-id (db/->uuid actor-id)}))))
 
 (defn fetch

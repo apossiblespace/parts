@@ -3,7 +3,7 @@
    [aps.parts.api.account :as account]
    [aps.parts.auth :as auth]
    [aps.parts.db :as db]
-   [aps.parts.entity.system :as system]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.string :as str]
@@ -22,7 +22,7 @@
               :display_name (:display_name user)
               :role         (:role user)
               :id           (:id user)
-              :system_id    nil} (:body response)))
+              :map_id       nil} (:body response)))
       (is (not (contains? response :password_hash))))))
 
 (deftest test-update-account
@@ -72,7 +72,7 @@
 ;; TODO: When we allow roles other than "therapist" during registration,
 ;; update this test to verify the role from user-data is respected
 (deftest test-register-account
-  (testing "register creates a new user with therapist role and a default system"
+  (testing "register creates a new user with therapist role and a default map"
     (let [user-data                             (factory/build-test-user)
           {:keys [email username display_name]} user-data
           mock-request                          {:body-params user-data}
@@ -88,14 +88,14 @@
       (is (some? (:access_token user)))
       (is (some? (:refresh_token user)))
       (is (= "Bearer" (:token_type user)))
-      ;; Registration should create a default system
-      (is (some? (:system_id user)))))
+      ;; Registration should create a default map
+      (is (some? (:map_id user)))))
 
   (testing "if a write inside the tx throws, the user insert is rolled back"
     (let [user-data    (factory/build-test-user)
           mock-request {:body-params user-data}]
-      (with-redefs [system/create! (fn [_ _]
-                                     (throw (ex-info "Simulated tx error" {})))]
+      (with-redefs [parts-map/create! (fn [_ _]
+                                        (throw (ex-info "Simulated tx error" {})))]
         (is (thrown? Exception
                      (account/register-account mock-request))))
       (let [db-user (db/query-one

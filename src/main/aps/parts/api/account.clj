@@ -3,9 +3,9 @@
    [aps.parts.auth :as auth]
    [aps.parts.common.demo :as demo]
    [aps.parts.db :as db]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
-   [aps.parts.entity.system :as system]
    [aps.parts.entity.user :as user]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
@@ -28,41 +28,41 @@
     (-> (response/response updated-user)
         (response/status 200))))
 
-(defn- populate-initial-system!
-  "Populates a new system with demo parts and relationships.
+(defn- populate-initial-map!
+  "Populates a new map with demo parts and relationships.
    Runs all inserts on the provided tx so they share atomicity with the caller."
-  [system-id actor-id tx]
+  [map-id actor-id tx]
   (let [created-parts (mapv #(part/create! % actor-id tx)
-                            (demo/demo-part-attrs system-id))]
+                            (demo/demo-part-attrs map-id))]
     (doseq [rel-data (demo/demo-relationship-attrs created-parts)]
       (relationship/create! rel-data actor-id tx))))
 
 (defn- provision-account!
-  "Creates a user, their default system, and seeds it with demo content.
+  "Creates a user, their default map, and seeds it with demo content.
    All writes share `tx` so they commit or roll back as one unit.
-   Returns {:account ... :system-id ...}."
+   Returns {:account ... :map-id ...}."
   [params tx]
   (let [account (user/create! params tx)
-        title   (str (:username account) "'s System")
-        system  (system/create! {:title title :owner_id (:id account)} (:id account) tx)]
-    (populate-initial-system! (:id system) (:id account) tx)
-    {:account account :system-id (:id system)}))
+        title   (str (:username account) "'s Map")
+        the-map (parts-map/create! {:title title :owner_id (:id account)} (:id account) tx)]
+    (populate-initial-map! (:id the-map) (:id account) tx)
+    {:account account :map-id (:id the-map)}))
 
 (defn register-account
   "Register a new user (role hardcoded to 'therapist'), provision their starter
-   system atomically, then return auth tokens for auto-login."
+   map atomically, then return auth tokens for auto-login."
   [request]
   (let [params (-> (:body-params request) (assoc :role "therapist"))]
     (try
-      (let [{:keys [account system-id]} (db/with-transaction
-                                          #(provision-account! params %))
-            tokens                      (auth/issue-tokens (:id account))]
+      (let [{:keys [account map-id]} (db/with-transaction
+                                       #(provision-account! params %))
+            tokens                   (auth/issue-tokens (:id account))]
         (mulog/log ::register
                    :email (:email account)
                    :username (:username account)
-                   :system-id system-id
+                   :map-id map-id
                    :status :success)
-        (-> (response/response (merge account tokens {:system_id system-id}))
+        (-> (response/response (merge account tokens {:map_id map-id}))
             (response/status 201)))
       (catch Exception e
         ;; NOTE: log only safe fields. `params` contains :password and is NOT

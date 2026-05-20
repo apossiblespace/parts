@@ -4,9 +4,11 @@
 
 Accepted — 2026-05-14.
 
+> Terminology: 'System' renamed to 'Map' (2026-05, TASK-015) — the decision below is unchanged, only the noun.
+
 ## Context
 
-A **change-event** — the intent to mutate a System's contents — had no module. Its map shape (`{:entity :type :id :data}`) was reconstructed by hand at four sites: the frontend `:system/*` handlers built it, `queue.cljs`'s `normalize-event` multimethod re-shaped it (8 near-identical methods), `api/systems.clj`'s `process-changes` re-shaped it again, and `systems_events.clj`'s `process-change` multimethod re-shaped it a third time (defensive `(keyword …)`, `(assoc data :id :system_id)`). Normalization was literally split in half across the client/server seam: the frontend *stripped* `:id` / `:system_id`, the backend *re-attached* them. There was no interface to test against — the contract lived in four implementations kept in sync by hand.
+A **change-event** — the intent to mutate a Map's contents — had no module. Its map shape (`{:entity :type :id :data}`) was reconstructed by hand at four sites: the frontend `:map/*` handlers built it, `queue.cljs`'s `normalize-event` multimethod re-shaped it (8 near-identical methods), `api/maps.clj`'s `process-changes` re-shaped it again, and `maps_events.clj`'s `process-change` multimethod re-shaped it a third time (defensive `(keyword …)`, `(assoc data :id :map_id)`). Normalization was literally split in half across the client/server seam: the frontend *stripped* `:id` / `:map_id`, the backend *re-attached* them. There was no interface to test against — the contract lived in four implementations kept in sync by hand.
 
 Two scoping questions surfaced while designing the module:
 
@@ -22,7 +24,7 @@ Two scoping questions surfaced while designing the module:
 
 **Presence is a deliberately separate, not-yet-built channel.** Ephemeral multiplayer data — live drag frames, cursors, remote selections — is *not* a change-event. When multiplayer lands, presence gets its own channel (lossy, peer-broadcast, persistent socket), not a slot in the change-event vocabulary.
 
-Canonical shape: `{:entity <kw> :type <kw> :id <id> :data <map>}`. `:entity` and `:type` are canonical keywords (the module owns coercion). `:system_id` is **off** the event — System scope is a property of the *batch*, injected by `apply-changes!` from the route.
+Canonical shape: `{:entity <kw> :type <kw> :id <id> :data <map>}`. `:entity` and `:type` are canonical keywords (the module owns coercion). `:map_id` is **off** the event — Map scope is a property of the *batch*, injected by `apply-changes!` from the route.
 
 ## Why this fit
 
@@ -33,8 +35,8 @@ Canonical shape: `{:entity <kw> :type <kw> :id <id> :data <map>}`. `:entity` and
 
 ## Consequences
 
-- `queue.cljs` loses its 8-method `normalize-event` multimethod. The `(when-not (:dragging event))` check there was already dead code — the live `:dragging` filter is in `system.cljs`, a ReactFlow-adapter concern outside this module's scope.
-- `process-change` stops reshaping: no defensive `(keyword …)`, no `(assoc data :id :system_id)`. It receives canonical, already-validated events.
-- `api/systems.clj`'s `process-changes` stops branching on `body-params` shape — `parse` handles single-vs-vector and validation.
+- `queue.cljs` loses its 8-method `normalize-event` multimethod. The `(when-not (:dragging event))` check there was already dead code — the live `:dragging` filter is in `map.cljs`, a ReactFlow-adapter concern outside this module's scope.
+- `process-change` stops reshaping: no defensive `(keyword …)`, no `(assoc data :id :map_id)`. It receives canonical, already-validated events.
+- `api/maps.clj`'s `process-changes` stops branching on `body-params` shape — `parse` handles single-vs-vector and validation.
 - The change-event spec becomes the test surface — unit-testable on both sides, replacing today's HTTP-only coverage.
 - When multiplayer is built, the presence channel is a new module alongside `change-event`, not a retrofit into it.

@@ -168,10 +168,10 @@ a.btn {
     animation-delay: 4s;
 }
 
-.system-container {
+.map-container {
     display: flex;
 
-    .system-view {
+    .map-view {
         height: 100vh;
         flex: 1;
         &.minimal {

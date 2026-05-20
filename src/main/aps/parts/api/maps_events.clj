@@ -1,4 +1,4 @@
-(ns aps.parts.api.systems-events
+(ns aps.parts.api.maps-events
   "Per-change dispatch + a transport-agnostic batch entry point.
 
    `apply-changes!` is the function HTTP, WebSocket, or any future transport
@@ -21,14 +21,14 @@
 
 (defmulti process-change
   "Apply a single canonical change-event (see `aps.parts.common.change-event`).
-   Takes a context map (`{:system-id ... :actor-id ... :tx ...}`) plus the event.
+   Takes a context map (`{:map-id ... :actor-id ... :tx ...}`) plus the event.
    Throws on failure; the surrounding transaction rolls back."
   (fn [_ctx event]
     [(:entity event) (:type event)]))
 
 (defmethod process-change [:part :create]
-  [{:keys [system-id actor-id tx]} {:keys [id data]}]
-  (let [part-data (assoc data :id id :system_id system-id)]
+  [{:keys [map-id actor-id tx]} {:keys [id data]}]
+  (let [part-data (assoc data :id id :map_id map-id)]
     {:success true :result (part/create! part-data actor-id tx)}))
 
 (defmethod process-change [:part :update]
@@ -40,8 +40,8 @@
   {:success true :result (part/delete! id actor-id tx)})
 
 (defmethod process-change [:relationship :create]
-  [{:keys [system-id actor-id tx]} {:keys [id data]}]
-  (let [rel-data (assoc data :id id :system_id system-id)]
+  [{:keys [map-id actor-id tx]} {:keys [id data]}]
+  (let [rel-data (assoc data :id id :map_id map-id)]
     {:success true :result (relationship/create! rel-data actor-id tx)}))
 
 (defmethod process-change [:relationship :update]
@@ -73,13 +73,13 @@
    vector of per-change `{:success true :result ...}` maps. Any failure, parse-
    time or process-time, propagates as a `:batch-failure` `ex-info` carrying
    `:failing-change`, and the transaction rolls back."
-  [ds {:keys [system-id actor-id changes]}]
+  [ds {:keys [map-id actor-id changes]}]
   (let [parsed (try
                  (change-event/parse changes)
                  (catch Throwable t
                    (throw (as-batch-failure t nil))))]
     (jdbc/with-transaction [tx ds]
-      (let [ctx {:system-id system-id :actor-id actor-id :tx tx}]
+      (let [ctx {:map-id map-id :actor-id actor-id :tx tx}]
         (mapv (fn [change]
                 (try
                   (process-change ctx change)

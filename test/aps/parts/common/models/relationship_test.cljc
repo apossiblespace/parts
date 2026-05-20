@@ -6,15 +6,15 @@
 
 (deftest make-relationship-test
   (testing "Creates a valid relationship with minimal attributes"
-    (let [system-id "test-system-id"
+    (let [map-id    "test-map-id"
           source-id "source-123"
           target-id "target-456"
-          result    (relationship/make-relationship {:system_id system-id
+          result    (relationship/make-relationship {:map_id    map-id
                                                      :source_id source-id
                                                      :target_id target-id})]
       #?(:cljs (is (string? (:id result)))
          :clj (is (nil? (:id result))))
-      (is (= system-id (:system_id result)))
+      (is (= map-id (:map_id result)))
       (is (= "unknown" (:type result)))
       (is (= source-id (:source_id result)))
       (is (= target-id (:target_id result)))
@@ -22,7 +22,7 @@
 
   (testing "Creates a relationship with provided attributes"
     (let [attrs  {:id        "custom-id"
-                  :system_id "system-123"
+                  :map_id    "map-123"
                   :type      "protective"
                   :source_id "source-123"
                   :target_id "target-456"
@@ -34,7 +34,7 @@
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
-         (relationship/make-relationship {:system_id "test"
+         (relationship/make-relationship {:map_id    "test"
                                           :source_id "source"
                                           :target_id "target"
                                           :type      "invalid-type"}))))
@@ -49,7 +49,7 @@
   (testing "Accepts a partial map of mutable attributes"
     (is (nil? (relationship/validate-update {:notes "New note"}))))
 
-  (testing "Rejects :id and :system_id — a Relationship's identity can't be updated"
+  (testing "Rejects :id and :map_id — a Relationship's identity can't be updated"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
@@ -57,7 +57,7 @@
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
-         (relationship/validate-update {:notes "x" :system_id "sneaky"})))))
+         (relationship/validate-update {:notes "x" :map_id "sneaky"})))))
 
 (deftest can-connect?-test
   (let [a   "part-a"

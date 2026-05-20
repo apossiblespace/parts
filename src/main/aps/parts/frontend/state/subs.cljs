@@ -18,29 +18,29 @@
    (boolean (:launched db))))
 
 (rf/reg-sub
- :systems/list
+ :maps/list
  (fn [db _]
-   (get-in db [:systems :list])))
+   (get-in db [:maps :list])))
 
 (rf/reg-sub
- :systems/loading
+ :maps/loading
  (fn [db _]
-   (get-in db [:systems :loading])))
+   (get-in db [:maps :loading])))
 
 (rf/reg-sub
- :system/id
+ :map/id
  (fn [db _]
-   (get-in db [:system :id])))
+   (get-in db [:map :id])))
 
 (rf/reg-sub
- :system/parts
+ :map/parts
  (fn [db _]
-   (get-in db [:system :parts])))
+   (get-in db [:map :parts])))
 
 (rf/reg-sub
- :system/relationships
+ :map/relationships
  (fn [db _]
-   (get-in db [:system :relationships])))
+   (get-in db [:map :relationships])))
 
 (rf/reg-sub
  :ui/selected-node-ids
@@ -58,16 +58,16 @@
    (get-in db [:ui :tool-mode] :move)))
 
 (rf/reg-sub
- :system/selected-parts
+ :map/selected-parts
  :<- [:ui/selected-node-ids]
- :<- [:system/parts]
+ :<- [:map/parts]
  (fn [[selected-ids parts] _]
    (filterv #(contains? (set selected-ids) (:id %)) parts)))
 
 (rf/reg-sub
- :system/selected-relationships
+ :map/selected-relationships
  :<- [:ui/selected-edge-ids]
- :<- [:system/relationships]
+ :<- [:map/relationships]
  (fn [[selected-ids relationships] _]
    (filterv #(contains? (set selected-ids) (:id %)) relationships)))
 
@@ -88,6 +88,6 @@
    (boolean user)))
 
 (rf/reg-sub
- :system/pending-id
+ :map/pending-id
  (fn [db _]
-   (:pending-system-id db)))
+   (:pending-map-id db)))

@@ -6,7 +6,7 @@
    [clojure.spec.alpha :as s]))
 
 (s/def ::id (s/or :string string? :uuid uuid?))
-(s/def ::system_id (s/or :string string? :uuid uuid?))
+(s/def ::map_id (s/or :string string? :uuid uuid?))
 (s/def ::type part-types)
 (s/def ::label string?)
 (s/def ::description (s/nilable string?))
@@ -18,7 +18,7 @@
 (s/def ::body_location (s/nilable string?))
 
 (s/def ::part
-  (s/keys :req-un [::system_id
+  (s/keys :req-un [::map_id
                    ::type
                    ::label
                    ::position_x
@@ -53,9 +53,9 @@
     part))
 
 (defn- no-identity-keys?
-  "A Part's id and system_id are identity — an update can't change them."
+  "A Part's id and map_id are identity — an update can't change them."
   [attrs]
-  (not-any? #{:id :system_id} (keys attrs)))
+  (not-any? #{:id :map_id} (keys attrs)))
 
 (s/def ::part-update
   (s/and (s/keys :opt-un [::type

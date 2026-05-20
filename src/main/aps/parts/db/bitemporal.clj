@@ -1,6 +1,6 @@
 (ns aps.parts.db.bitemporal
   "Bitemporal data layer for entity-snapshot tables (`parts`, `relationships`,
-   `system_metadata`).
+   `map_metadata`).
 
    Every row is a complete snapshot of an entity, valid for some
    `valid_at` interval, recorded for some `sys_period` interval.
@@ -332,7 +332,7 @@
 
 (defn as-of-valid
   "Time-slice: VT-time-slice + TT-current. Powers the scrubber:
-   'what did the system look like at `valid-t`, as best known?'"
+   'what did the map look like at `valid-t`, as best known?'"
   ([ds table valid-t]
    (as-of-valid ds table valid-t nil))
   ([ds table valid-t where]

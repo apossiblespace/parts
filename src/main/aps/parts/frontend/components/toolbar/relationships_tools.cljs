@@ -9,7 +9,7 @@
 (defui relationships-tools
   "Renders a tool palette that displays the selected relationships for editing"
   []
-  (let [selected-relationships (uix.rf/use-subscribe [:system/selected-relationships])
+  (let [selected-relationships (uix.rf/use-subscribe [:map/selected-relationships])
         relationship-count     (count selected-relationships)
         multiple-relationships (> relationship-count 1)]
     (when (seq selected-relationships)
@@ -22,5 +22,5 @@
                                      :relationship relationship
                                      :collapsed    multiple-relationships
                                      :on-save      (fn [id updated-attrs]
-                                                     (rf/dispatch [:system/relationship-update id updated-attrs]))}))
+                                                     (rf/dispatch [:map/relationship-update id updated-attrs]))}))
              selected-relationships))))))

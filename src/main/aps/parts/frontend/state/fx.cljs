@@ -3,7 +3,7 @@
    [aps.parts.frontend.api.core :as api]
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.api.utils :as utils]
-   [aps.parts.frontend.storage.protocol :refer [list-systems load-system create-system update-system]]
+   [aps.parts.frontend.storage.protocol :refer [list-maps load-map create-map update-map]]
    [aps.parts.frontend.storage.registry :as storage-registry]
    [cljs.core.async :refer [<! go]]
    [re-frame.core :as rf]))
@@ -14,9 +14,9 @@
    (queue/add-events! [event])))
 
 (rf/reg-fx
- :api-utils/save-current-system-id
- (fn [system-id]
-   (utils/save-current-system-id system-id)))
+ :api-utils/save-current-map-id
+ (fn [map-id]
+   (utils/save-current-map-id map-id)))
 
 ;; NOTE: the params can have a callback key, which can hold a function that will
 ;; be called, if provided, with the API response.
@@ -73,88 +73,88 @@
    (set! (.-location js/window) path)))
 
 (rf/reg-fx
- :storage/get-system
+ :storage/get-map
  (fn [{:keys [id]}]
    (go
      (if-let [backend (storage-registry/get-backend)]
-       (let [result (<! (load-system backend id))]
+       (let [result (<! (load-map backend id))]
          (cond
-           ;; Success - got a system with an :id
+           ;; Success - got a map with an :id
            (:id result)
-           (rf/dispatch [:system/fetch-success result])
+           (rf/dispatch [:map/fetch-success result])
 
            ;; Error responses from http-backend
            (= :unauthorized (:error result))
-           (rf/dispatch [:system/fetch-unauthorized])
+           (rf/dispatch [:map/fetch-unauthorized])
 
            (= :forbidden (:error result))
-           (rf/dispatch [:system/fetch-forbidden])
+           (rf/dispatch [:map/fetch-forbidden])
 
            (= :not-found (:error result))
-           (rf/dispatch [:system/fetch-not-found])
+           (rf/dispatch [:map/fetch-not-found])
 
            ;; Any other error or nil
            :else
-           (rf/dispatch [:system/fetch-failure "Failed to load system"])))
-       (rf/dispatch [:system/fetch-failure "No storage backend available"])))))
+           (rf/dispatch [:map/fetch-failure "Failed to load map"])))
+       (rf/dispatch [:map/fetch-failure "No storage backend available"])))))
 
 (rf/reg-fx
- :storage/create-system
+ :storage/create-map
  (fn [params]
    (go
      (if-let [backend (storage-registry/get-backend)]
-       (let [system (<! (create-system backend params))]
-         (if system
-           (rf/dispatch [:system/create-success system])
-           (rf/dispatch [:system/create-failure "Failed to create system"])))
-       (rf/dispatch [:system/create-failure "No storage backend available"])))))
+       (let [the-map (<! (create-map backend params))]
+         (if the-map
+           (rf/dispatch [:map/create-success the-map])
+           (rf/dispatch [:map/create-failure "Failed to create map"])))
+       (rf/dispatch [:map/create-failure "No storage backend available"])))))
 
 (rf/reg-fx
- :storage/get-systems
+ :storage/get-maps
  (fn [_]
    (go
      (if-let [backend (storage-registry/get-backend)]
-       (let [systems (<! (list-systems backend))]
-         (if systems
-           (rf/dispatch [:system/fetch-list-success systems])
-           (rf/dispatch [:system/fetch-list-failure "Failed to load systems"])))
-       (rf/dispatch [:system/fetch-list-failure "No storage backend available"])))))
+       (let [maps (<! (list-maps backend))]
+         (if maps
+           (rf/dispatch [:map/fetch-list-success maps])
+           (rf/dispatch [:map/fetch-list-failure "Failed to load maps"])))
+       (rf/dispatch [:map/fetch-list-failure "No storage backend available"])))))
 
 (rf/reg-fx
- :storage/update-system
- (fn [{:keys [id system-data]}]
+ :storage/update-map
+ (fn [{:keys [id map-data]}]
    (go
      (if-let [backend (storage-registry/get-backend)]
-       (let [updated-system (<! (update-system backend id system-data))]
-         (if updated-system
-           (rf/dispatch [:system/update-success updated-system])
-           (rf/dispatch [:system/update-failure "Failed to update system"])))
-       (rf/dispatch [:system/update-failure "No storage backend available"])))))
+       (let [updated-map (<! (update-map backend id map-data))]
+         (if updated-map
+           (rf/dispatch [:map/update-success updated-map])
+           (rf/dispatch [:map/update-failure "Failed to update map"])))
+       (rf/dispatch [:map/update-failure "No storage backend available"])))))
 
-;; Keep the old API effects for system creation since we don't have storage backend creation yet
+;; Keep the old API effects for map creation since we don't have storage backend creation yet
 (rf/reg-fx
- :api/get-system
+ :api/get-map
  (fn [{:keys [id]}]
    (go
-     (let [response (<! (api/get-system id))]
+     (let [response (<! (api/get-map id))]
        (if (= 200 (:status response))
-         (rf/dispatch [:system/fetch-success (:body response)])
-         (rf/dispatch [:system/fetch-failure (:body response)]))))))
+         (rf/dispatch [:map/fetch-success (:body response)])
+         (rf/dispatch [:map/fetch-failure (:body response)]))))))
 
 (rf/reg-fx
- :api/create-system
+ :api/create-map
  (fn [params]
    (go
-     (let [response (<! (api/create-system params))]
+     (let [response (<! (api/create-map params))]
        (if (= 201 (:status response))
-         (rf/dispatch [:system/create-success (:body response)])
-         (rf/dispatch [:system/create-failure (:body response)]))))))
+         (rf/dispatch [:map/create-success (:body response)])
+         (rf/dispatch [:map/create-failure (:body response)]))))))
 
 (rf/reg-fx
- :api/get-systems
+ :api/get-maps
  (fn [_]
    (go
-     (let [response (<! (api/get-systems))]
+     (let [response (<! (api/get-maps))]
        (if (= 200 (:status response))
-         (rf/dispatch [:system/fetch-list-success (:body response)])
-         (rf/dispatch [:system/fetch-list-failure (:body response)]))))))
+         (rf/dispatch [:map/fetch-list-success (:body response)])
+         (rf/dispatch [:map/fetch-list-failure (:body response)]))))))

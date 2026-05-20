@@ -4,9 +4,11 @@
 
 Accepted — 2026-05-12.
 
+> Terminology: 'System' renamed to 'Map' (2026-05, TASK-015) — the decision below is unchanged, only the noun.
+
 ## Context
 
-The frontend `queue.cljs` debounces React Flow events and POSTs them to `/api/systems/:id/changes` in batches — typically 1–5 events per batch (position changes from a drag, a rename, sometimes a dependent multi-step gesture like "create part + create relationship referencing it").
+The frontend `queue.cljs` debounces React Flow events and POSTs them to `/api/maps/:id/changes` in batches — typically 1–5 events per batch (position changes from a drag, a rename, sometimes a dependent multi-step gesture like "create part + create relationship referencing it").
 
 The original implementation wrapped each `process-change` method in a `try` / `catch` that returned `{:success false :error ...}` on any exception, while `apply-changes!` ran the batch inside a `with-transaction`. The behavior was **best-effort**: failures were reported per-change, successful changes within the same batch committed anyway, and the HTTP response was 207 Multi-Status when results were mixed.
 
@@ -29,5 +31,5 @@ The audit posture follows: **`audit_log` is committed-only.** Failed batches lea
 
 - **Implementation:** entity functions threaded the surrounding transaction `tx` through `process-change`'s context map. Without that, the nested `bt/update!` would have run on a fresh connection and committed independently. A regression test (`test-batch-rollback-when-one-change-fails`) covers the invariant.
 - **`bt/update!` / `correction!` / `retract!`** detect whether their argument is a Connection already in a transaction; if so, they don't open a nested `with-transaction` (which would prematurely commit). This is now baked into the `with-tx` private helper in `bitemporal.clj`.
-- **Frontend:** the 207 branch is gone. The 4xx branch shows a clear error toast and re-fetches the System to reconcile local state.
+- **Frontend:** the 207 branch is gone. The 4xx branch shows a clear error toast and re-fetches the Map to reconcile local state.
 - **What this is not:** atomicity here is *batch-level*. Concurrent edits from a second client are not blocked; last-write-wins per (entity, attribute) in transaction-time is unchanged.

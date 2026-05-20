@@ -1,32 +1,32 @@
 (ns aps.parts.frontend.api.utils)
 
-(def ^:private current-system-storage-key "parts-current-system-id")
+(def ^:private current-map-storage-key "parts-current-map-id")
 
-(defn save-current-system-id [id]
-  (.setItem js/localStorage current-system-storage-key id))
+(defn save-current-map-id [id]
+  (.setItem js/localStorage current-map-storage-key id))
 
-(defn get-system-id-from-url
-  "Extract system ID from URL path /systems/:id. Returns nil if not on a system page."
+(defn get-map-id-from-url
+  "Extract map ID from URL path /maps/:id. Returns nil if not on a map page."
   []
   (let [pathname (.-pathname js/window.location)
-        match    (re-matches #"/systems/([a-f0-9-]+)" pathname)]
+        match    (re-matches #"/maps/([a-f0-9-]+)" pathname)]
     (when match
       (second match))))
 
-(defn get-current-system-id []
-  (.getItem js/localStorage current-system-storage-key))
+(defn get-current-map-id []
+  (.getItem js/localStorage current-map-storage-key))
 
-(defn clear-current-system-id []
-  (.removeItem js/localStorage current-system-storage-key))
+(defn clear-current-map-id []
+  (.removeItem js/localStorage current-map-storage-key))
 
 (defn clear-playground-data
-  "Clears all playground-related localStorage (systems + current ID)"
+  "Clears all playground-related localStorage (maps + current ID)"
   []
-  (clear-current-system-id)
-  ;; Remove all parts-system-* keys
+  (clear-current-map-id)
+  ;; Remove all parts-map-* keys
   (let [keys-to-remove (for [i     (range (.-length js/localStorage))
                              :let  [key (.key js/localStorage i)]
-                             :when (and key (.startsWith key "parts-system-"))]
+                             :when (and key (.startsWith key "parts-map-"))]
                          key)]
     (doseq [key keys-to-remove]
       (.removeItem js/localStorage key))))
