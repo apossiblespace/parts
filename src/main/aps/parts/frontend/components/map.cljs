@@ -8,6 +8,7 @@
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.components.delete-confirmation-modal :refer [delete-confirmation-modal]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
+   [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
@@ -81,11 +82,33 @@
                               "These links will be removed from the map.")
        :confirm-label (plural rel-count "Delete connection" "Delete connections")})))
 
+(defui map-name-panel
+  "Top-left panel for the authenticated single-map view: a back-to-list
+   chevron plus the Map's name, rendered as one `join` button group. The
+   name is an `inline-text-field` — click it to rename the Map; the commit
+   goes through `:map/rename` (bitemporal `map_metadata`, see ADR-0002).
+   Not used in the playground, which renders a mini-logo instead."
+  []
+  (let [title (uix.rf/use-subscribe [:map/title])]
+    ($ Panel {:position "top-left"}
+       ($ :div {:class "join shadow-xs"}
+          ($ :a {:href       "/app"
+                 :class      "btn btn-sm join-item bg-white"
+                 :aria-label "Back to maps"}
+             ($ ChevronLeft {:size 16}))
+          ($ inline-text-field
+             {:value         title
+              :aria-label    "Map name"
+              :display-class "btn btn-sm join-item bg-white"
+              :input-class   "input input-sm join-item w-48"
+              :on-commit     (fn [new-title]
+                               (o/track "Map renamed" {})
+                               (rf/dispatch [:map/rename new-title]))})))))
+
 (defui map-canvas []
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
         map-id                (uix.rf/use-subscribe [:map/id])
-        map-title             (uix.rf/use-subscribe [:map/title])
         parts                 (uix.rf/use-subscribe [:map/parts])
         relationships         (uix.rf/use-subscribe [:map/relationships])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
@@ -273,16 +296,8 @@
                            :viewBox    "0 0 24 24"}
                           ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
                        ($ :img {:src "/images/parts-logo-mini.svg"})))
-                 ;; Authenticated map view: back-to-list chevron + map name,
-                 ;; styled as a button group to match the part-creation tools.
-                 ($ Panel {:position "top-left"}
-                    ($ :div {:class "join shadow-xs"}
-                       ($ :a {:href       "/app"
-                              :class      "btn btn-sm join-item bg-white"
-                              :aria-label "Back to maps"}
-                          ($ ChevronLeft {:size 16}))
-                       ($ :span {:class "btn btn-sm join-item bg-white pointer-events-none"}
-                          map-title)))))
+                 ;; Authenticated map view: back chevron + editable name.
+                 ($ map-name-panel)))
              ($ Panel {:position (if minimal "top-left" "top-center")
                        :class    "toolbar shadow-xs"}
                 ($ :div {:class "flex gap-2"}

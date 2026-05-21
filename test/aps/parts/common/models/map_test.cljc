@@ -26,3 +26,20 @@
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (model/make-map {})))))
+
+(deftest validate-update-test
+  (testing "Accepts a partial update with a non-blank title"
+    (is (nil? (model/validate-update {:title "Work-related anxiety"}))))
+
+  (testing "Accepts an empty update"
+    (is (nil? (model/validate-update {}))))
+
+  (testing "Rejects a blank title — guards against a nameless Map"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (model/validate-update {:title ""})))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (model/validate-update {:title "   "})))))

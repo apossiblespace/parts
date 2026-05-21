@@ -2,13 +2,14 @@
   (:require
    [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
-   [clojure.spec.alpha :as s]))
+   [clojure.spec.alpha :as s]
+   [clojure.string :as str]))
 
 (s/def ::id (s/or :string string? :uuid uuid?))
-(s/def ::title string?)
+(s/def ::title (s/and string? (complement str/blank?)))
 (s/def ::owner_id (s/or :string string? :uuid uuid?))
 
-;; Note: `viewport_settings` used to live here. It's now browser-local UI
+;; NOTE: `viewport_settings` used to live here. It's now browser-local UI
 ;; state, not server-stored. If cross-device persistence becomes a product
 ;; requirement, add a per-user-per-map table — non-temporal.
 

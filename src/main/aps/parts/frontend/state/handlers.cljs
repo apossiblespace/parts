@@ -6,6 +6,7 @@
    [aps.parts.common.models.relationship :as relationship :refer [make-relationship]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as api-utils]
+   [aps.parts.frontend.state.map-updates :as map-updates]
    [re-frame.core :as rf]))
 
 (rf/reg-event-fx
@@ -307,24 +308,26 @@
    {:db              (assoc-in db [:maps :loading] true)
     :storage/get-map {:id map-id}}))
 
+;; -- map metadata: rename -------------------------------------------------
+;; Pure transitions live in `state/map-updates` (kept re-frame-free so the
+;; cljs test suite can reach them); here we just register them. A Map's
+;; title is bitemporal metadata (ADR-0002) — a rename goes through
+;; PUT /maps/:id, separate from the change-event batch.
+
+(rf/reg-event-fx
+ :map/rename
+ (fn [{:keys [db]} [_ new-title]]
+   (map-updates/rename-map db new-title)))
+
 (rf/reg-event-db
  :map/update-success
  (fn [db [_ updated-map]]
-   (-> db
-       (assoc-in [:map] updated-map)
-       (update-in [:maps :list]
-                  (fn [maps]
-                    (mapv (fn [m]
-                            (if (= (:id m) (:id updated-map))
-                              updated-map
-                              m))
-                          maps))))))
+   (map-updates/apply-map-update db updated-map)))
 
 (rf/reg-event-db
  :map/update-failure
  (fn [db [_ error]]
-   (-> db
-       (assoc-in [:maps :error] error))))
+   (map-updates/revert-map-update db error)))
 
 (rf/reg-event-db
  :auth/set-user
