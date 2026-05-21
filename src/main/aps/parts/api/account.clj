@@ -37,10 +37,13 @@
     (doseq [rel-data (demo/demo-relationship-attrs created-parts)]
       (relationship/create! rel-data actor-id tx))))
 
-(defn- provision-account!
+(defn provision-account!
   "Creates a user, their default map, and seeds it with demo content.
    All writes share `tx` so they commit or roll back as one unit.
-   Returns {:account ... :map-id ...}."
+   Returns {:account ... :map-id ...}.
+
+   Public so the invite-redemption handler (`handlers/invite`) can reuse
+   the exact same provisioning path as `/api/account/register`."
   [params tx]
   (let [account (user/create! params tx)
         title   (str (:username account) "'s Map")

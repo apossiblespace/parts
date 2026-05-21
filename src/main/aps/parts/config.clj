@@ -50,6 +50,14 @@
   []
   (parse-port (l-config/get config :http/port)))
 
+(defn base-url
+  "The canonical public base URL, with no trailing slash — e.g.
+   https://parts.ifs.tools. Unlike `host-uri` (the internal bind address,
+   which behind a reverse proxy is not externally reachable), this is the
+   origin to use when building links that are sent to users."
+  []
+  (l-config/get config :app/base-url))
+
 (defn host-uri
   "Get the full qualified application host URI, eg: http://localhost:3000"
   []

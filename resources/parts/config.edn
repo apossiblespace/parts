@@ -10,6 +10,10 @@
  :http/port 3000
  :http/protocol "http"
 
+ ;; Canonical public origin for links sent to users (e.g. invite magic
+ ;; links). Overridden per-environment; see prod.edn.
+ :app/base-url "http://localhost:3000"
+
  :auth/secret "secret"
 
  :launch/launched? true}

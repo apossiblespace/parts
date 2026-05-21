@@ -4,6 +4,7 @@
    [aps.parts.api.account :as api.account]
    [aps.parts.api.auth :as api.auth]
    [aps.parts.api.maps :as api.maps]
+   [aps.parts.handlers.invite :as invite]
    [aps.parts.handlers.pages :as pages]
 
    [aps.parts.handlers.waitlist :as waitlist]
@@ -114,6 +115,15 @@
    ["/waitlist-signup" {:middleware [middleware/wrap-html-defaults
                                      middleware/wrap-html-response]
                         :post       {:handler waitlist/signup}}]
+
+   ;; Founding Circle invitation redemption. Server-rendered and top-level
+   ;; (never under /app — a Circle member redeeming an invite must not
+   ;; depend on the SPA bundle loading first). Gated by token validity,
+   ;; not the launch flag: no wrap-launch-gated.
+   ["/invite/:token" {:middleware [middleware/wrap-html-defaults
+                                   middleware/wrap-html-response]
+                      :get        {:handler invite/show}
+                      :post       {:handler invite/redeem}}]
 
    ;; API Routes
    ;;

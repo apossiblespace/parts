@@ -4,6 +4,7 @@
  :db/ssl  false
 
  :http/protocol "https"
+ :app/base-url "https://parts.ifs.tools"
 
  :repl/port 7888
  :repl/host "127.0.0.1"

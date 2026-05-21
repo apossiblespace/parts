@@ -203,3 +203,75 @@
         message]
        [:span
         "No credit card required."])]]])
+
+(defn- invite-card
+  "Shared centered-card chrome for the server-rendered invite pages: logo
+   above a white card wrapping the given `body` elements."
+  [& body]
+  [:div {:class "min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12"}
+   [:div {:class "w-full max-w-md"}
+    [:a {:href "/" :class "flex justify-center mb-6"}
+     [:img {:class "w-44" :src "/images/parts-logo-horizontal.svg"}]]
+    [:div {:class "card bg-white shadow-sm"}
+     [:div {:class "card-body"} body]]]])
+
+(defn invite-signup-content
+  "The Founding Circle signup page body, rendered for a valid invitation
+   token. Email is pre-filled and read-only (it comes from the invitation,
+   not the form); on a validation error, `error` is shown and the typed
+   `values` (a form-params map with string keys) are kept."
+  [{:keys [token email error values]}]
+  (invite-card
+   [:h1 {:class "text-2xl font-bold mb-1"}
+    "You’re invited!"]
+   [:p {:class "text-gray-600 mb-6"}
+    "Create your account to start using Parts."]
+   (when error
+     [:div {:class "alert alert-error text-sm mb-4"} error])
+   [:form {:method "post" :action (str "/invite/" token)}
+    [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}]
+    ;; Display-only: the account's email is fixed by the invitation token,
+    ;; never taken from this form. No `name`, so it is not submitted at all
+    ;; — there is no attacker-controllable email in the request.
+    [:label {:class "fieldset-label"} "Email"]
+    [:input {:class    "input input-bordered w-full mb-3"
+             :type     "email"
+             :value    email
+             :disabled true}]
+    [:label {:class "fieldset-label"} "Display name"]
+    [:input {:class       "input input-bordered w-full mb-3"
+             :type        "text"
+             :name        "display_name"
+             :value       (get values "display_name" "")
+             :placeholder "How your name appears in Parts"
+             :required    true}]
+    [:label {:class "fieldset-label"} "Username"]
+    [:input {:class    "input input-bordered w-full mb-3"
+             :type     "text"
+             :name     "username"
+             :value    (get values "username" "")
+             :required true}]
+    [:label {:class "fieldset-label"} "Password"]
+    [:input {:class    "input input-bordered w-full mb-3"
+             :type     "password"
+             :name     "password"
+             :required true}]
+    [:label {:class "fieldset-label"} "Confirm password"]
+    [:input {:class    "input input-bordered w-full mb-4"
+             :type     "password"
+             :name     "password_confirmation"
+             :required true}]
+    [:button {:class "btn btn-primary w-full" :type "submit"}
+     "Create my account"]]))
+
+(defn invite-unavailable-content
+  "The calm error page body, shown for any unusable invitation token —
+   unknown, already redeemed, or revoked. Deliberately one message for all
+   three: it does not reveal which failure mode occurred."
+  []
+  (invite-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "This invite link isn’t available"]
+   [:p {:class "text-gray-600"}
+    "This invitation link is no longer valid — it may already have been used.
+     If you think this is a mistake, please get in touch with the person who
+     invited you."]))
