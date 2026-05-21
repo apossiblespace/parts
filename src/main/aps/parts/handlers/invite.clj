@@ -7,13 +7,13 @@
    the launch flag — there is no `wrap-launch-gated` on this path."
   (:require
    [aps.parts.api.account :as account]
+   [aps.parts.auth :as auth]
    [aps.parts.db :as db]
    [aps.parts.invitations :as invitations]
    [aps.parts.views.layouts :as layouts]
    [aps.parts.views.partials :as partials]
    [com.brunobonacci.mulog :as mulog]
    [hiccup2.core :refer [html]]
-   [ring.util.codec :as codec]
    [ring.util.response :as response])
   (:import
    (org.postgresql.util PSQLException)))
@@ -56,7 +56,7 @@
 
 (defn redeem
   "POST /invite/:token — claim the token and provision the account in one
-   transaction, then redirect to the login screen.
+   transaction, establish the auth session, and redirect into the app.
 
    The transaction is the atomicity boundary: `claim!`'s conditional
    UPDATE and `provision-account!` commit or roll back together. So a
@@ -70,28 +70,29 @@
       (-> (response/response (unavailable-page))
           (response/status 404))
       (try
-        (db/with-transaction
-          (fn [tx]
-            (let [claimed (invitations/claim! token tx)]
-              (when-not claimed
-                (throw (ex-info "Invitation already redeemed"
-                                {:type :invitation-spent})))
-              (account/provision-account!
-               {:email                 (:email claimed)
-                :username              (get form "username")
-                :display_name          (get form "display_name")
-                :password              (get form "password")
-                :password_confirmation (get form "password_confirmation")
-                :role                  "therapist"
-                :is_founding_circle    (:is_founding_circle claimed)}
-               tx))))
-        (mulog/log ::invitation-redeemed :email (:email invitation))
-        ;; 303 See Other — POST-redirect-GET. No cookie auth exists, so the
-        ;; member lands on the SPA login screen and signs in (see the
-        ;; cookie-auth follow-up task). Email prefilled via the query param.
-        (-> (response/redirect
-             (str "/app/login?email=" (codec/url-encode (:email invitation))))
-            (response/status 303))
+        (let [{:keys [account]}
+              (db/with-transaction
+                (fn [tx]
+                  (let [claimed (invitations/claim! token tx)]
+                    (when-not claimed
+                      (throw (ex-info "Invitation already redeemed"
+                                      {:type :invitation-spent})))
+                    (account/provision-account!
+                     {:email                 (:email claimed)
+                      :username              (get form "username")
+                      :display_name          (get form "display_name")
+                      :password              (get form "password")
+                      :password_confirmation (get form "password_confirmation")
+                      :role                  "therapist"
+                      :is_founding_circle    (:is_founding_circle claimed)}
+                     tx))))]
+          (mulog/log ::invitation-redeemed :email (:email invitation))
+          ;; 303 See Other — POST-redirect-GET. Establish the auth session
+          ;; (ADR-0007) so the new member lands in /app already signed in.
+          (-> (response/redirect "/app")
+              (response/status 303)
+              (assoc :session (assoc (:session request)
+                                     :identity (auth/session-identity (:id account))))))
 
         (catch clojure.lang.ExceptionInfo e
           (case (:type (ex-data e))

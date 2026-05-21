@@ -1,6 +1,7 @@
 (ns aps.parts.middleware
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.launch :as launch]
@@ -12,6 +13,7 @@
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.defaults :refer [api-defaults wrap-defaults site-defaults]]
    [ring.middleware.resource :refer [wrap-resource]]
+   [ring.middleware.session.cookie :refer [cookie-store]]
    [ring.util.response :as response])
   (:import
    (org.postgresql.util PSQLException)))
@@ -104,16 +106,17 @@
       (mulog/log ::request :info request-info :authenticated? authenticated? :user-id user-id)
       (handler request))))
 
-(defn wrap-jwt-authentication
-  "Middleware adding JWT authentication to a route. A route with this middleware
-  applied will have an authentication status which can be validated against."
+(defn wrap-session-auth
+  "Lift the auth session into `request[:identity]` via buddy's session
+   backend, so handlers and `require-auth` can see who is signed in. A route
+   with this applied has an authentication status that can be checked."
   [handler]
   (-> handler
       (wrap-authentication auth/backend)
       (wrap-authorization auth/backend)))
 
-(defn jwt-auth
-  "Middleware ensuring a route is only accessible to authenticated users. "
+(defn require-auth
+  "Middleware ensuring a route is only accessible to authenticated users."
   [handler]
   (fn [request]
     (if (authenticated? request)
@@ -132,7 +135,7 @@
       (throw (ex-info "Not found" {:type :not-found})))))
 
 (defn- owns-map?
-  "True when `user-id` (a JWT subject string) owns `the-map` (its identity row)."
+  "True when `user-id` (the session-identity `:sub` string) owns `the-map`."
   [user-id the-map]
   (= (db/->uuid user-id) (:owner_id the-map)))
 
@@ -148,6 +151,26 @@
       (if (and the-map (owns-map? user-id the-map))
         (handler request)
         (throw (ex-info "Map not found" {:type :not-found :id map-id}))))))
+
+(def ^:private session-max-age
+  "Absolute auth-session lifetime — 14 days, in seconds (ADR-0007). With the
+   encrypted cookie store there is no server-side revocation, so this is the
+   one hard bound on a compromised cookie."
+  (* 14 24 60 60))
+
+(defn- session-config
+  "Ring session config for the one auth session shared by the HTML routes
+   and /api: an encrypted (AES) cookie store, httpOnly, SameSite=Lax,
+   Secure in production only (dev is plain HTTP). The 16-byte key comes from
+   config and must be stable in prod — rotating it invalidates every
+   session. See ADR-0007."
+  []
+  {:store        (cookie-store {:key (.getBytes ^String (conf/session-key) "UTF-8")})
+   :cookie-name  "parts-session"
+   :cookie-attrs {:http-only true
+                  :same-site :lax
+                  :secure    (conf/prod?)
+                  :max-age   session-max-age}})
 
 (defn wrap-html-defaults
   "Middleware that applies a set of Ring defaults for HTML routes.
@@ -166,7 +189,12 @@
   (wrap-defaults
    handler
    (-> site-defaults
-       (assoc :static false))))
+       (assoc :static false)
+       (assoc :session (session-config))
+       ;; Replace site-defaults' anti-forgery map (which carries an
+       ;; `X-Ring-Anti-Forgery` safe-header bypass) with plain `true` — no
+       ;; header bypass on session-establishing endpoints like /invite/:token.
+       (assoc-in [:security :anti-forgery] true))))
 
 ;; TODO: Investigate whether Content Security Policy is needed:
 ;;  - https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
@@ -191,6 +219,11 @@
   (wrap-defaults
    handler
    (-> api-defaults
+       ;; Cookie auth (ADR-0007): /api shares the one auth session, and
+       ;; gains anti-forgery — cookies are auto-sent, so the bearer-token
+       ;; CSRF immunity is spent and must be replaced.
+       (assoc :session (session-config))
+       (assoc-in [:security :anti-forgery] true)
        (assoc-in [:security :frame-options] :sameorigin)
        (assoc-in [:security :content-type-options] :nosniff)
        (assoc-in [:security :xss-protection] {:mode :block}))))

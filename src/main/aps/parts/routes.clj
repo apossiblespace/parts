@@ -69,7 +69,7 @@
   content types, and handlers. Routes are organized into:
 
   1. HTML routes - Server-rendered pages with HTML defaults
-  2. API routes - Transit-formatted data endpoints with JWT authentication
+  2. API routes - Transit-formatted data endpoints with session authentication
 
   Each route type uses a different middleware stack tailored to its requirements.
   The middleware configuration uses Reitit's data-driven approach where:
@@ -82,7 +82,7 @@
    ;;
    ;; These routes return server-rendered HTML content with:
    ;; - anti-forgery protection where forms are present
-   ;; - Ring's site-defaults (without sessions)
+   ;; - Ring's site-defaults (with the shared auth session)
    ;; - Proper HTML content-type and string conversion
 
    ;; A form is present on the homepage, so we apply CSRF protection
@@ -131,7 +131,7 @@
    ;; - Transit-formatted request/response bodies (muuntaja)
    ;; - Parameter coercion and validation (spec-based), see note at the top of this
    ;;   namespace
-   ;; - JWT authentication (with some endpoints requiring auth)
+   ;; - Session authentication (with some endpoints requiring auth)
    ;; - Security headers appropriate for API endpoints
    ;;
    ;; It's important for the format-middleware to be called last for proper
@@ -140,7 +140,7 @@
                          rrc/coerce-exceptions-middleware
                          rrc/coerce-request-middleware
                          rrc/coerce-response-middleware
-                         middleware/wrap-jwt-authentication
+                         middleware/wrap-session-auth
                          muuntaja-middleware/format-middleware]
             :muuntaja   transit-format
             :coercion   rcs/coercion}
@@ -149,19 +149,18 @@
 
     ["/auth"
      ["/login" {:post {:handler api.auth/login}}]
-     ["/refresh" {:post {:handler api.auth/refresh}}]
-     ["/logout" {:post {:middleware [middleware/jwt-auth]
+     ["/logout" {:post {:middleware [middleware/require-auth]
                         :handler    api.auth/logout}}]]
 
     ["/account"
      ["/register" {:middleware [middleware/wrap-launch-gated]
                    :post       {:handler api.account/register-account}}]
-     ["" {:middleware [middleware/jwt-auth]
+     ["" {:middleware [middleware/require-auth]
           :get        {:handler api.account/get-account}
           :patch      {:handler api.account/update-account}
           :delete     {:handler api.account/delete-account}}]]
 
-    ["/maps" {:middleware [middleware/jwt-auth]}
+    ["/maps" {:middleware [middleware/require-auth]}
      ["" {:get  {:handler api.maps/list-maps}
           :post {:handler api.maps/create-map}}]
 

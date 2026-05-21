@@ -1,7 +1,5 @@
 (ns aps.parts.entity.user-test
   (:require
-   [aps.parts.auth :as auth]
-   [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
@@ -120,18 +118,6 @@
       (user/delete! id)
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Map not found"
                             (parts-map/fetch (:id map-created))))))
-
-  (testing "deletes the refresh token entity of the user from the database"
-    (let [user     (create-test-user!)
-          guid     (:id user)
-          password (apply str "password" (filter #(Character/isDigit %) (:username user)))]
-      (auth/authenticate {:email (:email user) :password password})
-      (user/delete! guid)
-      (is (not (some? (db/query-one (db/sql-format
-                                     {:select [:id]
-                                      :from   [:refresh_tokens]
-                                      :where  [:= :user_id guid]
-                                      :limit  1})))))))
 
   (testing "returns {:id id :deleted true} when a user is successfully deleted"
     (let [user   (create-test-user!)

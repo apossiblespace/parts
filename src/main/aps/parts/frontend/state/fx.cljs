@@ -29,7 +29,8 @@
        (when (= 200 (:status resp))
          ;; Clear playground data when existing user logs in
          (utils/clear-playground-data)
-         (rf/dispatch [:auth/check-auth]))
+         ;; Login sets the session cookie; the response body is the user.
+         (rf/dispatch [:auth/set-user (:body resp)]))
        (when callback
          (callback resp))))))
 
@@ -43,27 +44,30 @@
                                    :password              password
                                    :password_confirmation password_confirmation}))]
        (when (= 201 (:status resp))
-         (rf/dispatch [:auth/check-auth]))
+         ;; Register sets the session cookie; the response body is the account.
+         (rf/dispatch [:auth/set-user (:body resp)]))
        (when callback
          (callback resp))))))
 
 (rf/reg-fx
  :auth/logout-fx
  (fn [_]
-   (api/logout)
-   (.replace (.-location js/window) "/")))
+   (go
+     ;; Await the logout POST so the session-clearing cookie is processed
+     ;; before navigating away.
+     (<! (api/logout))
+     (.replace (.-location js/window) "/"))))
 
 (rf/reg-fx
  :auth/check-auth-fx
  (fn [_]
    (go
-     (let [has-token (utils/get-tokens)]
-       (rf/dispatch [:auth/set-loading (boolean has-token)])
-       (when has-token
-         (let [resp (<! (api/get-current-user))]
-           (rf/dispatch [:auth/set-loading false])
-           (when (= 200 (:status resp))
-             (rf/dispatch [:auth/set-user (:body resp)]))))))))
+     ;; No token to inspect — just ask the server. A valid session cookie
+     ;; rides the request automatically; 200 means signed in.
+     (let [resp (<! (api/get-current-user))]
+       (rf/dispatch [:auth/set-loading false])
+       (when (= 200 (:status resp))
+         (rf/dispatch [:auth/set-user (:body resp)]))))))
 
 (rf/reg-fx
  :storage/get-map

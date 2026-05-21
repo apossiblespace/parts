@@ -53,20 +53,21 @@
 
 (defn register-account
   "Register a new user (role hardcoded to 'therapist'), provision their starter
-   map atomically, then return auth tokens for auto-login."
+   map atomically, and establish the auth session for auto-login."
   [request]
   (let [params (-> (:body-params request) (assoc :role "therapist"))]
     (try
       (let [{:keys [account map-id]} (db/with-transaction
-                                       #(provision-account! params %))
-            tokens                   (auth/issue-tokens (:id account))]
+                                       #(provision-account! params %))]
         (mulog/log ::register
                    :email (:email account)
                    :username (:username account)
                    :map-id map-id
                    :status :success)
-        (-> (response/response (merge account tokens {:map_id map-id}))
-            (response/status 201)))
+        (-> (response/response (merge account {:map_id map-id}))
+            (response/status 201)
+            (assoc :session (assoc (:session request)
+                                   :identity (auth/session-identity (:id account))))))
       (catch Exception e
         ;; NOTE: log only safe fields. `params` contains :password and is NOT
         ;; redacted by mulog (the redaction in observe.cljc only covers the o/*
@@ -89,7 +90,9 @@
       (if (= (:username user) confirm)
         (do
           (user/delete! user-id)
-          (response/status 204))
+          ;; Drop the caller's auth session — their account no longer exists.
+          (-> (response/status 204)
+              (assoc :session nil)))
         (throw (ex-info "Confirmation needed" {:type :validation})))
       (do
         (mulog/log ::update-account-not-found :user-id user-id)

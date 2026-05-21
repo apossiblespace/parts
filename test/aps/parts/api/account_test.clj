@@ -84,10 +84,8 @@
       (is (= display_name (:display_name user)))
       ;; Role is always hardcoded to "therapist" regardless of input
       (is (= "therapist" (:role user)))
-      ;; Registration should return auth tokens
-      (is (some? (:access_token user)))
-      (is (some? (:refresh_token user)))
-      (is (= "Bearer" (:token_type user)))
+      ;; Registration establishes the auth session for auto-login
+      (is (= {:sub (str (:id user))} (get-in response [:session :identity])))
       ;; Registration should create a default map
       (is (some? (:map_id user)))))
 
@@ -116,19 +114,18 @@
 
 (deftest test-register-then-authenticate
   (testing "a registered user can immediately authenticate with their credentials"
-    (let [user-data    (factory/build-test-user)
-          _            (account/register-account {:body-params user-data})
-          login-tokens (auth/authenticate
-                        (select-keys user-data [:email :password]))]
-      (is (some? (:access_token login-tokens)))
-      (is (some? (:refresh_token login-tokens)))
-      (is (= "Bearer" (:token_type login-tokens)))))
+    (let [user-data (factory/build-test-user)
+          _         (account/register-account {:body-params user-data})
+          result    (auth/authenticate
+                     (select-keys user-data [:email :password]))]
+      (is (some? result) "authenticate returns the user")
+      (is (= (:email user-data) (:email result)))))
 
   (testing "authenticates case-insensitively against the registered email"
-    (let [user-data    (factory/build-test-user)
-          _            (account/register-account {:body-params user-data})
-          login-tokens (auth/authenticate
-                        {:email    (str/upper-case (:email user-data))
-                         :password (:password user-data)})]
-      (is (some? (:access_token login-tokens))
+    (let [user-data (factory/build-test-user)
+          _         (account/register-account {:body-params user-data})
+          result    (auth/authenticate
+                     {:email    (str/upper-case (:email user-data))
+                      :password (:password user-data)})]
+      (is (some? result)
           "Uppercased email should still find the (lowercased) stored row"))))

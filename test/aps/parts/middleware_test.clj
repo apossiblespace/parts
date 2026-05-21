@@ -68,16 +68,16 @@
       (is (= 409 (:status response)))
       (is (= {:error "The referenced resource does not exist"} (:body response))))))
 
-(deftest test-jwt-auth-middleware
-  (testing "jwt-auth middleware allows authenticated requests"
-    (let [handler  (middleware/jwt-auth (fn [_] {:status 200 :body "Success"}))
+(deftest test-require-auth-middleware
+  (testing "require-auth middleware allows authenticated requests"
+    (let [handler  (middleware/require-auth (fn [_] {:status 200 :body "Success"}))
           request  {:identity {:user-id 1}}
           response (handler request)]
       (is (= 200 (:status response)))
       (is (= "Success" (:body response)))))
 
-  (testing "jwt-auth middleware blocks unauthenticated requests"
-    (let [handler  (middleware/jwt-auth (fn [_] {:status 200 :body "Success"}))
+  (testing "require-auth middleware blocks unauthenticated requests"
+    (let [handler  (middleware/require-auth (fn [_] {:status 200 :body "Success"}))
           request  {}
           response (handler request)]
       (is (= 401 (:status response)))

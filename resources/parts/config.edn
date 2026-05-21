@@ -14,6 +14,9 @@
  ;; links). Overridden per-environment; see prod.edn.
  :app/base-url "http://localhost:3000"
 
- :auth/secret "secret"
+ ;; 16-byte key that encrypts the auth-session cookie (ADR-0007). Dev
+ ;; default only — production MUST override via PARTS__SESSION__KEY with a
+ ;; stable 16-byte secret (config/session-key refuses this default in prod).
+ :session/key "dev-session-key0"
 
  :launch/launched? true}

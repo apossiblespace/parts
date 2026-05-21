@@ -9,19 +9,8 @@
    [re-frame.core :as rf]
    [uix.core :refer [defui $ use-state]]))
 
-(defn- email-from-query
-  "The `email` query param, if the page was reached with one — an invite
-   redemption redirects to /app/login?email=... so the invited member
-   doesn't have to retype the address they were invited at. Empty string
-   when absent."
-  []
-  (or (-> js/window .-location .-search
-          js/URLSearchParams.
-          (.get "email"))
-      ""))
-
 (defui login-form [{:keys [on-success]}]
-  (let [[email set-email]       (use-state (email-from-query))
+  (let [[email set-email]       (use-state "")
         [password set-password] (use-state "")
         [error set-error]       (use-state nil)
         [loading set-loading]   (use-state false)

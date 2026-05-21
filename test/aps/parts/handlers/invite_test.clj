@@ -57,8 +57,10 @@
                                  :form-params (valid-form "redeemok")})
           user            (user-by-email email)]
       (is (= 303 (:status response)))
-      (is (str/starts-with? (get-in response [:headers "Location"]) "/app/login?email="))
+      (is (= "/app" (get-in response [:headers "Location"])) "redirects into the app")
       (is (some? user) "the user account was created")
+      (is (= {:sub (str (:id user))} (get-in response [:session :identity]))
+          "the new member is signed in via the auth session")
       (is (true? (:is_founding_circle user)) "the user is marked Founding Circle")
       (is (nil? (:paid_through_date user)) "paid_through_date is left unset")
       (is (some? (:redeemed_at (invitation-by-email email)))

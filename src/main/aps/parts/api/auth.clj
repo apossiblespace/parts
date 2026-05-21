@@ -5,45 +5,35 @@
    [ring.util.response :as response]))
 
 (defn login
-  "Handler for the POST /api/auth/login endpoint.
-  Generate new access and refresh tokens by authenticating via email/password"
+  "POST /api/auth/login — verify email/password and establish the auth
+   session. On success the response carries `:session`, which the session
+   middleware persists into the encrypted httpOnly cookie; the body is the
+   authenticated user."
   [request]
   (let [{:keys [email password]} (:body-params request)]
-    (if-let [tokens (auth/authenticate {:email email :password password})]
+    (if-let [user (auth/authenticate {:email email :password password})]
       (do
         (mulog/log ::login :email email :status :success)
-        (-> (response/response tokens)
-            (response/status 200)))
+        ;; Merge :identity into the *existing* session — a bare
+        ;; `{:identity ...}` would drop ring's anti-forgery token, which
+        ;; lives in the same session, and break the SPA's CSRF header.
+        (-> (response/response user)
+            (response/status 200)
+            (assoc :session (assoc (:session request)
+                                   :identity (auth/session-identity (:id user))))))
       (do
         (mulog/log ::login :email email :status :failure)
         (-> (response/response {:error "Invalid credentials"})
             (response/status 401))))))
 
-(defn refresh
-  "Handler for the POST /api/auth/refresh endpoint.
-  Generate new access and refresh tokens using a valid refresh token"
-  [request]
-  (let [refresh-token (get-in request [:body-params :refresh_token])]
-    (if-let [new-tokens (auth/refresh-auth-tokens refresh-token)]
-      (do
-        (mulog/log ::refresh :status :success)
-        (-> (response/response new-tokens)
-            (response/status 200)))
-      (do
-        (mulog/log ::refresh :status :failure)
-        (-> (response/response {:error "Invalid refresh token"})
-            (response/status 401))))))
-
 (defn logout
-  "Handler for the POST /api/auth/logout endpoint.
-  Invalidate the refresh token to prevent its future use"
-  [request]
-  (let [refresh-token (get-in request [:body-params :refresh_token])]
-    (if refresh-token
-      (do
-        (auth/invalidate-refresh-token refresh-token)
-        (mulog/log ::logout :status :success)
-        (-> (response/response {:message "Logged out successfully"})
-            (response/status 200)))
-      (-> (response/response {:message "Logged out successfully"})
-          (response/status 200)))))
+  "POST /api/auth/logout — drop the auth session. `:session nil` tells the
+   session middleware to clear the cookie."
+  [_request]
+  (mulog/log ::logout :status :success)
+  (-> (response/response {:message "Logged out successfully"})
+      (response/status 200)
+      ;; Drop the session and expire the cookie immediately, rather than
+      ;; leaving an empty session cookie to linger for the full Max-Age.
+      (assoc :session nil)
+      (assoc :session-cookie-attrs {:max-age 0})))

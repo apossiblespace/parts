@@ -2,7 +2,6 @@
   "Primary namespace for the Parts backend, including the entry point and server
   lifecycle management."
   (:require
-   [aps.parts.auth :as auth]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.jobs.deletion-purge :as deletion-purge]
@@ -43,29 +42,6 @@
               (ring/ring-handler (ring/create-default-handler))
               middleware/wrap-core-middlewares)]
       (handler req))))
-
-(defn schedule-token-cleanup
-  "Schedule periodic cleanup of expired refresh tokens using core.async"
-  []
-  (let [stop-ch     (async/chan)
-        interval-ms (* 6 60 60 1000)        ; 6 hours in milliseconds
-        run-cleanup (fn []
-                      (try
-                        (let [tokens-removed (auth/cleanup-expired-tokens)]
-                          (mulog/log ::token-cleanup-success
-                                     :tokens_removed (count tokens-removed)))
-                        (catch Exception e
-                          (mulog/log ::token-cleanup-error
-                                     :error (.getMessage e)
-                                     :error_type (.getName (class e))))))]
-    (run-cleanup)
-    (async/go-loop []
-      (let [timeout-ch (async/timeout interval-ms)
-            [_ ch]     (async/alts! [stop-ch timeout-ch])]
-        (when (not= ch stop-ch)
-          (run-cleanup)
-          (recur))))
-    stop-ch))
 
 (defn start-log-publisher
   "Starts a mulog console-json publisher in prod, sending one JSON event per
@@ -119,11 +95,14 @@
     ;; Initialize database
     (db/init-db)
 
+    ;; Fail fast on a missing/misconfigured session key — never run on a
+    ;; guessable secret (ADR-0007).
+    (conf/session-key)
+
     ;; Start nREPL server if configured
     (let [nrepl-server     (start-nrepl)
           ;; Start server and background processes
           stop-fn          (start-server port)
-          cleanup-stop-ch  (schedule-token-cleanup)
           deletion-stop-ch (deletion-purge/schedule!)]
       (println "Parts: Server started on port" port)
 
@@ -134,7 +113,6 @@
       ;; Return shutdown function
       (fn []
         (stop-fn)
-        (async/close! cleanup-stop-ch)
         (async/close! deletion-stop-ch)
         (when nrepl-server
           (nrepl/stop-server nrepl-server)

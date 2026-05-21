@@ -58,6 +58,29 @@
   []
   (l-config/get config :app/base-url))
 
+(def ^:private dev-session-key
+  "The session key shipped in config.edn for local development. Production
+   must override it; `session-key` refuses to run on this value in prod."
+  "dev-session-key0")
+
+(defn session-key
+  "The 16-byte secret that encrypts the auth-session cookie (ADR-0007),
+   resolved from `:session/key` (set via the PARTS__SESSION__KEY env var).
+
+   Throws if the key is missing, not exactly 16 bytes, or — in production —
+   still the committed dev default. A misconfigured session key must fail
+   loudly: silently running on a guessable secret would let anyone forge a
+   session cookie. Rotating the key invalidates every active session."
+  []
+  (let [k (l-config/get config :session/key)]
+    (when (and (prod?) (or (nil? k) (= k dev-session-key)))
+      (throw (ex-info "PARTS__SESSION__KEY must be set in production to a non-default value"
+                      {:type :config-error})))
+    (when (or (nil? k) (not= 16 (count (.getBytes ^String k "UTF-8"))))
+      (throw (ex-info "PARTS__SESSION__KEY must be exactly 16 bytes"
+                      {:type :config-error})))
+    k))
+
 (defn host-uri
   "Get the full qualified application host URI, eg: http://localhost:3000"
   []
@@ -79,11 +102,11 @@
    :ssl      (l-config/get config :db/ssl)})
 
 (def ^:private secret-key-substrings
-  #{"password" "secret" "token"})
+  #{"password" "secret" "token" "key"})
 
 (defn- secret-key?
   "True if the key's name suggests it holds a secret value that should not
-   appear in logs (e.g. :db/password, :auth/secret)."
+   appear in logs (e.g. :db/password, :session/key)."
   [k]
   (when-let [n (some-> k name cstr/lower-case)]
     (boolean (some #(cstr/includes? n %) secret-key-substrings))))

@@ -1,70 +1,22 @@
 (ns aps.parts.auth
+  "Authentication primitives.
+
+   Auth is a server-side session (TASK-022, ADR-0007): on login the user's
+   id is written into an encrypted, httpOnly session cookie; buddy's session
+   backend copies `request[:session][:identity]` to `request[:identity]` on
+   every request. No JWTs, no bearer tokens — see ADR-0007."
   (:require
    [aps.parts.common.utils :refer [normalize-email]]
-   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [buddy.auth.backends :as backends]
-   [buddy.hashers :as hashers]
-   [buddy.sign.jwt :as jwt]
-   [com.brunobonacci.mulog :as mulog]
-   [lambdaisland.config :as l-config])
-  (:import
-   (java.time Instant)
-   (java.util UUID)))
-
-(def secret
-  (l-config/get conf/config :auth/secret))
+   [buddy.hashers :as hashers]))
 
 (def backend
-  (backends/jws
-   {:secret     secret
-    :options    {:alg :hs256}
-    :on-error   (fn [_request ex]
-                  (mulog/log ::auth-backend :error (.getMessage ex))
-                  nil)
-    :token-name "Bearer"
-    :auth-fn    (fn [claims]
-                  (mulog/log ::auth-backend-auth-fn :claims claims)
-                  claims)}))
-
-(defn create-access-token
-  "Create a short-lived JWT access token (15 minutes)"
-  [user-id]
-  (let [now    (Instant/now)
-        exp    (.plusSeconds now 900) ; 15 minutes
-        host   (conf/host-uri)
-        claims {:iss  (str host "/api")
-                :sub  (str user-id)
-                :aud  host
-                :type "access"
-                :iat  (.getEpochSecond now)
-                :exp  (.getEpochSecond exp)}]
-    (jwt/sign claims secret {:alg :hs256})))
-
-(defn create-refresh-token
-  "Create a long-lived refresh token (30 days)"
-  [user-id]
-  (let [now      (Instant/now)
-        exp      (.plusSeconds now 2592000) ; 30 days
-        token-id (str (UUID/randomUUID))
-        host     (conf/host-uri)
-        claims   {:iss  (str host "/api")
-                  :sub  user-id
-                  :aud  host
-                  :type "refresh"
-                  :jti  token-id
-                  :iat  (.getEpochSecond now)
-                  :exp  (.getEpochSecond exp)}
-        token    (jwt/sign claims secret {:alg :hs256})]
-
-    ;; Store refresh token in database for validation/revocation
-    (db/insert! :refresh_tokens
-                {:user_id    user-id
-                 :token_id   token-id
-                 :expires_at (.toEpochMilli exp)
-                 :created_at (.toEpochMilli now)})
-
-    token))
+  "buddy session backend. With `wrap-authentication`, it lifts
+   `request[:session][:identity]` into `request[:identity]` — so a handler
+   reads the authenticated user via `(get-in request [:identity :sub])`,
+   the same shape the old JWT claims used."
+  (backends/session))
 
 (defn hash-password
   [password]
@@ -74,17 +26,10 @@
   [password hash]
   (:valid (hashers/verify password hash)))
 
-(defn issue-tokens
-  "Issue a fresh pair of access + refresh tokens for an already-authenticated
-   user-id. Single source of truth for the token-response shape."
-  [user-id]
-  {:access_token  (create-access-token user-id)
-   :refresh_token (create-refresh-token user-id)
-   :token_type    "Bearer"})
-
 (defn authenticate
-  "Checks if a user represented by EMAIL exists in db, checks their PASSWORD if
-  so"
+  "Verify EMAIL + PASSWORD against the stored user. Returns the user map
+   (without `password_hash`) on success, nil on a missing user or a wrong
+   password. The caller establishes the auth session from the returned id."
   [{:keys [email password]}]
   (let [normalized-email (normalize-email email)]
     (when-let [user (db/query-one
@@ -92,76 +37,10 @@
                                      :from   [:users]
                                      :where  [:= :email normalized-email]}))]
       (when (check-password password (:password_hash user))
-        (issue-tokens (:id user))))))
+        (dissoc user :password_hash)))))
 
-(defn validate-refresh-token
-  "Validates a refresh token and returns user-id if valid"
-  [refresh-token]
-  (try
-    (let [{:keys [sub jti type exp]} (jwt/unsign refresh-token secret)
-          token-record               (db/query-one
-                                      (db/sql-format
-                                       {:select [:*]
-                                        :from   [:refresh_tokens]
-                                        :where  [:and
-                                                 [:= :token_id jti]
-                                                 [:= :user_id (db/->uuid sub)]]}))]
-      (when (and token-record
-                 (= type "refresh")
-                 (< (System/currentTimeMillis) (* exp 1000)))
-        sub))
-    (catch Exception e
-      (mulog/log ::refresh-token-validation :error (.getMessage e))
-      nil)))
-
-(defn refresh-auth-tokens
-  "Creates new access and refresh tokens if the refresh token is valid"
-  [refresh-token]
-  (when-let [user-id-str (validate-refresh-token refresh-token)]
-    (let [user-id (db/->uuid user-id-str)]
-      (db/delete! :refresh_tokens
-                  [:= :token_id (get (jwt/unsign refresh-token secret) :jti)])
-      (issue-tokens user-id))))
-
-(defn invalidate-refresh-token
-  "Invalidate a refresh token when user logs out"
-  [refresh-token]
-  (try
-    (let [{:keys [jti]} (jwt/unsign refresh-token secret)]
-      (db/delete! :refresh_tokens [:= :token_id jti])
-      true)
-    (catch Exception _
-      false)))
-
-(defn get-user-id-from-token
-  [request]
-  (get-in request [:identity :sub]))
-
-(defn cleanup-expired-tokens
-  "Remove all expired refresh tokens from the database"
-  []
-  (let [now     (System/currentTimeMillis)
-        deleted (db/delete! :refresh_tokens [:< :expires_at now])]
-    (mulog/log ::cleanup-expired-tokens :count (count deleted))
-    deleted))
-
-(comment
-  ;; Example usage in REPL
-  (def user {:email        "test@example.com"
-             :username     "testuser"
-             :display-name "Test User"
-             :password     "password123"
-             :role         "client"})
-
-  (def tokens
-    (authenticate {:email "test@example.com" :password "password123"}))
-
-  (def invalid-tokens
-    (authenticate {:email "test@example.com" :password "wrongpassword"}))
-
-  (when-let [access-token (:access_token tokens)]
-    (jwt/unsign access-token secret))
-
-  (when-let [refresh-token (:refresh_token tokens)]
-    (jwt/unsign refresh-token secret))
-  #_())
+(defn session-identity
+  "The value to store under `[:session :identity]` for `user-id`. A map with
+   `:sub` (stringified id) — matching the claims shape handlers already read."
+  [user-id]
+  {:sub (str user-id)})

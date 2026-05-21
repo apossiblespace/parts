@@ -104,8 +104,8 @@
 
 (defn delete!
   "Hard-delete a user and all associated data, including past maps, parts,
-   relationships, and refresh tokens. Audit-log entries referencing this user
-   are pseudonymized to the tombstone UUID rather than deleted, preserving the
+   and relationships. Audit-log entries referencing this user are
+   pseudonymized to the tombstone UUID rather than deleted, preserving the
    operational trail.
 
    This is the right-to-erasure path. For the user-initiated 30-day
@@ -116,9 +116,6 @@
                                {:select [:id] :from [:users] :where [:= :id uuid-id]}))]
     (if user
       (do
-        ;; Refresh tokens are not bitemporal and are not handled by the
-        ;; erasure namespace; clean them up here.
-        (db/delete! :refresh_tokens [:= :user_id uuid-id])
         (erasure/purge-account! db/datasource uuid-id)
         (mulog/log ::delete-user-complete :user-id id :success true)
         {:id id :deleted true})

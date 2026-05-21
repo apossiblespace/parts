@@ -23,32 +23,12 @@
     (doseq [key keys-to-remove]
       (.removeItem js/localStorage key))))
 
-(def ^:private token-storage-key "parts-auth-tokens")
-
-(defn save-tokens
-  "Save authentication tokens to local storage"
-  [tokens]
-  (.setItem js/localStorage token-storage-key (js/JSON.stringify (clj->js tokens))))
-
-(defn get-tokens
-  "Get authentication tokens from local storage"
-  []
-  (when-let [tokens-str (.getItem js/localStorage token-storage-key)]
-    (js->clj (.parse js/JSON tokens-str) :keywordize-keys true)))
-
-(defn clear-tokens
-  "Clear authentication tokens from local storage"
-  []
-  (.removeItem js/localStorage token-storage-key))
-
-(defn auth-header
-  "Get the Authorization header for authenticated requests from tokens"
-  [tokens]
-  (when (and (:token_type tokens) (:access_token tokens))
-    (str (:token_type tokens) " " (:access_token tokens))))
+;; Auth is an httpOnly session cookie (ADR-0007). The browser carries it on
+;; every same-origin request — there is no token to store or read here.
 
 (defn get-csrf-token
-  "Get the CSRF token from the meta tag"
+  "Get the CSRF token from the `<meta name=\"csrf-token\">` tag rendered into
+   the app shell. Sent as the `X-CSRF-Token` header on mutating requests."
   []
   (when-let [meta-tag (.querySelector js/document "meta[name='csrf-token']")]
     (.getAttribute meta-tag "content")))

@@ -8,30 +8,27 @@
 
 ;; Authentication-related functions
 (defn login
-  "CREDENTIALS should be a map containing the keys :email and :password."
+  "CREDENTIALS should be a map containing the keys :email and :password.
+   On success the server sets the auth-session cookie — nothing to store."
   [credentials]
-  (go
-    (let [response (<! (http/POST "/auth/login" credentials {:skip-auth true}))]
-      (when (= 200 (:status response))
-        (utils/save-tokens (:body response)))
-      response)))
+  (http/POST "/auth/login" credentials))
 
 (defn register
   "Register a new user account.
    PARAMS should be a map containing :email, :username, :display_name, :password, :password_confirmation.
-   On success, saves tokens for auto-login and clears any playground data."
+   On success the server sets the auth-session cookie; clears playground data."
   [params]
   (go
-    (let [response (<! (http/POST "/account/register" params {:skip-auth true}))]
+    (let [response (<! (http/POST "/account/register" params))]
       (when (= 201 (:status response))
-        (utils/save-tokens (select-keys (:body response) [:access_token :refresh_token :token_type]))
         (utils/clear-playground-data))
       response)))
 
 (defn logout
-  "Log out the current user by clearing tokens."
+  "Log out — POST /auth/logout clears the server-side auth session and its
+   cookie. Returns the request channel so callers can await it."
   []
-  (utils/clear-tokens))
+  (http/POST "/auth/logout" {}))
 
 ;; Account-related functions
 (defn get-current-user
