@@ -91,6 +91,16 @@
       ;; Registration should create a default map
       (is (some? (:map_id user)))))
 
+  (testing "registration creates a map for the new account, titled after the display name"
+    (let [user-data (factory/build-test-user)
+          response  (account/register-account {:body-params user-data})
+          user      (:body response)
+          the-map   (parts-map/fetch (:map_id user))]
+      (is (some? the-map) "the map exists in the database")
+      (is (= (:id user) (:owner_id the-map)) "the map is owned by the new account")
+      (is (= (str (:display_name user-data) "'s Map") (:title the-map))
+          "the map title is derived from the user's display name")))
+
   (testing "if a write inside the tx throws, the user insert is rolled back"
     (let [user-data    (factory/build-test-user)
           mock-request {:body-params user-data}]
