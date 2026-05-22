@@ -6,7 +6,7 @@
 (def default-options
   {:header      true
    :footer      true
-   :description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ aps.parts."})
+   :description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."})
 
 (defn- base-layout
   "Generic layout renderer based on options.
