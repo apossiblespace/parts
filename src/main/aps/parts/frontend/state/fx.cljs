@@ -127,31 +127,3 @@
            (rf/dispatch [:map/update-success updated-map])
            (rf/dispatch [:map/update-failure "Failed to update map"])))
        (rf/dispatch [:map/update-failure "No storage backend available"])))))
-
-;; Keep the old API effects for map creation since we don't have storage backend creation yet
-(rf/reg-fx
- :api/get-map
- (fn [{:keys [id]}]
-   (go
-     (let [response (<! (api/get-map id))]
-       (if (= 200 (:status response))
-         (rf/dispatch [:map/fetch-success (:body response)])
-         (rf/dispatch [:map/fetch-failure (:body response)]))))))
-
-(rf/reg-fx
- :api/create-map
- (fn [params]
-   (go
-     (let [response (<! (api/create-map params))]
-       (if (= 201 (:status response))
-         (rf/dispatch [:map/create-success (:body response)])
-         (rf/dispatch [:map/create-failure (:body response)]))))))
-
-(rf/reg-fx
- :api/get-maps
- (fn [_]
-   (go
-     (let [response (<! (api/get-maps))]
-       (if (= 200 (:status response))
-         (rf/dispatch [:map/fetch-list-success (:body response)])
-         (rf/dispatch [:map/fetch-list-failure (:body response)]))))))

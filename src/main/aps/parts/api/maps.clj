@@ -82,7 +82,6 @@
     (-> (response/response {:success true :results results})
         (response/status 200))))
 
-;; TODO: Implement PDF export endpoint once we have the PDF generation service
 (defn export-pdf
   "Generate PDF export of a map"
   [_request]

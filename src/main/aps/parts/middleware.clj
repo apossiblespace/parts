@@ -52,7 +52,6 @@
 
   We disable wrapping static resources here because these resources need to be
   available for all routes, and this middleware is set for certain routes only.
-  FIXME: This might be troublesome, review middleware order.
 
   And other defaults that are not immediately relevant to us. See
   `site-defaults` for the full details."
@@ -67,9 +66,6 @@
        ;; header bypass on session-establishing endpoints like /invite/:token.
        (assoc-in [:security :anti-forgery] true))))
 
-;; TODO: Investigate whether Content Security Policy is needed:
-;;  - https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
-;;  - https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html
 (defn wrap-api-defaults
   "Apply default middleware for API routes.
 

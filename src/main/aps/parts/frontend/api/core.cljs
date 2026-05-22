@@ -1,7 +1,6 @@
 (ns aps.parts.frontend.api.core
   "High level API functions that should be used to interact with the backend."
   (:require
-   [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.http :as http]
    [aps.parts.frontend.api.utils :as utils]
    [cljs.core.async :refer [<! go]]))
@@ -41,28 +40,3 @@
   - role"
   []
   (http/GET "/account" {}))
-
-(defn get-maps
-  "Retrieve a list of maps for the currently signed in user:"
-  []
-  (http/GET "/maps"))
-
-(defn get-map
-  "Retrieve a single map identified by `id`"
-  [id]
-  (http/GET (str "/maps/" id)))
-
-(defn create-map
-  "Create a map with the given `params`"
-  [params]
-  (http/POST "/maps" params))
-
-;; NOTE: This function is called in the queue processing go-loop in
-;; aps.parts.frontend.api.queue/start. The idea is that a processing queue is
-;; started _per map_, so it makes sense to enclose the map-id in the
-;; `start` function.
-(defn send-batched-updates
-  [map-id batch]
-  (go
-    (o/debug "api.send-batched-updates" "sending batch" batch)
-    (<! (http/POST (str "/maps/" map-id "/changes") batch))))
