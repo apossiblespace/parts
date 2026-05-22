@@ -4,6 +4,7 @@
   (:require
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
+   [aps.parts.errors :as errors]
    [aps.parts.jobs.deletion-purge :as deletion-purge]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
@@ -38,7 +39,7 @@
     (let [handler
           (-> (ring/router (r/routes)
                            {:data {:middleware [middleware/logging
-                                                middleware/exception]}})
+                                                errors/exception]}})
               (ring/ring-handler (ring/create-default-handler))
               middleware/wrap-core-middlewares)]
       (handler req))))

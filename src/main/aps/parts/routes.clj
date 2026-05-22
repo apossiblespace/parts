@@ -4,6 +4,7 @@
    [aps.parts.api.account :as api.account]
    [aps.parts.api.auth :as api.auth]
    [aps.parts.api.maps :as api.maps]
+   [aps.parts.auth.middleware :as auth-mw]
    [aps.parts.handlers.invite :as invite]
    [aps.parts.handlers.pages :as pages]
 
@@ -140,7 +141,7 @@
                          rrc/coerce-exceptions-middleware
                          rrc/coerce-request-middleware
                          rrc/coerce-response-middleware
-                         middleware/wrap-session-auth
+                         auth-mw/wrap-session-auth
                          muuntaja-middleware/format-middleware]
             :muuntaja   transit-format
             :coercion   rcs/coercion}
@@ -149,25 +150,25 @@
 
     ["/auth"
      ["/login" {:post {:handler api.auth/login}}]
-     ["/logout" {:post {:middleware [middleware/require-auth]
+     ["/logout" {:post {:middleware [auth-mw/require-auth]
                         :handler    api.auth/logout}}]]
 
     ["/account"
      ["/register" {:middleware [middleware/wrap-launch-gated]
                    :post       {:handler api.account/register-account}}]
-     ["" {:middleware [middleware/require-auth]
+     ["" {:middleware [auth-mw/require-auth]
           :get        {:handler api.account/get-account}
           :patch      {:handler api.account/update-account}
           :delete     {:handler api.account/delete-account}}]]
 
-    ["/maps" {:middleware [middleware/require-auth]}
+    ["/maps" {:middleware [auth-mw/require-auth]}
      ["" {:get  {:handler api.maps/list-maps}
           :post {:handler api.maps/create-map}}]
 
      ;; This uses coercion for the `parameters`, see the note at the top of this
      ;; namespace.
      ["/:id" {:parameters {:path {:id string?}}
-              :middleware [middleware/wrap-map-access]}
+              :middleware [auth-mw/wrap-map-access]}
       ["" {:get    {:handler api.maps/get-map}
            :put    {:handler api.maps/update-map}
            :delete {:handler api.maps/delete-map}}]

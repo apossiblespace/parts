@@ -1,89 +1,18 @@
 (ns aps.parts.middleware
+  "Request-pipeline middleware: request logging, the launch gate, the
+   ring-defaults wrappers, static-resource serving, and HTML response
+   formatting.
+
+   Authentication/authorization middleware lives in
+   `aps.parts.auth.middleware`; exception→response handling in
+   `aps.parts.errors`."
   (:require
    [aps.parts.auth :as auth]
-   [aps.parts.db :as db]
-   [aps.parts.entity.map :as parts-map]
    [aps.parts.launch :as launch]
-   [buddy.auth :refer [authenticated?]]
-   [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
    [com.brunobonacci.mulog :as mulog]
-   [reitit.ring.middleware.exception :as exception]
-   [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.defaults :refer [api-defaults wrap-defaults site-defaults]]
-   [ring.middleware.resource :refer [wrap-resource]]
-   [ring.util.response :as response])
-  (:import
-   (org.postgresql.util PSQLException)))
-
-(defn- exception-handler
-  "Generic exceptions handler used by the `exception` middleware.
-
-  Sets the response status to the provided `status`, and sets the response
-  message to the error message retrieved from the exception, or, failing that,
-  to the `message` provided."
-  [message status]
-  (fn [^Exception e _request]
-    (let [error-message (.getMessage e)]
-      {:status status
-       :body   {:error (or error-message message)}})))
-
-(def postgres-sql-state-errors
-  "A map of PostgreSQL SQL state codes to user-friendly error messages."
-  {"23505" "A resource with this unique identifier already exists" ; unique violation
-   "23514" "The provided data does not meet the required constraints" ; check constraint
-   "23502" "A required field was missing" ; not null violation
-   "23503" "The referenced resource does not exist"}) ; foreign key violation
-
-(defn postgres-constraint-violation-handler
-  "Handler for PostgreSQL-specific exceptions.
-
-  Uses SQL state codes to determine the type of constraint violation and
-  provide user-friendly error messages."
-  [^PSQLException e _request]
-  (let [error-message (.getMessage e)
-        sql-state     (.getSQLState e)]
-    (mulog/log ::postgres-exception :error error-message :sql-state sql-state)
-    {:status 409
-     :body   {:error (or (get postgres-sql-state-errors sql-state)
-                         "A database constraint was violated")}}))
-
-(def exception
-  "Middleware handling exceptions. Combines the default exception handlers from
-   Reitit with cutom handlers. New custom handlers should be added to this
-   function."
-  (exception/create-exception-middleware
-   (merge
-    exception/default-handlers
-    {;; ex-info with :type :validation
-     :validation
-     (exception-handler "Invalid data" 400)
-
-     :not-found
-     (exception-handler "Resource not found" 404)
-
-     ;; A change in a batch threw; the whole batch was rolled back. The
-     ;; ex-data carries `:failing-change` so the client can highlight it.
-     :batch-failure
-     (fn [^Exception e _request]
-       (let [data (ex-data e)]
-         (mulog/log ::batch-failure
-                    :error          (.getMessage e)
-                    :failing-change (:failing-change data))
-         {:status 422
-          :body   {:error          (or (.getMessage e) "Batch change failed")
-                   :failing_change (:failing-change data)}}))
-
-     ;; PostgreSQL exceptions
-     PSQLException
-     postgres-constraint-violation-handler
-
-     ;; Default
-     ::exception/default
-     (fn [^Exception e _request]
-       (mulog/log ::unhandled-exception :error (.getMessage e))
-       {:status 500
-        :body   {:error "Internal server error"}})})))
+   [ring.middleware.resource :refer [wrap-resource]]))
 
 (defn logging
   "Middleware logging each incoming request with minimal information.
@@ -104,24 +33,6 @@
       (mulog/log ::request :info request-info :authenticated? authenticated? :user-id user-id)
       (handler request))))
 
-(defn wrap-session-auth
-  "Lift the auth session into `request[:identity]` via buddy's session
-   backend, so handlers and `require-auth` can see who is signed in. A route
-   with this applied has an authentication status that can be checked."
-  [handler]
-  (-> handler
-      (wrap-authentication auth/backend)
-      (wrap-authorization auth/backend)))
-
-(defn require-auth
-  "Middleware ensuring a route is only accessible to authenticated users."
-  [handler]
-  (fn [request]
-    (if (authenticated? request)
-      (handler request)
-      (-> (response/response {:error "Unauthorized"})
-          (response/status 401)))))
-
 (defn wrap-launch-gated
   "Middleware that hides a route behind the `aps.parts.launch/launched?` flag.
    When the toggle is off, throws a `:not-found` ex-info so the standard
@@ -131,24 +42,6 @@
     (if (launch/launched?)
       (handler request)
       (throw (ex-info "Not found" {:type :not-found})))))
-
-(defn- owns-map?
-  "True when `user-id` (the session-identity `:sub` string) owns `the-map`."
-  [user-id the-map]
-  (= (db/->uuid user-id) (:owner_id the-map)))
-
-(defn wrap-map-access
-  "Middleware for routes scoped to a single Map. The Map must exist and
-   be owned by the authenticated user, or the request is rejected as
-   `:not-found` (404)."
-  [handler]
-  (fn [request]
-    (let [user-id (auth/current-user-id request)
-          map-id  (get-in request [:parameters :path :id])
-          the-map (parts-map/fetch-identity map-id)]
-      (if (and the-map (owns-map? user-id the-map))
-        (handler request)
-        (throw (ex-info "Map not found" {:type :not-found :id map-id}))))))
 
 (defn wrap-html-defaults
   "Middleware that applies a set of Ring defaults for HTML routes.
@@ -245,7 +138,3 @@
             (update :body str)
             (assoc-in [:headers "Content-Type"] "text/html; charset=utf-8"))
         response))))
-
-(def anti-forgery
-  "Anti-forgery middleware for HTML forms, see docs on `wrap-anti-forgery`"
-  wrap-anti-forgery)

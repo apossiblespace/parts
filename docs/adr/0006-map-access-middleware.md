@@ -30,7 +30,7 @@ The ownership check leans on the **identity/metadata split** from ADR-0002 — a
 
 ## Consequences
 
-- The non-owner assertions relocated from `api/maps_test.clj` (handler level) to `middleware_test.clj` — where the rule now lives.
+- The non-owner assertions relocated from `api/maps_test.clj` (handler level) to where the rule now lives — `test/aps/parts/auth/middleware_test.clj`.
 - `update-map` lost its `existing` fetch and a now-pointless `:owner_id` re-assoc (`parts-map/update!` already `select-keys`'s to `:title`), shrinking from 14 lines to 6. Pulling auth out surfaced adjacent shallowness.
 - **Wire-visible behavior change:** a non-owner request now returns 404, not 403. The frontend already routes the not-available case through one fetch-failure path; clients treat both as "Map unavailable."
 - The future Client role plugs in here: `wrap-map-access` extends to read an access level off the identity row (or a future `map_shares` table per ADR-0002) and gates per (user, Map, operation) — without re-spreading checks across handlers.
