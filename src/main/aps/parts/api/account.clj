@@ -13,7 +13,7 @@
 (defn get-account
   "Retrieve own account info"
   [request]
-  (let [user-id     (get-in request [:identity :sub])
+  (let [user-id     (auth/current-user-id request)
         user-record (user/fetch user-id)]
     (-> (response/response user-record)
         (response/status 200))))
@@ -21,7 +21,7 @@
 (defn update-account
   "Update own account info"
   [request]
-  (let [user-id      (get-in request [:identity :sub])
+  (let [user-id      (auth/current-user-id request)
         body         (:body-params request)
         updated-user (user/update! user-id body)]
     (mulog/log ::update-account-success :user-id user-id)
@@ -66,8 +66,7 @@
                    :status :success)
         (-> (response/response (merge account {:map_id map-id}))
             (response/status 201)
-            (assoc :session (assoc (:session request)
-                                   :identity (auth/session-identity (:id account))))))
+            (auth/establish-session request (:id account))))
       (catch Exception e
         ;; NOTE: log only safe fields. `params` contains :password and is NOT
         ;; redacted by mulog (the redaction in observe.cljc only covers the o/*
@@ -83,7 +82,7 @@
 (defn delete-account
   "Delete own account"
   [request]
-  (let [user-id (get-in request [:identity :sub])
+  (let [user-id (auth/current-user-id request)
         user    (user/fetch user-id)
         confirm (get-in request [:query-params "confirm"])]
     (if user
@@ -91,8 +90,7 @@
         (do
           (user/delete! user-id)
           ;; Drop the caller's auth session — their account no longer exists.
-          (-> (response/status 204)
-              (assoc :session nil)))
+          (auth/clear-session (response/status 204)))
         (throw (ex-info "Confirmation needed" {:type :validation})))
       (do
         (mulog/log ::update-account-not-found :user-id user-id)

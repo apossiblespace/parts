@@ -91,8 +91,7 @@
           ;; (ADR-0007) so the new member lands in /app already signed in.
           (-> (response/redirect "/app")
               (response/status 303)
-              (assoc :session (assoc (:session request)
-                                     :identity (auth/session-identity (:id account))))))
+              (auth/establish-session request (:id account))))
 
         (catch clojure.lang.ExceptionInfo e
           (case (:type (ex-data e))

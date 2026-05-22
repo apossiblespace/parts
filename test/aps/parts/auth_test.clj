@@ -44,3 +44,28 @@
   (testing "session-identity wraps the user id as a stringified :sub claim"
     (is (= {:sub "abc-123"} (auth/session-identity "abc-123")))
     (is (= {:sub "7"} (auth/session-identity 7)))))
+
+(deftest establish-session-test
+  (testing "attaches the identity to the response's session"
+    (let [response (auth/establish-session {:status 200} {} "user-7")]
+      (is (= {:identity {:sub "user-7"}} (:session response)))))
+
+  (testing "merges into the request's existing session — existing entries survive"
+    (let [request  {:session {:existing "kept"}}
+          response (auth/establish-session {:status 200} request "user-7")]
+      (is (= "kept" (get-in response [:session :existing]))
+          "a bare {:identity ...} would drop ring's anti-forgery token")
+      (is (= {:sub "user-7"} (get-in response [:session :identity]))))))
+
+(deftest clear-session-test
+  (testing "drops the session and expires the cookie immediately"
+    (let [response (auth/clear-session {:status 200})]
+      (is (nil? (:session response)))
+      (is (= {:max-age 0} (:session-cookie-attrs response))))))
+
+(deftest current-user-id-test
+  (testing "reads the subject from the request identity"
+    (is (= "user-9" (auth/current-user-id {:identity {:sub "user-9"}}))))
+
+  (testing "returns nil for an unauthenticated request"
+    (is (nil? (auth/current-user-id {})))))

@@ -1,7 +1,6 @@
 (ns aps.parts.middleware
   (:require
    [aps.parts.auth :as auth]
-   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.launch :as launch]
@@ -13,7 +12,6 @@
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.defaults :refer [api-defaults wrap-defaults site-defaults]]
    [ring.middleware.resource :refer [wrap-resource]]
-   [ring.middleware.session.cookie :refer [cookie-store]]
    [ring.util.response :as response])
   (:import
    (org.postgresql.util PSQLException)))
@@ -96,7 +94,7 @@
   the `:parsed-params` key."
   [handler]
   (fn [request]
-    (let [user-id        (get-in request [:identity :sub])
+    (let [user-id        (auth/current-user-id request)
           request-info   {:uri            (:uri request)
                           :request-method (:request-method request)
                           :query-params   (:query-params request)
@@ -145,32 +143,12 @@
    `:not-found` (404)."
   [handler]
   (fn [request]
-    (let [user-id (get-in request [:identity :sub])
+    (let [user-id (auth/current-user-id request)
           map-id  (get-in request [:parameters :path :id])
           the-map (parts-map/fetch-identity map-id)]
       (if (and the-map (owns-map? user-id the-map))
         (handler request)
         (throw (ex-info "Map not found" {:type :not-found :id map-id}))))))
-
-(def ^:private session-max-age
-  "Absolute auth-session lifetime — 14 days, in seconds (ADR-0007). With the
-   encrypted cookie store there is no server-side revocation, so this is the
-   one hard bound on a compromised cookie."
-  (* 14 24 60 60))
-
-(defn- session-config
-  "Ring session config for the one auth session shared by the HTML routes
-   and /api: an encrypted (AES) cookie store, httpOnly, SameSite=Lax,
-   Secure in production only (dev is plain HTTP). The 16-byte key comes from
-   config and must be stable in prod — rotating it invalidates every
-   session. See ADR-0007."
-  []
-  {:store        (cookie-store {:key (.getBytes ^String (conf/session-key) "UTF-8")})
-   :cookie-name  "parts-session"
-   :cookie-attrs {:http-only true
-                  :same-site :lax
-                  :secure    (conf/prod?)
-                  :max-age   session-max-age}})
 
 (defn wrap-html-defaults
   "Middleware that applies a set of Ring defaults for HTML routes.
@@ -190,7 +168,7 @@
    handler
    (-> site-defaults
        (assoc :static false)
-       (assoc :session (session-config))
+       (assoc :session (auth/session-config))
        ;; Replace site-defaults' anti-forgery map (which carries an
        ;; `X-Ring-Anti-Forgery` safe-header bypass) with plain `true` — no
        ;; header bypass on session-establishing endpoints like /invite/:token.
@@ -222,7 +200,7 @@
        ;; Cookie auth (ADR-0007): /api shares the one auth session, and
        ;; gains anti-forgery — cookies are auto-sent, so the bearer-token
        ;; CSRF immunity is spent and must be replaced.
-       (assoc :session (session-config))
+       (assoc :session (auth/session-config))
        (assoc-in [:security :anti-forgery] true)
        (assoc-in [:security :frame-options] :sameorigin)
        (assoc-in [:security :content-type-options] :nosniff)
