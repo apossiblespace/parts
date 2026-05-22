@@ -35,6 +35,7 @@ We should also be mindful of possible future legal requirements for tools dealin
 - **Session** *(implicit)* — a therapy session. Not modeled as an entity yet — sessions are implied by clusters of changes in the scrubber's timeline. May become explicit later.
 - **Invitation** — an operator-minted, single-use bearer credential authorising creation of one account. The `token` in a magic link (`/invite/<token>`) is the credential. Lives in its own non-temporal `invitations` table, deliberately separate from `waitlist_signups`: an Invitation may be issued to an email that never joined the waitlist, and a token is a credential, not a marketing signal. Lifecycle: issued → redeemed | revoked (soft, via `revoked_at`). No expiry. Operator tooling and redemption live in `aps.parts.invitations`.
 - **Founding Circle** — the first cohort of practitioners, onboarded by Invitation during the concierge launch. `users.is_founding_circle` marks membership; it is carried from `invitations.is_founding_circle` when the Invitation is redeemed.
+- **Paid-through date** — `users.paid_through_date` (a `DATE`; NULL means never paid) records how far a User's account is paid up. The concierge launch bills out of band — a Stripe invoice the operator sends by hand — and the `aps.parts.billing` operator helpers move the date once an invoice clears. The date is *recorded* only: access is not gated on it yet (a deliberate later step).
 
 ## Architectural terms
 
