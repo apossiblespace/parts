@@ -50,6 +50,19 @@
   []
   (parse-port (l-config/get config :http/port)))
 
+(defn parse-bool
+  "Coerce a config value to a boolean.
+
+   Like `parse-port`, this exists because lambdaisland/config does no type
+   coercion. A value set via an env var (e.g. PARTS__LAUNCH__LAUNCHED_QMARK_)
+   arrives as a string, while a config.edn default arrives as a real
+   boolean. Without coercion the string \"false\" is truthy — so a flag
+   meant to be off reads as on."
+  [v]
+  (if (string? v)
+    (Boolean/parseBoolean v)
+    (boolean v)))
+
 (defn base-url
   "The canonical public base URL, with no trailing slash — e.g.
    https://parts.ifs.tools. Unlike `host-uri` (the internal bind address,

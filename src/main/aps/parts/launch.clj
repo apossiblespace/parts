@@ -9,7 +9,7 @@
    [lambdaisland.config :as l-config]))
 
 (defonce launched-state
-  (atom (boolean (l-config/get conf/config :launch/launched?))))
+  (atom (conf/parse-bool (l-config/get conf/config :launch/launched?))))
 
 (defn launched? [] @launched-state)
 (defn status    [] {:launched? @launched-state})
