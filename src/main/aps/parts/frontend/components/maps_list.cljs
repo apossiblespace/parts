@@ -21,6 +21,16 @@
         (let [t (.. (or (:title the-map) "") toLowerCase)]
           (.includes t q)))))
 
+(defn- app-version
+  "Read the app version from the `<meta name=\"version\">` tag stamped
+   on first page load by the server's shared head (see
+   `aps.parts.views.partials/head`). Same channel `data-launched` uses
+   to flow build-time facts from server to client. Returns nil if the
+   tag isn't present (e.g. in tests that bypass the server shell)."
+  []
+  (some-> (.querySelector js/document "meta[name=\"version\"]")
+          (.getAttribute "content")))
+
 (defn- fmt-date
   "Format a date-ish value as `YYYY/MM/DD`. Transit deserialises Java
    `Date`/`Instant`/`Timestamp` to a `js/Date` on the cljs side; this
@@ -125,4 +135,11 @@
                (for [the-map filtered]
                  ($ map-row {:key       (:id the-map)
                              :the-map   the-map
-                             :on-select handle-select}))))))))
+                             :on-select handle-select}))))
+
+          ;; Version badge — mirrors the landing footer's git label
+          ;; (`partials.clj` line ~170). Same styling, no other footer
+          ;; chrome on this page.
+          (when-let [v (app-version)]
+            ($ :footer {:class "mt-12 pt-6 border-t border-gray-200 flex justify-end"}
+               ($ :span {:class "badge badge-xs text-gray-300 font-mono"} v)))))))
