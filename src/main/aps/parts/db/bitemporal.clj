@@ -345,3 +345,22 @@
    (as-known-on ds table sys-t valid-t nil))
   ([ds table sys-t valid-t where]
    (query ds table where (into [:and (tt-contains sys-t) (vt-contains valid-t)]))))
+
+(defn latest-change-at
+  "Most recent change time across rows of `table` matching `where` —
+   specifically, `MAX(lower(sys_period))`. Returns nil when no rows
+   match. Monotonic: inserts, updates and tombstones all write a new row
+   with a fresh `lower(sys_period)`, so this value increases on every
+   change and never otherwise.
+
+   Suitable for building HTTP ETags (see ADR-0008). Lives here, not in
+   the consumer namespace, because temporal column vocabulary
+   (`sys_period`) is quarantined to the bitemporal layer."
+  [ds table where]
+  (-> (jdbc/execute-one! ds
+                         (sql/format
+                          {:select [[[:max [:lower :sys_period]] :t]]
+                           :from   [table]
+                           :where  where})
+                         exec-opts)
+      :t))

@@ -2,7 +2,7 @@
   (:require
    ["@xyflow/react" :refer [BaseEdge Position
                             getBezierPath useInternalNode]]
-   [aps.parts.frontend.geometry :as geometry]
+   [aps.parts.common.geometry :as geometry]
    [uix.core :refer [$ as-react defui]]))
 
 (def ^:private bow-offset-px

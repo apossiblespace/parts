@@ -1,6 +1,6 @@
-(ns aps.parts.frontend.geometry-test
+(ns aps.parts.common.geometry-test
   (:require
-   [aps.parts.frontend.geometry :as g]
+   [aps.parts.common.geometry :as g]
    [cljs.test :refer-macros [deftest is testing]]))
 
 (defn- approx=

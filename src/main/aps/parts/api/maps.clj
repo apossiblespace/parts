@@ -3,6 +3,7 @@
    [aps.parts.api.maps-events :as events]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
+   [aps.parts.render.preview :as preview]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
 
@@ -82,8 +83,41 @@
     (-> (response/response {:success true :results results})
         (response/status 200))))
 
-(defn export-pdf
-  "Generate PDF export of a map"
+(defn preview-svg
+  "Render a Map as a glanceable preview SVG for the Maps-list thumbnail.
+   Access gated by `wrap-map-access`. Calls into
+   `aps.parts.render.preview` (basic circles + lines, brand teal,
+   monochrome) — for the high-fidelity print artifact see
+   `render.document` and `render-pdf` (ADR-0008).
+
+   Emits an `ETag` computed from the Map's most recent change time
+   (`entity.map/version` → `inst-ms` → quoted per RFC 7232), so a
+   browser's next request can include `If-None-Match` and get 304
+   without re-rendering. Caching state lives entirely in the browser.
+
+   `inst-ms` works whether the JDBC driver hands back a
+   `java.sql.Timestamp` (default) or a `java.time.OffsetDateTime`
+   (if next.jdbc is later configured for java.time types) — both
+   implement `clojure.core.protocols/Inst`."
+  [{:keys [parameters headers] :as _request}]
+  (let [map-id (get-in parameters [:path :id])
+        tag    (when-let [v (parts-map/version map-id)]
+                 (format "\"%d\"" (inst-ms v)))]
+    (if (and tag (= tag (get headers "if-none-match")))
+      {:status 304 :headers {"ETag" tag}}
+      (let [svg (preview/render (parts-map/fetch map-id))]
+        (cond-> (-> (response/response svg)
+                    (response/status 200)
+                    (response/header "Content-Type" "image/svg+xml")
+                    (response/header "Cache-Control"
+                                     "private, max-age=60, must-revalidate"))
+          tag (response/header "ETag" tag))))))
+
+(defn render-pdf
+  "Render a Map as a PDF via Apache Batik SVG transcoding of the
+   document renderer's output. Currently 501 — Batik wiring + document
+   chrome (title, date, 'Made with Parts' footer) land in the next
+   increment. See ADR-0008."
   [_request]
   (-> (response/response {:error "Not implemented"})
       (response/status 501)))

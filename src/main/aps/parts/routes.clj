@@ -172,5 +172,6 @@
       ["" {:get    {:handler api.maps/get-map}
            :put    {:handler api.maps/update-map}
            :delete {:handler api.maps/delete-map}}]
-      ["/pdf" {:get {:handler api.maps/export-pdf}}]
+      ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
+      ["/render.pdf"  {:get {:handler api.maps/render-pdf}}]
       ["/changes" {:post {:handler api.maps/process-changes}}]]]]])

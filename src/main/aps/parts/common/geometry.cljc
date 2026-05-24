@@ -1,10 +1,15 @@
-(ns aps.parts.frontend.geometry
+(ns aps.parts.common.geometry
   "Pure 2D geometry for attaching edges to a node's visible shape rather than
-   its bounding box. ReactFlow measures DOM rectangles; the visual SVG of a
-   Part (hex / star / circle) is inscribed in that rectangle, so a naive
-   centre-to-centre line clipped at the rectangle border ends outside the
-   visible shape. The functions here clip to per-part-type polygons (or a
-   circle) instead.")
+   its bounding box. A Part's visual SVG (hex / star / circle) is inscribed
+   in its measured rectangle, so a naive centre-to-centre line clipped at the
+   rectangle border ends outside the visible shape. The functions here clip
+   to per-part-type polygons (or a circle) instead.
+
+   Consumed by both the canvas (`@xyflow/react` edge routing in
+   `aps.parts.frontend.components.edges`) and the server-side **Render**
+   (`aps.parts.render`). Stays runtime-neutral — `Math/*` interop dispatches
+   to `java.lang.Math` on JVM and `js/Math` on JS without reader
+   conditionals.")
 
 (def ^:private unit-square
   "Polygon used for square SVGs (`unknown`) and as the fallback for any

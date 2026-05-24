@@ -21,6 +21,25 @@
   [ds map-uuid]
   (first (bt/as-of-now ds :map_metadata [:= :map_id map-uuid])))
 
+(defn version
+  "Most recent change time across this Map's parts, relationships, and
+   metadata — monotonic across all three tables. Increases on every
+   change to any of them; doesn't change otherwise. Returns nil only if
+   the Map has no rows at all (which should be impossible post-`create!`).
+   Suitable as an HTTP ETag for the Render — see ADR-0008.
+
+   Three queries, one per table — composing them in SQL would let the
+   query DB do the GREATEST but would also pull `sys_period` vocabulary
+   into this namespace, which the architecture-fitness test forbids.
+   Three indexed lookups on `map_id` are cheap."
+  [id]
+  (let [uuid-id (db/->uuid id)
+        where   [:= :map_id uuid-id]
+        times   (keep #(bt/latest-change-at db/datasource % where)
+                      [:parts :relationships :map_metadata])]
+    (when (seq times)
+      (reduce #(if (pos? (compare %2 %1)) %2 %1) times))))
+
 (defn create!
   "Create a new map: an identity row in `maps` plus an initial metadata
    row in `map_metadata`, atomically. Returns the merged map (the shape
@@ -71,9 +90,15 @@
                                              [:= :map_id uuid-id])))))
 
 (defn index
-  "List a user's alive maps (with current title, without parts /
-   relationships). One query for maps, one for all their current
-   metadata; in-memory join."
+  "List a user's alive maps. Each row carries `:title` (from the
+   bitemporal `map_metadata`) and `:updated_at` (the same monotonic
+   change-time used as the Render ETag — see `version`).
+
+   Query shape: one for maps, one for all their current metadata, and
+   `version` per map. For a small cohort (dozens of Maps per therapist)
+   the per-map calls are cheap; if N grows, the obvious win is one
+   grouped `MAX(lower(sys_period))` query per table — three queries
+   total, regardless of N."
   [owner-id]
   (let [maps (db/query
               (db/sql-format
@@ -88,7 +113,9 @@
                                            [:in :map_id (mapv :id maps)])
                              (group-by :map_id))]
         (mapv (fn [m]
-                (assoc m :title (-> meta-by-map (get (:id m)) first :title)))
+                (assoc m
+                       :title      (-> meta-by-map (get (:id m)) first :title)
+                       :updated_at (version (:id m))))
               maps)))))
 
 (defn update!

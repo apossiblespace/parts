@@ -5,17 +5,20 @@
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
-   [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
+   [aps.parts.helpers.utils :refer [with-test-db create-test-user!
+                                    create-test-map!]]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
 (defn- make-request
   "Helper to create authenticated request map"
-  [user & {:keys [params body]}]
+  [user & {:keys [params body headers]}]
   {:identity    {:sub (:id user)}
    :parameters  {:path params}
-   :body-params body})
+   :body-params body
+   :headers     (or headers {})})
 
 (deftest test-list-maps
   (testing "returns maps for authenticated user"
@@ -125,11 +128,32 @@
       (testing "the valid earlier change was never applied"
         (is (= "Original" (:label (part/fetch part-id))))))))
 
-(deftest test-export-pdf
-  (testing "returns not implemented"
+(deftest test-render-pdf
+  (testing "returns not implemented (Apache Batik integration is the next increment)"
     (let [user     (create-test-user!)
-          the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
-          request  (make-request user :params {:id (:id the-map)})
-          response (api/export-pdf request)]
+          the-map  (create-test-map! (:id user))
+          response (api/render-pdf (make-request user :params {:id (:id the-map)}))]
       (is (= 501 (:status response)))
       (is (= "Not implemented" (-> response :body :error))))))
+
+(deftest test-preview-svg
+  (testing "returns an SVG body with Content-Type image/svg+xml and an ETag header"
+    (let [user     (create-test-user!)
+          the-map  (create-test-map! (:id user))
+          response (api/preview-svg (make-request user :params {:id (:id the-map)}))]
+      (is (= 200 (:status response)))
+      (is (str/starts-with? (:body response) "<svg"))
+      (is (= "image/svg+xml" (get-in response [:headers "Content-Type"])))
+      (is (string? (get-in response [:headers "ETag"])))))
+  (testing "a request whose If-None-Match matches the current ETag gets 304 with no body"
+    (let [user        (create-test-user!)
+          the-map     (create-test-map! (:id user))
+          first-resp  (api/preview-svg (make-request user :params {:id (:id the-map)}))
+          etag        (get-in first-resp [:headers "ETag"])
+          second-resp (api/preview-svg
+                       (make-request user
+                                     :params  {:id (:id the-map)}
+                                     :headers {"if-none-match" etag}))]
+      (is (= 304 (:status second-resp)))
+      (is (nil? (:body second-resp)))
+      (is (= etag (get-in second-resp [:headers "ETag"]))))))
