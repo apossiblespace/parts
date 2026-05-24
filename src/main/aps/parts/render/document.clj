@@ -319,9 +319,9 @@
         target (parts-by-id target_id)]
     (when (and source target)
       (let [{:keys [sx sy tx ty s-side t-side]} (edge-endpoints source target)
-            d (if (bidi #{source_id target_id})
-                (quadratic-d sx sy tx ty bow-offset-px)
-                (bezier-d sx sy s-side tx ty t-side))]
+            d                                   (if (bidi #{source_id target_id})
+                                                  (quadratic-d sx sy tx ty bow-offset-px)
+                                                  (bezier-d sx sy s-side tx ty t-side))]
         [:path {:d            d
                 :fill         "none"
                 :stroke       (get edge-stroke-colors type "#999999")

@@ -14,9 +14,9 @@
   (let [user    (uix.rf/use-subscribe [:auth/user])
         loading (uix.rf/use-subscribe [:auth/loading])]
     ($ :div {:class "dropdown dropdown-end"}
-       ($ :div {:tabIndex 0
-                :role     "button"
-                :class    "btn btn-sm btn-ghost"
+       ($ :div {:tabIndex   0
+                :role       "button"
+                :class      "btn btn-sm btn-ghost"
                 :aria-label (if user
                               (str "Account menu for " (:username user))
                               "Account menu")}
