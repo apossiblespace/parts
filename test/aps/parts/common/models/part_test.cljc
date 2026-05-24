@@ -46,6 +46,16 @@
           result (part/make-part attrs)]
       (is (= attrs result))))
 
+  (testing "Coerces float position coordinates to ints — ReactFlow's
+            screenToFlowPosition yields floats, and the spec is strict `int?`"
+    (let [result (part/make-part {:map_id     "m"
+                                  :position_x 123.7
+                                  :position_y -8.4})]
+      (is (= 123 (:position_x result)))
+      (is (= -8  (:position_y result)))
+      (is (int? (:position_x result)))
+      (is (int? (:position_y result)))))
+
   (testing "Throws exception for invalid part type"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo

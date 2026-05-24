@@ -35,8 +35,8 @@
   ::part)
 
 (defn make-part
-  "Create a new Part with the given attributes. 
-   In ClojureScript (frontend), generates a string UUID for :id. 
+  "Create a new Part with the given attributes.
+   In ClojureScript (frontend), generates a string UUID for :id.
    In Clojure (backend), :id is set by the database layer."
   [attrs]
   (let [type  (or (:type attrs) "unknown")
@@ -46,8 +46,10 @@
                :position_x 0
                :position_y 0
                :notes      nil}
-        part  #?(:cljs (merge {:id (str (random-uuid))} base attrs)
-                 :clj (merge base attrs))]
+        part  (-> #?(:cljs (merge {:id (str (random-uuid))} base attrs)
+                     :clj  (merge base attrs))
+                  (update :position_x int)
+                  (update :position_y int))]
     (o/debug "[make-part]" part)
     (validate-spec ::part part)
     part))
