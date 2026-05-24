@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.app
   (:require
    ["htmx.org" :default htmx]
+   [aps.parts.common.constants :as c]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.auth-screen :refer [auth-screen]]
    [aps.parts.frontend.components.map :refer [map-view]]
@@ -22,17 +23,47 @@
    :maps      {:list    []
                :loading false}})
 
+;; ---- Page titles --------------------------------------------------------
+;;
+;; The server renders `<title>{page} — {brand-suffix}</title>` on first
+;; load (see `aps.parts.views.partials/head`); SPA navigation can't update
+;; that, so route wrappers below own `document.title` per page.
+
+(defn- set-title!
+  "Set `document.title` to `value` composed with `c/brand-suffix`. nil
+   value is a no-op — the previous title stays visible while async
+   route data is loading."
+  [value]
+  (when value
+    (set! js/document -title (str value " – " c/brand-suffix))))
+
+(defui maps-list-route
+  "Maps-list route (/app/maps). Owns the browser tab title for this
+   page; delegates the rest to `maps-list`."
+  []
+  (use-effect
+   #(do (set-title! "Your Maps") js/undefined)
+   [])
+  ($ maps-list))
+
 (defui map-route
   "Canvas route (/app/maps/:id). Fetches the routed Map when the id
-   changes, then renders the canvas."
+   changes, mirrors the loaded Map's title into the browser tab, then
+   renders the canvas."
   [{:keys [map-id]}]
-  (let [loaded-id (uix.rf/use-subscribe [:map/id])]
+  (let [loaded-id (uix.rf/use-subscribe [:map/id])
+        map-title (uix.rf/use-subscribe [:map/title])]
     (use-effect
      (fn []
        (when (and map-id (not= map-id loaded-id))
          (rf/dispatch [:map/fetch map-id]))
        js/undefined)
      [map-id loaded-id])
+    (use-effect
+     (fn []
+       (set-title! map-title)
+       js/undefined)
+     [map-title])
     ($ map-view)))
 
 (defui router-view
@@ -42,7 +73,7 @@
   (let [route-name  (uix.rf/use-subscribe [:router/route-name])
         path-params (uix.rf/use-subscribe [:router/path-params])]
     (case route-name
-      ::router/maps-list ($ maps-list)
+      ::router/maps-list ($ maps-list-route)
       ::router/map       ($ map-route {:map-id (:id path-params)})
       ;; No match yet (initial render before the router fires) — show
       ;; nothing rather than flashing wrong content.

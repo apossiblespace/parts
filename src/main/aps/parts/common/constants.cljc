@@ -19,3 +19,7 @@
 
 (def relationship-types
   (set (map name (keys relationship-labels))))
+
+(def brand-suffix
+  "The suffix appearing after the page title in the <title> element"
+  "Parts: IFS parts mapping for therapists and their clients")

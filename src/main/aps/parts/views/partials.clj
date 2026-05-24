@@ -1,5 +1,6 @@
 (ns aps.parts.views.partials
   (:require
+   [aps.parts.common.constants :as c]
    [aps.parts.launch :as launch]
    [aps.parts.version :as version]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
@@ -10,9 +11,6 @@
   [{:keys [scripts]}]
   (for [src (into ["/js/main.js"] (or scripts []))]
     [:script {:src src}]))
-
-(def default-title
-  "Parts: IFS parts mapping for therapists & clients")
 
 (defn head
   "Head tag with configurable options.
@@ -32,8 +30,8 @@
     [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
     [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
     [:title (if title
-              (str title " — " default-title)
-              default-title)]
+              (str title " – " c/brand-suffix)
+              c/brand-suffix)]
     ;; [:link {:rel "stylesheet" :href "/css/style.css"}]
     [:link {:rel "preconnect" :href "https://fonts.googleapis.com"}]
     [:link {:rel "preconnect" :href "https://fonts.gstatic.com" :crossorigin true}]

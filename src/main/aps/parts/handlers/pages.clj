@@ -45,7 +45,7 @@
     (response/response
      (html
       (layouts/main
-       {:title  "Mapping tools for IFS practitioners and their clients"
+       {:title  nil
         :styles ["/css/flow.css" "/css/style.css"]}
        [:section
         [:div
@@ -147,7 +147,7 @@
     (response/response
      (html
       (layouts/main
-       {:title  "Mapping tools for IFS practitioners and their clients"
+       {:title  nil
         :styles ["/css/flow.css" "/css/style.css"]}
        [:section
         [:div

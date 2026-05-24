@@ -14,6 +14,7 @@
    different *jobs* (recognition vs. print artifact), not different
    output formats."
   (:require
+   [aps.parts.common.constants :as c]
    [aps.parts.common.geometry :as geometry]
    [clojure.java.io :as io]
    [clojure.string :as str]
@@ -23,12 +24,6 @@
    (java.awt Font RenderingHints)
    (java.awt.font FontRenderContext)
    (java.awt.geom AffineTransform)))
-
-(def ^:private part-types
-  "Every Part type the renderer knows how to draw. Mirrors the CHECK
-   constraint on `parts.type` and the filenames in
-   `resources/public/images/nodes/`."
-  ["unknown" "exile" "manager" "firefighter"])
 
 (defn- ->symbol
   "Convert one Part-type SVG file into a `<symbol>` string: strip the
@@ -56,7 +51,7 @@
 (def ^:private shape-symbols
   "All four Part-type SVGs as `<symbol>` strings, joined for direct
    embedding inside `<defs>`. Loaded once at namespace init."
-  (delay (str/join "\n" (map ->symbol part-types))))
+  (delay (str/join "\n" (map ->symbol c/part-types))))
 
 (def ^:private default-viewbox
   "viewBox for an empty Map. Non-degenerate so consumers can size an
