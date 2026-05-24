@@ -46,7 +46,7 @@
    the exact same provisioning path as `/api/account/register`."
   [params tx]
   (let [account (user/create! params tx)
-        title   (str (:display_name account) "'s Map")
+        title   "Example Map"
         the-map (parts-map/create! {:title title :owner_id (:id account)} (:id account) tx)]
     (populate-initial-map! (:id the-map) (:id account) tx)
     {:account account :map-id (:id the-map)}))

@@ -88,8 +88,7 @@
     ($ :div {:class "min-h-screen bg-gray-50 p-4"}
        ($ :div {:class "max-w-3xl mx-auto"}
           ($ :div {:class "flex items-center justify-between my-6"}
-             ($ :a {:href "/" :class "flex items-center"}
-                ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"}))
+             ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"})
              ($ :div {:class "flex items-center gap-2"}
                 ($ :button
                    {:class    "btn btn-sm btn-primary"
