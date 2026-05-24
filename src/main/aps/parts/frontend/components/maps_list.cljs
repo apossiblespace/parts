@@ -8,8 +8,18 @@
    [aps.parts.frontend.components.toolbar.auth-status :refer [auth-status]]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-effect]]
+   [uix.core :refer [$ defui use-effect use-state]]
    [uix.re-frame :as uix.rf]))
+
+(defn- title-matches?
+  "Case-insensitive substring match of `query` against `the-map`'s title.
+   A blank query matches everything; a Map with no title matches nothing
+   unless the query is also blank."
+  [query the-map]
+  (let [q (.. (or query "") trim toLowerCase)]
+    (or (zero? (.-length q))
+        (let [t (.. (or (:title the-map) "") toLowerCase)]
+          (.includes t q)))))
 
 (defn- fmt-date
   "Format a date-ish value as `YYYY/MM/DD`. Transit deserialises Java
@@ -55,16 +65,18 @@
              (str "    Updated: " updated))))))
 
 (defui maps-list []
-  (let [maps          (uix.rf/use-subscribe [:maps/list])
-        loading       (uix.rf/use-subscribe [:maps/loading])
+  (let [maps              (uix.rf/use-subscribe [:maps/list])
+        loading           (uix.rf/use-subscribe [:maps/loading])
+        [query set-query] (use-state "")
+        filtered          (filter (partial title-matches? query) maps)
 
-        handle-create (fn []
-                        (rf/dispatch [:map/create]))
+        handle-create     (fn []
+                            (rf/dispatch [:map/create]))
 
-        handle-select (fn [the-map]
-                        (rf/dispatch [:router/navigate
-                                      ::router/map
-                                      {:id (:id the-map)}]))]
+        handle-select     (fn [the-map]
+                            (rf/dispatch [:router/navigate
+                                          ::router/map
+                                          {:id (:id the-map)}]))]
 
     ;; Fetch the list when the route mounts.
     (use-effect
@@ -85,7 +97,16 @@
                    "Create a new Map")
                 ($ auth-status)))
 
-          ($ :h1 {:class "text-lg font-bold mb-4"} "Your Maps")
+          ($ :div {:class "flex items-center justify-between gap-3 mb-4"}
+             ($ :h1 {:class "text-lg font-bold"} "Your Maps")
+             ;; Hide the search until there's a list to filter — pointless
+             ;; chrome on an empty account and while we're still loading.
+             (when (and (not loading) (seq maps))
+               ($ :input {:type        "search"
+                          :placeholder "Filter by title"
+                          :class       "input input-bordered input-sm w-56"
+                          :value       query
+                          :on-change   #(set-query (.. % -target -value))})))
 
           (cond
             loading
@@ -96,9 +117,13 @@
             ($ :p {:class "text-center py-12 text-gray-500"}
                "No Maps yet")
 
+            (empty? filtered)
+            ($ :p {:class "text-center py-12 text-gray-500"}
+               "No Maps match \"" query "\"")
+
             :else
             ($ :div {:class "flex flex-col gap-3"}
-               (for [the-map maps]
+               (for [the-map filtered]
                  ($ map-row {:key       (:id the-map)
                              :the-map   the-map
                              :on-select handle-select}))))))))

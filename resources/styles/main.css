@@ -53,6 +53,10 @@
     scroll-behavior: smooth;
 }
 
+.input {
+    padding-inline: calc(0.25rem * 2);
+}
+
 body {
     font-family: "Inter", Helvetica, Arial, sans-serif;
 }

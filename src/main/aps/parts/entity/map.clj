@@ -112,11 +112,15 @@
       (let [meta-by-map (->> (bt/as-of-now db/datasource :map_metadata
                                            [:in :map_id (mapv :id maps)])
                              (group-by :map_id))]
-        (mapv (fn [m]
-                (assoc m
-                       :title      (-> meta-by-map (get (:id m)) first :title)
-                       :updated_at (version (:id m))))
-              maps)))))
+        (->> maps
+             (mapv (fn [m]
+                     (assoc m
+                            :title      (-> meta-by-map (get (:id m)) first :title)
+                            :updated_at (version (:id m)))))
+             ;; Most-recently-touched first. `compare` on Java time types
+             ;; works as natural-ordering; reverse the args for descending.
+             (sort-by :updated_at #(compare %2 %1))
+             vec)))))
 
 (defn update!
   "Update a map's metadata (currently just `title`).
