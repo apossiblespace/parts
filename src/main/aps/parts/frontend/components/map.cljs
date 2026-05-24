@@ -298,7 +298,7 @@
                        ($ :img {:src "/images/parts-logo-mini.svg"})))
                  ;; Authenticated map view: back chevron + editable name.
                  ($ map-name-panel)))
-             ($ Panel {:position (if minimal "top-left" "top-center")
+             ($ Panel {:position (if minimal "top-left" "bottom-center")
                        :class    "toolbar shadow-xs"}
                 ($ :div {:class "flex gap-2"}
                    (for [group [mode-tools part-tools]]

@@ -10,6 +10,6 @@
                             :on-click on-click}
                    (or icon label))]
     (if tooltip
-      ($ :div {:class "tooltip tooltip-bottom" :data-tip tooltip}
+      ($ :div {:class "tooltip tooltip-top" :data-tip tooltip}
          button)
       button)))
