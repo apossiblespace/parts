@@ -5,6 +5,7 @@
    and the created / last-updated dates. Selecting a Map navigates the
    client-side router to /app/maps/:id."
   (:require
+   [aps.parts.frontend.components.toolbar.auth-status :refer [auth-status]]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect]]
@@ -77,10 +78,12 @@
           ($ :div {:class "flex items-center justify-between my-6"}
              ($ :a {:href "/" :class "flex items-center"}
                 ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"}))
-             ($ :button
-                {:class    "btn btn-sm btn-primary"
-                 :on-click handle-create}
-                "Create a new Map"))
+             ($ :div {:class "flex items-center gap-2"}
+                ($ :button
+                   {:class    "btn btn-sm btn-primary"
+                    :on-click handle-create}
+                   "Create a new Map")
+                ($ auth-status)))
 
           ($ :h1 {:class "text-lg font-bold mb-4"} "Your Maps")
 
