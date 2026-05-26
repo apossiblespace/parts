@@ -1,6 +1,7 @@
 (ns aps.parts.views.partials
   (:require
    [aps.parts.common.constants :as c]
+   [aps.parts.config :as conf]
    [aps.parts.launch :as launch]
    [aps.parts.version :as version]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
@@ -39,7 +40,7 @@
     (for [href (or styles [])]
       [:link {:rel "stylesheet" :href href}])
     [:script {:defer       true
-              :data-domain "parts.ifs.tools"
+              :data-domain (conf/app-domain)
               :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
     [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]]))
 

@@ -71,6 +71,16 @@
   []
   (l-config/get config :app/base-url))
 
+(defn app-domain
+  "Just the host portion of `base-url`, without scheme, port, or path —
+   e.g. `parts.ifs.tools` (prod) or `parts-dev.ifs.tools` (the dev
+   deploy, via `PARTS__APP__BASE_URL`). Derived from `base-url` so a
+   per-environment URL automatically flows to consumers that want only
+   the bare domain (the Plausible analytics tag is the first such
+   consumer; cookie-domain, future analytics, etc. could reuse it)."
+  []
+  (.getHost (java.net.URI/create (base-url))))
+
 (def ^:private dev-session-key
   "The session key shipped in config.edn for local development. Production
    must override it; `session-key` refuses to run on this value in prod."
