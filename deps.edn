@@ -42,6 +42,12 @@
   ;; https://github.com/weavejester/hiccup
   hiccup/hiccup                      {:mvn/version "2.0.0"}
   ;;
+  ;; Apache FOP — SVG → PDF transcoding for the document Render
+  ;; (`/api/maps/:id/render.pdf`, see ADR-0008). Includes Batik
+  ;; transitively. Used only by `aps.parts.render.pdf`.
+  ;; https://xmlgraphics.apache.org/fop/
+  org.apache.xmlgraphics/fop         {:mvn/version "2.10"}
+  ;;
   ;; Backend async operations (used for token cleanup scheduling)
   org.clojure/core.async             {:mvn/version "1.7.701"}
   ;;

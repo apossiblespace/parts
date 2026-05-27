@@ -3,9 +3,38 @@
    [aps.parts.api.maps-events :as events]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
+   [aps.parts.render.document :as document]
+   [aps.parts.render.pdf :as pdf]
    [aps.parts.render.preview :as preview]
+   [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
-   [ring.util.response :as response]))
+   [ring.util.response :as response])
+  (:import
+   (java.io ByteArrayInputStream)))
+
+(defn- etag-for-map
+  "Quoted ETag string derived from a Map's version timestamp. nil when
+   the map has no version (shouldn't happen post-`create!`). Used by
+   both Render handlers — the ETag value is the same regardless of
+   output format; the browser keys cache entries by URL anyway."
+  [map-id]
+  (when-let [v (parts-map/version map-id)]
+    (format "\"%d\"" (inst-ms v))))
+
+(defn- not-modified
+  [tag]
+  {:status 304 :headers {"ETag" tag}})
+
+(defn- safe-filename
+  "Sanitise a user-supplied string for use in a `Content-Disposition`
+   filename. Strips characters that would break the header (`\"`,
+   `\\r`, `\\n`, path separators) and falls back to `map` when the
+   result is empty. Does not handle non-ASCII via RFC 5987 — modern
+   browsers display non-ASCII titles in the URL fallback, which is
+   acceptable for the launch cohort."
+  [s]
+  (let [cleaned (some-> s (str/replace #"[\"\r\n/\\]" "") str/trim)]
+    (if (str/blank? cleaned) "map" cleaned)))
 
 (defn list-maps
   "List all maps for the authenticated user"
@@ -84,27 +113,15 @@
         (response/status 200))))
 
 (defn preview-svg
-  "Render a Map as a glanceable preview SVG for the Maps-list thumbnail.
-   Access gated by `wrap-map-access`. Calls into
-   `aps.parts.render.preview` (basic circles + lines, brand teal,
-   monochrome) — for the high-fidelity print artifact see
-   `render.document` and `render-pdf` (ADR-0008).
-
-   Emits an `ETag` computed from the Map's most recent change time
-   (`entity.map/version` → `inst-ms` → quoted per RFC 7232), so a
-   browser's next request can include `If-None-Match` and get 304
-   without re-rendering. Caching state lives entirely in the browser.
-
-   `inst-ms` works whether the JDBC driver hands back a
-   `java.sql.Timestamp` (default) or a `java.time.OffsetDateTime`
-   (if next.jdbc is later configured for java.time types) — both
-   implement `clojure.core.protocols/Inst`."
+  "Render a Map as a glanceable preview SVG for the Maps-list
+   thumbnail. Access gated by `wrap-map-access`. See
+   `aps.parts.render.preview` (basic circles + lines, monochrome).
+   ETag/304 caches the response per Map version — see `etag-for-map`."
   [{:keys [parameters headers] :as _request}]
   (let [map-id (get-in parameters [:path :id])
-        tag    (when-let [v (parts-map/version map-id)]
-                 (format "\"%d\"" (inst-ms v)))]
+        tag    (etag-for-map map-id)]
     (if (and tag (= tag (get headers "if-none-match")))
-      {:status 304 :headers {"ETag" tag}}
+      (not-modified tag)
       (let [svg (preview/render (parts-map/fetch map-id))]
         (cond-> (-> (response/response svg)
                     (response/status 200)
@@ -114,10 +131,25 @@
           tag (response/header "ETag" tag))))))
 
 (defn render-pdf
-  "Render a Map as a PDF via Apache Batik SVG transcoding of the
-   document renderer's output. Currently 501 — Batik wiring + document
-   chrome (title, date, 'Made with Parts' footer) land in the next
-   increment. See ADR-0008."
-  [_request]
-  (-> (response/response {:error "Not implemented"})
-      (response/status 501)))
+  "Render a Map as a PDF — the document renderer's SVG transcoded via
+   Apache FOP. Access gated by `wrap-map-access`. Same ETag/304 dance
+   as `preview-svg`; PDF transcoding is the expensive step
+   (hundreds of ms), so skipping it on unchanged Maps is the real win."
+  [{:keys [parameters headers] :as _request}]
+  (let [map-id (get-in parameters [:path :id])
+        tag    (etag-for-map map-id)]
+    (if (and tag (= tag (get headers "if-none-match")))
+      (not-modified tag)
+      (let [the-map  (parts-map/fetch map-id)
+            filename (safe-filename (:title the-map))
+            bytes    (pdf/svg->pdf (document/render the-map))]
+        (cond-> (-> (response/response (ByteArrayInputStream. bytes))
+                    (response/status 200)
+                    (response/header "Content-Type" "application/pdf")
+                    (response/header "Content-Length" (str (count bytes)))
+                    (response/header "Cache-Control"
+                                     "private, max-age=60, must-revalidate")
+                    (response/header "Content-Disposition"
+                                     (str "attachment; filename=\""
+                                          filename ".pdf\"")))
+          tag (response/header "ETag" tag))))))

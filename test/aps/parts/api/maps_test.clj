@@ -129,12 +129,39 @@
         (is (= "Original" (:label (part/fetch part-id))))))))
 
 (deftest test-render-pdf
-  (testing "returns not implemented (Apache Batik integration is the next increment)"
+  (testing "returns a PDF body with Content-Type application/pdf, named after the Map"
     (let [user     (create-test-user!)
-          the-map  (create-test-map! (:id user))
+          the-map  (create-test-map! (:id user) "Smoke Map")
           response (api/render-pdf (make-request user :params {:id (:id the-map)}))]
-      (is (= 501 (:status response)))
-      (is (= "Not implemented" (-> response :body :error))))))
+      (is (= 200 (:status response)))
+      (is (= "application/pdf" (get-in response [:headers "Content-Type"])))
+      (is (str/includes? (get-in response [:headers "Content-Disposition"])
+                         "Smoke Map.pdf"))
+      ;; PDF file signature is the four ASCII bytes "%PDF" at offset 0.
+      (let [^java.io.InputStream body (:body response)
+            buf                       (byte-array 4)]
+        (.read body buf 0 4)
+        (is (= "%PDF" (String. buf "UTF-8"))))))
+  (testing "If-None-Match matching the current ETag returns 304 — skipping the FOP transcode"
+    (let [user        (create-test-user!)
+          the-map     (create-test-map! (:id user))
+          first-resp  (api/render-pdf (make-request user :params {:id (:id the-map)}))
+          etag        (get-in first-resp [:headers "ETag"])
+          second-resp (api/render-pdf
+                       (make-request user
+                                     :params  {:id (:id the-map)}
+                                     :headers {"if-none-match" etag}))]
+      (is (= 304 (:status second-resp)))
+      (is (nil? (:body second-resp)))
+      (is (= etag (get-in second-resp [:headers "ETag"])))))
+  (testing "a title containing a quote does not break the Content-Disposition header"
+    (let [user     (create-test-user!)
+          the-map  (create-test-map! (:id user) "Evil \" Title")
+          response (api/render-pdf (make-request user :params {:id (:id the-map)}))
+          disp     (get-in response [:headers "Content-Disposition"])]
+      ;; The header has exactly the wrapping `filename="…"` quotes — the
+      ;; raw `"` from the title is stripped, not allowed to inject.
+      (is (= 2 (count (re-seq #"\"" disp)))))))
 
 (deftest test-preview-svg
   (testing "returns an SVG body with Content-Type image/svg+xml and an ETag header"
