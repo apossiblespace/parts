@@ -64,15 +64,41 @@
       ;; widths). What matters is the cap and the ellipsis.
       (is (<= (count (re-seq #"<tspan" svg)) 3))
       (is (str/includes? svg "…"))))
-  (testing "Parts with no label render no <text> element"
+  (testing "Parts with no label render no <tspan> — chrome <text> elements
+            (header title + date + footer) always exist, but Part labels
+            are the only `<tspan>`-bearing text in the document"
     (doseq [label [nil ""]]
       (let [svg (document/render
                  {:parts         [{:id         "p" :type       "manager" :label label
                                    :position_x 0   :position_y 0
                                    :width      100 :height     100}]
                   :relationships []})]
-        (is (not (str/includes? svg "<text"))
+        (is (not (str/includes? svg "<tspan"))
             (str "label=" (pr-str label)))))))
+
+(deftest render-chrome-test
+  (testing "outer SVG is a page-sized A4 viewBox (Batik PDFTranscoder default)"
+    (let [svg (document/render {:parts [] :relationships []})]
+      (is (str/includes? svg "viewBox=\"0 0 595 842\""))))
+  (testing "header carries the Map title"
+    (let [svg (document/render
+               {:title         "Smith Map"
+                :parts         []
+                :relationships []})]
+      (is (str/includes? svg "Smith Map"))))
+  (testing "missing/blank title falls back to 'Untitled Map' — no empty line"
+    (doseq [t [nil ""]]
+      (let [svg (document/render {:title t :parts [] :relationships []})]
+        (is (str/includes? svg "Untitled Map")
+            (str "title=" (pr-str t))))))
+  (testing "header carries a formatted date — :as-of-date opt pins it for tests"
+    (let [svg (document/render
+               {:title "M" :parts [] :relationships []}
+               {:as-of-date (java.time.LocalDate/of 2026 5 26)})]
+      (is (str/includes? svg "26 May 2026"))))
+  (testing "footer carries the 'Made with Parts' branding"
+    (let [svg (document/render {:parts [] :relationships []})]
+      (is (str/includes? svg "Made with Parts")))))
 
 (deftest render-edges-test
   ;; Note: shape SVGs contain `<path>` elements too, so regexes target
@@ -113,7 +139,11 @@
                 :relationships [{:id "r1" :source_id "p1" :target_id "ghost" :type "protective"}]})]
       (is (string? svg))
       (is (zero? (count (re-seq #"<path[^>]*stroke=" svg))))))
-  (testing "an arrowhead marker is defined once and every edge references it"
+  (testing "one `<marker>` per Relationship type is defined; each edge
+            references the marker matching its type. (One-marker-with-
+            context-stroke is the canvas's trick; Apache FOP/Batik
+            doesn't support that SVG-2 keyword, so the document renderer
+            bakes colours into per-type markers instead.)"
     (let [svg (document/render
                {:parts         [{:id         "p1" :type       "manager"
                                  :position_x 0    :position_y 0         :width 100 :height 100}
@@ -121,8 +151,8 @@
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
                 :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protective"}
                                 {:id "r2" :source_id "p2" :target_id "p1" :type "protective"}]})]
-      (is (= 1 (count (re-seq #"<marker " svg))))
-      (is (= 2 (count (re-seq #"marker-end=\"url\(#edge-arrow\)\"" svg)))))))
+      (is (= 6 (count (re-seq #"<marker " svg))))
+      (is (= 2 (count (re-seq #"marker-end=\"url\(#edge-arrow-protective\)\"" svg)))))))
 
 (deftest render-viewbox-test
   (testing "viewBox encompasses every Part's measured rectangle, padded on every side"

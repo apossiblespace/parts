@@ -12,6 +12,7 @@
    render (`aps.parts.render.document`) carries that fidelity for the
    print artifact, which is a different job. See ADR-0008."
   (:require
+   [aps.parts.common.geometry :as geometry]
    [hiccup2.core :refer [html]]))
 
 (def ^:private ink
@@ -43,19 +44,13 @@
    against it without divide-by-zero."
   [0 0 200 100])
 
-(defn- part-center
-  "Centre of a Part's measured rectangle, in Map coordinates."
-  [{:keys [position_x position_y width height]}]
-  [(+ position_x (/ (or width  100) 2))
-   (+ position_y (/ (or height 100) 2))])
-
 (defn- viewbox
   "viewBox vector `[x y w h]` encompassing every Part's dot, padded on
    each side. Falls back to `default-viewbox` for an empty Map."
   [parts]
   (if (empty? parts)
     default-viewbox
-    (let [centres (map part-center parts)
+    (let [centres (map geometry/part-center parts)
           xs      (map first centres)
           ys      (map second centres)
           pad     (+ part-radius viewbox-padding)
@@ -68,7 +63,7 @@
 (defn- part-dot
   "A `<circle>` representing one Part."
   [part]
-  (let [[cx cy] (part-center part)]
+  (let [[cx cy] (geometry/part-center part)]
     [:circle {:cx cx :cy cy :r part-radius :fill ink}]))
 
 (defn- relationship-line
@@ -78,8 +73,8 @@
   [parts-by-id {:keys [source_id target_id]}]
   (when-let [source (parts-by-id source_id)]
     (when-let [target (parts-by-id target_id)]
-      (let [[sx sy] (part-center source)
-            [tx ty] (part-center target)]
+      (let [[sx sy] (geometry/part-center source)
+            [tx ty] (geometry/part-center target)]
         [:line {:x1             sx
                 :y1             sy
                 :x2             tx
