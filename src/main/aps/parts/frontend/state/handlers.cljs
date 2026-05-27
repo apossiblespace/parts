@@ -2,6 +2,7 @@
   (:require
    [aps.parts.common.change-event :as ce]
    [aps.parts.common.demo :as demo]
+   [aps.parts.common.models.map :as map-model]
    [aps.parts.common.models.part :refer [make-part]]
    [aps.parts.common.models.relationship :as relationship :refer [make-relationship]]
    [aps.parts.common.observe :as o]
@@ -213,7 +214,7 @@
  :map/create
  (fn [{:keys [db]} _]
    {:db                 (assoc-in db [:maps :loading] true)
-    :storage/create-map {:title "Untitled Map"}}))
+    :storage/create-map {:title map-model/default-title}}))
 
 (rf/reg-event-fx
  :map/fetch-list

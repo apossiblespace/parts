@@ -20,6 +20,20 @@
 (def relationship-types
   (set (map name (keys relationship-labels))))
 
+(def relationship-colors
+  "Per-Relationship-type stroke colour. Mirrors the `--edge-color-*` CSS
+   custom properties in `resources/styles/main.css` — an SVG generated
+   server-side cannot read CSS custom properties, so the palette lives
+   in two places. The cross-runtime drift is caught at manual review
+   (ADR-0008). All Clojure consumers (document renderer, preview
+   renderer's `:unknown`, anywhere else) read from here."
+  {:unknown      "#999999"
+   :protective   "#4caf50"
+   :polarization "#f44336"
+   :alliance     "#2196f3"
+   :burden       "#ff9800"
+   :blended      "#9c27b0"})
+
 (def brand-suffix
   "The suffix appearing after the page title in the <title> element"
   "Parts: IFS parts mapping for therapists and their clients")

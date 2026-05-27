@@ -1,5 +1,6 @@
 (ns aps.parts.frontend.adapters.reactflow
   (:require
+   [aps.parts.common.geometry :as geometry]
    [aps.parts.common.models.part :refer [make-part]]
    [aps.parts.common.models.relationship :refer [make-relationship]]
    [aps.parts.common.observe :as o]))
@@ -89,10 +90,10 @@
     "converting relationships to edges"
     (count relationships))
    (let [selected-id-set (when selected-ids (set selected-ids))
-         pair-set        (into #{} (map (juxt :source_id :target_id)) relationships)
-         bidir?          (fn [{:keys [source_id target_id]}]
-                           (contains? pair-set [target_id source_id]))]
-     (to-array (map #(relationship->edge % selected-id-set (bidir? %)) relationships)))))
+         bidi-pairs      (geometry/bidirectional-pairs relationships)]
+     (to-array (map #(relationship->edge % selected-id-set
+                                         (geometry/bidirectional? bidi-pairs %))
+                    relationships)))))
 
 (defn edge->relationship
   "Convert ReactFlow edge to a Relationship"

@@ -5,12 +5,6 @@
    [aps.parts.common.geometry :as geometry]
    [uix.core :refer [$ as-react defui]]))
 
-(def ^:private bow-offset-px
-  "Perpendicular distance each edge in a bidirectional pair is bowed off
-   the straight chord. Both edges use the same sign — opposite chord
-   vectors flip the perpendicular for free."
-  50)
-
 (defn- node-intersection
   "Point on `intersection-node`'s visible shape where the centre-to-centre
    line from `other-node` crosses. Dispatches on the Part type so each
@@ -70,25 +64,6 @@
                              :sourcePosition source-pos
                              :targetPosition target-pos})))
 
-(defn- quadratic-path
-  "Build a quadratic SVG path from (sx,sy) to (tx,ty) bowed perpendicular
-   to the chord by `offset` pixels. Used for bidirectional pairs so the
-   two opposing edges don't draw on top of each other."
-  [{:keys [sx sy tx ty]} offset]
-  (let [mx  (/ (+ sx tx) 2)
-        my  (/ (+ sy ty) 2)
-        dx  (- tx sx)
-        dy  (- ty sy)
-        len (Math/sqrt (+ (* dx dx) (* dy dy)))
-        ;; Perpendicular unit vector (chord rotated 90° CCW). The two edges
-        ;; of a bidirectional pair have opposite chord vectors, so they
-        ;; naturally get opposite perpendiculars — same offset sign for both.
-        nx  (if (zero? len) 0 (/ (- dy) len))
-        ny  (if (zero? len) 0 (/ dx len))
-        cx  (+ mx (* offset nx))
-        cy  (+ my (* offset ny))]
-    (str "M" sx "," sy " Q" cx "," cy " " tx "," ty)))
-
 (defui parts-edge [{:keys [id data source-id target-id marker-end]}]
   (let [source-node (useInternalNode source-id)
         target-node (useInternalNode target-id)
@@ -99,7 +74,7 @@
       (let [params     (floating-edge-params source-node target-node)
             class-name (str "edge edge-" rel-type)
             path       (if bidir?
-                         (quadratic-path params bow-offset-px)
+                         (geometry/quadratic-path params geometry/bow-offset-px)
                          (bezier-path params))]
         ($ BaseEdge {:path      path
                      :className class-name

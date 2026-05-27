@@ -58,6 +58,67 @@
   [type-name]
   (get shape-polygons type-name unit-square))
 
+(defn part-center
+  "Centre point `[cx cy]` of a Part's measured rectangle, in world
+   coordinates. Defaults missing `width`/`height` to 100 (the DB default
+   for legacy rows). Used by both renderers and by edge intersection."
+  [{:keys [position_x position_y width height]}]
+  [(+ position_x (/ (or width  100) 2))
+   (+ position_y (/ (or height 100) 2))])
+
+;; ---- Relationship-edge math ---------------------------------------------
+;;
+;; Math that's the same regardless of who's drawing. Both the canvas
+;; (`frontend/components/edges.cljs`) and the document renderer
+;; (`render/document/edges.clj`) consume from here. The bezier path for
+;; singular edges is the one piece that *isn't* here yet — the canvas
+;; uses ReactFlow's JS `getBezierPath`, and the document renderer ports
+;; it independently. Unifying those is a larger move (would require the
+;; canvas to stop using ReactFlow's built-in) and isn't done.
+
+(def bow-offset-px
+  "Perpendicular distance each edge in a bidirectional pair is bowed
+   off the chord. Same on both renderers — same visual."
+  50)
+
+(defn bidirectional-pairs
+  "Set of unordered `#{source-id target-id}` pairs that have BOTH
+   directions among `relationships`. Members render as bowed quadratic
+   arcs so the two opposing edges don't overlap."
+  [relationships]
+  (let [pairs (set (map (juxt :source_id :target_id) relationships))]
+    (set
+     (keep (fn [[s t]]
+             (when (and (not= s t) (pairs [t s]))
+               #{s t}))
+           pairs))))
+
+(defn bidirectional?
+  "Predicate: is the given relationship's pair in the
+   `bidirectional-pairs` set? Cheap query against a precomputed set."
+  [bidi-pairs {:keys [source_id target_id]}]
+  (contains? bidi-pairs #{source_id target_id}))
+
+(defn quadratic-path
+  "SVG-path `d` attribute for a quadratic Bezier from (sx,sy) to (tx,ty)
+   bowed perpendicular to the chord by `offset` pixels. Used for
+   bidirectional edge pairs — opposite chord vectors flip the
+   perpendicular automatically, so passing the same `offset` to both
+   sides separates them cleanly."
+  [{:keys [sx sy tx ty]} offset]
+  (let [mx  (/ (+ sx tx) 2)
+        my  (/ (+ sy ty) 2)
+        dx  (- tx sx)
+        dy  (- ty sy)
+        len (Math/sqrt (+ (* dx dx) (* dy dy)))]
+    (if (zero? len)
+      (str "M" sx "," sy " L" tx "," ty)
+      (let [nx (/ (- dy) len)
+            ny (/    dx  len)
+            cx (+ mx (* offset nx))
+            cy (+ my (* offset ny))]
+        (str "M" sx "," sy " Q" cx "," cy " " tx "," ty)))))
+
 (defn- ray-segment-intersection
   "Where does the ray from (cx,cy) in direction (dx,dy) cross segment
    (ax,ay) → (bx,by)? Returns the ray parameter t ≥ 0 of the hit, or nil

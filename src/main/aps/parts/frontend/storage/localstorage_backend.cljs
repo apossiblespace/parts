@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.storage.localstorage-backend
   "LocalStorage storage backend implementation with single-tab editing enforcement."
   (:require
+   [aps.parts.common.models.map :as map-model]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [go]]))
@@ -117,7 +118,7 @@
                                (when-let [map-id (extract-map-id key)]
                                  (when-let [the-map (get-map-from-storage map-id)]
                                    {:id            (:id the-map)
-                                    :title         (:title the-map "Untitled Map")
+                                    :title         (:title the-map map-model/default-title)
                                     :last_modified (:last_modified the-map)})))
                              map-keys)]
           maps)

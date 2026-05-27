@@ -21,12 +21,19 @@
   "Map model spec for reuse outside of the namespace"
   ::map)
 
+(def default-title
+  "The placeholder title given to a Map that has none — printed in the
+   document renderer's header chrome, used as the seed when the
+   frontend creates a Map, mirrored on the localStorage demo path. One
+   string, one place."
+  "Untitled Map")
+
 (defn make-map
   "Create a new Map with the given attributes.
    In ClojureScript (frontend), generates a string UUID for :id.
    In Clojure (backend), :id is set by the database layer."
   [attrs]
-  (let [base    {:title "Untitled Map"}
+  (let [base    {:title default-title}
         the-map #?(:cljs (merge {:id (str (random-uuid))} base attrs)
                    :clj (merge base attrs))]
     (o/debug "[make-map]" the-map)
