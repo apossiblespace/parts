@@ -14,8 +14,14 @@
 (def ^:private unit-square
   "Polygon used for square SVGs (`unknown`) and as the fallback for any
    unrecognised part type — both render as the bounding box, so the
-   bounding-box polygon clips correctly."
-  [[0 0] [1 0] [1 1] [0 1]])
+   bounding-box polygon clips correctly.
+
+   Vertices are doubles, not integers, so the ray-segment math stays in
+   double-land. Integer vertices ×Â integer Part positions × integer ray
+   direction would bottom out as a Clojure Ratio at the final `/` —
+   correct as a rational number, but `(str 51/2)` is `\"51/2\"` and
+   Batik rejects that as an invalid SVG number."
+  [[0.0 0.0] [1.0 0.0] [1.0 1.0] [0.0 1.0]])
 
 (def ^:private shape-polygons
   "Per part type: a polygon (vertices in normalised 0..1 coords) approximating
@@ -172,17 +178,27 @@
 (defn intersection-for-shape
   "Where the centre-to-centre line crosses the visible boundary of a node.
    (nx,ny) is the node's top-left, (w,h) its measured size, (ox,oy) the
-   other node's centre. `shape` is whatever `shape-for` returned."
+   other node's centre. `shape` is whatever `shape-for` returned.
+
+   The returned `{:x :y}` coordinates are always doubles. The interior
+   math is happy to mix Longs, Ratios, and doubles freely (Clojure
+   promotes them through the number tower), but the output crosses into
+   string-formatting territory where a Ratio (e.g. `10123/41`) would
+   become an invalid SVG number on `str` — see `unit-square`'s
+   docstring."
   [shape nx ny w h ox oy]
   (let [cx (+ nx (/ w 2))
-        cy (+ ny (/ h 2))]
-    (if (= shape :circle)
-      (circle-ray-intersection cx cy (/ (min w h) 2) ox oy)
-      (let [world-verts (mapv (fn [[ux uy]]
-                                [(+ nx (* ux w))
-                                 (+ ny (* uy h))])
-                              shape)]
-        (polygon-ray-intersection world-verts cx cy (- ox cx) (- oy cy))))))
+        cy (+ ny (/ h 2))
+        pt (if (= shape :circle)
+             (circle-ray-intersection cx cy (/ (min w h) 2) ox oy)
+             (let [world-verts (mapv (fn [[ux uy]]
+                                       [(+ nx (* ux w))
+                                        (+ ny (* uy h))])
+                                     shape)]
+               (polygon-ray-intersection world-verts cx cy (- ox cx) (- oy cy))))]
+    (when pt
+      {:x (double (:x pt))
+       :y (double (:y pt))})))
 
 (defn classify-side
   "Which side of the node centre (cx,cy) does the intersection {:x :y} lie

@@ -8,6 +8,8 @@
    See ADR-0008. The dep (`org.apache.xmlgraphics/fop`) is used only by
    this namespace; if PDF is ever removed, the dependency can come
    out with it."
+  (:require
+   [com.brunobonacci.mulog :as mulog])
   (:import
    (java.io ByteArrayOutputStream StringReader)
    (org.apache.batik.transcoder TranscoderInput TranscoderOutput)
@@ -24,11 +26,23 @@
 (defn svg->pdf
   "Transcode an SVG document string to PDF bytes. Returns a `byte[]`.
    Single-threaded under the hood (Batik transcoders mutate shared
-   bridge state); concurrent calls queue."
+   bridge state); concurrent calls queue.
+
+   On transcode failure, logs the offending SVG to mulog under
+   `::transcode-failed` before rethrowing — Batik's exception message
+   only names the failing attribute / element, not the surrounding
+   context. The log line is the diagnostic surface."
   ^bytes [^String svg]
   (let [baos (ByteArrayOutputStream.)]
-    (locking transcoder
-      (.transcode transcoder
-                  (TranscoderInput. (StringReader. svg))
-                  (TranscoderOutput. baos)))
+    (try
+      (locking transcoder
+        (.transcode transcoder
+                    (TranscoderInput. (StringReader. svg))
+                    (TranscoderOutput. baos)))
+      (catch Exception e
+        (mulog/log ::transcode-failed
+                   :svg-length (count svg)
+                   :svg svg
+                   :error (.getMessage e))
+        (throw e)))
     (.toByteArray baos)))

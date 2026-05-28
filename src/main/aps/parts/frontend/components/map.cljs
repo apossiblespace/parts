@@ -2,7 +2,8 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
-   ["lucide-react" :refer [ChevronLeft MousePointer2 Spline]]
+   ["lucide-react" :refer [ChevronDown ChevronLeft Download FilePenLine
+                           MousePointer2 Spline]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
@@ -82,28 +83,82 @@
                               "These links will be removed from the map.")
        :confirm-label (plural rel-count "Delete connection" "Delete connections")})))
 
+(defn- close-dropdown!
+  "Close the daisyUI dropdown the caller is inside by blurring the
+   currently focused element. daisyUI dropdowns stay open until focus
+   leaves; this is the cheap idiomatic way to close one after a menu
+   item fires its action."
+  []
+  (some-> js/document .-activeElement .blur))
+
 (defui map-name-panel
   "Top-left panel for the authenticated single-map view: a back-to-list
-   chevron plus the Map's name, rendered as one `join` button group. The
-   name is an `inline-text-field` — click it to rename the Map; the commit
-   goes through `:map/rename` (bitemporal `map_metadata`, see ADR-0002).
+   chevron, the Map's name, and a chevron-down dropdown trigger — all
+   rendered as one `join` button group. The dropdown's menu carries
+   per-Map actions (Rename, Download as PDF; the Scrubber will join it).
+
+   The Map name is an `inline-text-field` — click it directly to rename,
+   or use the Rename menu item which bumps `:start-edit-trigger` to
+   request edit mode from outside. The commit goes through `:map/rename`
+   (bitemporal `map_metadata`, see ADR-0002).
+
    Not used in the playground, which renders a mini-logo instead."
   []
-  (let [title (uix.rf/use-subscribe [:map/title])]
+  (let [title                      (uix.rf/use-subscribe [:map/title])
+        map-id                     (uix.rf/use-subscribe [:map/id])
+        ;; A counter the Rename menu item bumps to ask the
+        ;; inline-text-field to enter edit mode. The value doesn't
+        ;; matter; only that it changed since the last render.
+        [edit-bump set-edit-bump!] (use-state 0)]
     ($ Panel {:position "top-left"}
-       ($ :div {:class "join shadow-xs"}
-          ($ :a {:href       "/app"
-                 :class      "btn btn-sm join-item bg-white"
-                 :aria-label "Back to maps"}
-             ($ ChevronLeft {:size 16}))
-          ($ inline-text-field
-             {:value         title
-              :aria-label    "Map name"
-              :display-class "btn btn-sm join-item bg-white"
-              :input-class   "input input-sm join-item w-48"
-              :on-commit     (fn [new-title]
-                               (o/track "Map renamed" {})
-                               (rf/dispatch [:map/rename new-title]))})))))
+       ($ :div {:class "flex gap-2"}
+          ($ :div {:class "shadow-xs"}
+             ($ :a {:href       "/app"
+                    :class      "btn btn-sm join-item bg-white"
+                    :aria-label "Back to maps"}
+                ($ ChevronLeft {:size 16})))
+          ($ :div {:class "join shadow-xs"}
+             ($ inline-text-field
+                {:value              title
+                 :aria-label         "Map name"
+                 :display-class      "btn btn-sm join-item bg-white"
+                 :input-class        "input input-sm join-item w-48"
+                 :start-edit-trigger edit-bump
+                 :on-commit          (fn [new-title]
+                                       (o/track "Map renamed" {})
+                                       (rf/dispatch [:map/rename new-title]))})
+             ($ :div {:class "dropdown"}
+                ($ :div {:tabIndex   0
+                         :role       "button"
+                         :class      "btn btn-sm btn-square join-item bg-white"
+                         :aria-label "Map actions"}
+                   ($ ChevronDown {:size 16}))
+                ($ :ul {:tabIndex 0
+                        :class    (str "dropdown-content menu menu-sm "
+                                       "bg-base-100 border border-base-300 "
+                                       "rounded-box shadow-sm "
+                                       "z-10 mt-1 w-44 p-2")}
+                   ($ :li
+                      ($ :a {:on-click (fn []
+                                         (set-edit-bump! inc)
+                                         (close-dropdown!))}
+                         ($ FilePenLine {:size 16})
+                         "Rename"))
+                   ($ :li
+                      ;; Native `<a download>` does the work: the browser
+                      ;; sends the cookie-authenticated GET, follows the
+                      ;; server's `Content-Disposition` for the filename,
+                      ;; and opens the Save dialog. Cache-Control on
+                      ;; `/render.pdf` is `no-cache`, so an
+                      ;; edit-then-redownload flow always sees the fresh
+                      ;; PDF via the ETag revalidation.
+                      ($ :a {:href     (str "/api/maps/" map-id "/render.pdf")
+                             :download ""
+                             :on-click (fn []
+                                         (o/track "Map PDF downloaded" {})
+                                         (close-dropdown!))}
+                         ($ Download {:size 16})
+                         "Download PDF")))))))))
 
 (defui map-canvas []
   (let [demo                  (uix.rf/use-subscribe [:demo])

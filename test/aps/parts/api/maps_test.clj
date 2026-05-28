@@ -135,6 +135,9 @@
           response (api/render-pdf (make-request user :params {:id (:id the-map)}))]
       (is (= 200 (:status response)))
       (is (= "application/pdf" (get-in response [:headers "Content-Type"])))
+      ;; `no-cache` forces the browser to revalidate every download click,
+      ;; so an edit-then-redownload flow can't see a stale PDF.
+      (is (= "private, no-cache" (get-in response [:headers "Cache-Control"])))
       (is (str/includes? (get-in response [:headers "Content-Disposition"])
                          "Smoke Map.pdf"))
       ;; PDF file signature is the four ASCII bytes "%PDF" at offset 0.

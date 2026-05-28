@@ -147,8 +147,12 @@
                     (response/status 200)
                     (response/header "Content-Type" "application/pdf")
                     (response/header "Content-Length" (str (count bytes)))
-                    (response/header "Cache-Control"
-                                     "private, max-age=60, must-revalidate")
+                    ;; `no-cache` (not `max-age=60`) so the browser
+                    ;; revalidates every Download click via the ETag —
+                    ;; an edit-then-redownload flow inside the old 60-s
+                    ;; window would otherwise serve a stale PDF.
+                    ;; Unchanged Maps still return 304 cheaply.
+                    (response/header "Cache-Control" "private, no-cache")
                     (response/header "Content-Disposition"
                                      (str "attachment; filename=\""
                                           filename ".pdf\"")))

@@ -53,6 +53,10 @@
     scroll-behavior: smooth;
 }
 
+.btn-sm {
+    --btn-p: 0.5rem;
+}
+
 .input {
     padding-inline: calc(0.25rem * 2);
 }
@@ -74,6 +78,12 @@ a {
 }
 
 a.btn {
+    @apply no-underline;
+}
+
+/* daisyUI menu items are anchors; the global underline above would
+   underline every dropdown/menu link. Exempt them like buttons. */
+.menu a {
     @apply no-underline;
 }
 
