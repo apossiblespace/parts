@@ -2,12 +2,14 @@
   "Primary namespace for the Parts backend, including the entry point and server
   lifecycle management."
   (:require
+   [aps.parts.alerts :as alerts]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.errors :as errors]
    [aps.parts.jobs.deletion-purge :as deletion-purge]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
+   [aps.parts.version :as version]
    [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]
    [lambdaisland.config :as l-config]
@@ -54,6 +56,23 @@
   (when conf/prod?
     (mulog/start-publisher! {:type :console-json :pretty? false})))
 
+(defn start-alert-publisher
+  "Starts the operator error-alert publisher when SMTP is configured. Gated on
+   creds-present, not environment, so a staging-shaped box can alert too (and
+   dev, with nothing set, simply no-ops). Returns a 0-arity stop function, or
+   nil when SMTP is unconfigured — in which case alerting is off and a
+   `::alerting-disabled` event records why."
+  []
+  (if-let [smtp (conf/smtp-config)]
+    (mulog/start-publisher!
+     {:type         :custom
+      :fqn-function "aps.parts.alerts/publisher"
+      :smtp         smtp
+      :domain       (conf/app-domain)
+      :cooldown-ms  alerts/default-cooldown-ms})
+    (do (mulog/log ::alerting-disabled :reason "SMTP not configured (PARTS__SMTP__*)")
+        nil)))
+
 (defn start-nrepl
   "Starts an nREPL server if enabled via environment configuration.
    Returns the server instance or nil if disabled."
@@ -88,9 +107,11 @@
   [& args]
   (let [port         (conf/http-port)
         stop-log-pub (start-log-publisher)]
-    ;; Set up global logging context
+    ;; Set up global logging context. `version` is the build-stamped git hash
+    ;; (resources/parts/version.txt), so every event — error alerts included —
+    ;; is attributable to the deploy that produced it.
     (mulog/set-global-context!
-     {:app-name "Parts" :version "0.1.0-SNAPSHOT", :env (conf/get-environment)})
+     {:app-name "Parts" :version (version/current), :env (conf/get-environment)})
     (mulog/log ::application-startup :arguments args :port port)
 
     ;; Initialize database
@@ -101,7 +122,8 @@
     (conf/session-key)
 
     ;; Start nREPL server if configured
-    (let [nrepl-server     (start-nrepl)
+    (let [stop-alert-pub   (start-alert-publisher)
+          nrepl-server     (start-nrepl)
           ;; Start server and background processes
           stop-fn          (start-server port)
           deletion-stop-ch (deletion-purge/schedule!)]
@@ -119,5 +141,6 @@
           (nrepl/stop-server nrepl-server)
           (println "nREPL server stopped"))
         (mulog/log ::application-shutdown)
+        (when stop-alert-pub (stop-alert-pub))
         (when stop-log-pub (stop-log-pub))
         (println "Parts: Server stopped.")))))

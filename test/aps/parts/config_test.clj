@@ -16,3 +16,7 @@
   (testing "passes actual booleans from config.edn defaults through unchanged"
     (is (true?  (config/parse-bool true)))
     (is (false? (config/parse-bool false)))))
+
+(deftest test-smtp-config
+  (testing "returns nil when SMTP env is unconfigured — alerting stays off by default"
+    (is (nil? (config/smtp-config)))))

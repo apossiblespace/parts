@@ -27,6 +27,9 @@
   com.brunobonacci/mulog             {:mvn/version "0.9.0"}
   com.brunobonacci/mulog-adv-console {:mvn/version "0.9.0"}
   ;;
+  ;; SMTP client for alerting operator of errors, see aps.parts.alerts.
+  com.draines/postal                 {:mvn/version "2.0.5"}
+  ;;
   ;; Gaiwan's configuration management library.
   ;; https://github.com/lambdaisland/config
   com.lambdaisland/config            {:mvn/version "0.10.37"}

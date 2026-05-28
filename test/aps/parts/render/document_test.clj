@@ -159,13 +159,13 @@
             `d` attributes — Clojure Ratios (e.g. `10123/41`) are not valid
             SVG numbers and would crash Apache FOP's transcode"
     (let [svg (document/render
-               {:parts         [{:id "p1" :type "unknown"
-                                 :position_x 100 :position_y 150
-                                 :width 100 :height 100}
-                                {:id "p2" :type "unknown"
-                                 :position_x 350 :position_y 280
-                                 :width 100 :height 100}]
-                :relationships [{:id "r" :source_id "p1" :target_id "p2"
+               {:parts         [{:id         "p1" :type       "unknown"
+                                 :position_x 100  :position_y 150
+                                 :width      100  :height     100}
+                                {:id         "p2" :type       "unknown"
+                                 :position_x 350  :position_y 280
+                                 :width      100  :height     100}]
+                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
                                  :type "protective"}]})]
       ;; Any d-attribute that contains a `/` between two digit runs would be
       ;; a Clojure Ratio stringified verbatim. Should not appear anywhere.

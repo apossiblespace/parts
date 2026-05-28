@@ -81,6 +81,32 @@
   []
   (.getHost (java.net.URI/create (base-url))))
 
+(defn smtp-config
+  "Operator error-alert SMTP settings, read entirely from the environment
+   (`PARTS__SMTP__*` / `PARTS__ALERT__*`). Nothing here is committed: this repo
+   is public, and the mail host and operator address are operational details.
+
+   Returns nil unless host, user, password and recipient are all present — so
+   alerting stays off until deliberately configured, on any host. `:from`
+   defaults to the SMTP user; `:port` defaults to 465.
+
+   These are operator facts only. The postal transport flag (implicit SSL vs
+   STARTTLS, which depends on the port) is derived by the alerting layer
+   (`aps.parts.alerts`), which owns the SMTP client — config never speaks
+   postal's vocabulary."
+  []
+  (let [host (l-config/get config :smtp/host)
+        user (l-config/get config :smtp/user)
+        pass (l-config/get config :smtp/password)
+        to   (l-config/get config :alert/to)]
+    (when (and host user pass to)
+      {:host host
+       :port (parse-port (or (l-config/get config :smtp/port) 465))
+       :user user
+       :pass pass
+       :to   to
+       :from (or (l-config/get config :alert/from) user)})))
+
 (def ^:private dev-session-key
   "The session key shipped in config.edn for local development. Production
    must override it; `session-key` refuses to run on this value in prod."
