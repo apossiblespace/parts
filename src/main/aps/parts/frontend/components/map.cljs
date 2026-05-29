@@ -97,19 +97,18 @@
    rendered as one `join` button group. The dropdown's menu carries
    per-Map actions (Rename, Download as PDF; the Scrubber will join it).
 
-   The Map name is an `inline-text-field` — click it directly to rename,
-   or use the Rename menu item which bumps `:start-edit-trigger` to
-   request edit mode from outside. The commit goes through `:map/rename`
+   The Map name is an `inline-text-field`, controlled on `:editing?` — click
+   it directly to rename (`:edit-on :click`), or use the Rename menu item,
+   which just sets `editing?` true. The commit goes through `:map/rename`
    (bitemporal `map_metadata`, see ADR-0002).
 
    Not used in the playground, which renders a mini-logo instead."
   []
-  (let [title                      (uix.rf/use-subscribe [:map/title])
-        map-id                     (uix.rf/use-subscribe [:map/id])
-        ;; A counter the Rename menu item bumps to ask the
-        ;; inline-text-field to enter edit mode. The value doesn't
-        ;; matter; only that it changed since the last render.
-        [edit-bump set-edit-bump!] (use-state 0)]
+  (let [title                   (uix.rf/use-subscribe [:map/title])
+        map-id                  (uix.rf/use-subscribe [:map/id])
+        ;; The caller owns the edit-mode bit; both the title click and the
+        ;; Rename menu item flip it true, commit/cancel flip it false.
+        [editing? set-editing!] (use-state false)]
     ($ Panel {:position "top-left"}
        ($ :div {:class "flex gap-2"}
           ($ :div {:class "shadow-xs"}
@@ -119,14 +118,18 @@
                 ($ ChevronLeft {:size 16})))
           ($ :div {:class "join shadow-xs"}
              ($ inline-text-field
-                {:value              title
-                 :aria-label         "Map name"
-                 :display-class      "btn btn-sm join-item bg-white"
-                 :input-class        "input input-sm join-item w-48"
-                 :start-edit-trigger edit-bump
-                 :on-commit          (fn [new-title]
-                                       (o/track "Map renamed" {})
-                                       (rf/dispatch [:map/rename new-title]))})
+                {:value         title
+                 :aria-label    "Map name"
+                 :display-class "btn btn-sm join-item bg-white"
+                 :input-class   "input input-sm join-item w-48"
+                 :editing?      editing?
+                 :edit-on       :click
+                 :on-edit-start #(set-editing! true)
+                 :on-cancel     #(set-editing! false)
+                 :on-commit     (fn [new-title]
+                                  (o/track "Map renamed" {})
+                                  (rf/dispatch [:map/rename new-title])
+                                  (set-editing! false))})
              ($ :div {:class "dropdown"}
                 ($ :div {:tabIndex   0
                          :role       "button"
@@ -140,7 +143,7 @@
                                        "z-10 mt-1 w-44 p-2")}
                    ($ :li
                       ($ :a {:on-click (fn []
-                                         (set-edit-bump! inc)
+                                         (set-editing! true)
                                          (close-dropdown!))}
                          ($ FilePenLine {:size 16})
                          "Rename"))

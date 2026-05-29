@@ -1,124 +1,95 @@
 (ns aps.parts.frontend.components.inline-text-field
-  "A reusable click-to-edit single-line text primitive.
+  "A reusable inline-edit single-line text primitive — the first of the app's
+   UI primitives.
 
-   Pure props: it owns the *edit interaction* (display/edit toggle, focus,
-   commit on Enter/blur, cancel on Escape) but knows nothing about
-   re-frame or what the value means. Callers pass a `value` and an
-   `on-commit` callback — the mechanism lives here, the policy stays with
-   the caller.
+   Controlled on `:editing?`: the primitive owns the edit *mechanism* (display
+   ↔ input toggle, focus + select on open, commit on Enter/blur, cancel on
+   Escape, trim/validate/no-op detection, the synchronous re-entry guard), but
+   the caller owns *when* editing happens. The caller holds the `editing?` bit
+   and decides which gesture flips it — single-click for a toolbar title,
+   double-click for a canvas node, a menu item or keyboard shortcut elsewhere.
 
-   `on-commit` fires exactly when the user makes a real, valid change:
-   the trimmed draft passes `validate` and differs from `value`. A no-op
-   or invalid commit collapses to a silent cancel — no callback, the
-   display simply falls back to `value`.
+   For ergonomics the component offers a built-in entry gesture via `:edit-on`
+   (`:click` / `:double-click`), which simply calls `:on-edit-start`; pass
+   `:none` to drive editing purely from outside (e.g. a double-click on a
+   surrounding element). Either way the caller is the one that sets `:editing?`.
+
+   `on-commit` fires exactly when the user makes a real, valid change: the
+   trimmed input passes `validate` and differs from `value`. A no-op, blank, or
+   invalid commit collapses to `on-cancel` instead — the name is never silently
+   destroyed.
 
    Named for the single-line case on purpose — a multi-line sibling
    (`inline-text-area`) would be its own component."
   (:require
+   [aps.parts.frontend.components.inline-edit :refer [commit-value]]
    [clojure.string :as str]
-   [uix.core :refer [$ defui use-effect use-ref use-state]]))
-
-(defn commit-value
-  "Decide what a commit should persist. Given the user's `draft` text, the
-   current committed `value`, and a `validate` predicate, return the value
-   to persist — or nil to cancel.
-
-   nil means cancel silently: an empty/whitespace draft, a draft that
-   fails `validate`, or a no-op (trimmed draft equal to `value`)."
-  [draft value validate]
-  (let [trimmed (str/trim draft)]
-    (when (and (validate trimmed)
-               (not= trimmed value))
-      trimmed)))
+   [uix.core :refer [$ defui use-effect use-ref]]))
 
 (defui inline-text-field
-  "Click-to-edit single-line text. Props:
-   - :value               current committed text — shown when not editing
-   - :on-commit           (fn [new-value]) — called only on a valid, changed commit
-   - :validate            (optional) predicate on the trimmed draft; default non-blank
-   - :display-class       CSS classes for the display element
-   - :input-class         CSS classes for the <input> shown while editing
-   - :aria-label          accessible label, applied in both states
-   - :start-edit-trigger  (optional) any value — when it *changes*, the field
-                          enters edit mode. The value itself doesn't matter;
-                          only that it changed since the last render. Lets a
-                          caller (e.g. a Rename menu item) request edit mode
-                          without owning the rest of the field's state."
-  [{:keys [value on-commit validate display-class input-class aria-label
-           start-edit-trigger]}]
-  (let [validate                (or validate (complement str/blank?))
-        [editing? set-editing!] (use-state false)
-        [draft set-draft!]      (use-state "")
-        input-ref               (use-ref nil)
-        ;; Synchronous re-entry guard. Committing on Enter unmounts the
+  "Inline-edit single-line text. Props:
+   - :value          current committed text — shown when not editing
+   - :editing?       controlled — render the <input> when true, the display span when false
+   - :on-edit-start  (fn []) — fired by an `:edit-on` gesture; caller flips `:editing?` true
+   - :on-commit      (fn [new-value]) — a valid, changed commit; caller applies it and flips `:editing?` false
+   - :on-cancel      (fn []) — edit ended without a commit (Esc / blank / no-op); caller flips `:editing?` false
+   - :edit-on        :click (default) | :double-click | :none — built-in entry gesture on the display span
+   - :validate       (optional) predicate on the trimmed draft; default non-blank
+   - :display-class  CSS classes for the display element
+   - :input-class    CSS classes for the <input> shown while editing
+   - :aria-label     accessible label, applied in both states"
+  [{:keys [value editing? on-edit-start on-commit on-cancel validate edit-on
+           display-class input-class aria-label]}]
+  (let [validate  (or validate (complement str/blank?))
+        edit-on   (or edit-on :click)
+        input-ref (use-ref nil)
+        ;; Synchronous re-entry guard. Committing on Enter blurs/unmounts the
         ;; <input>, which itself fires onBlur — without this flag both the
-        ;; Enter path and the unmount-blur would run `finish`. The ref
-        ;; flips the instant the first call runs, so the second is inert.
-        done-ref                (use-ref false)
-        ;; Skips the initial mount run of the `:start-edit-trigger` effect
-        ;; below, so the field starts in display mode regardless of the
-        ;; trigger's initial value.
-        mounted?                (use-ref false)
-        start-edit              (fn []
-                                  (reset! done-ref false)
-                                  (set-draft! (or value ""))
-                                  (set-editing! true))
-        finish                  (fn [commit?]
-                                  (when-not @done-ref
-                                    (reset! done-ref true)
-                                    (when commit?
-                                      (when-let [v (commit-value draft value validate)]
-                                        (on-commit v)))
-                                    (set-editing! false)))]
+        ;; Enter path and the unmount-blur would run `finish`. The ref flips
+        ;; the instant the first call runs, so the second is inert. It is
+        ;; re-armed each time an edit session opens (the effect below).
+        done-ref  (use-ref false)
+        finish    (fn [commit?]
+                    (when-not @done-ref
+                      (reset! done-ref true)
+                      (if-let [v (and commit?
+                                      @input-ref
+                                      (commit-value (.-value @input-ref) value validate))]
+                        (on-commit v)
+                        (when on-cancel (on-cancel)))))]
 
-    ;; Entering edit mode: focus the field and select its contents so the
-    ;; user can immediately type a replacement.
+    ;; Opening an edit session: re-arm the guard, then focus + select so the
+    ;; user can immediately type a replacement. The <input> renders with
+    ;; `:default-value` (uncontrolled), so its text is already in the DOM by
+    ;; the time this effect runs — `.select` highlights the whole value.
     (use-effect
      (fn []
-       (when (and editing? @input-ref)
-         (.focus @input-ref)
-         (.select @input-ref)))
-     [editing?])
-
-    ;; External trigger: any *change* to `:start-edit-trigger` after mount
-    ;; enters edit mode. The value is opaque — only the change matters.
-    ;; `use-effect` always fires once on mount, so the `mounted?` ref skips
-    ;; that first run; otherwise the field would open in edit mode on load.
-    ;; (A `(when start-edit-trigger …)` guard does NOT work: in
-    ;; ClojureScript `0` is truthy, so a caller's initial `0` would fire.)
-    ;;
-    ;; `^:lint/disable` on the deps: exhaustive-deps wants `start-edit`
-    ;; listed, but it's a fresh closure every render — listing it would
-    ;; re-run this effect on *every* render and force edit mode constantly.
-    ;; We deliberately depend only on the trigger; the effect's closure is
-    ;; recreated each render, so when it does fire it already sees the
-    ;; current `value` via the latest `start-edit`.
-    (use-effect
-     (fn []
-       (if @mounted?
-         (start-edit)
-         (reset! mounted? true))
+       (when editing?
+         (reset! done-ref false)
+         (when @input-ref
+           (.focus @input-ref)
+           (.select @input-ref)))
        js/undefined)
-     ^:lint/disable [start-edit-trigger])
+     [editing?])
 
     (if editing?
       ($ :input
-         {:ref         input-ref
-          :class       input-class
-          :type        "text"
-          :value       draft
-          :aria-label  aria-label
-          :on-change   #(set-draft! (.. % -target -value))
-          :on-blur     #(finish true)
-          :on-key-down (fn [^js e]
-                         (case (.-key e)
-                           "Enter"  (do (.preventDefault e) (finish true))
-                           "Escape" (do (.preventDefault e) (finish false))
-                           nil))})
+         {:ref           input-ref
+          :class         input-class
+          :type          "text"
+          :default-value (or value "")
+          :aria-label    aria-label
+          :on-blur       #(finish true)
+          :on-key-down   (fn [^js e]
+                           (case (.-key e)
+                             "Enter"  (do (.preventDefault e) (finish true))
+                             "Escape" (do (.preventDefault e) (finish false))
+                             nil))})
       ($ :span
-         {:class      display-class
-          :role       "button"
-          :tabIndex   0
-          :aria-label aria-label
-          :on-click   start-edit}
+         (cond-> {:class      display-class
+                  :aria-label aria-label}
+           (= edit-on :click)        (assoc :role     "button"
+                                            :tabIndex 0
+                                            :on-click (fn [] (when on-edit-start (on-edit-start))))
+           (= edit-on :double-click) (assoc :on-double-click (fn [] (when on-edit-start (on-edit-start)))))
          value))))
