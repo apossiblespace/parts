@@ -44,7 +44,10 @@
              {:value         (:label data)
               :aria-label    "Part label"
               :display-class "text-center font-medium text-sm/4"
-              :input-class   "input input-xs w-full text-center nodrag nopan"
+              ;; shrink-0 + a fixed width lets the single-line editor overflow
+              ;; the small node and stay centered (the .node flex box centers
+              ;; it), instead of being clamped to the node's padded interior.
+              :input-class   "input input-sm text-center nodrag nopan shrink-0 w-32"
               :editing?      editing?
               :edit-on       :none
               :on-cancel     #(set-editing! false)
