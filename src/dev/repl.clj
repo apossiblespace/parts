@@ -136,6 +136,31 @@
   (stop)
   (start))
 
+(defn reset
+  "Alessandra Sierra's reloaded workflow: stop the running system, reload all
+   changed namespaces (via clojure.tools.namespace), then `start` fresh so the
+   new http-kit handler closure binds to the reloaded vars.
+
+   Reach for this when an in-place reload isn't enough — a deleted/renamed def,
+   a protocol/multimethod change, or a dependency reordering. For the ordinary
+   edit-a-handler/view loop, `cider-ns-reload` on the edited namespace is
+   lighter and needs no restart: the request handler is rebuilt per request, so
+   in-place var redefinition is picked up immediately. `reset` is the heavier
+   hammer that also survives tools.namespace swapping var identities.
+
+   Stop happens BEFORE refresh so the server never holds state across a reload.
+   Refresh is scoped to the source dirs so stale copies under target/ can't be
+   reloaded by accident. The `:after` symbol is resolved post-reload, so it
+   calls the freshly-loaded `start`.
+
+   See https://www.cognitect.com/blog/2013/06/04/clojure-workflow-reloaded and
+   https://github.com/clojure/tools.namespace#reloading-code-motivation."
+  []
+  (stop)
+  ((requiring-resolve 'clojure.tools.namespace.repl/set-refresh-dirs)
+   "src/main" "src/dev")
+  ((requiring-resolve 'clojure.tools.namespace.repl/refresh) :after 'repl/start))
+
 (defn db-migrate
   "Migrate the database (uses current environment from PARTS__ENV)"
   {:exec-fn true} ; Mark this as an exec function for deps.edn
