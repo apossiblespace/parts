@@ -140,6 +140,11 @@
           ;; Version badge — mirrors the landing footer's git label
           ;; (`partials.clj` line ~170). Same styling, no other footer
           ;; chrome on this page.
-          (when-let [v (app-version)]
-            ($ :footer {:class "mt-12 pt-6 border-t border-gray-200 flex justify-end"}
-               ($ :span {:class "badge badge-xs text-gray-300 font-mono"} v)))))))
+          ($ :footer {:class "mt-12 pt-6 border-t border-gray-200 flex justify-between"}
+             ($ :div
+                "📢 Need help? Email us for a quick reply: "
+                ($ :a {:href "mailto:help@ifs.tools"} "help@ifs.tools"))
+             (when-let [v (app-version)]
+               ($ :div {:class "text-gray-400"}
+                  "Version: "
+                  ($ :span {:class "font-mono"} v))))))))
