@@ -206,9 +206,11 @@
 
 (rf/reg-event-fx
  :map/fetch
- (fn [{:keys [db]} [_ map-id]]
-   {:db              (assoc-in db [:maps :loading] true)
-    :storage/get-map {:id map-id}}))
+ (fn [_ [_ map-id]]
+   ;; No `[:maps :loading]` toggle — that's the *list's* flag. The map view
+   ;; gates on whether the loaded map matches the requested id (`map-route`),
+   ;; so it shows a spinner for the requested map rather than the previous one.
+   {:storage/get-map {:id map-id}}))
 
 (rf/reg-event-fx
  :map/create
@@ -286,9 +288,7 @@
 (rf/reg-event-db
  :map/fetch-success
  (fn [db [_ the-map]]
-   (-> db
-       (assoc-in [:maps :loading] false)
-       (assoc-in [:map] the-map))))
+   (assoc db :map the-map)))
 
 (rf/reg-event-fx
  :map/create-success
@@ -302,12 +302,6 @@
      (not (:demo-mode db))
      (assoc :router/navigate {:name        :aps.parts.frontend.router/map
                               :path-params {:id (:id the-map)}}))))
-
-(rf/reg-event-fx
- :map/load
- (fn [{:keys [db]} [_ map-id]]
-   {:db              (assoc-in db [:maps :loading] true)
-    :storage/get-map {:id map-id}}))
 
 ;; -- map metadata: rename -------------------------------------------------
 ;; Pure transitions live in `state/map-updates` (kept re-frame-free so the

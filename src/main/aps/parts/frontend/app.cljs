@@ -37,6 +37,10 @@
   (when value
     (set! js/document -title (str value " – " c/brand-suffix))))
 
+(defn- spinner []
+  ($ :div {:class "min-h-screen flex items-center justify-center bg-gray-50"}
+     ($ :span {:class "loading loading-spinner loading-lg"})))
+
 (defui maps-list-route
   "Maps-list route (/app/maps). Owns the browser tab title for this
    page; delegates the rest to `maps-list`."
@@ -64,7 +68,16 @@
        (set-title! map-title)
        js/undefined)
      [map-title])
-    ($ map-view)))
+    ;; Render the canvas only once the *requested* map is the loaded one —
+    ;; otherwise we'd flash the previously-opened map while this one fetches.
+    ;; Re-opening the same map matches immediately (no spinner, no refetch).
+    ;; No error branch is needed: every map-fetch failure handler leaves this
+    ;; route — not-found / forbidden / failure navigate to the maps list, and
+    ;; unauthorized de-auths (the auth gate takes over) — so a failed fetch
+    ;; can't strand the user on this spinner.
+    (if (= map-id loaded-id)
+      ($ map-view)
+      (spinner))))
 
 (defui router-view
   "Renders the matched SPA route. Shown only once the user is
@@ -78,10 +91,6 @@
       ;; No match yet (initial render before the router fires) — show
       ;; nothing rather than flashing wrong content.
       nil)))
-
-(defn- spinner []
-  ($ :div {:class "min-h-screen flex items-center justify-center bg-gray-50"}
-     ($ :span {:class "loading loading-spinner loading-lg"})))
 
 (defui app-root
   "SPA root. Decides what to show from the current route + auth state:

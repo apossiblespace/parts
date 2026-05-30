@@ -8,7 +8,7 @@
    [aps.parts.frontend.components.toolbar.auth-status :refer [auth-status]]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-effect use-state]]
+   [uix.core :refer [$ defui use-effect use-layout-effect use-ref use-state]]
    [uix.re-frame :as uix.rf]))
 
 (defn- title-matches?
@@ -45,6 +45,41 @@
                (pad (inc (.getMonth dt))) "/"
                (pad (.getDate dt))))))))
 
+(defui ^:private map-preview
+  "The server-rendered SVG preview for one Map (ADR-0008). Owns a `loaded?`
+   flag so a *changed* preview shows a skeleton while its new image loads,
+   without disturbing previews that didn't change."
+  [{:keys [the-map]}]
+  (let [;; `?v=` is a cache-bust fingerprint, not a server param — the handler
+        ;; ignores it. As `:updated_at` advances after an edit, the URL changes
+        ;; and the browser fetches fresh instead of serving its cached copy.
+        src                   (str "/api/maps/" (:id the-map) "/preview.svg"
+                                   (when-let [^js u (:updated_at the-map)]
+                                     (str "?v=" (.getTime u))))
+        [loaded? set-loaded!] (use-state false)
+        img-ref               (use-ref nil)]
+    ;; Before paint: a cached/unchanged preview is already `complete`, so we
+    ;; skip the skeleton entirely (no flash on the previews that didn't move).
+    ;; Only a new/uncached `src` — i.e. a Map you actually edited — stays
+    ;; unloaded and shimmers. Keyed on `src` so a new fingerprint re-arms it.
+    (use-layout-effect
+     (fn []
+       (when-let [^js img @img-ref]
+         (set-loaded! (.-complete img)))
+       js/undefined)
+     [src])
+    ($ :div {:class (str "relative w-28 aspect-square flex-shrink-0 bg-gray-50 "
+                         "flex items-center justify-center border-r border-base-300")}
+       ($ :img {:ref      img-ref
+                :class    "max-w-full max-h-full object-contain p-2"
+                :src      src
+                :alt      (str "Preview of " (:title the-map))
+                :on-load  #(set-loaded! true)
+                ;; A broken image must resolve too, or it shimmers forever.
+                :on-error #(set-loaded! true)})
+       (when-not loaded?
+         ($ :div {:class "absolute inset-0 skeleton"})))))
+
 (defui ^:private map-row
   "One row in the Maps list: a clickable button with the server-rendered
    SVG preview on the left, and the Map's title + Created/Updated dates
@@ -56,16 +91,7 @@
                      "shadow-sm hover:shadow-md transition-shadow "
                      "text-left p-0 overflow-hidden")
       :on-click #(on-select the-map)}
-     ($ :div {:class "w-28 aspect-square flex-shrink-0 bg-gray-50 flex items-center justify-center border-r border-base-300"}
-        ($ :img {:class "max-w-full max-h-full object-contain p-2"
-                 ;; `?v=` is a cache-bust fingerprint, not a server param —
-                 ;; the handler ignores it. As `:updated_at` advances after
-                 ;; an edit, the URL changes and the browser fetches fresh
-                 ;; instead of serving its (in-window) cached copy.
-                 :src   (str "/api/maps/" (:id the-map) "/preview.svg"
-                             (when-let [^js u (:updated_at the-map)]
-                               (str "?v=" (.getTime u))))
-                 :alt   (str "Preview of " (:title the-map))}))
+     ($ map-preview {:the-map the-map})
      ($ :div {:class "flex-1 px-4 py-3 flex flex-col justify-center min-w-0"}
         ($ :h2 {:class "text-base font-medium truncate"}
            (:title the-map))
@@ -109,8 +135,9 @@
           ($ :div {:class "flex items-center justify-between gap-3 mb-4"}
              ($ :h1 {:class "text-lg font-bold"} "Your Maps")
              ;; Hide the search until there's a list to filter — pointless
-             ;; chrome on an empty account and while we're still loading.
-             (when (and (not loading) (seq maps))
+             ;; chrome on an empty account. Stays put during a background
+             ;; refresh (we have maps), so it doesn't flicker.
+             (when (seq maps)
                ($ :input {:type        "search"
                           :placeholder "Filter by title"
                           :class       "input input-bordered input-sm w-56"
@@ -118,7 +145,10 @@
                           :on-change   #(set-query (.. % -target -value))})))
 
           (cond
-            loading
+            ;; Full spinner only on the FIRST load (nothing to show yet). A
+            ;; background refresh with maps already in hand falls through and
+            ;; keeps rendering the existing list — stale-while-revalidate.
+            (and loading (empty? maps))
             ($ :div {:class "flex justify-center py-12"}
                ($ :div {:class "loading loading-spinner"}))
 
@@ -137,9 +167,6 @@
                              :the-map   the-map
                              :on-select handle-select}))))
 
-          ;; Version badge — mirrors the landing footer's git label
-          ;; (`partials.clj` line ~170). Same styling, no other footer
-          ;; chrome on this page.
           ($ :footer {:class "mt-12 pt-6 border-t border-gray-200 flex justify-between"}
              ($ :div
                 "📢 Need help? Email us for a quick reply: "
