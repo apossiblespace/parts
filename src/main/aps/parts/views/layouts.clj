@@ -3,38 +3,39 @@
    [aps.parts.views.partials :as partials]
    [hiccup2.core :refer [html]]))
 
-(def default-options
-  {:header      true
-   :footer      true
-   :description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."})
+(def ^:private default-options
+  {:description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."})
 
-(defn- base-layout
-  "Generic layout renderer based on options.
-   Options map can include:
-   :title       - page title
-   :description - meta description
-   :styles      - additional stylesheets
-   :scripts     - additional scripts
-   :header      - whether header should be rendered
-   :footer      - whether footer should be rendered"
+(defn- page
+  "Head + body shell + scripts. The body content is whatever the caller
+   passes, including any header/footer chrome the specific layout adds."
   [options & content]
   (let [options (merge default-options options)]
     (html
      (partials/head options)
      [:body.font-sans.bg-gray-50.text-gray-900
-      (when (:header options) (partials/header))
       content
-      (when (:footer options) (partials/footer))
       (partials/scripts options)])))
 
-(defn main
-  "Fundamental application layout"
+(defn marketing
+  "Marketing/landing layout: full site header and footer."
   [options & content]
-  (base-layout options content))
+  (page options
+        (partials/header)
+        content
+        (partials/footer)))
+
+(defn document
+  "Document-reading layout for the legal pages: a compact header (logo + legal
+   nav) and a compact footer. Auth-agnostic. `:active` in options is the slug
+   of the current document, highlighted in the nav."
+  [options & content]
+  (page options
+        (partials/document-header (:active options))
+        [:main {:class "container max-w-3xl mx-auto px-4 py-12"} content]
+        (partials/document-footer)))
 
 (defn fullscreen
-  "Full-screen layout without header or footer"
+  "Full-screen layout with no chrome (the SPA shell, invite pages)."
   [options & content]
-  (base-layout
-   (merge options {:header false :footer false})
-   content))
+  (page options content))

@@ -45,6 +45,15 @@
   ;; https://github.com/weavejester/hiccup
   hiccup/hiccup                      {:mvn/version "2.0.0"}
   ;;
+  ;; markdown-clj — renders the operator's legal documents (Markdown) to HTML.
+  ;; https://github.com/yogthos/markdown-clj
+  markdown-clj/markdown-clj          {:mvn/version "1.12.8"}
+  ;;
+  ;; OWASP HTML sanitizer — allowlist hardening of rendered legal Markdown.
+  ;; markdown-clj passes raw HTML / script through; this strips it.
+  ;; https://github.com/OWASP/java-html-sanitizer
+  com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer {:mvn/version "20260313.1"}
+  ;;
   ;; Apache FOP — SVG → PDF transcoding for the document Render
   ;; (`/api/maps/:id/render.pdf`, see ADR-0008). Includes Batik
   ;; transitively. Used only by `aps.parts.render.pdf`.

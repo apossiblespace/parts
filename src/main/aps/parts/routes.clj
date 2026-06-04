@@ -6,6 +6,7 @@
    [aps.parts.api.maps :as api.maps]
    [aps.parts.auth.middleware :as auth-mw]
    [aps.parts.handlers.invite :as invite]
+   [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
 
    [aps.parts.handlers.waitlist :as waitlist]
@@ -88,6 +89,7 @@
 
    ;; A form is present on the homepage, so we apply CSRF protection
    ["/" {:middleware [middleware/wrap-html-defaults
+                      auth-mw/wrap-session-auth
                       middleware/wrap-html-response]
          :get        {:handler pages/home-page}}]
 
@@ -125,6 +127,22 @@
                                    middleware/wrap-html-response]
                       :get        {:handler invite/show}
                       :post       {:handler invite/redeem}}]
+
+   ;; Legal documents — Privacy Policy, Terms of Service, DPA. Server-rendered
+   ;; and public (no auth, no launch gate). Content is operator-supplied at
+   ;; runtime (see aps.parts.legal); the repo ships only example templates.
+   ["/privacy" {:middleware [middleware/wrap-html-defaults
+                             middleware/wrap-html-response]}
+    ["" {:get {:handler (legal/page "privacy")}}]
+    ["/download" {:get {:handler (legal/download "privacy")}}]]
+   ["/terms" {:middleware [middleware/wrap-html-defaults
+                           middleware/wrap-html-response]}
+    ["" {:get {:handler (legal/page "terms")}}]
+    ["/download" {:get {:handler (legal/download "terms")}}]]
+   ["/dpa" {:middleware [middleware/wrap-html-defaults
+                         middleware/wrap-html-response]}
+    ["" {:get {:handler (legal/page "dpa")}}]
+    ["/download" {:get {:handler (legal/download "dpa")}}]]
 
    ;; API Routes
    ;;

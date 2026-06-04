@@ -5,6 +5,7 @@
    and the created / last-updated dates. Selecting a Map navigates the
    client-side router to /app/maps/:id."
   (:require
+   [aps.parts.common.constants :as c]
    [aps.parts.frontend.components.toolbar.auth-status :refer [auth-status]]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
@@ -167,11 +168,27 @@
                              :the-map   the-map
                              :on-select handle-select}))))
 
-          ($ :footer {:class "mt-12 pt-6 border-t border-gray-200 flex justify-between"}
-             ($ :div
-                "📢 Need help? Email us for a quick reply: "
-                ($ :a {:href "mailto:help@ifs.tools"} "help@ifs.tools"))
-             (when-let [v (app-version)]
-               ($ :div {:class "text-gray-400"}
-                  "Version: "
-                  ($ :span {:class "font-mono"} v))))))))
+          ($ :footer {:class "mt-12 mb-6 pt-6 border-t border-gray-200 flex flex-col gap-3 text-xs text-gray-500"}
+             ($ :div {:class "flex items-center justify-between gap-3"}
+                ($ :div {:class "flex items-center gap-1"}
+                   ($ :span {:class "text-black font-bold"} "🆘 Need help?")
+                   ($ :span " Email us for a quick reply: ")
+                   ($ :a {:href "mailto:help@ifs.tools" :class "hover:text-ifs-green"}
+                      "help@ifs.tools")))
+             ($ :div {:class "flex items-center gap-3 text-gray-400"}
+                ($ :span
+                   "© 2026 "
+                   ($ :a {:href   "https://a.possible.space/"
+                          :target "_blank"}
+                      "A Possible Space Ltd."))
+                (for [{:keys [slug mini-label]} c/legal-documents]
+                  ($ :a {:key   slug
+                         :href  (str "/" slug)
+                         :class "hover:text-ifs-green"}
+                     mini-label))
+                ($ :a {:href "https://github.com/apossiblespace/parts"} "Source code")
+                ($ :a {:href "https://github.com/apossiblespace/parts?tab=readme-ov-file#readme"} "Docs")
+                (when-let [v (app-version)]
+                  ($ :div {:class "text-gray-400"}
+                     "Version: "
+                     ($ :span {:class "font-mono"} v)))))))))

@@ -19,4 +19,10 @@
  ;; stable 16-byte secret (config/session-key refuses this default in prod).
  :session/key "dev-session-key0"
 
+ ;; Directory of operator-supplied legal documents (privacy.md, terms.md,
+ ;; dpa.md), read at runtime. Unset in dev/CI — pages fall back to the bundled
+ ;; resources/legal/*.example.md templates. Production sets
+ ;; PARTS__LEGAL__CONTENT_DIR.
+ :legal/content-dir nil
+
  :launch/launched? true}

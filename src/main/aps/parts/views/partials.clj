@@ -144,18 +144,10 @@
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Legal"]
       [:ul
        {:class "space-y-2"}
-       [:li
-        [:div
-         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
-         [:span
-          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
-          "Privacy Policy"]]]
-       [:li
-        [:div
-         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
-         [:span
-          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
-          "Terms of Service"]]]]]]
+       (for [{:keys [slug label]} c/legal-documents]
+         [:li
+          [:a {:href (str "/" slug) :class "text-gray-600 hover:text-ifs-green"}
+           label]])]]]
     [:div
      {:class
       "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center"}
@@ -166,6 +158,32 @@
       [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]
      [:p
       [:span {:class "badge badge-xs text-gray-300 font-mono"} (version/current)]]]]])
+
+(defn document-header
+  "Compact header for the document layout: the Parts logo (links home) on the
+   left, and the legal-document nav on the right with `active` (a slug)
+   highlighted."
+  [active]
+  [:header {:class "border-b border-gray-200 bg-white"}
+   [:div {:class "container max-w-3xl mx-auto px-4 py-4 flex justify-between items-center"}
+    [:a {:href "/" :class "flex items-center"}
+     [:img {:class "h-7" :src "/images/parts-logo-horizontal.svg"}]]
+    [:nav {:class "flex items-center gap-4"}
+     (for [{:keys [slug label]} c/legal-documents]
+       [:a {:href  (str "/" slug)
+            :class (if (= slug active)
+                     "text-sm text-ifs-green font-semibold"
+                     "text-sm text-gray-600 hover:text-ifs-green")}
+        label])]]])
+
+(defn document-footer
+  "Compact footer for the document layout: copyright and build version."
+  []
+  [:footer {:class "border-t border-gray-200 mt-12"}
+   [:div {:class "container max-w-3xl mx-auto px-4 py-6 flex justify-between items-center text-sm text-gray-500"}
+    [:p "© 2026 "
+     [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]]
+    [:span {:class "badge badge-xs text-gray-300 font-mono"} (version/current)]]])
 
 (defn waitlist-signup-form
   "Form for signing up for the waiting list"

@@ -81,6 +81,14 @@
   []
   (.getHost (java.net.URI/create (base-url))))
 
+(defn legal-content-dir
+  "Filesystem directory holding the operator's legal documents
+   (privacy.md / terms.md / dpa.md), read at runtime, or nil. Unset in dev and
+   CI — the bundled example templates are served instead. Production sets it via
+   PARTS__LEGAL__CONTENT_DIR."
+  []
+  (l-config/get config :legal/content-dir))
+
 (defn smtp-config
   "Operator error-alert SMTP settings, read entirely from the environment
    (`PARTS__SMTP__*` / `PARTS__ALERT__*`). Nothing here is committed: this repo

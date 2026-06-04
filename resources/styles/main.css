@@ -81,6 +81,44 @@ body {
     font-optical-sizing: auto;
 }
 
+.legal-doc {
+    line-height: 1.7;
+}
+.legal-doc h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+.legal-doc h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+}
+.legal-doc h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.legal-doc p {
+    margin-bottom: 1rem;
+}
+.legal-doc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+.legal-doc li {
+    margin-bottom: 0.25rem;
+}
+.legal-doc blockquote {
+    border-left: 4px solid var(--ifs-yellow);
+    padding-left: 1rem;
+    color: #555555;
+    margin-bottom: 1rem;
+}
+
 .modal-box {
     padding: 0.7rem;
     min-width: 20rem;

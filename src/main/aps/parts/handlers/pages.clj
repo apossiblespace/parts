@@ -1,5 +1,6 @@
 (ns aps.parts.handlers.pages
   (:require
+   [aps.parts.auth :as auth]
    [aps.parts.handlers.waitlist :refer [signups-count]]
    [aps.parts.launch :as launch]
    [aps.parts.views.layouts :as layouts]
@@ -44,7 +45,7 @@
   (let [waitlist-count (signups-count)]
     (response/response
      (html
-      (layouts/main
+      (layouts/marketing
        {:title  nil
         :styles ["/css/flow.css" "/css/style.css"]}
        [:section
@@ -146,7 +147,7 @@
   (let [waitlist-count (signups-count)]
     (response/response
      (html
-      (layouts/main
+      (layouts/marketing
        {:title  nil
         :styles ["/css/flow.css" "/css/style.css"]}
        [:section
@@ -242,9 +243,12 @@
               "Website"]]]]]]])))))
 
 (defn home-page
-  "Page rendered for GET /. Picks the signup or waitlist variant based on the
-   runtime launch toggle (see `aps.parts.launch`)."
+  "Page rendered for GET /. Logged-in users are redirected into the app;
+   otherwise picks the signup or waitlist variant from the runtime launch
+   toggle (see `aps.parts.launch`)."
   [request]
-  (if (launch/launched?)
-    (home-page-signup request)
-    (home-page-waitlist request)))
+  (if (auth/current-user-id request)
+    (response/redirect "/app")
+    (if (launch/launched?)
+      (home-page-signup request)
+      (home-page-waitlist request))))

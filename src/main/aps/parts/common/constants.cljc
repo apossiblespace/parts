@@ -37,3 +37,12 @@
 (def brand-suffix
   "The suffix appearing after the page title in the <title> element"
   "Parts: IFS parts mapping for therapists and their clients")
+
+(def legal-documents
+  "The legal documents the app serves, in nav order. Shared FE/BE: the document
+   layout's header/footer (hiccup), the marketing footer (hiccup), and the
+   maps-list footer (cljs) all render these links from here; the legal loader
+   derives its valid-slug set from this list. Each path is \"/\" + slug."
+  [{:slug "privacy" :label "Privacy Policy" :mini-label "Privacy"}
+   {:slug "terms" :label "Terms of Service" :mini-label "Terms"}
+   {:slug "dpa" :label "Data Processing Agreement" :mini-label "Data"}])
