@@ -264,12 +264,6 @@
              :value       (get values "display_name" "")
              :placeholder "How your name appears in Parts"
              :required    true}]
-    [:label {:class "fieldset-label"} "Username"]
-    [:input {:class    "input input-bordered w-full mb-3"
-             :type     "text"
-             :name     "username"
-             :value    (get values "username" "")
-             :required true}]
     [:label {:class "fieldset-label"} "Password"]
     [:input {:class    "input input-bordered w-full mb-3"
              :type     "password"

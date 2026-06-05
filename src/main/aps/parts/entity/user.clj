@@ -68,7 +68,6 @@
                  (db/sql-format
                   {:select    [[:u.id :id]
                                [:u.email :email]
-                               [:u.username :username]
                                [:u.display_name :display_name]
                                [:u.role :role]
                                [:m.id :map_id]]

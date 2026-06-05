@@ -2,7 +2,7 @@
   (:require
    [aps.parts.db :as db]
    [aps.parts.handlers.invite :as invite]
-   [aps.parts.helpers.utils :refer [with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [aps.parts.invitations :as inv]
    [aps.parts.middleware :as middleware]
    [clojure.string :as str]
@@ -19,9 +19,8 @@
 (defn- invitation-by-email [email]
   (db/query-one (db/sql-format {:select [:*] :from [:invitations] :where [:= :email email]})))
 
-(defn- valid-form [username]
-  {"username"              username
-   "display_name"          "Test Practitioner"
+(defn- valid-form []
+  {"display_name"          "Test Practitioner"
    "password"              "supersecret"
    "password_confirmation" "supersecret"
    "accept_medical"        "on"
@@ -56,7 +55,7 @@
     (let [email           "redeem-ok@example.com"
           {:keys [token]} (inv/generate-invitation! email)
           response        (POST {:path-params {:token token}
-                                 :form-params (valid-form "redeemok")})
+                                 :form-params (valid-form)})
           user            (user-by-email email)]
       (is (= 303 (:status response)))
       (is (= "/app" (get-in response [:headers "Location"])) "redirects into the app")
@@ -73,7 +72,7 @@
     (let [email           "redeem-bad@example.com"
           {:keys [token]} (inv/generate-invitation! email)
           response        (POST {:path-params {:token token}
-                                 :form-params (assoc (valid-form "redeembad")
+                                 :form-params (assoc (valid-form)
                                                      "password_confirmation" "different")})]
       (is (= 400 (:status response)))
       (is (str/includes? (:body response) "Create my account"))
@@ -86,23 +85,21 @@
     (let [email           "redeem-twice@example.com"
           {:keys [token]} (inv/generate-invitation! email)
           _               (POST {:path-params {:token token}
-                                 :form-params (valid-form "redeemtwice")})
+                                 :form-params (valid-form)})
           response        (POST {:path-params {:token token}
-                                 :form-params (valid-form "redeemtwiceb")})]
+                                 :form-params (valid-form)})]
       (is (= 404 (:status response)))
       (is (str/includes? (:body response) "no longer valid")))))
 
-(deftest redeem-duplicate-username-test
-  (testing "POST with a taken username re-renders the form with a friendly error"
-    (let [holder          (inv/generate-invitation! "dup-holder@example.com")
-          _               (POST {:path-params {:token (:token holder)}
-                                 :form-params (valid-form "takenname")})
-          email           "redeem-dup@example.com"
+(deftest redeem-existing-email-test
+  (testing "POST for an email that already has an account re-renders with a friendly error"
+    (let [email           "redeem-existing@example.com"
+          _               (create-test-user! {:email email})
           {:keys [token]} (inv/generate-invitation! email)
           response        (POST {:path-params {:token token}
-                                 :form-params (valid-form "takenname")})]
+                                 :form-params (valid-form)})]
       (is (= 400 (:status response)))
-      (is (str/includes? (:body response) "already taken"))
+      (is (str/includes? (:body response) "already exists"))
       (is (nil? (:redeemed_at (invitation-by-email email)))
           "the invitation is still usable after the conflict"))))
 
@@ -111,7 +108,7 @@
     (let [email           "redeem-noaccept@example.com"
           {:keys [token]} (inv/generate-invitation! email)
           response        (POST {:path-params {:token token}
-                                 :form-params (dissoc (valid-form "noaccept")
+                                 :form-params (dissoc (valid-form)
                                                       "accept_medical" "accept_legal")})]
       (is (= 400 (:status response)))
       (is (str/includes? (:body response) "Create my account") "the form is re-rendered")

@@ -14,7 +14,7 @@
 
 (defn register
   "Register a new user account.
-   PARAMS should be a map containing :email, :username, :display_name, :password, :password_confirmation.
+   PARAMS should be a map containing :email, :display_name, :password, :password_confirmation.
    On success the server sets the auth-session cookie; clears playground data."
   [params]
   (go
@@ -35,7 +35,6 @@
 
   - id
   - email
-  - username
   - display name
   - role"
   []

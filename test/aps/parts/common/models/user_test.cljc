@@ -7,20 +7,17 @@
 (deftest make-user-test
   (testing "Creates a valid user with minimal attributes"
     (let [result (user/make-user {:email        "bob@bobson.net"
-                                  :username     "bobson"
                                   :display_name "Bob Bobson"
                                   :role         "therapist"})]
       #?(:cljs (is (string? (:id result)))
          :clj (is (nil? (:id result))))
       (is (= "bob@bobson.net" (:email result)))
-      (is (= "bobson" (:username result)))
       (is (= "Bob Bobson" (:display_name result)))
       (is (= "therapist" (:role result)))))
 
   (testing "Creates a user with provided attributes"
     (let [attrs  {:id           "cutom-id"
                   :email        "robert@robertson.net"
-                  :username     "robertson"
                   :display_name "Robert Robertson Esq."
                   :role         "client"}
           result (user/make-user attrs)]
@@ -28,7 +25,6 @@
 
   (testing "Creates a valid user with password + confirmation"
     (let [result (user/make-user {:email                 "bob@bobson.net"
-                                  :username              "bobson"
                                   :display_name          "Bob Bobson"
                                   :role                  "therapist"
                                   :password              "pass1234"
@@ -37,7 +33,6 @@
       #?(:cljs (is (string? (:id result)))
          :clj (is (nil? (:id result))))
       (is (= "bob@bobson.net" (:email result)))
-      (is (= "bobson" (:username result)))
       (is (= "Bob Bobson" (:display_name result)))
       (is (= "therapist" (:role result)))))
 
@@ -52,7 +47,6 @@
          #?(:clj clojure.lang.ExceptionInfo
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (user/make-user {:email                 "bob@bobson.net"
-                          :username              "bobson"
                           :display_name          "Bob Bobson"
                           :role                  "therapist"
                           :password              "pass1234"

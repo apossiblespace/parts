@@ -1,5 +1,5 @@
 (ns aps.parts.frontend.components.signup-form
-  "Email/username/password signup form, embeddable in the auth screen.
+  "Email/display-name/password signup form, embeddable in the auth screen.
 
    Dispatches `:auth/register`; on a 201 the `:auth/register-fx` effect
    dispatches `:auth/check-auth`, which refreshes `:auth/user` and flips
@@ -13,7 +13,7 @@
 
 (defui signup-form [{:keys [on-success]}]
   (let [[email set-email]                       (use-state "")
-        [username set-username]                 (use-state "")
+        [display-name set-display-name]         (use-state "")
         [password set-password]                 (use-state "")
         [password-confirm set-password-confirm] (use-state "")
         [error set-error]                       (use-state nil)
@@ -30,10 +30,7 @@
               (rf/dispatch
                [:auth/register
                 {:email                 email
-                 :username              username
-                 ;; display_name starts as the username; the two are
-                 ;; intentionally distinct and editable separately later.
-                 :display_name          username
+                 :display_name          display-name
                  :password              password
                  :password_confirmation password-confirm
                  :callback
@@ -74,16 +71,16 @@
                     :required    true}))
 
              ($ :div {:class "form-control"}
-                ($ :label {:class "fieldset-label" :for "signup-username"}
-                   "Username")
+                ($ :label {:class "fieldset-label" :for "signup-display-name"}
+                   "Display name")
                 ($ :input
                    {:type        "text"
-                    :id          "signup-username"
-                    :placeholder "yourname"
+                    :id          "signup-display-name"
+                    :placeholder "How your name appears in Parts"
                     :class       "input input-sm w-full"
-                    :value       username
+                    :value       display-name
                     :disabled    loading
-                    :on-change   #(set-username (.. % -target -value))
+                    :on-change   #(set-display-name (.. % -target -value))
                     :required    true}))
 
              ($ :div {:class "form-control"}

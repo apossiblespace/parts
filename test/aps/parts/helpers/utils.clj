@@ -41,9 +41,9 @@
       ds)))
 
 (def ^:private tombstone-user-sql
-  [(str "INSERT INTO users (id, email, username, display_name, password_hash, role)
+  [(str "INSERT INTO users (id, email, display_name, password_hash, role)
          VALUES ('" erasure/tombstone-id "',
-                 'deleted@aps.local', '__deleted__', 'Deleted user', '!', 'therapist')
+                 'deleted@aps.local', 'Deleted user', '!', 'therapist')
          ON CONFLICT (id) DO NOTHING")])
 
 (defn truncate-all-tables

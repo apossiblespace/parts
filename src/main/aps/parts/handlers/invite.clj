@@ -47,12 +47,12 @@
 
 (defn- conflict-message
   "User-facing message for a DB constraint violation during provisioning.
-   23505 (unique violation) is almost always a username another invitee
-   already took; anything else gets a generic message."
+   With email the only unique column on `users`, a 23505 means an account
+   already exists for the invited email; anything else gets a generic message."
   [^PSQLException e]
   (if (= "23505" (.getSQLState e)) ; 23505 = unique_violation
-    "That username is already taken — please choose another."
-    "We couldn’t create your account — please check your details and try again."))
+    "An account already exists for this email address. Please log in instead."
+    "We couldn’t create your account. Please check your details and try again."))
 
 (defn redeem
   "POST /invite/:token — claim the token and provision the account in one
@@ -79,7 +79,6 @@
                                       {:type :invitation-spent})))
                     (account/provision-account!
                      {:email                 (:email claimed)
-                      :username              (get form "username")
                       :display_name          (get form "display_name")
                       :password              (get form "password")
                       :password_confirmation (get form "password_confirmation")

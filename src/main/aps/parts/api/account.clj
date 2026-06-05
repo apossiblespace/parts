@@ -78,7 +78,6 @@
                                        #(provision-account! params %))]
         (mulog/log ::register
                    :email (:email account)
-                   :username (:username account)
                    :map-id map-id
                    :status :success)
         (-> (response/response (merge account {:map_id map-id}))
@@ -90,7 +89,6 @@
         ;; logging façade). Never pass raw params to mulog/log.
         (mulog/log ::register
                    :email (:email params)
-                   :username (:username params)
                    :status :failure
                    :error-type (:type (ex-data e))
                    :error-message (.getMessage e))
@@ -103,7 +101,7 @@
         user    (user/fetch user-id)
         confirm (get-in request [:query-params "confirm"])]
     (if user
-      (if (= (:username user) confirm)
+      (if (= (:email user) confirm)
         (do
           (user/delete! user-id)
           ;; Drop the caller's auth session — their account no longer exists.

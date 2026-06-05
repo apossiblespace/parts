@@ -23,7 +23,6 @@
           response     (account/get-account mock-request)]
       (is (= 200 (:status response)))
       (is (= {:email        (:email user)
-              :username     (:username user)
               :display_name (:display_name user)
               :role         (:role user)
               :id           (:id user)
@@ -47,7 +46,7 @@
   (testing "does not update where no updatable data is passed"
     (let [user         (create-test-user!)
           mock-request {:identity    {:sub (:id user)}
-                        :body-params {:username "something"}}]
+                        :body-params {:role "therapist"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (account/update-account mock-request))))))
 
@@ -58,7 +57,7 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
                             (account/delete-account mock-request)))))
 
-  (testing "does not delete with a confirmation param that does not match the username"
+  (testing "does not delete with a confirmation param that does not match the email"
     (let [user         (create-test-user!)
           mock-request {:identity {:sub (:id user)} :query-params {"confirm" "random"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
@@ -66,7 +65,7 @@
 
   (testing "deletes the account with a confirmation param"
     (let [user         (create-test-user!)
-          mock-request {:identity {:sub (:id user)} :query-params {"confirm" (:username user)}}
+          mock-request {:identity {:sub (:id user)} :query-params {"confirm" (:email user)}}
           response     (account/delete-account mock-request)
           db-user      (db/query-one (db/sql-format {:select [:id]
                                                      :from   [:users]
@@ -78,14 +77,13 @@
 ;; update this test to verify the role from user-data is respected
 (deftest test-register-account
   (testing "register creates a new user with therapist role and a default map"
-    (let [user-data                             (factory/build-test-user)
-          {:keys [email username display_name]} user-data
-          mock-request                          {:body-params (merge user-data acceptance)}
-          response                              (account/register-account mock-request)
-          user                                  (:body response)]
+    (let [user-data                    (factory/build-test-user)
+          {:keys [email display_name]} user-data
+          mock-request                 {:body-params (merge user-data acceptance)}
+          response                     (account/register-account mock-request)
+          user                         (:body response)]
       (is (= 201 (:status response)))
       (is (= email (:email user)))
-      (is (= username (:username user)))
       (is (= display_name (:display_name user)))
       ;; Role is always hardcoded to "therapist" regardless of input
       (is (= "therapist" (:role user)))

@@ -9,7 +9,6 @@
 
 (s/def ::id (s/or :string string? :uuid uuid?))
 (s/def ::email (s/and string? #(re-matches #"^.+@.+\..+$" %)))
-(s/def ::username (s/and string? not-empty))
 (s/def ::display_name (s/and string? not-empty))
 (s/def ::password
   (s/and string?
@@ -19,7 +18,6 @@
 
 (s/def ::user
   (s/keys :req-un [::email
-                   ::username
                    ::display_name
                    ::role]
           :opt-un [::id

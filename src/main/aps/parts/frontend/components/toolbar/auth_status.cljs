@@ -13,10 +13,10 @@
    this in a page header — it positions its menu with `dropdown-end` so the
    menu doesn't overflow when the trigger sits at the right edge."
   []
-  (let [user     (uix.rf/use-subscribe [:auth/user])
-        loading  (uix.rf/use-subscribe [:auth/loading])
-        username (:username user)
-        initial  (some-> username not-empty (subs 0 1) str/upper-case)]
+  (let [user         (uix.rf/use-subscribe [:auth/user])
+        loading      (uix.rf/use-subscribe [:auth/loading])
+        display-name (:display_name user)
+        initial      (some-> display-name not-empty (subs 0 1) str/upper-case)]
     ($ :div {:class "dropdown dropdown-end ml-4"}
        ;; Plain flex row, not a button. The hover affordance lives only on the
        ;; caret, but `group` makes it light up when hovering anywhere on the
@@ -26,7 +26,7 @@
                 :role       "button"
                 :class      "group flex items-center gap-2 cursor-pointer"
                 :aria-label (if user
-                              (str "Account menu for " username)
+                              (str "Account menu for " display-name)
                               "Account menu")}
           (cond
             loading
@@ -37,7 +37,7 @@
                ($ :div {:class "avatar avatar-placeholder"}
                   ($ :div {:class "bg-neutral text-neutral-content w-6 rounded-full"}
                      ($ :span {:class "text-xs"} initial)))
-               ($ :span {:class "text-sm font-normal"} username))
+               ($ :span {:class "text-sm font-normal"} display-name))
 
             :else
             ($ :<>

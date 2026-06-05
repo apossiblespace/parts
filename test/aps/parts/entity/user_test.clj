@@ -37,7 +37,7 @@
   (testing "throws when passed a field that does not allow updates"
     (let [db-user (create-test-user!)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
-                            (user/update! (:id db-user) {:username "emanresu"})))))
+                            (user/update! (:id db-user) {:role "therapist"})))))
 
   (testing "throws when a password is passed without confirmation"
     (let [db-user (create-test-user!)]
@@ -61,12 +61,11 @@
 
 (deftest test-create!
   (testing "creates the user entity in the database"
-    (let [attrs                                      (factory/build-test-user)
-          {:keys [email username display_name role]} attrs
-          created-user                               (user/create! attrs)]
+    (let [attrs                             (factory/build-test-user)
+          {:keys [email display_name role]} attrs
+          created-user                      (user/create! attrs)]
       (is (contains? created-user :id))
       (is (= email (:email created-user)))
-      (is (= username (:username created-user)))
       (is (= display_name (:display_name created-user)))
       (is (= role (:role created-user)))))
 
