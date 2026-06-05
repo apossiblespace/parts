@@ -76,6 +76,13 @@
     padding-inline: calc(0.25rem * 2);
 }
 
+.checkbox {
+    /* DaisyUI shares --radius-selector (a 1rem pill) across checkbox, radio,
+       and toggle, so a small checkbox renders as a circle and reads as a
+       radio. Use the field radius so checkboxes look like squares. */
+    border-radius: var(--radius-field);
+}
+
 body {
     font-family: "Inter", Helvetica, Arial, sans-serif;
     font-optical-sizing: auto;
