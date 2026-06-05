@@ -18,9 +18,12 @@
    Options map can include:
    :title       - page title
    :description - meta description
-   :styles      - additional stylesheets"
+   :styles      - additional stylesheets
+   :analytics?  - load the Plausible collector. Public marketing pages only —
+                  never the signed-in app or invite pages, where the URL would
+                  carry a Map id or invite token."
   ([] (head {}))
-  ([{:keys [title description styles]}]
+  ([{:keys [title description styles analytics?]}]
    [:head
     [:meta {:charset "utf-8"}]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
@@ -36,9 +39,10 @@
     ;; [:link {:rel "stylesheet" :href "/css/style.css"}]
     (for [href (or styles [])]
       [:link {:rel "stylesheet" :href href}])
-    [:script {:defer       true
-              :data-domain (conf/app-domain)
-              :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
+    (when analytics?
+      [:script {:defer       true
+                :data-domain (conf/app-domain)
+                :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}])
     [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]]))
 
 (defn header-signup

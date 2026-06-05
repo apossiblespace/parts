@@ -1,6 +1,7 @@
 (ns aps.parts.alerts-test
   (:require
    [aps.parts.alerts :as alerts]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]))
 
 (def ^:private cooldown
@@ -61,6 +62,37 @@
     (let [e1              (ev :aps.parts.errors/unhandled-exception 1000 :error "boom-a")
           s1              (:state (alerts/alert-decision {} e1 cooldown))
           e2              (ev :aps.parts.errors/unhandled-exception 1001 :error "boom-b")
+          {:keys [send?]} (alerts/alert-decision s1 e2 cooldown)]
+      (is send?))))
+
+(deftest alert-body-whitelist-test
+  (testing "the email body includes only allowlisted structural fields — never a
+            full-event dump that could carry clinical content"
+    (let [event {:mulog/event-name :aps.parts.errors/batch-failure
+                 :mulog/timestamp  123
+                 :sql-state        "23514"
+                 :failing-change   {:entity :part :type :update :id "p1"}
+                 ;; stray fields that must NOT reach the operator's inbox:
+                 :client-notes     "CLINICAL SECRET"
+                 :data             {:notes "ALSO SECRET"}}
+          body  (#'alerts/alert-body event)]
+      (is (str/includes? body "batch-failure") "keeps the event name")
+      (is (str/includes? body "23514") "keeps the sql-state")
+      (is (str/includes? body "p1") "keeps the redacted change id")
+      (is (not (str/includes? body "CLINICAL SECRET")) "drops unknown fields")
+      (is (not (str/includes? body "ALSO SECRET")) "drops :data"))))
+
+(deftest alert-decision-error-class-signature-test
+  (testing "events without a sql-state collapse on :error-class, not the message"
+    (let [e1              (ev :aps.parts.errors/batch-failure 1000 :error-class "PSQLException")
+          s1              (:state (alerts/alert-decision {} e1 cooldown))
+          e2              (ev :aps.parts.errors/batch-failure (+ 1000 60000) :error-class "PSQLException")
+          {:keys [send?]} (alerts/alert-decision s1 e2 cooldown)]
+      (is (not send?) "same error-class within cooldown is one alert")))
+  (testing "distinct error-classes each send"
+    (let [e1              (ev :aps.parts.errors/batch-failure 1000 :error-class "PSQLException")
+          s1              (:state (alerts/alert-decision {} e1 cooldown))
+          e2              (ev :aps.parts.errors/batch-failure 1001 :error-class "ExceptionInfo")
           {:keys [send?]} (alerts/alert-decision s1 e2 cooldown)]
       (is send?))))
 

@@ -66,3 +66,27 @@
           response  (app request)]
       (is (= 409 (:status response)))
       (is (= {:error "The referenced resource does not exist"} (:body response))))))
+
+(deftest redact-change-test
+  (testing "keeps structural identifiers, drops clinical :data"
+    (is (= {:entity :part :type :update :id "p1"}
+           (errors/redact-change
+            {:entity :part
+             :type   :update
+             :id     "p1"
+             :data   {:label "Anxious part" :notes "client said X" :body_location "chest"}}))))
+  (testing "is nil-safe"
+    (is (nil? (errors/redact-change nil)))))
+
+(deftest safe-error-fields-test
+  (testing "non-postgres exception → class name only"
+    (is (= {:error-class "clojure.lang.ExceptionInfo"}
+           (errors/safe-error-fields (ex-info "boom" {})))))
+  (testing "PSQLException → class + sql-state, never the value-bearing message"
+    (let [fields (errors/safe-error-fields
+                  (PSQLException. "Detail: Key (notes)=(SECRET) already exists"
+                                  PSQLState/CHECK_VIOLATION))]
+      (is (= {:error-class "PSQLException" :sql-state "23514"} fields)
+          "only schema metadata — no message, no offending value")))
+  (testing "is nil-safe"
+    (is (nil? (errors/safe-error-fields nil)))))

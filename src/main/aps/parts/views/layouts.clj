@@ -20,7 +20,7 @@
 (defn marketing
   "Marketing/landing layout: full site header and footer."
   [options & content]
-  (page options
+  (page (assoc options :analytics? true)
         (partials/header)
         content
         (partials/footer)))
@@ -30,7 +30,7 @@
    nav) and a compact footer. Auth-agnostic. `:active` in options is the slug
    of the current document, highlighted in the nav."
   [options & content]
-  (page options
+  (page (assoc options :analytics? true)
         (partials/document-header (:active options))
         [:main {:class "container max-w-3xl mx-auto px-4 py-12"} content]
         (partials/document-footer)))

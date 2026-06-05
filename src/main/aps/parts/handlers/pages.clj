@@ -15,8 +15,9 @@
     (response/response
      (html
       (layouts/fullscreen
-       {:title  "Map"
-        :styles ["/css/flow.css" "/css/style.css"]}
+       {:title      "Map"
+        :analytics? true
+        :styles     ["/css/flow.css" "/css/style.css"]}
        [:div#root {:data-demo-mode demo-mode
                    :data-launched  (str (launch/launched?))}])))))
 

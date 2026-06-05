@@ -38,12 +38,14 @@
     :aps.parts.errors/postgres-exception})
 
 (defn event-signature
-  "A stable cooldown key for an event. For postgres events the SQL-state
-   collapses every row-specific message (which embeds the offending value) into
-   one signature; otherwise the error message discriminates."
+  "A stable cooldown key for an event. Prefers a non-value discriminator —
+   sql-state, then error-class — over the free-text message, so a crash-loop of
+   one fault collapses to a single email while distinct faults stay distinct.
+   The message is avoided as a key because for postgres it embeds the offending
+   row value and is no longer logged."
   [event]
   [(:mulog/event-name event)
-   (or (:sql-state event) (:error event))])
+   (or (:sql-state event) (:error-class event) (:error event))])
 
 (defn- prune
   "Drop cooldown entries last sent before `now - cooldown-ms`, bounding the map
@@ -85,6 +87,19 @@
   (assoc {:host host :port port :user user :pass pass}
          (if (= 587 port) :tls :ssl) true))
 
+(def ^:private alert-body-keys
+  "Allowlist of event fields included in an alert email. Deliberately small: an
+   alert must never carry clinical content into an operator inbox, so the body is
+   built from these structural fields only — never a full-event dump."
+  [:mulog/event-name :mulog/timestamp :mulog/namespace
+   :error :error-class :cause-type :sql-state :diagnostics :failing-change])
+
+(defn- alert-body
+  "The alert email body: the allowlisted structural fields of `event`,
+   pretty-printed — never the whole event."
+  [event]
+  (with-out-str (pprint/pprint (select-keys event alert-body-keys))))
+
 (defn- alert-message
   "The postal message map for `event`. Subject carries the deployment domain so
    a staging test error is unmistakable from a prod incident in the inbox."
@@ -92,7 +107,7 @@
   {:from    (:from smtp)
    :to      (:to smtp)
    :subject (str "[parts-alert][" domain "] " (name (:mulog/event-name event)))
-   :body    (with-out-str (pprint/pprint event))})
+   :body    (alert-body event)})
 
 (defn- send-alert!
   "Send one alert email. Any failure is swallowed and logged — alerting must

@@ -27,18 +27,52 @@
    "23502" "A required field was missing" ; not null violation
    "23503" "The referenced resource does not exist"}) ; foreign key violation
 
+(defn safe-error-fields
+  "Non-clinical diagnostics for an exception, safe to log and alert. Returns a
+   flat map: always an `:error-class`; for a PSQLException also `:sql-state` and
+   the constraint/table/column NAMES (schema metadata, never row values). Never
+   the exception message or a constraint Detail, which embed the offending
+   value. nil-safe."
+  [^Throwable t]
+  (when t
+    (if (instance? PSQLException t)
+      (let [^PSQLException e t
+            sem              (.getServerErrorMessage e)]
+        (cond-> {:error-class "PSQLException"
+                 :sql-state   (.getSQLState e)}
+          sem (assoc :constraint (.getConstraint sem)
+                     :table      (.getTable sem)
+                     :column     (.getColumn sem))))
+      {:error-class (.getName (class t))})))
+
 (defn postgres-constraint-violation-handler
   "Handler for PostgreSQL-specific exceptions.
 
   Uses SQL state codes to determine the type of constraint violation and
   provide user-friendly error messages."
   [^PSQLException e _request]
-  (let [error-message (.getMessage e)
-        sql-state     (.getSQLState e)]
-    (mulog/log ::postgres-exception :error error-message :sql-state sql-state)
-    {:status 409
-     :body   {:error (or (get postgres-sql-state-errors sql-state)
-                         "A database constraint was violated")}}))
+  ;; Log sql-state + constraint/table/column NAMES (schema metadata, under
+  ;; :diagnostics). The PSQLException message and its Detail embed the offending
+  ;; row value (which may be clinical content) and must never reach the logs or
+  ;; the alert email — only the response, to the therapist over TLS, carries a
+  ;; user-facing message.
+  (let [safe (safe-error-fields e)]
+    (mulog/log ::postgres-exception
+               :sql-state   (:sql-state safe)
+               :error-class (:error-class safe)
+               :diagnostics safe))
+  {:status 409
+   :body   {:error (or (get postgres-sql-state-errors (.getSQLState e))
+                       "A database constraint was violated")}})
+
+(defn redact-change
+  "A failing change-event reduced to non-clinical identifiers, for logging and
+   alerts. Drops `:data` (a Part's label/description/body_location/notes),
+   keeping only the entity, type, and id so an operator can locate a failure
+   without seeing clinical content. nil-safe."
+  [change]
+  (when change
+    (select-keys change [:entity :type :id])))
 
 (def exception
   "Middleware handling exceptions. Combines Reitit's default exception
@@ -58,10 +92,19 @@
      ;; ex-data carries `:failing-change` so the client can highlight it.
      :batch-failure
      (fn [^Exception e _request]
-       (let [data (ex-data e)]
+       (let [data (ex-data e)
+             safe (safe-error-fields (.getCause e))]
+         ;; Log structural identifiers + safe error metadata only — never the
+         ;; failing change's :data or the exception message, which carry a Part's
+         ;; clinical content. `:cause-type` and the cause's safe fields preserve
+         ;; *why* it failed. The response, to the therapist over TLS, still
+         ;; carries the full message and change for the client UI.
          (mulog/log ::batch-failure
-                    :error          (.getMessage e)
-                    :failing-change (:failing-change data))
+                    :failing-change (redact-change (:failing-change data))
+                    :cause-type     (:cause-type data)
+                    :sql-state      (:sql-state safe)
+                    :error-class    (:error-class safe)
+                    :diagnostics    safe)
          {:status 422
           :body   {:error          (or (.getMessage e) "Batch change failed")
                    :failing_change (:failing-change data)}}))
@@ -73,6 +116,8 @@
      ;; Default
      ::exception/default
      (fn [^Exception e _request]
-       (mulog/log ::unhandled-exception :error (.getMessage e))
+       (mulog/log ::unhandled-exception
+                  :error       (.getMessage e)
+                  :error-class (.getName (class e)))
        {:status 500
         :body   {:error "Internal server error"}})})))

@@ -202,7 +202,7 @@
   [name props]
   #?(:clj nil ; no-op on backend
      :cljs
-     (when (js/window.plausible)
+     (when js/window.plausible
        (js/window.plausible name
                             (clj->js {:props props})))))
 
