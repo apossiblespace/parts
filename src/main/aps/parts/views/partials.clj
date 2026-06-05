@@ -4,6 +4,7 @@
    [aps.parts.config :as conf]
    [aps.parts.launch :as launch]
    [aps.parts.version :as version]
+   [hiccup.util :as hu]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
 
 (defn scripts
@@ -246,7 +247,7 @@
     "Create your account to start using Parts."]
    (when error
      [:div {:class "alert alert-error text-sm mb-4"} error])
-   [:form {:method "post" :action (str "/invite/" token)}
+   [:form {:id "invite-form" :method "post" :action (str "/invite/" token)}
     [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}]
     ;; Display-only: the account's email is fixed by the invitation token,
     ;; never taken from this form. No `name`, so it is not submitted at all
@@ -279,8 +280,44 @@
              :type     "password"
              :name     "password_confirmation"
              :required true}]
+    [:label {:class "flex items-start gap-3 mb-2 cursor-pointer"}
+     [:input {:type     "checkbox"
+              :name     "accept_medical"
+              :class    "checkbox checkbox-sm shrink-0 mt-0.5"
+              :required true}]
+     [:span {:class "text-sm text-left"}
+      c/medical-data-notice]]
+    [:label {:class "flex items-start gap-3 mb-4 cursor-pointer"}
+     [:input {:type     "checkbox"
+              :name     "accept_legal"
+              :class    "checkbox checkbox-sm shrink-0 mt-0.5"
+              :required true}]
+     [:span {:class "text-sm text-left"}
+      "I have read and agree to the "
+      (interpose ", "
+                 (for [{:keys [slug label]} c/legal-documents]
+                   [:a {:href   (str "/" slug)
+                        :target "_blank"
+                        :class  "link link-primary"}
+                    label]))
+      "."]]
     [:button {:class "btn btn-primary w-full" :type "submit"}
-     "Create my account"]]))
+     "Create my account"]]
+   ;; Progressive enhancement: the button ships enabled (no-JS fallback — the
+   ;; browser's `required` check and the server both still gate submission).
+   ;; Where JS runs, disable it until every required field/checkbox is valid.
+   [:script
+    (hu/raw-string
+     "(function () {
+        var form = document.getElementById('invite-form');
+        if (!form) return;
+        var button = form.querySelector('button[type=submit]');
+        if (!button) return;
+        var sync = function () { button.disabled = !form.checkValidity(); };
+        form.addEventListener('input', sync);
+        form.addEventListener('change', sync);
+        sync();
+      })();")]))
 
 (defn invite-unavailable-content
   "The calm error page body, shown for any unusable invitation token —

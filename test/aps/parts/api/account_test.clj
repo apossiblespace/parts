@@ -11,6 +11,11 @@
 
 (use-fixtures :once with-test-db)
 
+(def ^:private acceptance
+  "The onboarding acceptances the server now requires (ADR-0009); merged into a
+   registration body so these flows still provision an account."
+  {:accepted-legal? true :accepted-medical? true})
+
 (deftest test-get-account
   (testing "returns currently signed in user's information"
     (let [user         (create-test-user!)
@@ -75,7 +80,7 @@
   (testing "register creates a new user with therapist role and a default map"
     (let [user-data                             (factory/build-test-user)
           {:keys [email username display_name]} user-data
-          mock-request                          {:body-params user-data}
+          mock-request                          {:body-params (merge user-data acceptance)}
           response                              (account/register-account mock-request)
           user                                  (:body response)]
       (is (= 201 (:status response)))
@@ -91,7 +96,7 @@
 
   (testing "registration creates a map for the new account, titled after the display name"
     (let [user-data (factory/build-test-user)
-          response  (account/register-account {:body-params user-data})
+          response  (account/register-account {:body-params (merge user-data acceptance)})
           user      (:body response)
           the-map   (parts-map/fetch (:map_id user))]
       (is (some? the-map) "the map exists in the database")
@@ -99,7 +104,7 @@
 
   (testing "if a write inside the tx throws, the user insert is rolled back"
     (let [user-data    (factory/build-test-user)
-          mock-request {:body-params user-data}]
+          mock-request {:body-params (merge user-data acceptance)}]
       (with-redefs [parts-map/create! (fn [_ _]
                                         (throw (ex-info "Simulated tx error" {})))]
         (is (thrown? Exception
@@ -113,7 +118,7 @@
 (deftest test-register-then-authenticate
   (testing "a registered user can immediately authenticate with their credentials"
     (let [user-data (factory/build-test-user)
-          _         (account/register-account {:body-params user-data})
+          _         (account/register-account {:body-params (merge user-data acceptance)})
           result    (auth/authenticate
                      (select-keys user-data [:email :password]))]
       (is (some? result) "authenticate returns the user")
@@ -121,7 +126,7 @@
 
   (testing "authenticates case-insensitively against the registered email"
     (let [user-data (factory/build-test-user)
-          _         (account/register-account {:body-params user-data})
+          _         (account/register-account {:body-params (merge user-data acceptance)})
           result    (auth/authenticate
                      {:email    (str/upper-case (:email user-data))
                       :password (:password user-data)})]

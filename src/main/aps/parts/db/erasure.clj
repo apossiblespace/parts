@@ -116,6 +116,7 @@
                   {:deletion_completed_at [:now]}
                   [:= :id user-uuid]
                   tx)
+      (jdbc/execute! tx ["DELETE FROM policy_acceptances WHERE user_id = ?" user-uuid])
       (jdbc/execute! tx ["DELETE FROM users WHERE id = ?" user-uuid]))
     (mulog/log ::purge-account-complete :user-id user-id)
     {:purged true :user-id user-id}))

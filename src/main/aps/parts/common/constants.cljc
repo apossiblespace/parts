@@ -46,3 +46,10 @@
   [{:slug "privacy" :label "Privacy Policy" :mini-label "Privacy"}
    {:slug "terms" :label "Terms of Service" :mini-label "Terms"}
    {:slug "dpa" :label "Data Processing Agreement" :mini-label "Data"}])
+
+(def medical-data-notice
+  "Label for the onboarding medical-data acknowledgement checkbox. A required
+   gate, not a recorded acceptance: the Privacy Policy (which discloses this
+   processing) is the versioned record, and the private-pay scoping is a Terms
+   of Service warranty accepted via the legal-documents checkbox (see ADR-0009)."
+  "I understand that mental-health information is processed in Parts, as described in the Privacy Policy.")

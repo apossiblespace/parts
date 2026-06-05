@@ -84,7 +84,9 @@
                       :password              (get form "password")
                       :password_confirmation (get form "password_confirmation")
                       :role                  "therapist"
-                      :is_founding_circle    (:is_founding_circle claimed)}
+                      :is_founding_circle    (:is_founding_circle claimed)
+                      :accepted-legal?       (some? (get form "accept_legal"))
+                      :accepted-medical?     (some? (get form "accept_medical"))}
                      tx))))]
           (mulog/log ::invitation-redeemed :email (:email invitation))
           ;; 303 See Other — POST-redirect-GET. Establish the auth session

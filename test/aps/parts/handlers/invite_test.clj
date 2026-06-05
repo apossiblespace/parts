@@ -23,7 +23,9 @@
   {"username"              username
    "display_name"          "Test Practitioner"
    "password"              "supersecret"
-   "password_confirmation" "supersecret"})
+   "password_confirmation" "supersecret"
+   "accept_medical"        "on"
+   "accept_legal"          "on"})
 
 (defn- revoke! [email]
   (binding [*out* (java.io.StringWriter.)]
@@ -103,3 +105,16 @@
       (is (str/includes? (:body response) "already taken"))
       (is (nil? (:redeemed_at (invitation-by-email email)))
           "the invitation is still usable after the conflict"))))
+
+(deftest redeem-requires-acceptance-test
+  (testing "POST without the acceptance checkboxes re-renders the form, creates no account, leaves the token usable"
+    (let [email           "redeem-noaccept@example.com"
+          {:keys [token]} (inv/generate-invitation! email)
+          response        (POST {:path-params {:token token}
+                                 :form-params (dissoc (valid-form "noaccept")
+                                                      "accept_medical" "accept_legal")})]
+      (is (= 400 (:status response)))
+      (is (str/includes? (:body response) "Create my account") "the form is re-rendered")
+      (is (nil? (user-by-email email)) "no account was created")
+      (is (nil? (:redeemed_at (invitation-by-email email)))
+          "the invitation is still usable"))))
