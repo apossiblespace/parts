@@ -44,6 +44,7 @@
             jq
             httpie
             watchexec
+            rclone
           ];
           
           shellHook = ''
