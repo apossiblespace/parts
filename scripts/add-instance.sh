@@ -6,13 +6,13 @@ set -euo pipefail
 # database + role, environment file, release symlink, plus its own
 # oauth2-proxy sidecar that gates the SPA shell behind GitHub
 # (`apossiblespace` org) membership. The Caddy site file routes /api/*
-# straight to the JVM (the SPA's JWT auth is the only gate there, so XHRs
-# always see JSON 401s — never HTML redirects) and everything else through
+# straight to the JVM (the app's own session auth is the only gate there, so
+# XHRs always see JSON 401s — never HTML redirects) and everything else through
 # oauth2-proxy, which proxies to the JVM when authenticated and redirects
 # to its own sign-in page when not.
 #
 # Run as root on the server. Idempotent — safe to re-run; the postgres
-# role password, PARTS__AUTH__SECRET, and oauth2-proxy COOKIE_SECRET are
+# role password, PARTS__SESSION__KEY, and oauth2-proxy COOKIE_SECRET are
 # generated once and preserved across re-runs.
 #
 #   add-instance.sh <instance> <domain> <port>
@@ -53,16 +53,16 @@ OAUTH2_PROXY_SERVICE=$SERVICE-oauth2-proxy
 # Pin the oauth2-proxy version so re-runs install the same binary. Check
 # https://github.com/oauth2-proxy/oauth2-proxy/releases when bumping; the
 # checksum verification below catches a stale URL.
-OAUTH2_PROXY_VERSION=v7.6.0
+OAUTH2_PROXY_VERSION=v7.15.3
 # GitHub org used as the access list. Add/remove members at
 # https://github.com/orgs/apossiblespace/people to grant/revoke staging access.
 OAUTH_ORG=apossiblespace
 
 # Secrets are generated once, on the first run for this instance. A re-run
 # must NOT regenerate them: the DB password would drift from the postgres
-# role, a rotated PARTS__AUTH__SECRET would invalidate live JWTs, and a
-# rotated COOKIE_SECRET would log every staging user out. Existence of
-# $ENV_FILE is the "already provisioned" signal.
+# role, a rotated PARTS__SESSION__KEY would invalidate everyone's session
+# cookie, and a rotated COOKIE_SECRET would log every staging user out.
+# Existence of $ENV_FILE is the "already provisioned" signal.
 if [[ -f "$ENV_FILE" ]]; then
     FIRST_RUN=false
     echo "✓ $ENV_FILE exists — leaving its secrets and the postgres role untouched"
@@ -70,7 +70,9 @@ else
     FIRST_RUN=true
     command -v openssl >/dev/null || { echo "openssl not found" >&2; exit 1; }
     DB_PASSWORD=$(openssl rand -hex 24)
-    AUTH_SECRET=$(openssl rand -hex 32)
+    # PARTS__SESSION__KEY must be exactly 16 bytes (ADR-0007) or the app refuses
+    # to boot. 16 hex chars = 16 bytes.
+    SESSION_KEY=$(openssl rand -hex 8)
     # oauth2-proxy COOKIE_SECRET must be exactly 16, 24, or 32 bytes.
     COOKIE_SECRET=$(openssl rand -base64 32 | head -c 32)
 fi
@@ -97,14 +99,20 @@ if [[ "$INSTALLED_VERSION" != "$OAUTH2_PROXY_VERSION" ]]; then
     workdir=$(mktemp -d)
     trap 'rm -rf "$workdir"' EXIT
 
-    curl -fSL -o "$workdir/oauth2-proxy.tar.gz" "$BASE_URL/${ASSET}.tar.gz"
-    curl -fSL -o "$workdir/sha256sum.txt"        "$BASE_URL/sha256sum.txt"
+    # Save the tarball under its ORIGINAL name so the checksum line (which
+    # names that file) verifies against the file we actually downloaded.
+    curl -fSL -o "$workdir/${ASSET}.tar.gz" "$BASE_URL/${ASSET}.tar.gz"
+    # oauth2-proxy publishes a PER-ASSET checksum file (there is no combined
+    # sha256sum.txt). Use the one ending ".tar.gz-sha256sum.txt" — NOT the
+    # "<asset>-sha256sum.txt" without ".tar.gz", which checksums the extracted
+    # binary, not the tarball we're about to verify.
+    curl -fSL -o "$workdir/sha256sum.txt"   "$BASE_URL/${ASSET}.tar.gz-sha256sum.txt"
 
     # Verify checksum before installing — we're about to run this binary
     # under systemd with access to env-file secrets.
     (cd "$workdir" && grep " ${ASSET}.tar.gz$" sha256sum.txt | sha256sum -c -)
 
-    tar -xzf "$workdir/oauth2-proxy.tar.gz" -C "$workdir"
+    tar -xzf "$workdir/${ASSET}.tar.gz" -C "$workdir"
     install -m 0755 -o root -g root \
         "$workdir/${ASSET}/oauth2-proxy" /usr/local/bin/oauth2-proxy
 
@@ -115,10 +123,17 @@ fi
 # password can't authenticate against the prod database. The parts role's
 # CREATEROLE grant (from bootstrap-prod.sh) is what lets this run.
 if [[ "$FIRST_RUN" == true ]]; then
-    sudo -u postgres psql <<SQL || true
-CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';
-CREATE DATABASE $DB_NAME OWNER $DB_USER;
-SQL
+    # Create the role only if absent, but ALWAYS (re)set its password to the
+    # value written into the env file below — a CREATE USER that hits an existing
+    # role silently changes nothing, leaving the role password stale and out of
+    # sync with the env (which fails auth at boot). The database is created only
+    # if absent.
+    role_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'")
+    [[ "$role_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE $DB_USER"
+    printf "ALTER ROLE %s WITH LOGIN PASSWORD '%s';\n" "$DB_USER" "$DB_PASSWORD" \
+        | sudo -u postgres psql
+    db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")
+    [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER"
 fi
 
 # 3. app environment file — written once, with the generated secrets
@@ -133,7 +148,7 @@ PARTS__HTTP__PORT=$PORT
 PARTS__DB__NAME=$DB_NAME
 PARTS__DB__USER=$DB_USER
 PARTS__DB__PASSWORD=$DB_PASSWORD
-PARTS__AUTH__SECRET=$AUTH_SECRET
+PARTS__SESSION__KEY=$SESSION_KEY
 JAVA_OPTS=-server -Xms256m -Xmx256m
 EOF
     chown root:root "$ENV_FILE"
@@ -233,8 +248,8 @@ mkdir -p /etc/caddy/sites
 grep -qF 'import /etc/caddy/sites/' /etc/caddy/Caddyfile 2>/dev/null ||
     echo 'import /etc/caddy/sites/*.caddy' >>/etc/caddy/Caddyfile
 
-# Caddy reduced to routing: /api/* goes straight to the JVM (the SPA's
-# JWT auth is the only gate, so XHRs always see JSON 401s — never HTML
+# Caddy reduced to routing: /api/* goes straight to the JVM (the app's own
+# session auth is the only gate, so XHRs always see JSON 401s — never HTML
 # redirects). Everything else routes through oauth2-proxy, which gates
 # on GitHub org membership and proxies to the JVM when authenticated.
 # Redirect-to-login is handled natively by oauth2-proxy; no Caddy

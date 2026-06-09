@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ADMIN_USER=admin
+# Override the admin account name per-host: ADMIN_USER=gosha ./bootstrap-prod.sh
+# (a re-run that forgets the override would otherwise create a second admin).
+ADMIN_USER="${ADMIN_USER:-admin}"
 APP_USER=parts
 APP_NAME=parts
 APP_DIR=/opt/$APP_NAME
@@ -46,43 +48,68 @@ id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --shell /usr
 mkdir -p "$APP_DIR/releases"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
-# 3. postgres
-sudo -u postgres psql <<EOF || true
-CREATE USER $APP_NAME WITH PASSWORD 'change-me' CREATEROLE;
-CREATE DATABASE ${APP_NAME}_prod OWNER $APP_NAME;
+# 3. postgres + secrets + env file — generated once. The env file's existence
+# is the "already provisioned" signal, so a re-run never regenerates secrets
+# (regenerating would drift the DB password from the role and rotate the
+# session key, logging everyone out). The DB password is generated here and
+# reused in the env file below, so the two can never disagree.
+if [[ -f /etc/$APP_NAME.env ]]; then
+    echo "✓ /etc/$APP_NAME.env exists — leaving the DB password and secrets untouched"
+else
+    command -v openssl >/dev/null || { echo "openssl not found" >&2; exit 1; }
+    DB_PASSWORD=$(openssl rand -hex 24)
+    # PARTS__SESSION__KEY must be EXACTLY 16 bytes (ADR-0007) or the app refuses
+    # to boot. 16 hex chars = 16 bytes.
+    SESSION_KEY=$(openssl rand -hex 8)
+
+    # Create the role only if absent, but ALWAYS (re)set its password to the
+    # value written into the env file below. A bare CREATE USER that hits an
+    # already-existing role silently changes nothing — leaving the role on a
+    # stale password that mismatches the freshly-written env and fails auth at
+    # boot. The ALTER (fed via stdin, so the password never lands in argv/ps)
+    # force-syncs the two. The database is created only if absent, never dropped.
+    role_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$APP_NAME'")
+    [[ "$role_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE $APP_NAME"
+    printf "ALTER ROLE %s WITH LOGIN CREATEROLE PASSWORD '%s';\n" "$APP_NAME" "$DB_PASSWORD" \
+        | sudo -u postgres psql
+    db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${APP_NAME}_prod'")
+    [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE ${APP_NAME}_prod OWNER $APP_NAME"
+
+    cat >/etc/$APP_NAME.env <<EOF
+PARTS__ENV=prod
+
+# Database — generated to match the postgres role created above.
+PARTS__DB__PASSWORD=$DB_PASSWORD
+
+# 16-byte key encrypting the auth-session cookie (ADR-0007). Exactly 16 bytes,
+# or the app refuses to boot. Regenerate with: openssl rand -hex 8
+PARTS__SESSION__KEY=$SESSION_KEY
+
+JAVA_OPTS=-server -Xms512m -Xmx512m
+
+# --- Optional: operator error-alert emails (stays off until all four are set;
+#     see docs/runbook.md "Error alerts"). On Hetzner use port 587 (25/465 blocked).
+#PARTS__SMTP__HOST=smtp.fastmail.com
+#PARTS__SMTP__PORT=587
+#PARTS__SMTP__USER=<smtp-login>
+#PARTS__SMTP__PASSWORD=<fastmail-app-password>
+#PARTS__ALERT__TO=<where alerts go>
+#PARTS__ALERT__FROM=<optional; defaults to the SMTP user>
+
+# --- Optional overrides (prod.edn already sets prod defaults) ---
+#PARTS__REPL__PORT=7888   # prod nREPL bind port (loopback only)
+#PARTS__HTTP__PORT=3000
 EOF
+    chown root:root /etc/$APP_NAME.env
+    chmod 600 /etc/$APP_NAME.env
+    echo "✓ Wrote /etc/$APP_NAME.env with generated secrets (root:root, 600)"
+fi
 
 # 4. ufw
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
-
-# 5. environment file template
-cat >/etc/$APP_NAME.env.example <<EOF
-# Application environment
-PARTS__ENV=prod
-
-# Database connection (password should be set securely)
-PARTS__DB__PASSWORD=change-me
-
-# Authentication secret (MUST be set to a secure random value)
-PARTS__AUTH__SECRET=change-me-to-secure-random-string
-
-# JVM flags — the systemd unit passes these straight through to java.
-# This is the ONLY place they live; the unit hardcodes no heap settings.
-JAVA_OPTS=-server -Xms512m -Xmx512m
-
-# Optional: override defaults from resources/parts/config.edn
-# PARTS__HTTP__PORT=3000
-# PARTS__DB__HOST=localhost
-# PARTS__DB__PORT=5432
-# PARTS__DB__NAME=parts_prod
-# PARTS__DB__USER=parts
-# PARTS__DB__SSL=true
-EOF
-
-echo "⚠️  Created /etc/$APP_NAME.env.example - copy to /etc/$APP_NAME.env and set secrets"
 
 # 6. systemd unit — every runtime parameter comes from the EnvironmentFile;
 # the unit hardcodes nothing tunable. systemd expands $JAVA_OPTS and splits
