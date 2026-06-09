@@ -32,12 +32,12 @@
     {:success true :result (part/create! part-data actor-id tx)}))
 
 (defmethod process-change [:part :update]
-  [{:keys [actor-id tx]} {:keys [id data]}]
-  {:success true :result (part/update! id data actor-id tx)})
+  [{:keys [map-id actor-id tx]} {:keys [id data]}]
+  {:success true :result (part/update! id data actor-id tx map-id)})
 
 (defmethod process-change [:part :remove]
-  [{:keys [actor-id tx]} {:keys [id]}]
-  {:success true :result (part/delete! id actor-id tx)})
+  [{:keys [map-id actor-id tx]} {:keys [id]}]
+  {:success true :result (part/delete! id actor-id tx map-id)})
 
 (defmethod process-change [:relationship :create]
   [{:keys [map-id actor-id tx]} {:keys [id data]}]
@@ -45,12 +45,12 @@
     {:success true :result (relationship/create! rel-data actor-id tx)}))
 
 (defmethod process-change [:relationship :update]
-  [{:keys [actor-id tx]} {:keys [id data]}]
-  {:success true :result (relationship/update! id data actor-id tx)})
+  [{:keys [map-id actor-id tx]} {:keys [id data]}]
+  {:success true :result (relationship/update! id data actor-id tx map-id)})
 
 (defmethod process-change [:relationship :remove]
-  [{:keys [actor-id tx]} {:keys [id]}]
-  {:success true :result (relationship/delete! id actor-id tx)})
+  [{:keys [map-id actor-id tx]} {:keys [id]}]
+  {:success true :result (relationship/delete! id actor-id tx map-id)})
 
 ;; -- Transport-agnostic batch entry point ---------------------------------
 

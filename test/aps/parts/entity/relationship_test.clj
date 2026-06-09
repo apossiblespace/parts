@@ -108,3 +108,29 @@
                                              (:id user))]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (relationship/update! (:id relationship) {:type "invalid-type"} (:id user)))))))
+
+(deftest test-relationship-endpoint-scoping
+  ;; Guards the cross-Map IDOR fix: a relationship can't connect to a Part
+  ;; that lives in a different Map, even when the actor owns both Maps.
+  (testing "create rejects an endpoint Part from another Map"
+    (let [user   (create-test-user!)
+          map-a  (parts-map/create! {:title "Map A" :owner_id (:id user)} (:id user))
+          map-b  (parts-map/create! {:title "Map B" :owner_id (:id user)} (:id user))
+          a-part (part/create! {:map_id     (:id map-a)
+                                :type       "manager"
+                                :label      "A"
+                                :position_x 1
+                                :position_y 1}
+                               (:id user))
+          b-part (part/create! {:map_id     (:id map-b)
+                                :type       "exile"
+                                :label      "B"
+                                :position_x 2
+                                :position_y 2}
+                               (:id user))]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not a Part in this Map"
+                            (relationship/create! {:map_id    (:id map-a)
+                                                   :source_id (:id a-part)
+                                                   :target_id (:id b-part)
+                                                   :type      "protective"}
+                                                  (:id user)))))))

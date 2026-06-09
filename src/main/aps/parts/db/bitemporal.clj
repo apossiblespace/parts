@@ -122,6 +122,14 @@
    `upper(sys_period) = 'infinity'`."
   [:= [:upper :sys_period] [:cast [:inline "infinity"] :timestamptz]])
 
+(def ^:private vt-open
+  "HoneySQL predicate: the row's valid-time extends to infinity, i.e. the
+   entity exists from its start onward and has not been retracted.
+   `upper(valid_at) = 'infinity'`. Unlike `vt-contains`, this never names
+   `now()`, so it is immune to Postgres freezing `now()` at transaction
+   start — see `live-rows`."
+  [:= [:upper :valid_at] [:cast [:inline "infinity"] :timestamptz]])
+
 (defn- vt-contains
   "HoneySQL predicate: `valid_at @> $t`."
   [t]
@@ -152,32 +160,40 @@
     (jdbc/with-transaction [inner tx]
       (f inner))))
 
-(defn- find-current-row [tx table id]
+(defn- current-where
+  "WHERE for the currently-in-effect row: id + TT-current + VT @> now,
+   plus an optional caller-supplied `scope` fragment (e.g. `[:= :map_id m]`)
+   that confines the match to an authorisation boundary. A row that exists
+   but falls outside `scope` simply doesn't match — the caller sees
+   not-found rather than touching a row it isn't allowed to."
+  [id scope]
+  (cond-> [:and
+           [:= :id id]
+           tt-current
+           (vt-contains [:now])]
+    scope (conj scope)))
+
+(defn- find-current-row [tx table id scope]
   (first
    (jdbc/execute! tx
                   (sql/format {:select [:*]
                                :from   [table]
-                               :where  [:and
-                                        [:= :id id]
-                                        tt-current
-                                        (vt-contains [:now])]})
+                               :where  (current-where id scope)})
                   exec-opts)))
 
 (defn- close-current-row!
   "Advance the `sys_period` upper bound of the currently-in-effect row to
-   `now()`. Matches by id + TT-current + VT-current — other open-sys_period
-   rows (historical-belief slices from prior updates) keep their state."
-  [tx table id]
+   `now()`. Matches by id + TT-current + VT-current (+ optional `scope`) —
+   other open-sys_period rows (historical-belief slices from prior updates)
+   keep their state."
+  [tx table id scope]
   (jdbc/execute! tx
                  (sql/format {:update table
                               :set    {:sys_period [:tstzrange
                                                     [:lower :sys_period]
                                                     [:now]
                                                     [:inline "[)"]]}
-                              :where  [:and
-                                       [:= :id id]
-                                       tt-current
-                                       (vt-contains [:now])]})))
+                              :where  (current-where id scope)})))
 
 ;; -- Writes ----------------------------------------------------------------
 ;;
@@ -223,17 +239,24 @@
 
    Returns the new row (without internal cols).
 
+   Opts:
+     :actor-id  (required)
+     :scope     (optional) extra WHERE fragment ANDed into the row lookup —
+                e.g. `[:= :map_id m]`. A row outside the scope is treated as
+                not-found, so the caller can't update a row beyond its
+                authorisation boundary.
+
    For asserting a fact about a non-overlapping past valid time, use
    `insert!` directly with an explicit `:valid-at`."
-  [tx table id changes {:keys [actor-id]}]
+  [tx table id changes {:keys [actor-id scope]}]
   (assert actor-id "actor-id is required")
   (with-tx tx
     (fn [tx]
-      (let [current (find-current-row tx table id)]
+      (let [current (find-current-row tx table id scope)]
         (when-not current
           (throw (ex-info "Row not found in current state"
                           {:type :not-found :id id :table table})))
-        (close-current-row! tx table id)
+        (close-current-row! tx table id scope)
         (let [now-ts          (java.time.OffsetDateTime/now)
               old-valid       (:valid_at current)
               old-lower       (:lower old-valid)
@@ -267,15 +290,15 @@
      1. Find the currently-in-effect row (id + TT-current + VT @> now).
      2. Close its `sys_period` upper at `now()`.
      3. Insert a corrected row with the *same* `valid_at` and the merged values."
-  [tx table id changes {:keys [actor-id]}]
+  [tx table id changes {:keys [actor-id scope]}]
   (assert actor-id "actor-id is required")
   (with-tx tx
     (fn [tx]
-      (let [current (find-current-row tx table id)]
+      (let [current (find-current-row tx table id scope)]
         (when-not current
           (throw (ex-info "Row not found in current state"
                           {:type :not-found :id id :table table})))
-        (close-current-row! tx table id)
+        (close-current-row! tx table id scope)
         (let [old-valid  (:valid_at current)
               old-values (internal-cols current)
               new-values (merge old-values changes {:id id})]
@@ -292,13 +315,15 @@
    does.
 
    Returns `{:retracted true :id id}` or `{:retracted false :id id}` if no
-   current row was found."
-  [tx table id {:keys [actor-id]}]
+   current row was found (including a row that exists but falls outside an
+   optional `:scope` WHERE fragment — same authorisation-boundary semantics
+   as `update!`)."
+  [tx table id {:keys [actor-id scope]}]
   (assert actor-id "actor-id is required")
   (with-tx tx
     (fn [tx]
-      (if-let [current (find-current-row tx table id)]
-        (let [_            (close-current-row! tx table id)
+      (if-let [current (find-current-row tx table id scope)]
+        (let [_            (close-current-row! tx table id scope)
               old-valid    (:valid_at current)
               successor    (internal-cols current)
               closed-valid (range/tstzrange (:lower old-valid)
@@ -329,6 +354,18 @@
    (as-of-now ds table nil))
   ([ds table where]
    (query ds table where (into [:and tt-current (vt-contains [:now])]))))
+
+(defn live-rows
+  "Currently-existing rows: current-belief (TT-current) AND not retracted
+   (`valid_at` open to infinity). Differs from `as-of-now` in one crucial
+   way — it never compares against SQL `now()`, which Postgres freezes at
+   transaction start. So `live-rows` sees rows inserted *earlier in the same
+   transaction*, where `as-of-now` would not (their `valid_at` lower bound is
+   later than the frozen `now()`). Use it to validate references between rows
+   created together in one batch — e.g. confirming a Relationship's endpoints
+   are Parts created earlier in the same change-batch transaction."
+  [ds table where]
+  (query ds table where (into [:and tt-current vt-open])))
 
 (defn as-of-valid
   "Time-slice: VT-time-slice + TT-current. Powers the scrubber:
