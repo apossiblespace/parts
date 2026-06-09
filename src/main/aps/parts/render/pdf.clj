@@ -28,10 +28,10 @@
    Single-threaded under the hood (Batik transcoders mutate shared
    bridge state); concurrent calls queue.
 
-   On transcode failure, logs the offending SVG to mulog under
-   `::transcode-failed` before rethrowing — Batik's exception message
-   only names the failing attribute / element, not the surrounding
-   context. The log line is the diagnostic surface."
+   On transcode failure, logs the SVG length and Batik's exception
+   message under `::transcode-failed` before rethrowing. The SVG body
+   itself is never logged: it is built from Part labels, notes and
+   body_location (clinical content), which must not leak into the logs."
   ^bytes [^String svg]
   (let [baos (ByteArrayOutputStream.)]
     (try
@@ -42,7 +42,6 @@
       (catch Exception e
         (mulog/log ::transcode-failed
                    :svg-length (count svg)
-                   :svg svg
                    :error (.getMessage e))
         (throw e)))
     (.toByteArray baos)))
