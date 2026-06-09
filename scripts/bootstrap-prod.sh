@@ -50,6 +50,15 @@ id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --shell /usr
 mkdir -p "$APP_DIR/releases"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
+# Legal-doc content dir — the operator pushes their Privacy Policy / ToS / DPA
+# (<slug>.md + optional <slug>.pdf) here out-of-band; the app serves them at
+# /privacy /terms /dpa (see :legal/content-dir in resources/parts/prod.edn).
+# Owned by the admin user (who writes via the deploy), readable by the app user.
+# Empty until content is pushed — until then the app serves the bundled examples.
+mkdir -p /var/lib/parts/legal
+chown "$ADMIN_USER:$APP_USER" /var/lib/parts/legal
+chmod 755 /var/lib/parts/legal
+
 # 3. postgres + secrets + env file — generated once. The env file's existence
 # is the "already provisioned" signal, so a re-run never regenerates secrets
 # (regenerating would drift the DB password from the role and rotate the

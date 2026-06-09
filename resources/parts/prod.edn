@@ -6,6 +6,11 @@
  :http/protocol "https"
  :app/base-url "https://parts.ifs.tools"
 
+ ;; Operator legal docs (Privacy Policy / ToS / DPA) live here as <slug>.md
+ ;; (+ optional <slug>.pdf), deployed out-of-band by the operator. Empty until
+ ;; then — the loader falls back to the bundled resources/legal/*.example.md.
+ :legal/content-dir "/var/lib/parts/legal"
+
  :repl/port 7888
  :repl/host "127.0.0.1"
 
