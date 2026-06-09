@@ -70,9 +70,10 @@ else
     FIRST_RUN=true
     command -v openssl >/dev/null || { echo "openssl not found" >&2; exit 1; }
     DB_PASSWORD=$(openssl rand -hex 24)
-    # PARTS__SESSION__KEY must be exactly 16 bytes (ADR-0007) or the app refuses
-    # to boot. 16 hex chars = 16 bytes.
-    SESSION_KEY=$(openssl rand -hex 8)
+    # PARTS__SESSION__KEY must be EXACTLY 16 bytes (ADR-0007) or the app refuses
+    # to boot. 16 alphanumeric chars = 16 bytes ≈ 95 bits of entropy. (Do NOT use
+    # `openssl rand -hex 8`: 16 chars but only 64 bits — a brute-forceable key.)
+    SESSION_KEY=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
     # oauth2-proxy COOKIE_SECRET must be exactly 16, 24, or 32 bytes.
     COOKIE_SECRET=$(openssl rand -base64 32 | head -c 32)
 fi

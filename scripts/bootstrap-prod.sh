@@ -7,7 +7,9 @@ ADMIN_USER="${ADMIN_USER:-admin}"
 APP_USER=parts
 APP_NAME=parts
 APP_DIR=/opt/$APP_NAME
-DOMAIN=parts.example.com
+# Set per-host: DOMAIN=parts.ifs.tools ./bootstrap-prod.sh. Left as the
+# placeholder, the prod Caddy site matches no real traffic and gets no cert.
+DOMAIN="${DOMAIN:-parts.example.com}"
 
 # 1. basic packages
 apt-get update
@@ -59,8 +61,10 @@ else
     command -v openssl >/dev/null || { echo "openssl not found" >&2; exit 1; }
     DB_PASSWORD=$(openssl rand -hex 24)
     # PARTS__SESSION__KEY must be EXACTLY 16 bytes (ADR-0007) or the app refuses
-    # to boot. 16 hex chars = 16 bytes.
-    SESSION_KEY=$(openssl rand -hex 8)
+    # to boot. 16 alphanumeric chars = 16 bytes ≈ 95 bits of entropy. (Do NOT
+    # use `openssl rand -hex 8`: that is 16 chars but only 64 bits of real
+    # entropy — the AES cookie store would rest on a brute-forceable secret.)
+    SESSION_KEY=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
 
     # Create the role only if absent, but ALWAYS (re)set its password to the
     # value written into the env file below. A bare CREATE USER that hits an
@@ -82,7 +86,8 @@ PARTS__ENV=prod
 PARTS__DB__PASSWORD=$DB_PASSWORD
 
 # 16-byte key encrypting the auth-session cookie (ADR-0007). Exactly 16 bytes,
-# or the app refuses to boot. Regenerate with: openssl rand -hex 8
+# or the app refuses to boot. Regenerate with:
+#   LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
 PARTS__SESSION__KEY=$SESSION_KEY
 
 JAVA_OPTS=-server -Xms512m -Xmx512m
@@ -221,8 +226,13 @@ EOF
 systemctl daemon-reload
 systemctl enable $APP_NAME-backup.timer
 
-# 8. caddy
-cat >/etc/caddy/Caddyfile <<EOF
+# 8. caddy — the prod site lives in sites/ alongside any add-instance sites, and
+# the main Caddyfile is just the import. So a re-run rewrites only prod's file and
+# can't drop the import or clobber an instance's site (add-instance appends the
+# same import line; with it already here, that append is a harmless no-op).
+mkdir -p /etc/caddy/sites
+echo 'import /etc/caddy/sites/*.caddy' >/etc/caddy/Caddyfile
+cat >/etc/caddy/sites/parts.caddy <<EOF
 $DOMAIN {
     reverse_proxy 127.0.0.1:3000
     encode gzip
@@ -234,6 +244,11 @@ $DOMAIN {
     }
 }
 EOF
+
+if [[ "$DOMAIN" == parts.example.com ]]; then
+    echo "⚠️  DOMAIN is still 'parts.example.com' — set DOMAIN=your.domain and re-run;" >&2
+    echo "    Caddy cannot obtain a certificate for the placeholder hostname." >&2
+fi
 
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
