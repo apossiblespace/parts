@@ -15,7 +15,8 @@
    [lambdaisland.config :as l-config]
    [nrepl.server :as nrepl]
    [org.httpkit.server :as server]
-   [reitit.ring :as ring])
+   [reitit.ring :as ring]
+   [ring.middleware.head :as head])
   (:gen-class))
 
 (defn app
@@ -43,7 +44,11 @@
                            {:data {:middleware [middleware/logging
                                                 errors/exception]}})
               (ring/ring-handler (ring/create-default-handler))
-              middleware/wrap-core-middlewares)]
+              middleware/wrap-core-middlewares
+              ;; Treat HEAD like GET (body stripped) on every route — reitit
+              ;; doesn't synthesize HEAD, so without this a HEAD probe gets 405.
+              ;; Health monitors (and the free UptimeRobot tier) only do HEAD.
+              head/wrap-head)]
       (handler req))))
 
 (defn start-log-publisher

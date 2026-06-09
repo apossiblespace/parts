@@ -164,8 +164,6 @@
             :muuntaja   transit-format
             :coercion   rcs/coercion}
 
-    ["/ping" {:get {:handler (fn [_] {:status 200 :body {:message "Pong!"}})}}]
-
     ["/auth"
      ["/login" {:post {:handler api.auth/login}}]
      ["/logout" {:post {:middleware [auth-mw/require-auth]
