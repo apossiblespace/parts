@@ -190,4 +190,5 @@
            :delete {:handler api.maps/delete-map}}]
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
       ["/render.pdf"  {:get {:handler api.maps/render-pdf}}]
+      ["/export.json" {:get {:handler api.maps/export-json}}]
       ["/changes" {:post {:handler api.maps/process-changes}}]]]]])

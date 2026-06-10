@@ -169,3 +169,46 @@
                              first :label))))
       (testing "no phantom row was created under the rogue id"
         (is (zero? (count-current :parts rogue-id)))))))
+
+(deftest test-history-returns-all-valid-time-versions
+  (testing "history folds across every valid-time version (current belief),
+            chronological, with the valid interval surfaced as valid_from/valid_to"
+    (let [user     (create-test-user!)
+          the-map  (create-test-map! (:id user))
+          row      (assoc (part-row (:id the-map)) :label "v1")
+          _        (bt/insert! db/datasource :parts row {:actor-id (:id user)})
+          _        (Thread/sleep 50)
+          _        (bt/update! db/datasource :parts (:id row) {:label "v2"} {:actor-id (:id user)})
+          _        (Thread/sleep 50)
+          _        (bt/update! db/datasource :parts (:id row) {:label "v3"} {:actor-id (:id user)})
+          versions (bt/history db/datasource :parts [:= :id (:id row)])]
+
+      (testing "one row per valid-time version, in chronological order"
+        (is (= ["v1" "v2" "v3"] (map :label versions))))
+
+      (testing "the live version's valid_to is nil; superseded ones are closed"
+        (is (nil? (:valid_to (last versions))))
+        (is (every? some? (map :valid_to (butlast versions)))))
+
+      (testing "every version carries a valid_from"
+        (is (every? :valid_from versions)))
+
+      (testing "internal temporal/actor columns are not surfaced"
+        (is (not-any? #(contains? % :valid_at) versions))
+        (is (not-any? #(contains? % :sys_period) versions))
+        (is (not-any? #(contains? % :actor_id) versions))))))
+
+(deftest test-history-includes-retracted-versions
+  (testing "a retracted entity stays in history with a closed valid interval —
+            removed from the live view, not erased"
+    (let [user     (create-test-user!)
+          the-map  (create-test-map! (:id user))
+          row      (assoc (part-row (:id the-map)) :label "Removed")
+          _        (bt/insert! db/datasource :parts row {:actor-id (:id user)})
+          _        (Thread/sleep 50)
+          _        (bt/retract! db/datasource :parts (:id row) {:actor-id (:id user)})
+          versions (bt/history db/datasource :parts [:= :id (:id row)])]
+      (is (zero? (count-current :parts (:id row))) "gone from the live view")
+      (is (= 1 (count versions)) "but still present in history")
+      (is (= "Removed" (:label (first versions))))
+      (is (some? (:valid_to (first versions))) "with a closed valid_to"))))

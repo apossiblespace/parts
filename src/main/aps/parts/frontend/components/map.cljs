@@ -140,7 +140,7 @@
                         :class    (str "dropdown-content menu menu-sm "
                                        "bg-base-100 border border-base-300 "
                                        "rounded-box shadow-sm "
-                                       "z-10 mt-1 w-44 p-2")}
+                                       "z-10 mt-1 w-44 p-0")}
                    ($ :li
                       ($ :a {:on-click (fn []
                                          (set-editing! true)
@@ -161,7 +161,21 @@
                                          (o/track "Map PDF downloaded" {})
                                          (close-dropdown!))}
                          ($ Download {:size 16})
-                         "Download PDF")))))))))
+                         "Download PDF"))
+                   ($ :li ($ :hr {:class "mt-0 p-0 border-base-300"}))
+                   ($ :li
+                      ;; Like the PDF above (native `<a download>`), but the full
+                      ;; Map history as JSON — the data-subject export (ADR-0010).
+                      ;; Used far less than Rename / PDF, so it sits below a
+                      ;; separator and drops the icon; the empty w-4 spacer keeps
+                      ;; its label aligned with the icon'd items above.
+                      ($ :a {:href     (str "/api/maps/" map-id "/export.json")
+                             :download ""
+                             :on-click (fn []
+                                         (o/track "Map data exported" {})
+                                         (close-dropdown!))}
+                         ($ :span {:class "w-4 shrink-0"})
+                         "Export map data")))))))))
 
 (defui map-canvas []
   (let [demo                  (uix.rf/use-subscribe [:demo])

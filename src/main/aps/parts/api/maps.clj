@@ -3,11 +3,14 @@
    [aps.parts.api.maps-events :as events]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
+   [aps.parts.export :as export]
    [aps.parts.render.document :as document]
    [aps.parts.render.pdf :as pdf]
    [aps.parts.render.preview :as preview]
    [clojure.string :as str]
+   [clojure.walk :as walk]
    [com.brunobonacci.mulog :as mulog]
+   [jsonista.core :as json]
    [ring.util.response :as response])
   (:import
    (java.io ByteArrayInputStream)))
@@ -111,6 +114,29 @@
                :change-count (count results))
     (-> (response/response {:success true :results results})
         (response/status 200))))
+
+(defn- json-safe
+  "Make export data JSON-friendly: OffsetDateTime endpoints become ISO-8601
+   strings (UUIDs jsonista already renders as strings)."
+  [x]
+  (walk/postwalk
+   (fn [v] (if (instance? java.time.OffsetDateTime v) (str v) v))
+   x))
+
+(defn export-json
+  "Export a Map's full valid-time history as a downloadable JSON file — the data
+   subject's Art. 15 / 20 copy (ADR-0010). Access gated by `wrap-map-access`, so
+   missing / not-owned both 404 before we get here."
+  [{:keys [parameters] :as _request}]
+  (let [map-id   (get-in parameters [:path :id])
+        filename (str (safe-filename (:title (parts-map/fetch map-id))) ".json")
+        body     (json/write-value-as-string
+                  (json-safe (export/export-map db/datasource map-id)))]
+    (-> (response/response body)
+        (response/status 200)
+        (response/header "Content-Type" "application/json")
+        (response/header "Content-Disposition"
+                         (str "attachment; filename=\"" filename "\"")))))
 
 (defn preview-svg
   "Render a Map as a glanceable preview SVG for the Maps-list

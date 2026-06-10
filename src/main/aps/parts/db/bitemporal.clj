@@ -383,6 +383,44 @@
   ([ds table sys-t valid-t where]
    (query ds table where (into [:and (tt-contains sys-t) (vt-contains valid-t)]))))
 
+(defn- endpoint->instant
+  "A range endpoint as an OffsetDateTime, or nil for an unbounded end
+   (`:infinity` / `:-infinity`) — so a reader can hand out 'no boundary' as nil
+   rather than a sentinel keyword."
+  [e]
+  (when (instance? java.time.OffsetDateTime e) e))
+
+(defn- ->version
+  "Shape a history row for a caller outside the temporal layer: business columns
+   plus the valid interval surfaced as `:valid_from` / `:valid_to` (an unbounded
+   end is nil). The internal columns are stripped — we read `valid_at`'s bounds
+   out, then drop it, so the temporal vocabulary never leaves this namespace."
+  [row]
+  (let [{:keys [lower upper]} (:valid_at row)]
+    (assoc (internal-cols row)
+           :valid_from (endpoint->instant lower)
+           :valid_to   (endpoint->instant upper))))
+
+(defn history
+  "Every current-belief valid-time version of the rows matching `where`, ordered
+   by valid-time — a Map's full history as we now understand it (TT-current,
+   folded across all VT). Powers the data-subject export (ADR-0010).
+
+   Unlike the time-slice readers, this *surfaces* each version's valid interval,
+   because the history is the result: each row carries `:valid_from` /
+   `:valid_to`, an unbounded (`infinity`) end rendered as nil ('still in
+   effect'). Superseded beliefs from `correction!` are not returned (TT-current
+   only); a retracted entity still appears, with a closed `:valid_to`."
+  ([ds table] (history ds table nil))
+  ([ds table where]
+   (->> (jdbc/execute! ds
+                       (sql/format {:select   [:*]
+                                    :from     [table]
+                                    :where    (if where [:and tt-current where] tt-current)
+                                    :order-by [[[:lower :valid_at] :asc]]})
+                       exec-opts)
+        (map ->version))))
+
 (defn latest-change-at
   "Most recent change time across rows of `table` matching `where` —
    specifically, `MAX(lower(sys_period))`. Returns nil when no rows
