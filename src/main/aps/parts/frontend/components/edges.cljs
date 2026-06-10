@@ -2,8 +2,10 @@
   (:require
    ["@xyflow/react" :refer [BaseEdge Position
                             getBezierPath useInternalNode]]
+   [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
-   [uix.core :refer [$ as-react defui]]))
+   [uix.core :refer [$ as-react defui]]
+   [uix.re-frame :as uix.rf]))
 
 (defn- node-intersection
   "Point on `intersection-node`'s visible shape where the centre-to-centre
@@ -94,11 +96,12 @@
   #js {:default PartsEdge})
 
 ;; -- Connection preview line --------------------------------------------
-;; While the user drags from one node to another in Connect mode, ReactFlow
-;; renders a "connection line" preview. Default is a straight Bezier from
-;; the source handle to the cursor; we want it to match the floating-edge
-;; shape — same source-border intersection and same Bezier curvature so the
-;; preview previews what will land.
+;; While the user drags out a connection, ReactFlow renders a "connection
+;; line" preview. Default is a straight Bezier from the source handle to
+;; the cursor; we want it to match the floating-edge shape — same
+;; source-border intersection, same Bezier curvature, and the colour of
+;; the relationship type selected in the toolbar — so the preview previews
+;; what will land.
 
 (defn- opposite-position [pos]
   (condp = pos
@@ -108,27 +111,39 @@
     (.-Right Position)  (.-Left Position)
     (.-Bottom Position)))
 
-(defui parts-connection-line [{:keys [from-node to-x to-y]}]
-  (when (and from-node (.-measured from-node))
-    (let [cursor-node #js {:internals #js {:positionAbsolute #js {:x to-x :y to-y}}
-                           :measured  #js {:width 0 :height 0}}
-          from-point  (node-intersection from-node cursor-node)
-          source-pos  (edge-side from-node from-point)
-          path        (bezier-path {:sx         (:x from-point)
-                                    :sy         (:y from-point)
-                                    :tx         to-x
-                                    :ty         to-y
-                                    :source-pos source-pos
-                                    :target-pos (opposite-position source-pos)})]
-      ($ :path {:d         path
-                :className "react-flow__connection-path"
-                :style     #js {:stroke      "#999999"
-                                :strokeWidth 1.5
-                                :fill        "none"}}))))
+(defui parts-connection-line [{:keys [from-node to-node to-x to-y]}]
+  (let [rel-type (uix.rf/use-subscribe [:ui/relationship-type])
+        ;; Hovering a prospective target: draw the exact path the edge
+        ;; will take — both endpoints on shape boundaries — instead of
+        ;; chasing the cursor to the target's centre (the whole-node drop
+        ;; handle reports its centre as the snap point). Self-loops keep
+        ;; the cursor endpoint: identical centres make the intersection
+        ;; math degenerate.
+        target?  (and to-node (.-measured to-node)
+                      (not= (.-id to-node) (.-id from-node)))]
+    (when (and from-node (.-measured from-node))
+      (let [path (if target?
+                   (bezier-path (floating-edge-params from-node to-node))
+                   (let [cursor-node #js {:internals #js {:positionAbsolute #js {:x to-x :y to-y}}
+                                          :measured  #js {:width 0 :height 0}}
+                         from-point  (node-intersection from-node cursor-node)
+                         source-pos  (edge-side from-node from-point)]
+                     (bezier-path {:sx         (:x from-point)
+                                   :sy         (:y from-point)
+                                   :tx         to-x
+                                   :ty         to-y
+                                   :source-pos source-pos
+                                   :target-pos (opposite-position source-pos)})))]
+        ($ :path {:d         path
+                  :className "react-flow__connection-path"
+                  :style     #js {:stroke      (constants/relationship-colors rel-type)
+                                  :strokeWidth 1.5
+                                  :fill        "none"}})))))
 
 (def PartsConnectionLine
   (as-react
-   (fn [{:keys [fromNode toX toY]}]
+   (fn [{:keys [fromNode toNode toX toY]}]
      ($ parts-connection-line {:from-node fromNode
+                               :to-node   toNode
                                :to-x      toX
                                :to-y      toY}))))

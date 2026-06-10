@@ -171,6 +171,18 @@
       ;; a Clojure Ratio stringified verbatim. Should not appear anywhere.
       (is (not (re-find #"d=\"[^\"]*\d+/\d+" svg))))))
 
+(deftest render-resized-part-test
+  (testing "a resized Part renders at its stored dimensions — the shape
+            <use>, and therefore the viewBox, honour non-default sizes"
+    (let [svg (document/render
+               {:parts         [{:id         "p1" :type       "manager"
+                                 :position_x 0    :position_y 0
+                                 :width      200  :height     200}]
+                :relationships []})]
+      (is (str/includes? svg "width=\"200\""))
+      ;; bbox: x ∈ [0, 200], y ∈ [0, 200]; padded by 20 on each side.
+      (is (str/includes? svg "viewBox=\"-20 -20 240 240\"")))))
+
 (deftest render-viewbox-test
   (testing "viewBox encompasses every Part's measured rectangle, padded on every side"
     (let [svg (document/render

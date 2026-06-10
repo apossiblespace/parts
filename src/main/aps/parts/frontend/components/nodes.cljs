@@ -1,21 +1,36 @@
 (ns aps.parts.frontend.components.nodes
   (:require
-   ["@xyflow/react" :refer [Handle Position useConnection]]
+   ["@xyflow/react" :refer [Handle NodeResizer Position useConnection]]
+   [aps.parts.common.constants :as constants]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [re-frame.core :as rf]
    [uix.core :refer [$ as-react defui use-state]]))
 
-(defui parts-node [{:keys [id data]}]
-  ;; Easy-connect pattern (https://reactflow.dev/examples/nodes/easy-connect):
-  ;; target handle is permanent and not connectable-as-start; source handle
-  ;; sits on top but unmounts during a drag so the target underneath gets the
-  ;; drop. Distinct ids matter: ReactFlow's connectionLookup keys connections
-  ;; by source/target node+handle strings, and identical handle ids on both
-  ;; ends collide for bidirectional pairs (then drag-select misses one edge).
+(defui parts-node [{:keys [id data selected]}]
+  ;; Easy-connect pattern (https://reactflow.dev/examples/nodes/easy-connect),
+  ;; adapted to the direct-manipulation model (ADR-0011): the source handle
+  ;; is clipped to a boundary ring (drag from the ring starts a connection;
+  ;; the interior stays draggable-to-move), and unmounts during a drag so
+  ;; the target handle underneath — the whole node, a forgiving drop zone —
+  ;; gets the drop. The `connecting` wrapper class is what switches the
+  ;; target handle's pointer-events on. Distinct ids matter: ReactFlow's
+  ;; connectionLookup keys connections by source/target node+handle strings,
+  ;; and identical handle ids on both ends collide for bidirectional pairs
+  ;; (then drag-select misses one edge).
   (let [connecting?             (useConnection (fn [^js c] (.-inProgress c)))
         [editing? set-editing!] (use-state false)]
-    ($ :div {:class "node-wrapper"}
+    ($ :div {:class (str "node-wrapper" (when connecting? " connecting"))}
+       ;; Resize affordance: corner handles on selection, aspect-locked,
+       ;; bounded (TASK-032 / ADR-0011). The connecting lines between
+       ;; handles are hidden in CSS — edge midpoints belong to the
+       ;; connect ring.
+       ($ NodeResizer {:isVisible       (boolean selected)
+                       :keepAspectRatio true
+                       :minWidth        constants/part-min-size
+                       :minHeight       constants/part-min-size
+                       :maxWidth        constants/part-max-size
+                       :maxHeight       constants/part-max-size})
        ($ :div {:class           (str "node " (:type data))
                 ;; Double-click the whole shape (a bigger target than the
                 ;; label text) to edit the label in place. stopPropagation
@@ -57,10 +72,11 @@
 
 (def PartsNode
   (as-react
-   (fn [{:keys [id type data] :as ^js _props}]
-     ($ parts-node {:id   id
-                    :type type
-                    :data (js->clj data :keywordize-keys true)}))))
+   (fn [{:keys [id type data selected] :as ^js _props}]
+     ($ parts-node {:id       id
+                    :type     type
+                    :selected selected
+                    :data     (js->clj data :keywordize-keys true)}))))
 
 (def node-types
   #js {:default PartsNode})

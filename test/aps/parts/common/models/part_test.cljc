@@ -56,6 +56,21 @@
       (is (int? (:position_x result)))
       (is (int? (:position_y result)))))
 
+  (testing "Rejects dimensions outside the canvas resize bounds"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/make-part {:map_id "m" :width 59})))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/make-part {:map_id "m" :height 401}))))
+
+  (testing "Accepts dimensions at the bounds"
+    (let [result (part/make-part {:map_id "m" :width 60 :height 400})]
+      (is (= 60 (:width result)))
+      (is (= 400 (:height result)))))
+
   (testing "Throws exception for invalid part type"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo
@@ -71,6 +86,15 @@
 (deftest validate-update-test
   (testing "Accepts a partial map of mutable attributes"
     (is (nil? (part/validate-update {:label "New label"}))))
+
+  (testing "Rejects out-of-bounds dimensions — the update gate enforces the
+            same 60–400 resize bounds as the UI, so a malformed change-event
+            can't write absurd sizes"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/validate-update {:width 59})))
+    (is (nil? (part/validate-update {:width 60 :height 400}))))
 
   (testing "Rejects :id and :map_id — a Part's identity can't be updated"
     (is (thrown-with-msg?

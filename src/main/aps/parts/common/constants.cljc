@@ -9,6 +9,16 @@
 (def part-types
   (set (map name (keys part-labels))))
 
+(def part-min-size
+  "Canvas resize bounds for a Part's width/height, in Map coordinates.
+   Enforced twice: in the canvas resizer's props and at the model's spec
+   gate, so a malformed change-event can't write absurd dimensions. At the
+   minimum, the interior still keeps a usable move-drag surface after the
+   connect ring takes its clamped share (ADR-0011)."
+  60)
+
+(def part-max-size 400)
+
 (def relationship-labels
   {:unknown      {:label "Unknown"}
    :protective   {:label "Protective"}

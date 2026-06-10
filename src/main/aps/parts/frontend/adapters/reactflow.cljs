@@ -112,30 +112,57 @@
 
 (defn- translate-node-change [change]
   (case (:type change)
-    "position" (when-let [position (:position change)]
-                 (let [frame {:intent   :part-position-frame
-                              :id       (:id change)
-                              :position position}]
-                   (if (:dragging change)
-                     [frame]
-                     [frame {:intent   :part-moved
-                             :id       (:id change)
-                             :position position}])))
-    "select"   [{:intent    :part-selected
-                 :id        (:id change)
-                 :selected? (:selected change)}]
-    "remove"   [{:intent :part-removed :id (:id change)}]
+    "position"   (when-let [position (:position change)]
+                   (let [frame {:intent   :part-position-frame
+                                :id       (:id change)
+                                :position position}]
+                     (if (:dragging change)
+                       [frame]
+                       [frame {:intent   :part-moved
+                               :id       (:id change)
+                               :position position}])))
+    ;; NodeResizer emits dimensions changes with a boolean :resizing flag
+    ;; (true per frame, false once on release). ReactFlow also emits
+    ;; flagless dimensions changes when it measures nodes on mount —
+    ;; informational only, ignored.
+    "dimensions" (case (:resizing change)
+                   true  [{:intent     :part-resize-frame
+                           :id         (:id change)
+                           :dimensions (:dimensions change)}]
+                   false [{:intent     :part-resized
+                           :id         (:id change)
+                           :dimensions (:dimensions change)}]
+                   nil)
+    "select"     [{:intent    :part-selected
+                   :id        (:id change)
+                   :selected? (:selected change)}]
+    "remove"     [{:intent :part-removed :id (:id change)}]
     (do (o/warn "reactflow.translate-node-change" "unhandled change type" change)
         nil)))
 
 (defn translate-nodes-change
   "Translate a ReactFlow `onNodesChange` JS payload into a vector of domain
    intents. A position change always yields `:part-position-frame`; when not
-   dragging, it additionally yields `:part-moved`."
+   dragging, it additionally yields `:part-moved`.
+
+   Resize batches need special care: NodeResizer emits its position changes
+   without a :dragging flag, which reads as `drag ended` and would commit a
+   `:part-moved` per frame. So when a batch carries a resize (a dimensions
+   change with a boolean :resizing) for a node, that node's `:part-moved`
+   intents are dropped — the single `:part-resized` commit carries the final
+   geometry instead."
   [js-changes]
-  (->> (js->clj js-changes :keywordize-keys true)
-       (mapcat translate-node-change)
-       vec))
+  (let [changes      (js->clj js-changes :keywordize-keys true)
+        resizing-ids (->> changes
+                          (filter #(and (= "dimensions" (:type %))
+                                        (boolean? (:resizing %))))
+                          (map :id)
+                          set)]
+    (->> changes
+         (mapcat translate-node-change)
+         (remove #(and (= :part-moved (:intent %))
+                       (contains? resizing-ids (:id %))))
+         vec)))
 
 (defn- translate-edge-change [change]
   (case (:type change)

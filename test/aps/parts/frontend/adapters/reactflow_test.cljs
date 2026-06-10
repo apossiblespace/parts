@@ -181,3 +181,52 @@
     (let [conn #js {:source "p1" :target "p2"}]
       (is (= {:intent :relationship-connected :source_id "p1" :target_id "p2"}
              (adapter/translate-connect conn))))))
+
+(deftest translate-nodes-change-resize-test
+  (testing "a resize frame yields :part-resize-frame with live dimensions"
+    (let [changes #js [#js {:id         "p1"
+                            :type       "dimensions"
+                            :resizing   true
+                            :dimensions #js {:width 150.4 :height 150.4}}]]
+      (is (= [{:intent     :part-resize-frame
+               :id         "p1"
+               :dimensions {:width 150.4 :height 150.4}}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "resize end yields :part-resized with the final dimensions"
+    (let [changes #js [#js {:id         "p1"
+                            :type       "dimensions"
+                            :resizing   false
+                            :dimensions #js {:width 180 :height 180}}]]
+      (is (= [{:intent     :part-resized
+               :id         "p1"
+               :dimensions {:width 180 :height 180}}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "a measurement-only dimensions change (no :resizing flag) is ignored"
+    (is (= [] (adapter/translate-nodes-change
+               #js [#js {:id         "p1"
+                         :type       "dimensions"
+                         :dimensions #js {:width 100 :height 100}}]))))
+
+  (testing "position changes in a resize batch don't emit :part-moved —
+            NodeResizer's position changes carry no :dragging flag, and a
+            per-frame :part-moved would write a bitemporal row per frame"
+    (let [changes #js [#js {:id       "p1"
+                            :type     "position"
+                            :position #js {:x 10 :y 12}}
+                       #js {:id         "p1"
+                            :type       "dimensions"
+                            :resizing   true
+                            :dimensions #js {:width 150 :height 150}}]
+          intents (adapter/translate-nodes-change changes)]
+      (is (= #{:part-position-frame :part-resize-frame}
+             (set (map :intent intents))))))
+
+  (testing "a plain drag end (explicit :dragging false) still emits :part-moved"
+    (let [changes #js [#js {:id       "p1"
+                            :type     "position"
+                            :dragging false
+                            :position #js {:x 10 :y 12}}]
+          intents (adapter/translate-nodes-change changes)]
+      (is (= [:part-position-frame :part-moved] (mapv :intent intents))))))

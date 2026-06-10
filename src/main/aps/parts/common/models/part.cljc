@@ -1,6 +1,7 @@
 (ns aps.parts.common.models.part
   (:require
-   [aps.parts.common.constants :refer [part-labels part-types]]
+   [aps.parts.common.constants :refer [part-labels part-max-size
+                                       part-min-size part-types]]
    [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
@@ -12,8 +13,8 @@
 (s/def ::description (s/nilable string?))
 (s/def ::position_x int?)
 (s/def ::position_y int?)
-(s/def ::width (s/nilable int?))
-(s/def ::height (s/nilable int?))
+(s/def ::width (s/nilable (s/and int? #(<= part-min-size % part-max-size))))
+(s/def ::height (s/nilable (s/and int? #(<= part-min-size % part-max-size))))
 (s/def ::notes (s/nilable string?))
 (s/def ::body_location (s/nilable string?))
 
