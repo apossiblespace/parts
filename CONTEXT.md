@@ -24,6 +24,8 @@ Data safety and integrity is a paramount concern while developing this applicati
 
 We should also be mindful of possible future legal requirements for tools dealing with mental health data. We don’t need to implement full compliance from the start, but we should avoid making decisions that will make full compliance more difficult in the future.
 
+UI decisions defer to the **macOS Human Interface Guidelines**. Parts aims for UI quality in the tradition of the best macOS applications — sometimes aspirational, but when an interaction or visual question has no project-specific answer, the HIG is the tie-breaker. (Example: menu checkmarks sit in a fixed leading column, not trailing.)
+
 ## Domain entities
 
 - **User** — anyone with an account. Today the only role is **therapist**; **client** is a planned future role with its own access scope.
@@ -48,6 +50,7 @@ We should also be mindful of possible future legal requirements for tools dealin
 - **All-or-nothing batch** — when the API applies a list of changes for a Map, either all of them commit or none do. See ADR-0003.
 - **Change-event** — the intent to mutate a Map's contents: `{:entity :type :id :data}`. Owned by the `aps.parts.common.change-event` module — a `.cljc` seam shared client/server, with named constructors for producers and a `parse` trust gate for consumers. Covers *committed* mutations only — what goes through the all-or-nothing batch into the bitemporal record. `:position` is not a type; a canvas move is an `:update` (built by the `part-moved` constructor). See ADR-0005.
 - **Presence** *(planned)* — the future channel for *ephemeral* multiplayer data: live drag frames, cursors, remote selections. Deliberately **not** a change-event — lossy, last-write-wins, gone on disconnect. See ADR-0005.
+- **Direct-manipulation canvas** — the map canvas has no modes: drag a Part's interior to move it, drag its boundary ring to connect, drag empty canvas to pan. The toolbar only chooses what creation produces (Part type to place, Relationship type to draw with). See ADR-0011.
 - **Identity vs. metadata** — design split where a record's *identity* (immutable identifying columns) lives in one table and its *metadata* (changing attributes) lives in another bitemporal table. Used for `maps` + `map_metadata`. See ADR-0002.
 - **Map access** — the rule that scopes the single-Map routes (`GET/PUT/DELETE /api/maps/:id`, plus `/changes` and `/pdf`) to the Map's owner. Implemented as a Reitit route middleware (`wrap-map-access` in `aps.parts.auth.middleware`) that runs before the handler — so handlers on those routes don't self-check ownership. Missing and not-owned both render as 404. See ADR-0006.
 - **Erasure** — the right-to-be-forgotten flow at `aps.parts.db.erasure`. The *only* code path that issues `DELETE FROM` on temporal tables. Enforced by an architecture-fitness test.

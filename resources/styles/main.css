@@ -83,6 +83,35 @@
     border-radius: var(--radius-field);
 }
 
+/* Menu items: square hover/active background, app-wide — DaisyUI rounds
+   each item with --radius-field; we want the highlight to run edge to
+   edge like a flat band. */
+.menu li > *:not(ul) {
+    border-radius: 0;
+}
+
+/* Sidebar dropdowns: the sidebar's tools scroll (overflow-auto), which
+   would clip an absolutely-positioned menu into the scroll area. With
+   daisyUI's default (downward) placement the menu's insets are auto, so
+   position:fixed keeps it visually in place while measuring against the
+   viewport — escaping the clip. Safe here: the sidebar panel
+   (react-flow__panel top-right) has no transformed ancestor, which would
+   otherwise re-capture fixed positioning. */
+.sidebar .dropdown-content {
+    position: fixed;
+}
+
+/* Relationship-type dot: the type's edge colour — the ink a drawn
+   connection uses. Appears in the type dropdown's triggers (toolbar and
+   sidebar form) and its menu items. */
+.type-dot {
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 9999px;
+    flex-shrink: 0;
+}
+
 body {
     font-family: "Inter", Helvetica, Arial, sans-serif;
     font-optical-sizing: auto;
@@ -262,10 +291,32 @@ a.btn {
         &.minimal {
             max-height: 36rem;
         }
+        /* The node fills ReactFlow's wrapper, which carries the Part's
+           width/height from the database as inline styles — hardcoding a
+           size here would disconnect resize from rendering.
+
+           The custom properties define the connect ring's geometry once,
+           shared by the source handle (the interactive ring) and the
+           hover ::after on a prospective drop target (visual only). The
+           donut is a single nonzero-winding polygon — inner contour
+           wound the opposite way — more widely supported than
+           polygon(evenodd). */
+        .node-wrapper {
+            width: 100%;
+            height: 100%;
+            --ring: clamp(8px, 12%, 24px);
+            --ring-clip: polygon(
+                0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+                var(--ring) var(--ring),
+                var(--ring) calc(100% - var(--ring)),
+                calc(100% - var(--ring)) calc(100% - var(--ring)),
+                calc(100% - var(--ring)) var(--ring),
+                var(--ring) var(--ring));
+        }
         .node {
             display: flex;
-            height: 100px;
-            width: 100px;
+            height: 100%;
+            width: 100%;
             background-repeat: no-repeat;
             background-size: 100% 100%;
             background-position: center center;
@@ -317,11 +368,20 @@ a.btn {
             border-radius: 0.5em;
         }
 
-        /* Whole-node connect overlay. The two stacked Handles (source +
-           target) cover the node body so a drag from anywhere inside it
-           starts/completes a connection. pointer-events default to none
-           so Move-mode node dragging keeps working; the .mode-connect
-           rule below switches it on. */
+        /* Connect affordances (ADR-0011). Both Handles cover the node
+           body; what differs is the hit area and when they take events:
+           - the source handle is clipped to a boundary ring straddling
+             the shape outline (geometry shared via --ring/--ring-clip on
+             .node-wrapper) — a drag starting there begins a connection,
+             while the interior stays free for node dragging. Thickness
+             scales with the Part and is clamped so small Parts stay
+             grabbable and large ones don't become all ring.
+             Aspect-locked resize keeps width = height, so the
+             percentage resolves the same on both axes.
+           - the target handle is the whole node, a forgiving drop zone,
+             but only takes events while a connection is in progress
+             (the .connecting class) so it never steals the interior's
+             move-drag. */
         .connect-handle.react-flow__handle {
             position: absolute;
             inset: 0;
@@ -335,20 +395,62 @@ a.btn {
             pointer-events: none;
         }
 
-        &.mode-connect .connect-handle.react-flow__handle {
+        .connect-handle.react-flow__handle.source {
+            inset: calc(var(--ring) / -2);
+            width: auto;
+            height: auto;
+            clip-path: var(--ring-clip);
+            border-radius: 0.5em;
+            background: rgba(0, 0, 0, 0.08);
             pointer-events: auto;
             cursor: crosshair;
+            transition: opacity 0.15s;
         }
 
-        /* Per-mode cursors — per-region honesty: each cursor describes
-           what a click here will do, not just which tool is held. The
-           toolbar's active-state carries tool identity; cursors carry
-           per-region affordance. */
-        &.mode-move .react-flow__node {
+        /* The ring announces itself on hover; per-region cursor honesty
+           is preserved — crosshair on the ring, grab in the interior. */
+        .node-wrapper:hover .connect-handle.react-flow__handle.source {
+            opacity: 1;
+        }
+
+        .node-wrapper.connecting .connect-handle.react-flow__handle.target {
+            pointer-events: auto;
+        }
+
+        /* While a connection is being dragged, hovering a prospective
+           target shows its ring too — visual-only (the source handles
+           are unmounted mid-drag, and clipping the target handle would
+           shrink the whole-node drop zone to the ring). */
+        .node-wrapper.connecting:hover::after {
+            content: "";
+            position: absolute;
+            inset: calc(var(--ring) / -2);
+            clip-path: var(--ring-clip);
+            border-radius: 0.5em;
+            background: rgba(0, 0, 0, 0.08);
+            pointer-events: none;
+        }
+
+        .react-flow__node {
             cursor: grab;
         }
-        &.mode-connect .react-flow__node {
-            cursor: crosshair;
+
+        /* Resize affordance (TASK-032): corner handles only — the lines
+           NodeResizer draws between them double as edge-resize zones,
+           which would collide with the connect ring, so they're hidden. */
+        .react-flow__resize-control.line {
+            display: none;
+        }
+        .react-flow__resize-control.handle {
+            width: 9px;
+            height: 9px;
+            border-radius: 2px;
+            background: white;
+            border: 1px solid #999999;
+            /* The connect ring comes later in the node's DOM and would
+               otherwise paint (and hit-test) above these — corners belong
+               to resize when a Part is selected (ADR-0011). */
+            z-index: 1;
         }
         &.mode-add-unknown .react-flow__pane,
         &.mode-add-exile .react-flow__pane,
@@ -389,6 +491,23 @@ a.btn {
         .toolbar .tooltip[data-tip]::before {
             font-size: 0.65rem;
         }
+
+        /* A tooltip wrapping an open dropdown would float over the menu —
+           daisyUI dropdowns hold open via :focus-within, so suppress the
+           tooltip (text + arrow pseudo-elements) while that's the case. */
+        .toolbar .tooltip:has(.dropdown:focus-within)::before,
+        .toolbar .tooltip:has(.dropdown:focus-within)::after {
+            display: none;
+        }
+
+        /* While its menu is open, the dropdown trigger stays highlighted —
+           the macOS convention (menu-bar titles, toolbar dropdowns), in
+           the same bg the armed part tools use. The caret itself doesn't
+           flip: that's a web disclosure idiom, not a menu one. */
+        .toolbar .dropdown:focus-within > [role="button"] {
+            background-color: var(--color-base-300);
+        }
+
     }
 
     .sidebar-container {

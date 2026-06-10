@@ -8,6 +8,7 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as api-utils]
    [aps.parts.frontend.state.map-updates :as map-updates]
+   [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]))
 
 (rf/reg-event-fx
@@ -79,6 +80,11 @@
  :ui/tool-mode-set
  (fn [db [_ mode]]
    (assoc-in db [:ui :tool-mode] mode)))
+
+(rf/reg-event-db
+ :ui/relationship-type-set
+ (fn [db [_ type]]
+   (assoc-in db [:ui :relationship-type] type)))
 
 ;; -- optimistic mutation helpers ------------------------------------------
 ;; Each :map/* handler below does the same two-beat: mutate :db optimistically,
@@ -174,12 +180,36 @@
  (fn [_ [_ node-id position]]
    {:queue/add-event (ce/part-moved node-id (:x position) (:y position))}))
 
+(rf/reg-event-db
+ :map/part-update-size
+ (fn [db [_ node-id {:keys [width height]}]]
+   (merge-part db node-id {:width  (int width)
+                           :height (int height)})))
+
+(rf/reg-event-fx
+ :map/part-finish-size-change
+ ;; One change-event per completed resize. It carries the position too:
+ ;; resizing from a top/left corner moves the Part, but those position
+ ;; frames never commit on their own (the adapter suppresses :part-moved
+ ;; during a resize), so the final geometry travels as one update.
+ (fn [{:keys [db]} [_ node-id {:keys [width height]}]]
+   (let [db'  (merge-part db node-id {:width  (int width)
+                                      :height (int height)})
+         part (some #(when (= node-id (:id %)) %)
+                    (get-in db' [:map :parts]))]
+     {:db              db'
+      :queue/add-event (ce/part-update node-id
+                                       {:width      (int width)
+                                        :height     (int height)
+                                        :position_x (:position_x part)
+                                        :position_y (:position_y part)})})))
+
 (rf/reg-event-fx
  :map/relationship-create
  (fn [{:keys [db]} [_ attrs]]
-   (let [map-id           (get-in db [:map :id])
-         relationships    (get-in db [:map :relationships])
-         new-relationship (make-relationship (merge {:map_id map-id} attrs))]
+   (let [relationships    (get-in db [:map :relationships])
+         new-relationship (make-relationship
+                           (toolbar/relationship-create-attrs db attrs))]
      (if (relationship/can-connect? relationships
                                     (:source_id new-relationship)
                                     (:target_id new-relationship))

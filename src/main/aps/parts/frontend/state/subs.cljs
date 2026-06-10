@@ -59,8 +59,15 @@
 
 (rf/reg-sub
  :ui/tool-mode
+ ;; nil = neutral: nothing armed, the canvas is in its default
+ ;; direct-manipulation state (ADR-0011).
  (fn [db _]
-   (get-in db [:ui :tool-mode] :move)))
+   (get-in db [:ui :tool-mode])))
+
+(rf/reg-sub
+ :ui/relationship-type
+ (fn [db _]
+   (get-in db [:ui :relationship-type] :unknown)))
 
 (rf/reg-sub
  :map/selected-parts

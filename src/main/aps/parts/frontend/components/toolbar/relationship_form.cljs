@@ -1,7 +1,8 @@
 (ns aps.parts.frontend.components.toolbar.relationship-form
   (:require
-   [aps.parts.common.constants :refer [relationship-labels]]
+   [aps.parts.common.constants :refer [relationship-colors relationship-labels]]
    [aps.parts.common.observe :as o]
+   [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [uix.core :refer [$ defui use-effect use-state]]))
 
 (defui relationship-form
@@ -90,13 +91,20 @@
        (when-not collapsed?
          ($ :div
             ($ :label {:class "fieldset-label"} "Relationship type:")
-            ($ :select {:class    "select select-sm mb-1"
-                        :value    (:type values)
-                        :onChange #(update-field :type (.. % -target -value))}
-               (->> relationship-labels
-                    (map (fn [[k {:keys [label]}]]
-                           ($ :option {:key k :value (name k)}
-                              label)))))
+            ;; The form holds types as strings (the model's format); the
+            ;; dropdown speaks keywords. Selection only updates the local
+            ;; form state — Save commits, as before.
+            (let [type-kw    (keyword (:type values))
+                  type-label (get-in relationship-labels [type-kw :label])]
+              ($ relationship-type-dropdown
+                 {:selected           type-kw
+                  :on-select          #(update-field :type (name %))
+                  :dropdown-class     "w-full"
+                  :trigger-class      "select select-sm mb-1 w-full flex items-center gap-1.5"
+                  :trigger-aria-label (str "Relationship type: " type-label)}
+                 ($ :span {:class "type-dot"
+                           :style {:background-color (relationship-colors type-kw)}})
+                 type-label))
 
             ($ :label {:class "fieldset-label"} "Notes:")
             ($ :textarea {:class    "textarea textarea-sm mb-1"
