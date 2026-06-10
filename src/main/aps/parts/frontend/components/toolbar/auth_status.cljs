@@ -49,10 +49,7 @@
                ($ ChevronDown {:size 16}))))
        (when-not loading
          ($ :ul {:tabIndex 0
-                 :class    (str "dropdown-content menu menu-sm "
-                                "bg-base-100 border border-base-300 "
-                                "rounded-box shadow-sm "
-                                "z-10 mt-1 w-40 p-2")}
+                 :class    "dropdown-content menu menu-sm z-10 mt-1 w-40"}
             (if user
               ($ :li
                  ($ :a {:on-click #(rf/dispatch [:auth/logout])}

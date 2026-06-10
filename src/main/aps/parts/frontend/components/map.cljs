@@ -137,10 +137,7 @@
                          :aria-label "Map actions"}
                    ($ ChevronDown {:size 16}))
                 ($ :ul {:tabIndex 0
-                        :class    (str "dropdown-content menu menu-sm "
-                                       "bg-base-100 border border-base-300 "
-                                       "rounded-box shadow-sm "
-                                       "z-10 mt-1 w-44 p-0")}
+                        :class    "dropdown-content menu menu-sm z-10 mt-1 w-44"}
                    ($ :li
                       ($ :a {:on-click (fn []
                                          (set-editing! true)
@@ -162,7 +159,7 @@
                                          (close-dropdown!))}
                          ($ Download {:size 16})
                          "Download PDF"))
-                   ($ :li ($ :hr {:class "mt-0 p-0 border-base-300"}))
+                   ($ :li ($ :hr))
                    ($ :li
                       ;; Like the PDF above (native `<a download>`), but the full
                       ;; Map history as JSON — the data-subject export (ADR-0010).

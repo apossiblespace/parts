@@ -148,6 +148,16 @@ a.btn {
     @apply no-underline;
 }
 
+/* Dropdown menus — styled once on the shared `.dropdown-content.menu` class so
+   every dropdown menu, and every `<li><hr></li>` separator inside one, stays
+   consistent without per-instance utility classes. */
+.dropdown-content.menu {
+    @apply bg-base-100 border border-base-300 rounded-box shadow-sm p-0;
+}
+.dropdown-content.menu hr {
+    @apply mt-0 p-0 border-base-300;
+}
+
 .bg-ifs-green {
     background-color: var(--ifs-green);
 }
