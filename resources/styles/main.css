@@ -72,6 +72,14 @@
     --btn-p: 0.5rem;
 }
 
+/* DaisyUI sets font-weight 600 on every .btn; we want that emphasis only
+   on the variants that carry a call to action (primary, and error for
+   destructive confirms). Toolbar tools, ghost links, and other plain
+   buttons read better at normal weight. */
+.btn:not(.btn-primary):not(.btn-error) {
+    font-weight: 400;
+}
+
 .input {
     padding-inline: calc(0.25rem * 2);
 }

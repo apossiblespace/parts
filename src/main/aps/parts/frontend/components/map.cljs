@@ -411,8 +411,18 @@
                    ($ :div {:class "join"}
                       (map (fn [{:keys [mode label]}]
                              ;; Clicking an armed tool again disarms it.
+                             ;; The icon is the Part type's canvas shape —
+                             ;; the button previews the stamp it places
+                             ;; (stencil-palette pattern). The toolbar/
+                             ;; variants are solid-fill: the canvas SVGs'
+                             ;; 0.2-opacity fill washes out at 16px.
                              ($ button {:key      (name mode)
                                         :label    label
+                                        :icon     ($ :img {:src   (str "/images/nodes/toolbar/"
+                                                                       (add-mode->part-type mode)
+                                                                       ".svg")
+                                                           :alt   ""
+                                                           :class "h-4 w-auto"})
                                         :on-click #(set-tool-mode
                                                     (when-not (= tool-mode mode) mode))
                                         :active?  (= tool-mode mode)}))

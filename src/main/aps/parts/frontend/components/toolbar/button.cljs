@@ -10,7 +10,8 @@
                             :on-click     on-click
                             :aria-label   aria-label
                             :aria-pressed (boolean active?)}
-                   (or icon label))]
+                   icon
+                   label)]
     (if tooltip
       ($ :div {:class "tooltip tooltip-top" :data-tip tooltip}
          button)
