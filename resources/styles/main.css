@@ -90,6 +90,14 @@
     border-radius: 0;
 }
 
+/* Tooltips appear after a 300ms hover delay (macOS-style: deliberate
+   hover shows help, a pointer passing through doesn't); hiding keeps
+   DaisyUI's quick fade. Keyboard focus keeps the instant show. */
+.tooltip[data-tip]:hover::before,
+.tooltip[data-tip]:hover::after {
+    transition-delay: 300ms;
+}
+
 /* Sidebar dropdowns: the sidebar's tools scroll (overflow-auto), which
    would clip an absolutely-positioned menu into the scroll area. With
    daisyUI's default (downward) placement the menu's insets are auto, so
