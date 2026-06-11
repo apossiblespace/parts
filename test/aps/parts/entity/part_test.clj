@@ -42,6 +42,17 @@
         (is (= "Updated notes" (:notes updated)))
         (is (= (:id created) (:id updated)))))
 
+    (testing "update! persists a resize and the fetch reads it back"
+      (let [created (part/create! part-data (:id user))
+            updated (part/update! (:id created)
+                                  {:width 240 :height 240}
+                                  (:id user))
+            fetched (part/fetch (:id created))]
+        (is (= 240 (:width updated)))
+        (is (= 240 (:height updated)))
+        (is (= 240 (:width fetched)))
+        (is (= 240 (:height fetched)))))
+
     (testing "delete!"
       (let [created (part/create! part-data (:id user))
             result  (part/delete! (:id created) (:id user))]
