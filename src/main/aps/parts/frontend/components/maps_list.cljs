@@ -173,8 +173,8 @@
                 ($ :div {:class "flex items-center gap-1"}
                    ($ :span {:class "text-black font-bold"} "🆘 Need help?")
                    ($ :span " Email us for a quick reply: ")
-                   ($ :a {:href "mailto:help@ifs.tools" :class "hover:text-ifs-green"}
-                      "help@ifs.tools")))
+                   ($ :a {:href (str "mailto:" c/support-email) :class "hover:text-ifs-green"}
+                      c/support-email)))
              ($ :div {:class "flex items-center gap-3 text-gray-400"}
                 ($ :span
                    "© 2026 "

@@ -48,6 +48,12 @@
   "The suffix appearing after the page title in the <title> element"
   "Parts: IFS parts mapping for therapists and their clients")
 
+(def support-email
+  "The monitored concierge-support address. Shared FE/BE: the maps-list
+   footer (cljs), the marketing footer (hiccup), and the invite-error page
+   (hiccup) all render it as a mailto link."
+  "help@ifs.tools")
+
 (def legal-documents
   "The legal documents the app serves, in nav order. Shared FE/BE: the document
    layout's header/footer (hiccup), the marketing footer (hiccup), and the

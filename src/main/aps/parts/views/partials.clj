@@ -144,7 +144,11 @@
        [:li
         [:a
          {:href "https://github.com/apossiblespace/parts", :class "text-gray-600 hover:text-ifs-green"}
-         "Source code on GitHub"]]]]
+         "Source code on GitHub"]]
+       [:li
+        [:a
+         {:href (str "mailto:" c/support-email), :class "text-gray-600 hover:text-ifs-green"}
+         "Contact"]]]]
      [:div
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Legal"]
       [:ul
@@ -322,5 +326,8 @@
    [:h1 {:class "text-2xl font-bold mb-2"} "This invite link isn’t available"]
    [:p {:class "text-gray-600"}
     "This invitation link is no longer valid — it may already have been used.
-     If you think this is a mistake, please get in touch with the person who
-     invited you."]))
+     If you think this is a mistake, please reach out to us at "
+    [:a {:href  (str "mailto:" c/support-email)
+         :class "underline underline-offset-4 hover:text-ifs-green"}
+     c/support-email]
+    " and we’ll sort it out."]))
