@@ -88,6 +88,11 @@
      :not-found
      (exception-handler "Resource not found" 404)
 
+     ;; Optimistic-lock failure in the bitemporal write path: the entity was
+     ;; superseded by a concurrent change between read and write.
+     :conflict
+     (exception-handler "Entity was modified by a concurrent change" 409)
+
      ;; A change in a batch threw; the whole batch was rolled back. The
      ;; ex-data carries `:failing-change` so the client can highlight it.
      :batch-failure

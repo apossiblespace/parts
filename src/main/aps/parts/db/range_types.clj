@@ -4,8 +4,7 @@
    that we have to then parse.
 
    Provides:
-   - A `TstzRange` record + helpers `tstzrange`, `now-to-infinity`,
-     `range-contains?`.
+   - A `TstzRange` record + helpers `tstzrange`, `range-contains?`.
    - next.jdbc protocol extensions so PostgreSQL `tstzrange` values round-trip
      transparently to / from Clojure (read-column / set-parameter).
 
@@ -35,11 +34,6 @@
   "Build a bitemporal range. `bounds` defaults to `\"[)\"` (closed-open)."
   ([lower upper] (->TstzRange lower upper "[)"))
   ([lower upper bounds] (->TstzRange lower upper bounds)))
-
-(defn now-to-infinity
-  "`[now, infinity)` — the default `valid_at` for a freshly-asserted fact."
-  []
-  (tstzrange (OffsetDateTime/now) :infinity))
 
 ;; -- Parsing / rendering ---------------------------------------------------
 

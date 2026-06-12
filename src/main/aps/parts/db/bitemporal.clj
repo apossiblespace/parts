@@ -59,9 +59,11 @@
                       (time-slice); or fold across the full VT history.
    - VT-nonsequenced: `valid_at` is just a column with no temporal meaning.
 
-   - TT-current:      keep rows where `sys_period` contains `now()`
-                      (i.e., still believed; not superseded by a later
-                      record).
+   - TT-current:      keep rows still believed — not superseded by a later
+                      record. Implemented clock-free as
+                      `upper(sys_period) = infinity` (see `tt-current`), so
+                      it also holds for rows written earlier in the same
+                      transaction.
    - TT-sequenced:    keep rows where `sys_period` contains a chosen point
                       S; or fold across the full TT history.
    - TT-nonsequenced: `sys_period` is just a column with no temporal meaning.
@@ -85,7 +87,10 @@
    [aps.parts.db.range-types :as range]
    [honey.sql :as sql]
    [next.jdbc :as jdbc]
-   [next.jdbc.result-set :as rs]))
+   [next.jdbc.result-set :as rs])
+  (:import
+   (java.time OffsetDateTime)
+   (java.time.temporal ChronoUnit)))
 
 ;; -- HoneySQL operator registration ----------------------------------------
 ;;
@@ -161,16 +166,24 @@
       (f inner))))
 
 (defn- current-where
-  "WHERE for the currently-in-effect row: id + TT-current + VT @> now,
+  "WHERE for the currently-in-effect row: id + TT-current + VT-open,
    plus an optional caller-supplied `scope` fragment (e.g. `[:= :map_id m]`)
    that confines the match to an authorisation boundary. A row that exists
    but falls outside `scope` simply doesn't match — the caller sees
-   not-found rather than touching a row it isn't allowed to."
+   not-found rather than touching a row it isn't allowed to.
+
+   VT-open (`vt-open`) rather than `valid_at @> now()` on purpose: Postgres
+   freezes `now()` at transaction start, so a row written earlier in the
+   same transaction — its `valid_at` lower bound is wall-clock, later than
+   the frozen `now()` — would be invisible to the next write in that
+   transaction. Same reasoning as `live-rows` on the read side. A retracted
+   entity has a bounded `valid_at` upper, so it still correctly doesn't
+   match."
   [id scope]
   (cond-> [:and
            [:= :id id]
            tt-current
-           (vt-contains [:now])]
+           vt-open]
     scope (conj scope)))
 
 (defn- find-current-row [tx table id scope]
@@ -181,19 +194,64 @@
                                :where  (current-where id scope)})
                   exec-opts)))
 
+(defn- write-ts
+  "The single wall-clock instant one sequenced write operates at, given the
+   `current` row it is superseding. Wall clock rather than SQL `now()` so
+   that several writes to one entity inside one transaction each get their
+   own instant (`now()` is frozen at transaction start and would collapse
+   them into inverted or empty ranges).
+
+   Clamped: if the wall clock is at or behind the row's bounds (NTP stepping
+   the clock back between writes), returns a tick just past those bounds so
+   every derived range stays well-formed. The lie is bounded at a
+   microsecond; the alternative is a rejected write.
+
+   Truncated to microseconds — Postgres timestamptz resolution. The same
+   instant reaches Postgres on two paths (a bound JDBC parameter in
+   `close-current-row!`, an ISO string inside a range literal from
+   `range-types`), and the two paths round sub-microsecond digits
+   differently; a µs-aligned value serializes identically on both."
+  [current]
+  (let [now-ts (.truncatedTo (OffsetDateTime/now) ChronoUnit/MICROS)
+        floor  (->> [(:lower (:valid_at current))
+                     (:lower (:sys_period current))]
+                    (filter #(instance? OffsetDateTime %))
+                    sort
+                    last)]
+    (if (and floor (not (.isAfter now-ts ^OffsetDateTime floor)))
+      (.plusNanos ^OffsetDateTime floor 1000)
+      now-ts)))
+
 (defn- close-current-row!
   "Advance the `sys_period` upper bound of the currently-in-effect row to
-   `now()`. Matches by id + TT-current + VT-current (+ optional `scope`) —
-   other open-sys_period rows (historical-belief slices from prior updates)
-   keep their state."
-  [tx table id scope]
-  (jdbc/execute! tx
-                 (sql/format {:update table
-                              :set    {:sys_period [:tstzrange
-                                                    [:lower :sys_period]
-                                                    [:now]
-                                                    [:inline "[)"]]}
-                              :where  (current-where id scope)})))
+   `close-ts` (the operation's `write-ts`). Matches by id + TT-current +
+   VT-open (+ optional `scope`) — other open-sys_period rows
+   (historical-belief slices from prior updates) keep their state.
+
+   Optimistically locked: `current` is the row the operation just read, and
+   the UPDATE additionally matches its exact version by `lower(sys_period)`.
+   A concurrent transaction that superseded the row between our read and
+   this UPDATE leaves nothing to match — anything but exactly one closed
+   row means our merge base is stale, and the only safe outcome is a
+   `:conflict` the caller can surface — 409 standalone, or rolled into the
+   batch's 422 `:batch-failure` (as `:cause-type`); either way the client
+   re-syncs."
+  [tx table id scope current close-ts]
+  (let [sys-lower (:lower (:sys_period current))
+        where     (cond-> (current-where id scope)
+                    (instance? OffsetDateTime sys-lower)
+                    (conj [:= [:lower :sys_period]
+                           [:cast sys-lower :timestamptz]]))
+        result    (jdbc/execute-one! tx
+                                     (sql/format {:update table
+                                                  :set    {:sys_period [:tstzrange
+                                                                        [:lower :sys_period]
+                                                                        [:cast close-ts :timestamptz]
+                                                                        [:inline "[)"]]}
+                                                  :where  where}))]
+    (when-not (= 1 (:next.jdbc/update-count result))
+      (throw (ex-info "Entity was modified by a concurrent change"
+                      {:type :conflict :id id :table table})))))
 
 ;; -- Writes ----------------------------------------------------------------
 ;;
@@ -210,14 +268,20 @@
    Opts:
      :actor-id  (required)  written to the row's `actor_id` column; the audit
                             trigger reads this for attribution
-     :valid-at  (optional)  TstzRange (defaults to [now, infinity))"
-  [tx table row {:keys [actor-id valid-at]}]
+     :valid-at  (optional)  TstzRange (defaults to [now, infinity))
+     :sys-from  (optional)  OffsetDateTime lower bound for `sys_period`
+                            (defaults to now). The sequenced writes pass
+                            their `write-ts` so every range minted by one
+                            operation shares one instant."
+  [tx table row {:keys [actor-id valid-at sys-from]}]
   (assert actor-id "actor-id is required")
   (assert (:id row) "row :id is required")
-  (let [valid-at (or valid-at (range/now-to-infinity))
+  (let [now      (OffsetDateTime/now)
+        valid-at (or valid-at (range/tstzrange now :infinity))
+        sys-at   (range/tstzrange (or sys-from now) :infinity)
         full-row (assoc row
                         :valid_at   (range/->pgobject valid-at)
-                        :sys_period (range/->pgobject (range/now-to-infinity))
+                        :sys_period (range/->pgobject sys-at)
                         :actor_id   actor-id)
         inserted (first (jdbc/execute! tx
                                        (sql/format {:insert-into table
@@ -229,13 +293,15 @@
 (defn update!
   "Sequenced update — the entity's values change starting *now*.
 
-   Inside one transaction (canonical split-retract-insert; Snodgrass Ch 7):
+   Inside one transaction (canonical split-retract-insert; Snodgrass Ch 7),
+   all at one wall-clock instant `t` (see `write-ts` — per-operation, so
+   several updates to one entity in one transaction stay well-formed):
      1. Find the currently-believed row where `id = ?`.
-     2. Close its `sys_period` upper bound at `now()`.
+     2. Close its `sys_period` upper bound at `t`.
      3. Insert a *historical* row preserving the previous values over
-        `valid_at = [old-lower, now)` — so as-of-valid queries at past
+        `valid_at = [old-lower, t)` — so as-of-valid queries at past
         instants still return the entity (with the old values).
-     4. Insert a *new* row with merged values over `valid_at = [now, infinity)`.
+     4. Insert a *new* row with merged values over `valid_at = [t, infinity)`.
 
    Returns the new row (without internal cols).
 
@@ -256,24 +322,23 @@
         (when-not current
           (throw (ex-info "Row not found in current state"
                           {:type :not-found :id id :table table})))
-        (close-current-row! tx table id scope)
-        (let [now-ts          (java.time.OffsetDateTime/now)
-              old-valid       (:valid_at current)
-              old-lower       (:lower old-valid)
-              old-values      (internal-cols current)
+        (let [now-ts     (write-ts current)
+              old-lower  (:lower (:valid_at current))
+              old-values (internal-cols current)
               ;; {:id id} re-asserts the row key: a sequenced update changes
               ;; attributes, never identity — `changes` can't relocate the row.
-              new-values      (merge old-values changes {:id id})
-              past-non-empty? (or (= old-lower :-infinity)
-                                  (and (instance? java.time.OffsetDateTime old-lower)
-                                       (.isBefore ^java.time.OffsetDateTime old-lower now-ts)))]
-          (when past-non-empty?
-            (insert! tx table old-values
-                     {:actor-id actor-id
-                      :valid-at (range/tstzrange old-lower now-ts "[)")}))
+              new-values (merge old-values changes {:id id})]
+          (close-current-row! tx table id scope current now-ts)
+          ;; The historical slice is always non-empty: `write-ts` clamps
+          ;; strictly past the row's `valid_at` lower bound.
+          (insert! tx table old-values
+                   {:actor-id actor-id
+                    :valid-at (range/tstzrange old-lower now-ts "[)")
+                    :sys-from now-ts})
           (insert! tx table new-values
                    {:actor-id actor-id
-                    :valid-at (range/tstzrange now-ts :infinity "[)")}))))))
+                    :valid-at (range/tstzrange now-ts :infinity "[)")
+                    :sys-from now-ts}))))))
 
 (defn correction!
   "Bitemporal correction — rewrite *belief* about the currently-in-effect row
@@ -286,9 +351,9 @@
    (introducing a new valid-time slice). `correction!` leaves the valid_at
    range untouched; only `sys_period` advances.
 
-   Inside one transaction:
-     1. Find the currently-in-effect row (id + TT-current + VT @> now).
-     2. Close its `sys_period` upper at `now()`.
+   Inside one transaction, at one wall-clock instant `t` (see `write-ts`):
+     1. Find the currently-in-effect row (id + TT-current + VT-open).
+     2. Close its `sys_period` upper at `t`.
      3. Insert a corrected row with the *same* `valid_at` and the merged values."
   [tx table id changes {:keys [actor-id scope]}]
   (assert actor-id "actor-id is required")
@@ -298,19 +363,22 @@
         (when-not current
           (throw (ex-info "Row not found in current state"
                           {:type :not-found :id id :table table})))
-        (close-current-row! tx table id scope)
-        (let [old-valid  (:valid_at current)
+        (let [now-ts     (write-ts current)
+              old-valid  (:valid_at current)
               old-values (internal-cols current)
               new-values (merge old-values changes {:id id})]
+          (close-current-row! tx table id scope current now-ts)
           (insert! tx table new-values
                    {:actor-id actor-id
-                    :valid-at old-valid}))))))
+                    :valid-at old-valid
+                    :sys-from now-ts}))))))
 
 (defn retract!
   "Retract a bitemporal entity — the entity no longer exists from `now` on.
 
    Closes the currently-active row's `sys_period` and inserts a successor
-   with `valid_at` upper-bounded at `now()`. After this, `as-of-now` queries
+   with `valid_at` upper-bounded at the operation's wall-clock instant
+   (see `write-ts`). After this, `as-of-now` queries
    no longer return the entity, but `as-of-valid` at any past instant still
    does.
 
@@ -323,13 +391,14 @@
   (with-tx tx
     (fn [tx]
       (if-let [current (find-current-row tx table id scope)]
-        (let [_            (close-current-row! tx table id scope)
+        (let [now-ts       (write-ts current)
               old-valid    (:valid_at current)
               successor    (internal-cols current)
-              closed-valid (range/tstzrange (:lower old-valid)
-                                            (java.time.OffsetDateTime/now)
-                                            "[)")]
-          (insert! tx table successor {:actor-id actor-id :valid-at closed-valid})
+              closed-valid (range/tstzrange (:lower old-valid) now-ts "[)")]
+          (close-current-row! tx table id scope current now-ts)
+          (insert! tx table successor {:actor-id actor-id
+                                       :valid-at closed-valid
+                                       :sys-from now-ts})
           {:retracted true :id id})
         {:retracted false :id id}))))
 

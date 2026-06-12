@@ -212,3 +212,95 @@
       (is (= 1 (count versions)) "but still present in history")
       (is (= "Removed" (:label (first versions))))
       (is (some? (:valid_to (first versions))) "with a closed valid_to"))))
+
+(deftest test-same-entity-twice-in-one-transaction
+  ;; Regression: the write path used to look up and close rows against SQL
+  ;; now(), which Postgres freezes at transaction start, while stamping new
+  ;; rows with wall-clock time. The second write to an entity in the same
+  ;; transaction then found the wrong row (inverted range) or no row at all.
+  ;; Observed live as batch-update 422s ("Row not found in current state").
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        row     (assoc (part-row (:id the-map)) :label "Twice")
+        _       (bt/insert! db/datasource :parts row {:actor-id (:id user)})]
+
+    (testing "update → update of one id inside a single transaction"
+      (jdbc/with-transaction [tx db/datasource]
+        (bt/update! tx :parts (:id row) {:position_x 10} {:actor-id (:id user)})
+        (bt/update! tx :parts (:id row) {:position_x 20} {:actor-id (:id user)}))
+      (let [current (bt/as-of-now db/datasource :parts [:= :id (:id row)])]
+        (is (= 1 (count current)) "exactly one currently-believed live row")
+        (is (= 20 (:position_x (first current))) "the later update wins"))
+      (is (= [0 10 20]
+             (mapv :position_x (bt/history db/datasource :parts [:= :id (:id row)])))
+          "the intermediate update is preserved as its own valid-time slice"))
+
+    (testing "update → retract of one id inside a single transaction"
+      (jdbc/with-transaction [tx db/datasource]
+        (bt/update! tx :parts (:id row) {:position_x 30} {:actor-id (:id user)})
+        (is (true? (:retracted (bt/retract! tx :parts (:id row)
+                                            {:actor-id (:id user)})))))
+      (is (zero? (count-current :parts (:id row))) "gone from the live view"))))
+
+(deftest test-write-timestamps-clamp-against-clock-regression
+  ;; A write's wall-clock timestamp can land at or before the found row's
+  ;; bounds (NTP stepping the clock back between two writes). The write path
+  ;; clamps its timestamp to just past the row's bounds instead of producing
+  ;; an inverted range. Simulated here with a row whose sys_period starts in
+  ;; the future: without the clamp, close-current-row! would build
+  ;; sys_period = [future, now) — inverted — and Postgres rejects the write.
+  (let [user      (create-test-user!)
+        the-map   (create-test-map! (:id user))
+        row       (part-row (:id the-map))
+        in-future (.plusSeconds (OffsetDateTime/now) 5)
+        _         (bt/insert! db/datasource :parts row
+                              {:actor-id (:id user)
+                               :sys-from in-future})]
+    (testing "an update whose wall clock lags the row's bounds still succeeds"
+      (let [updated (bt/update! db/datasource :parts (:id row)
+                                {:label "Clamped"}
+                                {:actor-id (:id user)})]
+        (is (= "Clamped" (:label updated)))))
+    (testing "the clamped write leaves a complete, well-formed timeline"
+      (let [versions (bt/history db/datasource :parts [:= :id (:id row)])]
+        (is (= 2 (count versions)) "historical slice + live slice")
+        (is (= "Clamped" (:label (last versions))))
+        (is (every? :valid_from versions) "no empty/degenerate ranges"))
+      (is (= 1 (count-current :parts (:id row)))
+          "exactly one currently-believed live row"))))
+
+(deftest test-concurrent-writers-conflict-cleanly
+  ;; Two transactions writing one entity (same map open in two tabs). The
+  ;; loser's close-current-row! matches nothing after the winner commits
+  ;; (EvalPlanQual re-check) — it must surface as a typed :conflict, not
+  ;; proceed to inserts that explode on the EXCLUDE constraint.
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        row     (assoc (part-row (:id the-map)) :label "Contended")
+        _       (bt/insert! db/datasource :parts row {:actor-id (:id user)})
+        conn    (jdbc/get-connection db/datasource)]
+    (try
+      (.setAutoCommit conn false)
+      ;; Winner: updates inside an open transaction, holding the row lock.
+      (bt/update! conn :parts (:id row) {:position_x 1} {:actor-id (:id user)})
+      ;; Loser: reads the same current row, then blocks on the lock at close.
+      (let [loser (future
+                    (try
+                      (bt/update! db/datasource :parts (:id row)
+                                  {:position_x 2} {:actor-id (:id user)})
+                      :updated
+                      (catch clojure.lang.ExceptionInfo e
+                        (:type (ex-data e)))
+                      (catch Exception e
+                        (class e))))]
+        ;; Give the loser time to pass its read and reach the row lock; then
+        ;; let the winner commit, unblocking it.
+        (Thread/sleep 300)
+        (.commit conn)
+        (testing "the losing writer gets a typed :conflict"
+          (is (= :conflict (deref loser 5000 :timed-out)))))
+      (testing "the winner's value survives"
+        (is (= 1 (-> (bt/as-of-now db/datasource :parts [:= :id (:id row)])
+                     first :position_x))))
+      (finally
+        (.close conn)))))

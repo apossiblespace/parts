@@ -128,6 +128,67 @@
       (testing "the valid earlier change was never applied"
         (is (= "Original" (:label (part/fetch part-id))))))))
 
+(deftest test-batch-accepts-repeated-updates-to-one-entity
+  ;; Regression for the live 422: the 2s debounce queue legitimately batches
+  ;; two commits to one Part (move + move, move + resize). The bitemporal
+  ;; write path must apply them sequentially in one transaction.
+  (testing "two updates to the same part in one batch both apply, last wins"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Double Move" :owner_id (:id user)} (:id user))
+          part-id (random-uuid)
+          _       (part/create! {:id         part-id
+                                 :map_id     (:id the-map)
+                                 :type       "manager"
+                                 :label      "Mover"
+                                 :position_x 0
+                                 :position_y 0}
+                                (:id user))
+          batch   [{:entity "part"                            :type "update" :id part-id
+                    :data   {:position_x 100 :position_y 100}}
+                   {:entity "part"                            :type "update" :id part-id
+                    :data   {:position_x 775 :position_y 566}}]
+          results (events/apply-changes! db/datasource
+                                         {:map-id   (:id the-map)
+                                          :actor-id (:id user)
+                                          :changes  batch})]
+      (is (= 2 (count results)) "per-change results stay 1:1 with the batch")
+      (is (every? :success results))
+      (let [part (part/fetch part-id)]
+        (is (= 775 (:position_x part)))
+        (is (= 566 (:position_y part)))))))
+
+(deftest test-batch-accepts-create-then-update-after-another-entity
+  ;; Regression for the second live 422 shape: when another entity's change
+  ;; opens the transaction, a created part gets bounds later than the frozen
+  ;; transaction clock — its follow-up update used to miss it (:not-found).
+  (testing "[update B, create A, update A] applies in one batch"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Create+Drag" :owner_id (:id user)} (:id user))
+          b-id    (random-uuid)
+          _       (part/create! {:id         b-id
+                                 :map_id     (:id the-map)
+                                 :type       "exile"
+                                 :label      "B"
+                                 :position_x 0
+                                 :position_y 0}
+                                (:id user))
+          a-id    (random-uuid)
+          batch   [{:entity "part"                          :type "update" :id b-id
+                    :data   {:position_x 50 :position_y 50}}
+                   {:entity "part"                                                     :type "create" :id a-id
+                    :data   {:type "manager" :label "A" :position_x 10 :position_y 10}}
+                   {:entity "part"                            :type "update" :id a-id
+                    :data   {:position_x 300 :position_y 200}}]
+          results (events/apply-changes! db/datasource
+                                         {:map-id   (:id the-map)
+                                          :actor-id (:id user)
+                                          :changes  batch})]
+      (is (= 3 (count results)) "per-change results stay 1:1 with the batch")
+      (is (every? :success results))
+      (let [a (part/fetch a-id)]
+        (is (= 300 (:position_x a)) "the create+drag landed at the dragged position")
+        (is (= 200 (:position_y a)))))))
+
 (deftest test-render-pdf
   (testing "returns a PDF body with Content-Type application/pdf, named after the Map"
     (let [user     (create-test-user!)
