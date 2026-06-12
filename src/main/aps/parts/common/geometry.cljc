@@ -67,10 +67,14 @@
 (defn part-center
   "Centre point `[cx cy]` of a Part's measured rectangle, in world
    coordinates. Defaults missing `width`/`height` to 100 (the DB default
-   for legacy rows). Used by both renderers and by edge intersection."
+   for legacy rows). Used by both renderers and by edge intersection.
+
+   Always returns doubles: an odd width over integer division would
+   produce a Ratio, and a Ratio `str`ed into SVG markup is an invalid
+   number — see `unit-square`'s docstring."
   [{:keys [position_x position_y width height]}]
-  [(+ position_x (/ (or width  100) 2))
-   (+ position_y (/ (or height 100) 2))])
+  [(+ position_x (/ (or width  100) 2.0))
+   (+ position_y (/ (or height 100) 2.0))])
 
 ;; ---- Relationship-edge math ---------------------------------------------
 ;;

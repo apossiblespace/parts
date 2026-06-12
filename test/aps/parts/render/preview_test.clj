@@ -35,9 +35,9 @@
                                  :position_x 0   :position_y 0
                                  :width      100 :height     100}]
                 :relationships []})]
-      ;; centre of (0,0)–(100,100) is (50,50)
-      (is (re-find #"cx=\"50\"" svg))
-      (is (re-find #"cy=\"50\"" svg))))
+      ;; centre of (0,0)–(100,100) is (50,50); always doubles, see part-center
+      (is (re-find #"cx=\"50\.0\"" svg))
+      (is (re-find #"cy=\"50\.0\"" svg))))
   (testing "no <use>, no <symbol>, no <text> — the preview is iconic only"
     (let [svg (preview/render
                {:parts         [{:id         "p" :type       "manager" :label "Boss"
@@ -92,6 +92,26 @@
                                  :type "protective"}]})]
       (is (string? svg))
       (is (zero? (count (re-seq #"<line " svg)))))))
+
+(deftest render-resized-parts-test
+  (testing "odd-sized Parts (from resize) never leak Clojure Ratios into the SVG"
+    ;; Regression: 143/2 stays a Ratio through the number tower, and
+    ;; viewBox="-115/2 …" is an invalid SVG number — browsers drop the
+    ;; whole viewBox and the thumbnail shows one corner of the Map.
+    (let [svg (preview/render
+               {:parts         [{:id         "p1" :type       "exile"
+                                 :position_x 10   :position_y 20      :width 143 :height 143}
+                                {:id         "p2" :type       "manager"
+                                 :position_x 300  :position_y 200       :width 211 :height 211}]
+                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
+                                 :type "protective"}]})]
+      (is (not (re-find #"=\"-?\d+/\d+" svg))
+          "no attribute value may contain a Ratio literal")
+      (is (re-find #"viewBox=\"-?[0-9.]+ -?[0-9.]+ [0-9.]+ [0-9.]+\"" svg)
+          "viewBox is four plain decimal numbers")
+      ;; centre of (10,20)–(153,163) is (81.5, 91.5)
+      (is (re-find #"cx=\"81\.5\"" svg))
+      (is (re-find #"cy=\"91\.5\"" svg)))))
 
 (deftest render-line-thickness-test
   (testing "preview lines are thicker than the document renderer's 1.5 so they read at thumbnail scale"
