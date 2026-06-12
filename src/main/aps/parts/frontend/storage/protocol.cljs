@@ -24,4 +24,7 @@
   (process-batched-changes [this map-id batch]
     "Processes a batch of change events for the given map ID.
      The batch is a collection of normalized change events.
-     Returns a channel that will contain the processing result."))
+     Returns a channel that will contain the processing result: a map with
+     `:success true` when the whole batch applied. Anything else (including
+     nil) is treated as a failed batch by the queue, which surfaces the
+     save-error banner."))

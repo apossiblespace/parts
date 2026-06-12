@@ -199,6 +199,26 @@
                          ($ :span {:class "w-4 shrink-0"})
                          "Export map data")))))))))
 
+(defui save-error-banner
+  "Persistent warning shown when a change batch failed and was rolled back
+   server-side: the canvas no longer matches the stored Map. Stays up until
+   the Map is reloaded — the condition persists, so the banner does too
+   (reloading replaces `:map`, which clears the flag)."
+  []
+  (let [save-error (uix.rf/use-subscribe [:map/save-error])]
+    (when save-error
+      ;; `flex w-max` overrides the daisyUI alert's full-width grid so the
+      ;; banner hugs its content instead of spanning the canvas.
+      ($ :div {:class (str "absolute top-4 left-1/2 -translate-x-1/2 z-50 "
+                           "alert alert-warning shadow-lg "
+                           "flex w-max max-w-2xl items-center gap-3 px-4 py-2")
+               :role  "alert"}
+         ($ :span {:class "text-sm"}
+            "Some recent changes couldn’t be saved — this Map may be out of date.")
+         ($ :button {:class    "btn btn-sm whitespace-nowrap"
+                     :on-click #(.reload (.-location js/window))}
+            "Reload Map")))))
+
 (defui map-canvas []
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
@@ -355,6 +375,7 @@
      [set-tool-mode])
 
     ($ :div {:class "map-container"}
+       ($ save-error-banner)
        ;; Single SVG marker definition for every edge arrowhead.
        ;; fill="context-stroke" makes the marker fill inherit the
        ;; referencing path's stroke colour — so the .edge-<type> CSS

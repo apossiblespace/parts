@@ -4,7 +4,8 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.storage.protocol :refer [process-batched-changes]]
    [aps.parts.frontend.storage.registry :as storage-registry]
-   [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]))
+   [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]
+   [re-frame.core :as rf]))
 
 (defn debounce-batch
   "Creates a debounced channel that batches incoming changes from `input-chan`.
@@ -51,7 +52,11 @@
       (when batch
         (when-let [backend (storage-registry/get-backend)]
           (let [response (<! (process-batched-changes backend map-id batch))]
-            (o/debug "queue.batch-response" "batch update response" response)))))
+            (o/debug "queue.batch-response" "batch update response" response)
+            ;; A failed batch was rolled back server-side, so the canvas no
+            ;; longer matches what's stored — that must never be silent.
+            (when-not (:success response)
+              (rf/dispatch [:map/batch-failed]))))))
     (recur)))
 
 (defn stop

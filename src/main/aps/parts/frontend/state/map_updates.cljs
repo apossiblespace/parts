@@ -42,6 +42,17 @@
                                m))
                            maps))))))
 
+(defn mark-batch-failed
+  "Land a failed change batch: the server rolled back every change in it,
+   so the canvas no longer matches what's stored. Sets the persistent
+   save-error flag the Map view renders as a banner. Deliberately leaves
+   the canvas state alone — reverting it mid-session would be more
+   surprising than the banner; reloading the Map (which replaces `:map`
+   wholesale, clearing this flag) is the recovery path until change-batch
+   reconciliation exists."
+  [db]
+  (assoc-in db [:map :save-error] true))
+
 (defn revert-map-update
   "Land a failed map-metadata update: roll the optimistic title back to the
    stashed previous value and surface the error."

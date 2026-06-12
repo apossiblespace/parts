@@ -48,6 +48,11 @@
    (get-in db [:map :relationships])))
 
 (rf/reg-sub
+ :map/save-error
+ (fn [db _]
+   (boolean (get-in db [:map :save-error]))))
+
+(rf/reg-sub
  :ui/selected-node-ids
  (fn [db _]
    (get-in db [:ui :selected-node-ids] [])))

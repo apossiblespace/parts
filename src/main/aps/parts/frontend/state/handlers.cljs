@@ -355,6 +355,11 @@
    (map-updates/revert-map-update db error)))
 
 (rf/reg-event-db
+ :map/batch-failed
+ (fn [db _]
+   (map-updates/mark-batch-failed db)))
+
+(rf/reg-event-db
  :auth/set-user
  (fn [db [_ user]]
    (assoc-in db [:auth :user] user)))

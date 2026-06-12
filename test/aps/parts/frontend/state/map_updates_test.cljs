@@ -63,3 +63,15 @@
       (is (= "Failed to update map" (get-in result [:maps :error])))
       (is (nil? (get-in result [:maps :rename-rollback]))
           "the rollback is consumed"))))
+
+(deftest mark-batch-failed-test
+  (testing "a failed change batch sets the persistent save-error flag"
+    (let [db     {:map {:id    "map-1"      :title "Anxious thoughts"
+                        :parts [{:id "p1"}]}}
+          result (map-updates/mark-batch-failed db)]
+      ;; The flag lives under :map, which a Map load replaces wholesale —
+      ;; that is what clears the banner on reload.
+      (is (true? (get-in result [:map :save-error])))
+      (testing "the canvas state is left untouched — reload is the user's call"
+        (is (= [{:id "p1"}] (get-in result [:map :parts])))
+        (is (= "Anxious thoughts" (get-in result [:map :title])))))))
