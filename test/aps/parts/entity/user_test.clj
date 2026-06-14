@@ -1,11 +1,14 @@
 (ns aps.parts.entity.user-test
   (:require
+   [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing use-fixtures]]))
+   [clojure.test :refer [deftest is testing use-fixtures]])
+  (:import
+   (java.time LocalDate)))
 
 (use-fixtures :once with-test-db)
 
@@ -72,6 +75,19 @@
   (testing "throws when an empty params map is passed"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                           (user/create! {}))))
+
+  (testing "ignores attrs outside the create allowlist (no mass-assignment)"
+    ;; A caller that spreads untrusted input must not be able to set columns
+    ;; like paid_through_date. Allowlisted fields persist; the rest are dropped.
+    (let [attrs   (assoc (factory/build-test-user)
+                         :paid_through_date (LocalDate/parse "2999-01-01"))
+          created (user/create! attrs)
+          db-user (db/query-one
+                   (db/sql-format {:select [:paid_through_date]
+                                   :from   [:users]
+                                   :where  [:= :id (:id created)]}))]
+      (is (nil? (:paid_through_date db-user))
+          "a non-allowlisted column must not be writable through create!")))
 
   (testing "throws when a password is passed without confirmation"
     (let [attrs (factory/build-test-user)]

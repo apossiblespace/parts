@@ -113,6 +113,23 @@
                                      :where  [:= :email (:email user-data)]}))]
         (is (= nil db-user) "User row should have been rolled back")))))
 
+(deftest test-register-rejects-privilege-mass-assignment
+  (testing "a registration body cannot self-grant Founding Circle"
+    ;; Mass-assignment guard: register-account must not let request-body keys
+    ;; reach privilege/billing columns. is_founding_circle is server-controlled
+    ;; — the invite path sets it from the trusted invitation row, never a form.
+    (let [user-data    (factory/build-test-user)
+          mock-request {:body-params (merge user-data acceptance
+                                            {:is_founding_circle true})}
+          response     (account/register-account mock-request)
+          db-user      (db/query-one
+                        (db/sql-format {:select [:is_founding_circle]
+                                        :from   [:users]
+                                        :where  [:= :id (get-in response [:body :id])]}))]
+      (is (= 201 (:status response)))
+      (is (false? (:is_founding_circle db-user))
+          "is_founding_circle must stay at its default, not the injected value"))))
+
 (deftest test-register-then-authenticate
   (testing "a registered user can immediately authenticate with their credentials"
     (let [user-data (factory/build-test-user)

@@ -9,6 +9,15 @@
    [com.brunobonacci.mulog :as mulog]))
 
 (def allowed-update-fields #{:email :display_name :password})
+(def creatable-fields
+  "Fields a `create!` caller may set. Anything else in the attrs map — a
+   privilege/billing column like `:is_founding_circle` or `:paid_through_date`,
+   or any other column — is dropped before insert, so a caller that spreads an
+   untrusted request body cannot mass-assign. `:is_founding_circle` is allowed
+   here because the invite path legitimately sets it from the trusted
+   invitation row; the registration boundary (`api/account`) is what keeps it
+   out of a request body."
+  #{:email :display_name :password :password_confirmation :role :is_founding_circle})
 (def sensitive-fields #{:password_hash})
 (def valid-roles #{"client" "therapist"})
 
@@ -95,6 +104,7 @@
   ([attrs] (create! attrs db/datasource))
   ([attrs tx]
    (let [validated-attrs (-> attrs
+                             (select-keys creatable-fields)
                              normalize-attrs
                              validate-attrs
                              set-password-hash)]

@@ -72,7 +72,15 @@
   "Register a new user (role hardcoded to 'therapist'), provision their starter
    map atomically, and establish the auth session for auto-login."
   [request]
-  (let [params (-> (:body-params request) (assoc :role "therapist"))]
+  ;; Allowlist the request body to the fields a registrant may supply, then
+  ;; force the server-controlled ones. Without this, body keys like
+  ;; :is_founding_circle / :paid_through_date would flow through to the user
+  ;; insert (mass-assignment). The two acceptance booleans are kept for
+  ;; `validate-acceptance!`, which strips them before the user is created.
+  (let [params (-> (:body-params request)
+                   (select-keys [:email :display_name :password :password_confirmation
+                                 :accepted-legal? :accepted-medical?])
+                   (assoc :role "therapist"))]
     (try
       (let [{:keys [account map-id]} (db/with-transaction
                                        #(provision-account! params %))]
