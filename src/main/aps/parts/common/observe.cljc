@@ -13,7 +13,7 @@
 ;; a log sink.
 
 (def ^:private sensitive-log-keys
-  #{:password :password_confirmation :password_hash})
+  #{:password :password_confirmation :password_hash :token})
 
 (def ^:private redacted-placeholder "[REDACTED]")
 
@@ -32,6 +32,31 @@
                node
                sensitive-log-keys)
        node)) v))
+
+#?(:clj
+   (defn- scrub-invite-tokens
+     "Replace the token in any `/invite/<token>` string (e.g. a request :uri),
+      which key-based redaction can't reach."
+     [v]
+     (walk/postwalk
+      (fn [node]
+        (if (string? node)
+          (cstr/replace node #"(/invite/)[^/?\s]+" (str "$1" redacted-placeholder))
+          node))
+      v)))
+
+#?(:clj
+   (defn redact-event
+     "Redact sensitive keys and scrub invite tokens from one mulog event map."
+     [event]
+     (-> event redact-sensitive scrub-invite-tokens)))
+
+#?(:clj
+   (defn mulog-transform
+     "A mulog publisher `:transform` that redacts every event, covering direct
+      `mulog/log` calls (not just the o/* façade)."
+     [events]
+     (map redact-event events)))
 
 ;; =============================================================================
 ;; Shared: Log Levels and Filtering

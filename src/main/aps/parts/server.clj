@@ -3,6 +3,7 @@
   lifecycle management."
   (:require
    [aps.parts.alerts :as alerts]
+   [aps.parts.common.observe :as observe]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.errors :as errors]
@@ -59,7 +60,9 @@
    in src/dev/mulog_events.clj) handles publishing."
   []
   (when conf/prod?
-    (mulog/start-publisher! {:type :console-json :pretty? false})))
+    (mulog/start-publisher! {:type      :console-json
+                             :pretty?   false
+                             :transform observe/mulog-transform})))
 
 (defn start-alert-publisher
   "Starts the operator error-alert publisher when SMTP is configured. Gated on

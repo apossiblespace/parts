@@ -1,5 +1,6 @@
 (ns mulog-events
   (:require
+   [aps.parts.common.observe :as observe]
    [com.brunobonacci.mulog :as mulog]
    [com.brunobonacci.mulog.buffer :as mulog-buffer]))
 
@@ -33,7 +34,9 @@
   and other tap sources
   `mulog-tap-publisher` to stop publisher"
   (mulog/start-publisher!
-   {:type :custom, :fqn-function "mulog-events/tap-events"}))
+   {:type         :custom
+    :fqn-function "mulog-events/tap-events"
+    :transform    observe/mulog-transform}))
 
 (defn stop
   "Stop mulog tap publisher to ensure multiple publishers are not started
