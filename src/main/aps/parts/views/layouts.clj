@@ -1,7 +1,7 @@
 (ns aps.parts.views.layouts
   (:require
    [aps.parts.views.partials :as partials]
-   [hiccup2.core :refer [html]]))
+   [hiccup2.core :refer [html raw]]))
 
 (def ^:private default-options
   {:description "Parts is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."})
@@ -12,10 +12,12 @@
   [options & content]
   (let [options (merge default-options options)]
     (html
-     (partials/head options)
-     [:body.font-sans.bg-gray-50.text-gray-900
-      content
-      (partials/scripts options)])))
+     (raw "<!DOCTYPE html>")
+     [:html {:lang "en"}
+      (partials/head options)
+      [:body.font-sans.bg-gray-50.text-gray-900
+       content
+       (partials/scripts options)]])))
 
 (defn marketing
   "Marketing/landing layout: full site header and footer."
