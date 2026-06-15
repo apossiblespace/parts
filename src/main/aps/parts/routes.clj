@@ -11,6 +11,7 @@
 
    [aps.parts.handlers.waitlist :as waitlist]
    [aps.parts.middleware :as middleware]
+   [aps.parts.ratelimit :as ratelimit]
    [muuntaja.core :as muuntaja]
    [reitit.coercion.spec :as rcs]
 
@@ -123,7 +124,8 @@
    ;; (never under /app — a Circle member redeeming an invite must not
    ;; depend on the SPA bundle loading first). Gated by token validity,
    ;; not the launch flag: no wrap-launch-gated.
-   ["/invite/:token" {:middleware [middleware/wrap-html-defaults
+   ["/invite/:token" {:middleware [(ratelimit/limiter :invite {})
+                                   middleware/wrap-html-defaults
                                    middleware/wrap-html-response]
                       :get        {:handler invite/show}
                       :post       {:handler invite/redeem}}]
@@ -165,12 +167,14 @@
             :coercion   rcs/coercion}
 
     ["/auth"
-     ["/login" {:post {:handler api.auth/login}}]
+     ["/login" {:middleware [(ratelimit/limiter :login {})]
+                :post       {:handler api.auth/login}}]
      ["/logout" {:post {:middleware [auth-mw/require-auth]
                         :handler    api.auth/logout}}]]
 
     ["/account"
-     ["/register" {:middleware [middleware/wrap-launch-gated]
+     ["/register" {:middleware [(ratelimit/limiter :register {})
+                                middleware/wrap-launch-gated]
                    :post       {:handler api.account/register-account}}]
      ["" {:middleware [auth-mw/require-auth]
           :get        {:handler api.account/get-account}
