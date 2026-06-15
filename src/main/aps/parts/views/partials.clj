@@ -4,7 +4,6 @@
    [aps.parts.config :as conf]
    [aps.parts.launch :as launch]
    [aps.parts.version :as version]
-   [hiccup.util :as hu]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
 
 (defn scripts
@@ -41,10 +40,11 @@
     (for [href (or styles [])]
       [:link {:rel "stylesheet" :href href}])
     (when analytics?
-      [:script {:defer       true
-                :data-domain (conf/app-domain)
-                :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}])
-    [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]]))
+      (list
+       [:script {:defer       true
+                 :data-domain (conf/app-domain)
+                 :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
+       [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]))]))
 
 (defn header-signup
   "Post-launch site header: Log in + Create an account buttons."
@@ -300,22 +300,7 @@
                     label]))
       "."]]
     [:button {:class "btn btn-primary w-full" :type "submit"}
-     "Create my account"]]
-   ;; Progressive enhancement: the button ships enabled (no-JS fallback — the
-   ;; browser's `required` check and the server both still gate submission).
-   ;; Where JS runs, disable it until every required field/checkbox is valid.
-   [:script
-    (hu/raw-string
-     "(function () {
-        var form = document.getElementById('invite-form');
-        if (!form) return;
-        var button = form.querySelector('button[type=submit]');
-        if (!button) return;
-        var sync = function () { button.disabled = !form.checkValidity(); };
-        form.addEventListener('input', sync);
-        form.addEventListener('change', sync);
-        sync();
-      })();")]))
+     "Create my account"]]))
 
 (defn invite-unavailable-content
   "The calm error page body, shown for any unusable invitation token —

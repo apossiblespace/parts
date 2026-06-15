@@ -8,6 +8,7 @@
    `aps.parts.errors`."
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.config :as conf]
    [aps.parts.launch :as launch]
    [com.brunobonacci.mulog :as mulog]
    [ring.middleware.content-type :refer [wrap-content-type]]
@@ -94,6 +95,20 @@
        (assoc-in [:security :frame-options] :sameorigin)
        (assoc-in [:security :content-type-options] :nosniff)
        (assoc-in [:security :xss-protection] {:mode :block}))))
+
+(defn- content-security-policy
+  "CSP for the authed surfaces; permits eval outside prod, where shadow-cljs
+   loads code via eval (the advanced prod build needs none)."
+  [prod?]
+  (str "script-src 'self'" (when-not prod? " 'unsafe-eval'")
+       "; frame-ancestors 'none'"))
+
+(defn wrap-csp
+  "Set the Content-Security-Policy on the wrapped routes."
+  [handler]
+  (let [policy (content-security-policy (conf/prod?))]
+    (fn [request]
+      (assoc-in (handler request) [:headers "Content-Security-Policy"] policy))))
 
 (defn wrap-core-middlewares
   "Apply essential Ring middleware for the entire application.

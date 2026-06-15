@@ -102,10 +102,12 @@
    ;; shell; the client-side router (reitit.frontend) takes over from
    ;; there. The catch-all is what makes a deep link such as
    ;; /app/maps/:id survive a refresh or direct navigation.
-   ["/app" {:middleware [middleware/wrap-html-defaults
+   ["/app" {:middleware [middleware/wrap-csp
+                         middleware/wrap-html-defaults
                          middleware/wrap-html-response]
             :get        {:handler pages/app-shell}}]
-   ["/app{*path}" {:middleware [middleware/wrap-html-defaults
+   ["/app{*path}" {:middleware [middleware/wrap-csp
+                                middleware/wrap-html-defaults
                                 middleware/wrap-html-response]
                    :get        {:handler pages/app-shell}}]
 
@@ -125,6 +127,7 @@
    ;; depend on the SPA bundle loading first). Gated by token validity,
    ;; not the launch flag: no wrap-launch-gated.
    ["/invite/:token" {:middleware [(ratelimit/limiter :invite {})
+                                   middleware/wrap-csp
                                    middleware/wrap-html-defaults
                                    middleware/wrap-html-response]
                       :get        {:handler invite/show}
