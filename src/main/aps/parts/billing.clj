@@ -18,7 +18,8 @@
    [aps.parts.db.erasure :as erasure]
    [com.brunobonacci.mulog :as mulog])
   (:import
-   (java.time LocalDate)))
+   (java.time LocalDate)
+   (java.time.temporal ChronoUnit)))
 
 (defn- ->local-date
   "Coerce a date-ish value to a `java.time.LocalDate`: a LocalDate passes
@@ -43,6 +44,32 @@
   (if-let [^LocalDate d (->local-date paid-through)]
     (if (.isBefore d today) :overdue :paid)
     :never-paid))
+
+(defn account-standing
+  "Good-standing summary for a user `row` (which must carry
+   `:paid_through_date`), shaped for the account page and served as part of
+   `GET /api/account`. Returns:
+
+     {:status            :never-paid | :paid | :overdue
+      :paid_through_date \"YYYY-MM-DD\" or nil
+      :days_remaining    whole days from `today` until paid-through, or nil}
+
+   `:days_remaining` is 0 on the final paid day and goes negative once
+   overdue; the page reads `:status` for the wording and `:days_remaining`
+   for the count. Date-only on purpose (see `standing`) so the answer can't
+   drift with clock time or timezone, and `:paid_through_date` is a plain
+   ISO string for the same reason — the client renders it without ever
+   reinterpreting it as an instant. Founding-circle is intentionally not
+   considered, mirroring `standing`.
+
+   The single-arity form reads `today` from the system clock, like the
+   operator helpers; the two-arity form takes `today` for testability."
+  ([row] (account-standing row (LocalDate/now)))
+  ([row today]
+   (let [d (->local-date (:paid_through_date row))]
+     {:status            (standing (:paid_through_date row) today)
+      :paid_through_date (some-> d str)
+      :days_remaining    (some->> d (.between ChronoUnit/DAYS today))})))
 
 (defn- ->status-line
   "Operator-facing billing summary for a user `row` as of `today`. Carries

@@ -3,6 +3,7 @@
    ["htmx.org" :default htmx]
    [aps.parts.common.constants :as c]
    [aps.parts.common.observe :as o]
+   [aps.parts.frontend.components.account :refer [account]]
    [aps.parts.frontend.components.auth-screen :refer [auth-screen]]
    [aps.parts.frontend.components.map :refer [map-view]]
    [aps.parts.frontend.components.maps-list :refer [maps-list]]
@@ -50,6 +51,15 @@
    [])
   ($ maps-list))
 
+(defui account-route
+  "Account route (/app/account). Owns the browser tab title for this
+   page; delegates the rest to `account`."
+  []
+  (use-effect
+   #(do (set-title! "Account") js/undefined)
+   [])
+  ($ account))
+
 (defui map-route
   "Canvas route (/app/maps/:id). Fetches the routed Map when the id
    changes, mirrors the loaded Map's title into the browser tab, then
@@ -87,6 +97,7 @@
         path-params (uix.rf/use-subscribe [:router/path-params])]
     (case route-name
       ::router/maps-list ($ maps-list-route)
+      ::router/account   ($ account-route)
       ::router/map       ($ map-route {:map-id (:id path-params)})
       ;; No match yet (initial render before the router fires) — show
       ;; nothing rather than flashing wrong content.

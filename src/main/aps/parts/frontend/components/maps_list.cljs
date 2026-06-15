@@ -5,8 +5,8 @@
    and the created / last-updated dates. Selecting a Map navigates the
    client-side router to /app/maps/:id."
   (:require
-   [aps.parts.common.constants :as c]
-   [aps.parts.frontend.components.toolbar.auth-status :refer [auth-status]]
+   [aps.parts.frontend.components.app-footer :refer [app-footer]]
+   [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-layout-effect use-ref use-state]]
@@ -21,16 +21,6 @@
     (or (zero? (.-length q))
         (let [t (.. (or (:title the-map) "") toLowerCase)]
           (.includes t q)))))
-
-(defn- app-version
-  "Read the app version from the `<meta name=\"version\">` tag stamped
-   on first page load by the server's shared head (see
-   `aps.parts.views.partials/head`). Same channel `data-launched` uses
-   to flow build-time facts from server to client. Returns nil if the
-   tag isn't present (e.g. in tests that bypass the server shell)."
-  []
-  (some-> (.querySelector js/document "meta[name=\"version\"]")
-          (.getAttribute "content")))
 
 (defn- fmt-date
   "Format a date-ish value as `YYYY/MM/DD`. Transit deserialises Java
@@ -122,16 +112,13 @@
        js/undefined)
      [])
 
-    ($ :div {:class "min-h-screen bg-gray-50 p-4"}
-       ($ :div {:class "max-w-3xl mx-auto"}
-          ($ :div {:class "flex items-center justify-between my-6"}
-             ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"})
-             ($ :div {:class "flex items-center gap-2"}
-                ($ :button
-                   {:class    "btn btn-sm btn-primary"
-                    :on-click handle-create}
-                   "Create a new Map")
-                ($ auth-status)))
+    ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
+       ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
+          ($ app-header
+             {:actions ($ :button
+                          {:class    "btn btn-sm btn-primary"
+                           :on-click handle-create}
+                          "Create a new Map")})
 
           ($ :div {:class "flex items-center justify-between gap-3 mb-4"}
              ($ :h1 {:class "text-lg font-bold"} "Your Maps")
@@ -168,27 +155,4 @@
                              :the-map   the-map
                              :on-select handle-select}))))
 
-          ($ :footer {:class "mt-12 mb-6 pt-6 border-t border-gray-200 flex flex-col gap-3 text-xs text-gray-500"}
-             ($ :div {:class "flex items-center justify-between gap-3"}
-                ($ :div {:class "flex items-center gap-1"}
-                   ($ :span {:class "text-black font-bold"} "🆘 Need help?")
-                   ($ :span " Email us for a quick reply: ")
-                   ($ :a {:href (str "mailto:" c/support-email) :class "hover:text-ifs-green"}
-                      c/support-email)))
-             ($ :div {:class "flex items-center gap-3 text-gray-400"}
-                ($ :span
-                   "© 2026 "
-                   ($ :a {:href   "https://a.possible.space/"
-                          :target "_blank"}
-                      "A Possible Space Ltd."))
-                (for [{:keys [slug mini-label]} c/legal-documents]
-                  ($ :a {:key   slug
-                         :href  (str "/" slug)
-                         :class "hover:text-ifs-green"}
-                     mini-label))
-                ($ :a {:href "https://github.com/apossiblespace/parts"} "Source code")
-                ($ :a {:href "https://github.com/apossiblespace/parts?tab=readme-ov-file#readme"} "Docs")
-                (when-let [v (app-version)]
-                  ($ :div {:class "text-gray-400"}
-                     "Version: "
-                     ($ :span {:class "font-mono"} v)))))))))
+          ($ app-footer)))))

@@ -1,6 +1,7 @@
 (ns aps.parts.api.account
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.billing :as billing]
    [aps.parts.common.demo :as demo]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
@@ -12,11 +13,13 @@
    [ring.util.response :as response]))
 
 (defn get-account
-  "Retrieve own account info"
+  "Retrieve own account info, including the account's good-standing summary
+   under `:standing` (see `billing/account-standing`) for the Account page."
   [request]
   (let [user-id     (auth/current-user-id request)
         user-record (user/fetch user-id)]
-    (-> (response/response user-record)
+    (-> (response/response (assoc user-record
+                                  :standing (billing/account-standing user-record)))
         (response/status 200))))
 
 (defn update-account

@@ -16,15 +16,18 @@
 (def routes
   "Route table for the SPA. Names are keywords used by `rfe/href` and
    programmatic navigation. The maps list is the app home at /app; an
-   individual map's canvas is at /app/maps/:id; /app/login and /app/signup
-   are the auth screens. /app and /app/maps/:id are protected — the SPA
-   root gates them in place when the user isn't authenticated."
+   individual map's canvas is at /app/maps/:id; the account page is at
+   /app/account; /app/login and /app/signup are the auth screens. /app,
+   /app/account and /app/maps/:id are protected — the SPA root gates them
+   in place when the user isn't authenticated."
   [["/app"
     {:name ::maps-list}]
    ["/app/login"
     {:name ::login}]
    ["/app/signup"
     {:name ::signup}]
+   ["/app/account"
+    {:name ::account}]
    ["/app/maps/:id"
     {:name ::map}]])
 

@@ -22,6 +22,24 @@
                                  :from   [:users]
                                  :where  [:= :email email]}))))
 
+(deftest account-standing-test
+  (let [today (LocalDate/parse "2026-06-15")]
+    (testing "paid: whole days remaining until the paid-through date"
+      (is (= {:status :paid :paid_through_date "2026-07-08" :days_remaining 23}
+             (billing/account-standing {:paid_through_date "2026-07-08"} today))))
+
+    (testing "paid: zero days remaining on the final paid day"
+      (is (= {:status :paid :paid_through_date "2026-06-15" :days_remaining 0}
+             (billing/account-standing {:paid_through_date "2026-06-15"} today))))
+
+    (testing "overdue: a past date is overdue with a negative day count"
+      (is (= {:status :overdue :paid_through_date "2026-05-01" :days_remaining -45}
+             (billing/account-standing {:paid_through_date "2026-05-01"} today))))
+
+    (testing "never-paid: an unset date carries nils"
+      (is (= {:status :never-paid :paid_through_date nil :days_remaining nil}
+             (billing/account-standing {:paid_through_date nil} today))))))
+
 (deftest set-paid-through!-test
   (testing "an explicit ISO date string is recorded on the account"
     (create-test-user! {:email "explicit@example.com"})

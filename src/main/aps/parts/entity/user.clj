@@ -79,6 +79,7 @@
                                [:u.email :email]
                                [:u.display_name :display_name]
                                [:u.role :role]
+                               [:u.paid_through_date :paid_through_date]
                                [:m.id :map_id]]
                    :from      [[:users :u]]
                    :left-join [[:maps :m] [:= :m.owner_id :u.id]]

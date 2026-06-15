@@ -22,11 +22,16 @@
           mock-request {:identity {:sub (:id user)}}
           response     (account/get-account mock-request)]
       (is (= 200 (:status response)))
-      (is (= {:email        (:email user)
-              :display_name (:display_name user)
-              :role         (:role user)
-              :id           (:id user)
-              :map_id       nil} (:body response)))
+      (is (= {:email             (:email user)
+              :display_name      (:display_name user)
+              :role              (:role user)
+              :id                (:id user)
+              :paid_through_date nil
+              :map_id            nil
+              ;; A fresh account has never paid, so good standing is unset.
+              :standing          {:status            :never-paid
+                                  :paid_through_date nil
+                                  :days_remaining    nil}} (:body response)))
       (is (not (contains? response :password_hash))))))
 
 (deftest test-update-account
