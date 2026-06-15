@@ -21,7 +21,7 @@
   ;; when content is short, and fall back to natural flow (no extra top gap)
   ;; when content fills the screen. The pages must be `flex flex-col` with a
   ;; growing content wrapper for this to take effect.
-  ($ :footer {:class "mt-auto mb-6 pt-6 border-t border-gray-200 flex flex-col gap-3 text-xs text-gray-500"}
+  ($ :footer {:class "mt-auto pt-6 border-t border-gray-200 flex flex-col gap-3 text-xs text-gray-500"}
      ($ :div {:class "flex items-center justify-between gap-3"}
         ($ :div {:class "flex items-center gap-1"}
            ($ :span {:class "text-black font-bold"} "🆘 Need help?")

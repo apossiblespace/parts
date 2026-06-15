@@ -114,23 +114,24 @@
 
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
-          ($ app-header
-             {:actions ($ :button
-                          {:class    "btn btn-sm btn-primary"
-                           :on-click handle-create}
-                          "Create a new Map")})
+          ($ app-header)
 
           ($ :div {:class "flex items-center justify-between gap-3 mb-4"}
              ($ :h1 {:class "text-lg font-bold"} "Your Maps")
-             ;; Hide the search until there's a list to filter — pointless
-             ;; chrome on an empty account. Stays put during a background
-             ;; refresh (we have maps), so it doesn't flicker.
-             (when (seq maps)
-               ($ :input {:type        "search"
-                          :placeholder "Filter by title"
-                          :class       "input input-bordered input-sm w-56"
-                          :value       query
-                          :on-change   #(set-query (.. % -target -value))})))
+             ($ :div {:class "flex items-center gap-2"}
+                ($ :button
+                   {:class    "btn btn-sm btn-primary"
+                    :on-click handle-create}
+                   "Create a new Map")
+                ;; Hide the search until there's a list to filter — pointless
+                ;; chrome on an empty account. Stays put during a background
+                ;; refresh (we have maps), so it doesn't flicker.
+                (when (seq maps)
+                  ($ :input {:type        "search"
+                             :placeholder "Filter by title"
+                             :class       "input input-bordered input-sm w-56"
+                             :value       query
+                             :on-change   #(set-query (.. % -target -value))}))))
 
           (cond
             ;; Full spinner only on the FIRST load (nothing to show yet). A

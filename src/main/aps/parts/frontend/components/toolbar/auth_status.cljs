@@ -57,7 +57,7 @@
                     ($ :a {:on-click #(rf/dispatch [:router/navigate ::router/account])}
                        ($ User {:size 16})
                        "Account"))
-                 ($ :li ($ :hr {:class "my-1 -mx-2 border-base-300"}))
+                 ($ :li ($ :hr {:class "-mx-2 border-base-300"}))
                  ($ :li
                     ($ :a {:on-click #(rf/dispatch [:auth/logout])}
                        ($ LogOut {:size 16})

@@ -63,7 +63,7 @@
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
           ($ app-header)
-          ($ :h1 {:class "text-lg font-bold my-6"} "Account")
+          ($ :h1 {:class "text-lg font-bold mb-6"} "Account")
 
           ($ :div {:role "alert" :class "alert alert-info alert-outline mb-4"}
              ($ :svg
