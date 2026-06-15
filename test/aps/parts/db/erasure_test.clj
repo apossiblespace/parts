@@ -111,6 +111,32 @@
       (testing "user row physically gone"
         (is (zero? (:c users-left)))))))
 
+(deftest test-purge-erases-email-from-invitations-and-waitlist
+  ;; invitations and waitlist_signups are keyed by email, not user-id, and the
+  ;; original purge missed them — a completed erasure left the address behind
+  ;; (GDPR Art. 17 gap). The email must be resolved in-transaction before the
+  ;; users row is deleted.
+  (let [user  (create-test-user!)
+        email (:email user)]
+    (jdbc/execute! db/datasource
+                   ["INSERT INTO invitations (email, token) VALUES (?, ?)"
+                    email (str (random-uuid))])
+    (jdbc/execute! db/datasource
+                   ["INSERT INTO waitlist_signups (email) VALUES (?)" email])
+
+    (erasure/purge-account! db/datasource (:id user))
+
+    (let [count-by-email (fn [table]
+                           (:c (jdbc/execute-one!
+                                db/datasource
+                                [(str "SELECT count(*) AS c FROM " table " WHERE email = ?")
+                                 email]
+                                {:builder-fn rs/as-unqualified-maps})))]
+      (testing "the invitation referencing the erased email is gone"
+        (is (zero? (count-by-email "invitations"))))
+      (testing "the waitlist signup referencing the erased email is gone"
+        (is (zero? (count-by-email "waitlist_signups")))))))
+
 (deftest test-purge-pseudonymizes-audit-trail
   (let [user    (create-test-user!)
         the-map (create-test-map! (:id user) "Pre-purge")]

@@ -73,11 +73,13 @@
    Inside one transaction:
      1. Set the session actor to the tombstone so audit triggers on the
         DELETEs below write rows that don't FK-reference the dying user.
-     2. Hard-DELETE relationships / parts / maps owned by the user.
-     3. Pseudonymize any historical `audit_log` rows still attributing
+     2. Hard-DELETE the user's email-keyed rows in invitations and
+        waitlist_signups (resolving the email before the users row goes).
+     3. Hard-DELETE relationships / parts / maps owned by the user.
+     4. Pseudonymize any historical `audit_log` rows still attributing
         pre-deletion activity to this user — they survive but are anonymous.
-     4. Mark `deletion_completed_at` (sentinel for log correlation).
-     5. Hard-DELETE the user row.
+     5. Mark `deletion_completed_at` (sentinel for log correlation).
+     6. Hard-DELETE the user row.
 
    For the v1 owner-only model, every part/relationship in a user's map
    was authored by that same user, so the pseudonymization in step 3 makes
@@ -93,6 +95,15 @@
     (mulog/log ::purge-account-start :user-id user-id)
     (jdbc/with-transaction [tx ds]
       (bt/set-actor! tx tombstone-id)
+      ;; Resolve the email before the users row is deleted: invitations and
+      ;; waitlist_signups are keyed by email, not user-id.
+      (let [email (:email (jdbc/execute-one!
+                           tx
+                           ["SELECT email FROM users WHERE id = ?" user-uuid]
+                           {:builder-fn rs/as-unqualified-maps}))]
+        (when email
+          (jdbc/execute! tx ["DELETE FROM invitations WHERE email = ?" email])
+          (jdbc/execute! tx ["DELETE FROM waitlist_signups WHERE email = ?" email])))
       ;; Child cascade: mirror in `entity.map/delete-impl!`.
       (jdbc/execute! tx
                      ["DELETE FROM relationships
