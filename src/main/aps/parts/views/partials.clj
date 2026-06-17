@@ -50,7 +50,8 @@
   "Post-launch site header: Log in + Create an account buttons."
   []
   [:header
-   {:class "py-6"}
+   ;; Overlays the hero so the demo canvas shows through behind it.
+   {:class "absolute top-0 left-0 right-0 z-20 py-6"}
    [:div
     {:class "container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}
     [:div
@@ -75,7 +76,8 @@
    Log in link for already-onboarded Circle members."
   []
   [:header
-   {:class "py-6"}
+   ;; Overlays the hero so the demo canvas shows through behind it.
+   {:class "absolute top-0 left-0 right-0 z-20 py-6"}
    [:div
     {:class "container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}
     [:div

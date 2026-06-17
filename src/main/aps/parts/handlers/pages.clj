@@ -40,6 +40,58 @@
       :styles ["/css/flow.css" "/css/style.css"]}
      [:div#root {:data-launched (str (launch/launched?))}]))))
 
+(defn- hero
+  "Landing hero, responsive at the lg breakpoint.
+
+   lg and up: the interactive demo map is a full-bleed background that stays
+   usable, with the headline/sub-head/CTAs overlaid on the left — each with a
+   white highlight behind the text itself (box-decoration-clone) so the canvas
+   shows through. The overlay is click-through except for the CTAs, and the
+   map's initial viewport + toolbar are nudged right (see the `minimal` branch
+   in map.cljs) so the text only ever covers empty canvas.
+
+   Below lg: the demo is hidden and the hero is just text on the page
+   background. The highlight and click-through are lg-only to match.
+
+   `cta` is the call-to-action markup, which differs per launch state."
+  [{:keys [waitlist-count cta]}]
+  ;; The white text highlight only makes sense over the canvas (lg overlay);
+  ;; on mobile the text sits on the page background, so keep it plain.
+  (let [highlight ["lg:box-decoration-clone" "lg:bg-white" "lg:px-3" "lg:py-1"]]
+    [:section {:class ["relative" "overflow-hidden" "lg:h-[90vh]"]}
+     ;; Text first in the DOM so it stacks above the demo on mobile; on lg the
+     ;; demo is taken out of flow (absolute) and this overlays it.
+     [:div {:class ["relative" "z-10" "lg:pointer-events-none" "mx-auto"
+                    "max-w-7xl" "container" "px-4" "sm:px-6" "lg:px-8"
+                    "pt-32" "pb-12" "lg:pb-20"]}
+      ;; Re-enable pointer events on the text column so it's selectable (the
+      ;; container is click-through at lg so empty canvas still pans).
+      [:div {:class ["max-w-xl" "lg:pointer-events-auto"]}
+       ;; leading-tight is the floor that keeps the box-decoration-clone
+       ;; highlight from overlapping line-to-line and clipping the glyphs.
+       ;; -ml-3 on the block (not the inline span) pulls every wrapped line left
+       ;; by the highlight's px-3 so the glyphs align with the logo/container.
+       [:h1 {:class ["text-5xl" "md:text-6xl" "font-bold" "leading-tight" "lg:-ml-3"]}
+        [:span {:class highlight}
+         "Understand your clients’ parts and their relationships."]]
+       [:h3 {:class ["my-8" "text-xl" "lg:-ml-3"]}
+        [:span {:class highlight}
+         [:strong.font-bold "Parts"]
+         " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]]
+       [:div {:class ["grid" "grid-cols-1" "sm:grid-cols-2" "gap-2"
+                      "max-w-lg" "pointer-events-auto"]}
+        cta]
+       [:p {:class ["mt-6" "text-sm" "lg:-ml-3"]}
+        [:span {:class (conj highlight "text-gray-500")}
+         "Current founding members: "
+         [:span#counter waitlist-count]
+         " practitioners."]]]]
+     ;; The demo: hidden on mobile; a full-bleed background behind the text on lg.
+     [:div#root {:data-demo-mode "minimal"
+                 :class          ["demo" "minimal" "bg-white"
+                                  "hidden" "lg:block"
+                                  "lg:absolute" "lg:inset-0"]}]]))
+
 (defn home-page-signup
   "Post-launch landing page: header and hero CTAs link to the /app SPA."
   [_]
@@ -49,35 +101,17 @@
       (layouts/marketing
        {:title  nil
         :styles ["/css/flow.css" "/css/style.css"]}
-       [:section
-        [:div
-         {:class ["grid" "grid-cols-1" "md:grid-cols-2"
-                  "gap-12" "mx-auto" "max-w-7xl"
-                  "container" "px-4" "sm:px-6" "lg:px-8"]}
-         [:div
-          [:h1
-           {:class ["text-5xl" "md:text-6xl" "font-bold" "my-16"]}
-           "Understand your clients’ parts and their relationships."]
-          [:h3.my-8.text-xl
-           [:strong.font-bold "Parts"]
-           " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
-          [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
-           [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
-            {:role    "button"
-             :href    "/app/signup"
-             :onclick "plausible('Create Account Click', {props: {source: 'homepage-hero'}}); return true;"}
-            "Create an account"]
-           [:a.btn.btn-lg {:role "button"
-                           :href "/playground"}
-            "Try the playground"]]
-          [:p
-           {:class ["my-4" "w-full" "text-gray-500" "text-sm"]}
-           [:span "Current founding members: "]
-           [:span#counter waitlist-count]
-           [:span " practitioners."]]]
-         [:div#root
-          {:data-demo-mode "minimal"
-           :class          ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
+       (hero
+        {:waitlist-count waitlist-count
+         :cta            (list
+                          [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
+                           {:role    "button"
+                            :href    "/app/signup"
+                            :onclick "plausible('Create Account Click', {props: {source: 'homepage-hero'}}); return true;"}
+                           "Create an account"]
+                          [:a.btn.btn-lg {:role "button"
+                                          :href "/playground"}
+                           "Expand the playground"])})
        [:section#signup.py-20.text-white
         {:style {:background-color "#4eb48a"}}
         [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
@@ -151,34 +185,16 @@
       (layouts/marketing
        {:title  nil
         :styles ["/css/flow.css" "/css/style.css"]}
-       [:section
-        [:div
-         {:class ["grid" "grid-cols-1" "md:grid-cols-2"
-                  "gap-12" "mx-auto" "max-w-7xl"
-                  "container" "px-4" "sm:px-6" "lg:px-8"]}
-         [:div
-          [:h1
-           {:class ["text-5xl" "md:text-6xl" "font-bold" "my-16"]}
-           "Understand your clients’ parts and their relationships."]
-          [:h3.my-8.text-xl
-           [:strong.font-bold "Parts"]
-           " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts."]
-          [:div.grid.grid-cols-1.md:grid-cols-2.gap-2.w-full
-           [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
-            {:role "button"
-             :href "#signup"}
-            "Join the Founding Circle"]
-           [:a.btn.btn-lg {:role "button"
-                           :href "/playground"}
-            "Try the playground"]]
-          [:p
-           {:class ["my-4" "w-full" "text-gray-500" "text-sm"]}
-           [:span "Current founding members: "]
-           [:span#counter waitlist-count]
-           [:span " practitioners."]]]
-         [:div#root
-          {:data-demo-mode "minimal"
-           :class          ["demo" "minimal" "bg-white" "mb-4" "rounded-lg" "shadow-sm"]}]]]
+       (hero
+        {:waitlist-count waitlist-count
+         :cta            (list
+                          [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
+                           {:role "button"
+                            :href "#signup"}
+                           "Join the Founding Circle"]
+                          [:a.btn.btn-lg {:role "button"
+                                          :href "/playground"}
+                           "Expand the playground"])})
        [:section#signup.py-20.text-white
         {:style {:background-color "#4eb48a"}}
         [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8

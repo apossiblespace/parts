@@ -301,11 +301,57 @@ a.btn {
 .map-container {
     display: flex;
 
+    /* In the marketing hero #root is absolutely positioned (inset-0), so the
+       canvas wrapper must fill it for the demo to act as a full-section
+       background. Elsewhere #root sizes itself and this rule doesn't apply. */
+    #root.minimal & {
+        height: 100%;
+    }
+
     .map-view {
         height: 100vh;
         flex: 1;
         &.minimal {
-            max-height: 36rem;
+            /* Marketing hero: the demo is a full-bleed background, so it fills
+               the section (#root is absolutely positioned to inset-0) rather
+               than the standalone 36rem demo box it used to be. */
+            height: 100%;
+            max-height: none;
+
+            /* The sidebar's own cap is viewport-relative (100vh − 200px),
+               sized for the full-window app. Inside this short demo box that
+               lets the "Selected parts" panel run down over the bottom
+               toolbar (the panels are absolutely positioned within the same
+               36rem viewport). Re-cap it to the demo's height so the toolbar
+               keeps its space; the panel's inner list scrolls instead. */
+            .sidebar {
+                max-height: 28rem;
+            }
+
+            /* The demo only shows at lg and up (hidden below), so these
+               overlay-specific offsets always apply when it's visible. */
+
+            /* The site header overlays the hero (see partials/header), so its
+               Log in / Join controls sit over the top-right of the canvas.
+               Offset the sidebar panel down to clear them, and align its right
+               edge with the header's CTA — i.e. the right edge of the centred
+               max-w-7xl (80rem) container with its lg:px-8 (2rem) gutter, which
+               for a full-bleed canvas means insetting from the viewport edge.
+               margin-right:0 cancels React Flow's default 15px panel margin so
+               the offset is exact. */
+            .sidebar-container {
+                top: 5.5rem;
+                right: calc(max(0px, (100vw - 80rem) / 2) + 2rem);
+                margin-right: 0;
+            }
+
+            /* The headline overlays the left half; the map is only visible on
+               the right. React Flow centres a bottom-center panel with
+               left:50% + translateX(-50%) — dropping the translate leaves the
+               toolbar's left edge at 50%, aligned with the visible map. */
+            .toolbar {
+                transform: none;
+            }
         }
         /* The node fills ReactFlow's wrapper, which carries the Part's
            width/height from the database as inline styles — hardcoding a
@@ -500,6 +546,16 @@ a.btn {
             border-radius: var(--radius-box);
             padding: 0.2rem 0.5rem;
             border: 1px solid #cccccc;
+        }
+
+        /* React Flow centres a bottom panel with left:50% + translateX(-50%).
+           With auto width that shrink-to-fit caps at ~half the canvas, which
+           forces the toolbar onto two lines in the narrow marketing demo.
+           Sizing it to its content keeps it on one centred line; the
+           max-width keeps it inside the canvas (30px = the panel's margins). */
+        .toolbar {
+            width: max-content;
+            max-width: calc(100% - 30px);
         }
 
         /* Shrink toolbar tooltip text — DaisyUI's default 0.875rem is

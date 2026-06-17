@@ -408,8 +408,16 @@
                         :edgeTypes               edge-types
                         :connectionLineComponent PartsConnectionLine
                         :zoomOnScroll            (not minimal)
-                        :preventScrolling        (not minimal)}
-             ($ Controls)
+                        :preventScrolling        (not minimal)
+                        ;; Marketing hero (lg only): the demo is a full-bleed
+                        ;; background with the headline overlaid on the left, so
+                        ;; nudge the initial view right to keep it clear of the
+                        ;; text. (Hidden below lg, so this only ever shows there.)
+                        :defaultViewport         (if minimal
+                                                   #js {:x 620 :y 90 :zoom 1}
+                                                   js/undefined)}
+             (when-not minimal
+               ($ Controls))
              (when-not minimal
                (if demo
                  ;; Playground: mini logo linking back to the marketing site.
@@ -458,10 +466,9 @@
                            :pannable    true
                            :zoomable    true
                            :offsetScale 5}))
-             (when-not minimal
-               ($ Background {:variant "dots"
-                              :gap     12
-                              :size    1}))))
+             ($ Background {:variant "dots"
+                            :gap     12
+                            :size    1})))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal
