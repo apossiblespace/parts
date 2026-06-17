@@ -50,6 +50,19 @@
                "allow-list (db/bitemporal, db/range_types):\n  "
                (str/join "\n  " offenders))))))
 
+(deftest readable-column-extension-is-single
+  (testing
+   "only db/range-types extends ReadableColumn for PGobject — a second
+    extension would silently override the first (last load wins), breaking
+    range or jsonb reads; jsonb is delegated into the one extension instead"
+    (let [patterns  [#"extend-protocol\s+[\w./]*ReadableColumn"]
+          allowed   ["db/range_types"]
+          offenders (offending-files patterns allowed)]
+      (is (empty? offenders)
+          (str "These files add a second ReadableColumn extension; route the "
+               "new PGobject type through the one in db/range_types instead:\n  "
+               (str/join "\n  " offenders))))))
+
 (deftest hard-delete-is-quarantined
   (testing "DELETE FROM on temporal tables appears only in db/erasure"
     (let [patterns  [#"(?i)DELETE FROM (parts|relationships|maps|map_metadata)\b"]

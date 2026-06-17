@@ -2,6 +2,7 @@
   (:require
    [aps.parts.common.constants :refer [part-labels]]
    [aps.parts.common.observe :as o]
+   [aps.parts.frontend.components.body-location :refer [location-field]]
    [uix.core :refer [$ defui use-effect use-state]]))
 
 (defui part-form
@@ -11,51 +12,48 @@
    - on-save: Callback function (id, form-data) when data is saved
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save collapsed]}]
-  (let [{:keys [id type label notes]}       part
-        [form-state set-form-state]         (use-state
-                                             {:values     {:type  type
-                                                           :label label
-                                                           :notes notes}
-                                              :initial    {:type  type
-                                                           :label label
-                                                           :notes notes}
-                                              :collapsed? collapsed})
-        {:keys [values initial collapsed?]} form-state
-        changed?                            (not= values initial)
-        update-field                        (fn [field value]
-                                              (set-form-state
-                                               (fn [state]
-                                                 (assoc-in state [:values field] value))))
-        toggle-collapsed                    (fn []
-                                              (set-form-state
-                                               (fn [state]
-                                                 (update state :collapsed? not))))
-        handle-save                         (fn []
-                                              (o/track "Part saved" {:type (:type values)})
-                                              (on-save id values)
-                                              (set-form-state
-                                               (fn [state]
-                                                 (assoc state :initial (:values state))))
-                                              (when (.-activeElement js/document)
-                                                (.blur (.-activeElement js/document))))
-        handle-submit                       (fn [e]
-                                              (.preventDefault e)
-                                              (when changed?
-                                                (handle-save)))]
+  (let [{:keys [id type label notes body_location]} part
+        fields                                      {:type          type
+                                                     :label         label
+                                                     :notes         notes
+                                                     :body_location body_location}
+        [form-state set-form-state]                 (use-state
+                                                     {:values     fields
+                                                      :initial    fields
+                                                      :collapsed? collapsed})
+        {:keys [values initial collapsed?]}         form-state
+        changed?                                    (not= values initial)
+        update-field                                (fn [field value]
+                                                      (set-form-state
+                                                       (fn [state]
+                                                         (assoc-in state [:values field] value))))
+        toggle-collapsed                            (fn []
+                                                      (set-form-state
+                                                       (fn [state]
+                                                         (update state :collapsed? not))))
+        handle-save                                 (fn []
+                                                      (o/track "Part saved" {:type (:type values)})
+                                                      (on-save id values)
+                                                      (set-form-state
+                                                       (fn [state]
+                                                         (assoc state :initial (:values state))))
+                                                      (when (.-activeElement js/document)
+                                                        (.blur (.-activeElement js/document))))
+        handle-submit                               (fn [e]
+                                                      (.preventDefault e)
+                                                      (when changed?
+                                                        (handle-save)))]
 
+    ;; Re-sync when the selected Part's fields change. `fields` is rebuilt from
+    ;; the primitives the effect depends on (not the outer binding, whose
+    ;; identity changes every render and would re-fire the effect).
     (use-effect
      (fn []
-       (set-form-state
-        (fn [state]
-          (-> state
-              (assoc-in [:values :type] type)
-              (assoc-in [:values :label] label)
-              (assoc-in [:values :notes] notes)
-              (assoc-in [:initial :type] type)
-              (assoc-in [:initial :label] label)
-              (assoc-in [:initial :notes] notes)
-              (assoc :collapsed? collapsed)))))
-     [label type notes id collapsed])
+       (let [fields {:type type :label label :notes notes :body_location body_location}]
+         (set-form-state
+          (fn [state]
+            (assoc state :values fields :initial fields :collapsed? collapsed)))))
+     [label type notes body_location id collapsed])
 
     (use-effect
      (fn [] (o/debug "part-form" "Part" id))
@@ -111,4 +109,7 @@
             ($ :label {:class "fieldset-label"} "Notes:")
             ($ :textarea {:class    "textarea textarea-sm mb-1"
                           :value    (:notes values)
-                          :onChange #(update-field :notes (.. % -target -value))}))))))
+                          :onChange #(update-field :notes (.. % -target -value))})
+
+            ($ location-field {:location  (:body_location values)
+                               :on-change #(update-field :body_location %)}))))))

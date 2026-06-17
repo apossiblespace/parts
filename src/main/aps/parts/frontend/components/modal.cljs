@@ -3,7 +3,7 @@
    [uix.core :refer [defui $ use-ref use-effect]]))
 
 (defui modal
-  [{:keys [show title on-close children]}]
+  [{:keys [show title on-close children box-class]}]
   (let [dialog-ref (use-ref nil)]
 
     ;; control modal visibility based on show prop
@@ -24,7 +24,7 @@
                        (on-close)))
         :on-cancel on-close} ;; handles ESC key
        ($ :div
-          {:class    "modal-box"
+          {:class    (str "modal-box" (when box-class (str " " box-class)))
            :on-click #(.stopPropagation %)}
           ($ :button
              {:class    "btn btn-xs btn-circle btn-ghost absolute right-2 top-2.5"

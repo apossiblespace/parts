@@ -16,7 +16,25 @@
 (s/def ::width (s/nilable (s/and int? #(<= part-min-size % part-max-size))))
 (s/def ::height (s/nilable (s/and int? #(<= part-min-size % part-max-size))))
 (s/def ::notes (s/nilable string?))
-(s/def ::body_location (s/nilable string?))
+
+;; Body location — where in the client's body a Part is felt (its somatic
+;; locus). A structured point on a body silhouette, never free text (see
+;; ADR-0013): which figure (`:view`) plus normalized 0..1 coordinates within
+;; it. `:view` is a string (not a keyword) so it round-trips through JSONB
+;; storage unchanged. One point, one view — richer geometry would extend this
+;; value, not replace it.
+(defn- normalized-coord?
+  "A coordinate within a silhouette figure: a number in [0, 1]."
+  [n]
+  (and (number? n) (<= 0 n 1)))
+
+(s/def ::body_location
+  (s/nilable
+   (s/and map?
+          #(= #{:view :x :y} (set (keys %)))
+          (comp #{"front" "back"} :view)
+          #(normalized-coord? (:x %))
+          #(normalized-coord? (:y %)))))
 
 (s/def ::part
   (s/keys :req-un [::map_id

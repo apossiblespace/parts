@@ -61,6 +61,41 @@
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Part not found"
                               (part/fetch (:id created))))))))
 
+(deftest test-part-body-location-jsonb
+  ;; body_location is a structured point stored as JSONB (ADR-0013). This
+  ;; guards the full round-trip: a Clojure map is written as jsonb and read
+  ;; back as a Clojure map (keyword keys). The second update is the subtle
+  ;; case — a sequenced update reads the current row (its body_location now a
+  ;; parsed map) and re-inserts it to close the old valid-time slice, so the
+  ;; map has to bind back as a parameter without a manual conversion.
+  (let [user     (create-test-user!)
+        the-map  (parts-map/create! {:title "Map" :owner_id (:id user)} (:id user))
+        location {:view "front" :x 0.42 :y 0.31}
+        created  (part/create! {:map_id        (:id the-map)
+                                :type          "manager"
+                                :label         "Somatic Part"
+                                :position_x    10
+                                :position_y    10
+                                :body_location location}
+                               (:id user))]
+    (testing "create! then fetch reads the point back as a map"
+      (is (= location (:body_location created)))
+      (is (= location (:body_location (part/fetch (:id created))))))
+
+    (testing "an unrelated update preserves the existing body_location"
+      (let [updated (part/update! (:id created) {:label "Renamed"} (:id user))]
+        (is (= location (:body_location updated)))
+        (is (= location (:body_location (part/fetch (:id created)))))))
+
+    (testing "the point can be moved to the other view"
+      (let [moved {:view "back" :x 0.6 :y 0.5}]
+        (part/update! (:id created) {:body_location moved} (:id user))
+        (is (= moved (:body_location (part/fetch (:id created)))))))
+
+    (testing "the point can be cleared to nil"
+      (part/update! (:id created) {:body_location nil} (:id user))
+      (is (nil? (:body_location (part/fetch (:id created))))))))
+
 (deftest test-part-validations
   (testing "create fails with invalid data"
     (let [user (create-test-user!)]

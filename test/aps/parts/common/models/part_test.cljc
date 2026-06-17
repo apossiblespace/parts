@@ -41,10 +41,29 @@
                   :description   "Test description"
                   :width         150
                   :height        80
-                  :body_location "head"
+                  :body_location {:view "front" :x 0.42 :y 0.31}
                   :notes         "Test notes"}
           result (part/make-part attrs)]
       (is (= attrs result))))
+
+  (testing "Accepts a structured body location on both views"
+    (is (= {:view "back" :x 0.0 :y 1.0}
+           (:body_location (part/make-part {:map_id        "m"
+                                            :body_location {:view "back"
+                                                            :x    0.0
+                                                            :y    1.0}})))))
+
+  (testing "Rejects a malformed body location — free text, bad view,
+            out-of-range coordinate, or stray keys"
+    (doseq [bad [{:view "front" :x 0.5 :y "head"}
+                 {:view "front" :x 1.5 :y 0.5}
+                 {:view "left" :x 0.5 :y 0.5}
+                 {:view "front" :x 0.5 :y 0.5 :z 0.5}
+                 {:x 0.5 :y 0.5}]]
+      (is (thrown-with-msg?
+           #?(:clj clojure.lang.ExceptionInfo
+              :cljs cljs.core.ExceptionInfo) #"Validation failed"
+           (part/make-part {:map_id "m" :body_location bad})))))
 
   (testing "Coerces float position coordinates to ints — ReactFlow's
             screenToFlowPosition yields floats, and the spec is strict `int?`"
@@ -95,6 +114,13 @@
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (part/validate-update {:width 59})))
     (is (nil? (part/validate-update {:width 60 :height 400}))))
+
+  (testing "Accepts a structured body location, rejects free text"
+    (is (nil? (part/validate-update {:body_location {:view "front" :x 0.1 :y 0.9}})))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/validate-update {:body_location "left shoulder"}))))
 
   (testing "Rejects :id and :map_id — a Part's identity can't be updated"
     (is (thrown-with-msg?

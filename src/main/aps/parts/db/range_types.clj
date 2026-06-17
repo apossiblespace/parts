@@ -15,6 +15,7 @@
    sentinel keywords `:infinity` / `:-infinity` for unbounded ends so as to
    mirror the values emitted by Postgres."
   (:require
+   [aps.parts.db.json-types :as json-types]
    [clojure.string :as str]
    [next.jdbc.prepare :as prepare]
    [next.jdbc.result-set :as rs])
@@ -134,16 +135,20 @@
   (set-parameter [v ^PreparedStatement ps ^long i]
     (.setObject ps i (->pgobject v))))
 
+;; This is the single `ReadableColumn PGobject` extension in the codebase —
+;; only one may exist, so it routes every PGobject type we marshal. `jsonb` is
+;; delegated to `json-types` (see its docstring); unknown types pass through
+;; untouched.
+(defn- read-pgobject [^PGobject v]
+  (case (.getType v)
+    "tstzrange" (parse-tstzrange (.getValue v))
+    "jsonb"     (json-types/parse v)
+    v))
+
 (extend-protocol rs/ReadableColumn
   PGobject
-  (read-column-by-label [^PGobject v _label]
-    (if (= "tstzrange" (.getType v))
-      (parse-tstzrange (.getValue v))
-      v))
-  (read-column-by-index [^PGobject v _rsmeta _idx]
-    (if (= "tstzrange" (.getType v))
-      (parse-tstzrange (.getValue v))
-      v)))
+  (read-column-by-label [v _label]       (read-pgobject v))
+  (read-column-by-index [v _rsmeta _idx] (read-pgobject v)))
 
 ;; -- Predicates -------------------------------------------------------------
 

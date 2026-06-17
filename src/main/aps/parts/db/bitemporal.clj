@@ -84,6 +84,7 @@
 
    All six are implementable on this schema; see Snodgrass Ch 10 for examples."
   (:require
+   [aps.parts.db.json-types :as json]
    [aps.parts.db.range-types :as range]
    [honey.sql :as sql]
    [next.jdbc :as jdbc]
@@ -279,10 +280,12 @@
   (let [now      (OffsetDateTime/now)
         valid-at (or valid-at (range/tstzrange now :infinity))
         sys-at   (range/tstzrange (or sys-from now) :infinity)
-        full-row (assoc row
-                        :valid_at   (range/->pgobject valid-at)
-                        :sys_period (range/->pgobject sys-at)
-                        :actor_id   actor-id)
+        ;; Map-valued columns (e.g. a Part's body_location) are jsonb. Encode
+        ;; them before HoneySQL, which would otherwise read a map as a clause.
+        full-row (-> (update-vals row json/?->jsonb)
+                     (assoc :valid_at   (range/->pgobject valid-at)
+                            :sys_period (range/->pgobject sys-at)
+                            :actor_id   actor-id))
         inserted (first (jdbc/execute! tx
                                        (sql/format {:insert-into table
                                                     :values      [full-row]
