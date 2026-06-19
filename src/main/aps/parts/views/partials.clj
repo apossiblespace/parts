@@ -297,8 +297,7 @@
       (interpose ", "
                  (for [{:keys [slug label]} c/legal-documents]
                    [:a {:href   (str "/" slug)
-                        :target "_blank"
-                        :class  "link link-primary"}
+                        :target "_blank"}
                     label]))
       "."]]
     [:button {:class "btn btn-primary w-full" :type "submit"}

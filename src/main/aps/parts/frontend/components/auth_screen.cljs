@@ -34,13 +34,13 @@
                signup?
                ($ :p {:class "text-sm text-center mt-4"}
                   "Already have an account? "
-                  ($ :a {:href "/app/login" :class "link link-primary"}
+                  ($ :a {:href "/app/login"}
                      "Log in"))
 
                launched
                ($ :p {:class "text-sm text-center mt-4"}
                   "Don't have an account? "
-                  ($ :a {:href "/app/signup" :class "link link-primary"}
+                  ($ :a {:href "/app/signup"}
                      "Create one"))
 
                :else nil))))))

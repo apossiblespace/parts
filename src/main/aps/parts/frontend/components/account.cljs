@@ -76,12 +76,11 @@
                     :stroke-linejoin "round",
                     :stroke-width    "2",
                     :d               "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"}))
-             ($ :p
+             ($ :p {:class "text-gray-900"}
                 "This page is still in development. To make any changes to your account, "
                 "for any billing inquiries, or to close your account and delete your "
                 "information, please email us at "
-                ($ :a {:href  (str "mailto:" c/support-email)
-                       :class "link link-primary"}
+                ($ :a {:href (str "mailto:" c/support-email)}
                    c/support-email)
                 "."))
 
