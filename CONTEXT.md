@@ -40,6 +40,14 @@ UI decisions defer to the **macOS Human Interface Guidelines**. Parts aims for U
 - **Founding Circle** — the first cohort of practitioners, onboarded by Invitation during the concierge launch. `users.is_founding_circle` marks membership; it is carried from `invitations.is_founding_circle` when the Invitation is redeemed.
 - **Paid-through date** — `users.paid_through_date` (a `DATE`; NULL means never paid) records how far a User's account is paid up. The concierge launch bills out of band — a Stripe invoice the operator sends by hand — and the `aps.parts.billing` operator helpers move the date once an invoice clears. The date is *recorded* only: access is not gated on it yet (a deliberate later step).
 
+## Operator metrics
+
+These terms describe the fleet- and account-level figures the operator reads from the production REPL (see `aps.parts.stats`). They are operational, not part of the therapeutic domain.
+
+- **Active user** — a User who has *made a change* — created, edited, or deleted a Part, Relationship, or Map title — within a given window. Activity is read from the `audit_log`, the only server-side record of what a User did; it therefore measures *edits, not app opens*: a User who logs in and only reviews a Map leaves no trace and does not count as active. Windows ("active in the last 24h / 7d") are *rolling* — they end at the present moment, not at a calendar boundary.
+- **Last active** — the moment of a User's most recent change (the latest `audit_log` entry attributed to them as actor). A User who has never made a change has no last-active value.
+- **Fleet** — all real Users taken together, *excluding* the **Tombstone user**. Accounts **pending deletion** (deletion requested, not yet purged) are still real accounts and are counted as Users, but the operator view surfaces their number separately as churn. Purged accounts leave no `users` row, and their past activity is re-attributed to the Tombstone, so they fall out of every fleet figure automatically.
+
 ## Architectural terms
 
 - **Bitemporal layer** — the seam at `aps.parts.db.bitemporal`. Owns all temporal SQL for tables that record history (`parts`, `relationships`, `map_metadata`). See ADR-0001.

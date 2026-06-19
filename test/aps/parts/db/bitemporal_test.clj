@@ -304,3 +304,41 @@
                      first :position_x))))
       (finally
         (.close conn)))))
+
+(deftest test-count-current
+  (testing "counts only currently-existing rows (TT-current ∧ VT-open)"
+    (let [user    (create-test-user!)
+          the-map (create-test-map! (:id user))
+          mid     (:id the-map)
+          scope   [:= :map_id (db/->uuid mid)]]
+      (testing "zero when the table has no matching rows"
+        (is (= 0 (bt/count-current db/datasource :parts scope))))
+
+      (let [a (part-row mid)
+            b (part-row mid)
+            c (part-row mid)]
+        (doseq [r [a b c]]
+          (bt/insert! db/datasource :parts r {:actor-id (:id user)}))
+
+        (testing "counts each live entity once"
+          (is (= 3 (bt/count-current db/datasource :parts scope))))
+
+        (testing "an update keeps the entity at a single current row"
+          (bt/update! db/datasource :parts (:id a)
+                      {:label "renamed"} {:actor-id (:id user)})
+          (is (= 3 (bt/count-current db/datasource :parts scope))))
+
+        (testing "a retracted entity drops out of the count"
+          (bt/retract! db/datasource :parts (:id b) {:actor-id (:id user)})
+          (is (= 2 (bt/count-current db/datasource :parts scope))))
+
+        (testing "the where fragment scopes the count to one map"
+          (let [other-map (create-test-map! (:id user))]
+            (bt/insert! db/datasource :parts (part-row (:id other-map))
+                        {:actor-id (:id user)})
+            (is (= 2 (bt/count-current db/datasource :parts scope)))
+            (is (= 1 (bt/count-current db/datasource :parts
+                                       [:= :map_id (db/->uuid (:id other-map))])))))
+
+        (testing "a nil where counts every live row in the table"
+          (is (= 3 (bt/count-current db/datasource :parts nil))))))))

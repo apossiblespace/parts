@@ -439,6 +439,30 @@
   [ds table where]
   (query ds table where (into [:and tt-current vt-open])))
 
+(defn count-current
+  "Count currently-existing rows of `table` (TT-current ∧ VT-open) matching
+   `where` — the aggregate companion to `live-rows`. Returns an integer (0
+   when nothing matches).
+
+   Counts in SQL (`COUNT(*)`) rather than pulling rows into Clojure, so it
+   stays cheap for fleet-wide figures over large tables. Like `live-rows` it
+   never names SQL `now()`: liveness is `tt-current ∧ vt-open`, so a retracted
+   entity (bounded `valid_at`) and a superseded belief (closed `sys_period`)
+   both fall out, and each live entity is counted exactly once.
+
+   `where` is an optional caller fragment (e.g. `[:= :map_id m]`, or an
+   `[:in :map_id {…}]` subquery confining the count to one owner's Maps); the
+   2-arity form counts every live row in the table."
+  ([ds table] (count-current ds table nil))
+  ([ds table where]
+   (-> (jdbc/execute-one!
+        ds
+        (sql/format {:select [[[:count :*] :c]]
+                     :from   [table]
+                     :where  (into [:and tt-current vt-open] (when where [where]))})
+        exec-opts)
+       :c)))
+
 (defn as-of-valid
   "Time-slice: VT-time-slice + TT-current. Powers the scrubber:
    'what did the map look like at `valid-t`, as best known?'"

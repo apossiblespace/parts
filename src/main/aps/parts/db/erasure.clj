@@ -26,6 +26,13 @@
   "How long an account stays in deletion-pending state before it's hard-deleted."
   30)
 
+(defn exclude-tombstone
+  "HoneySQL WHERE fragment excluding the tombstone User, matched on `col` —
+   `:id` on `users`, `:actor_id` on `audit_log`. One definition of the cast so
+   the fleet/billing reports and the purge sweep can't drift."
+  [col]
+  [:not= col [:cast (str tombstone-id) :uuid]])
+
 (defn request-deletion!
   "Mark the account for deletion. Auth middleware should refuse logins for
    users with `deletion_requested_at IS NOT NULL`. Idempotent: if already
@@ -63,7 +70,7 @@
                    [:= :deletion_completed_at nil]
                    [:< :deletion_requested_at
                     [:- [:now] [:raw (str "interval '" grace-period-days " days'")]]]
-                   [:not= :id [:cast (str tombstone-id) :uuid]]]})
+                   (exclude-tombstone :id)]})
         {:builder-fn rs/as-unqualified-maps})
        (map :id)))
 

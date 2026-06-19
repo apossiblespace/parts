@@ -130,7 +130,7 @@
                (db/sql-format
                 {:select [:email :paid_through_date :is_founding_circle]
                  :from   [:users]
-                 :where  [:not= :id [:cast (str erasure/tombstone-id) :uuid]]}))
+                 :where  (erasure/exclude-tombstone :id)}))
         lines (sort-by (juxt (comp status-rank :status) :email)
                        (map #(->status-line % today) rows))]
     (doseq [{:keys [email paid_through_date is_founding_circle status]} lines]

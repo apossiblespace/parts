@@ -93,3 +93,10 @@
   ([user-id] (create-test-map! user-id "Test Map"))
   ([user-id title]
    (parts-map/create! {:owner_id user-id :title title} user-id)))
+
+(defn silently
+  "Run `f`, discarding anything it prints to stdout. Returns f's value.
+   For exercising the operator helpers (billing, stats) whose reports print."
+  [f]
+  (binding [*out* (java.io.StringWriter.)]
+    (f)))

@@ -3,18 +3,12 @@
    [aps.parts.billing :as billing]
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
-   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! silently with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]])
   (:import
    (java.time LocalDate)))
 
 (use-fixtures :once with-test-db)
-
-(defn- silently
-  "Run `f`, discarding anything it prints to stdout. Returns f's value."
-  [f]
-  (binding [*out* (java.io.StringWriter.)]
-    (f)))
 
 (defn- paid-through-date [email]
   (:paid_through_date
