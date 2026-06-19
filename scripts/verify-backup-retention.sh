@@ -22,11 +22,21 @@
 set -euo pipefail
 
 BUCKET="${1:-scaleway:parts-prod-backup}"
-MAX_AGE_DAYS=30
+
+# The published promise is 30 days. But S3-style lifecycle expiration is
+# day-boundary-aligned (creation rounded down to midnight UTC, +30d) and swept
+# asynchronously, so the oldest object routinely lingers several hours — up to a
+# day or so — past its 30-day mark before Scaleway actually removes it. An exact
+# 30-day cutoff would therefore flag that object on most days during the normal
+# lag window. The grace margin makes a FAIL mean "meaningfully past the promise"
+# (lifecycle rule missing or broken), not "Scaleway hasn't swept yet".
+RETENTION_DAYS=30
+GRACE_DAYS=2
+MAX_AGE_DAYS=$((RETENTION_DAYS + GRACE_DAYS))
 
 command -v rclone >/dev/null 2>&1 || { echo "✗ rclone not found on PATH — cannot verify." >&2; exit 2; }
 
-echo "Backup retention check — ${BUCKET} (max ${MAX_AGE_DAYS} days)"
+echo "Backup retention check — ${BUCKET} (${RETENTION_DAYS}-day promise, +${GRACE_DAYS}d grace for lifecycle lag)"
 echo
 
 # Preflight: list the bucket (needs only LIST permission). A check that cannot
