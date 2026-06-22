@@ -78,7 +78,8 @@
       :smtp         smtp
       :domain       (conf/app-domain)
       :cooldown-ms  alerts/default-cooldown-ms})
-    (do (mulog/log ::alerting-disabled :reason "SMTP not configured (PARTS__SMTP__*)")
+    (do (mulog/log ::alerting-disabled
+                   :reason "SMTP not configured (PARTS__SMTP__*)")
         nil)))
 
 (defn start-nrepl
@@ -93,6 +94,11 @@
               server       (nrepl/start-server :bind bind-address :port port)]
           (mulog/log ::nrepl-started :port port :bind bind-address)
           (println (format "nREPL server started on %s:%d" bind-address port))
+          ;; Preload the operator console
+          (try
+            (require 'aps.parts.ops)
+            (catch Exception e
+              (mulog/log ::ops-preload-failed :error (.getMessage e))))
           server)
         (catch Exception e
           (mulog/log ::nrepl-start-error
