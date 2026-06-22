@@ -9,9 +9,10 @@
 # https://makefiletutorial.com/ - what a wonderful labour of love
 # https://nedbatchelder.com/blog/201804/makefile_help_target.html - help target
 
-.PHONY: help repl css-watch test test-watch test-config test-profile dist \
-		build-css build-frontend build-config build-uberjar run-dist deploy \
-		deploy-dev clean deps npm-deps pg-start pg-stop pg-status pg-console pg-console-test
+.PHONY: help repl css-watch test test-watch test-config test-profile \
+		dist build-css build-frontend build-config build-uberjar \
+		run-dist upload deploy deploy-dev clean deps npm-deps \
+		pg-start pg-stop pg-status pg-console pg-console-test
 
 .DEFAULT_GOAL := help
 
@@ -25,10 +26,17 @@ REMOTE = /opt/parts
 HOST = parts
 
 help: ## This blessed text
-	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | sort | awk -F ':.*?## ' 'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
+	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | \
+		sort | \
+		awk -F ':.*?## ' \
+		'NF==2 {printf "  \033[36m%-$(HELP_SPACING)s\033[0m %s\n", $$1, $$2}'
 
 pg-start: ## Start PostgreSQL and create databases
-	@pg_ctl -l $$PGDATA/logfile start && sleep 2 && createdb -E UTF8 parts_dev 2>/dev/null || true && createdb -E UTF8 parts_test 2>/dev/null || true && echo "✓ PostgreSQL started (parts_dev, parts_test)"
+	@pg_ctl -l $$PGDATA/logfile start && \
+		sleep 2 && \
+		createdb -E UTF8 parts_dev 2>/dev/null || true && \
+		createdb -E UTF8 parts_test 2>/dev/null || true && \
+		echo "✓ PostgreSQL started (parts_dev, parts_test)"
 
 pg-stop: ## Stop PostgreSQL
 	@pg_ctl stop && echo "✓ PostgreSQL stopped"
@@ -46,7 +54,8 @@ repl: deps ## Start a Clojure REPL
 	clojure -M:dev -m shadow.cljs.devtools.cli clj-repl
 
 css-watch: ## Watch and build CSS
-	pnpm exec postcss resources/styles/*.css -o resources/public/css/style.css --watch
+	pnpm exec postcss resources/styles/*.css \
+		-o resources/public/css/style.css --watch
 
 test: ## Run clj/cljs unit tests
 	$(CLOJURE_TEST_RUNNER)
@@ -78,7 +87,8 @@ npm-deps-update: package.json
 dist: build-css build-uberjar  ## Build project
 
 build-css: ## Buld CSS for production
-	NODE_ENV=production pnpm exec postcss resources/styles/*.css -o resources/public/css/style.css
+	NODE_ENV=production pnpm exec postcss resources/styles/*.css \
+		-o resources/public/css/style.css
 
 build-frontend: ## Build frontend for production
 	clojure -M:dev -m shadow.cljs.devtools.cli release frontend
@@ -96,23 +106,30 @@ build-uberjar: build-frontend ## Build uberjar for deployment
 run-dist: ## Test dist locally before deploying
 	java -jar target/parts-*-standalone.jar
 
-deploy: dist ## Deploy to production
-	scp $(JAR) $(HOST):/tmp/
+upload: ## Build + upload this version's jar unless already on server (FORCE=1)
+	@if [ -z "$(FORCE)" ] && \
+		ssh $(HOST) "test -f $(REMOTE)/releases/$(JAR_BASENAME)"; then \
+		echo "✓ $(JAR_BASENAME) already on $(HOST) — skipping upload"; \
+	else \
+		$(MAKE) dist; \
+		scp $(JAR) $(HOST):/tmp/; \
+		ssh -t $(HOST) 'set -e; \
+			cd $(REMOTE); \
+			sudo mv /tmp/$(JAR_BASENAME) releases/; \
+			sudo chown parts:parts releases/$(JAR_BASENAME)'; \
+	fi
+
+deploy: upload ## Deploy to production
 	ssh -t $(HOST) 'set -e; \
 		cd $(REMOTE); \
-		sudo mv /tmp/$(JAR_BASENAME) releases/; \
-		sudo chown parts:parts releases/$(JAR_BASENAME); \
 		prev=$$(readlink current || true); \
 		if [ -n "$$prev" ]; then sudo ln -nfs $$prev previous; fi; \
 		sudo ln -nfs releases/$(JAR_BASENAME) current; \
 		sudo systemctl restart parts'
 
-deploy-dev: dist ## Deploy to the staging instance
-	scp $(JAR) $(HOST):/tmp/
+deploy-dev: upload ## Deploy to the staging instance
 	ssh -t $(HOST) 'set -e; \
 		cd $(REMOTE); \
-		sudo mv /tmp/$(JAR_BASENAME) releases/; \
-		sudo chown parts:parts releases/$(JAR_BASENAME); \
 		sudo ln -nfs releases/$(JAR_BASENAME) current-dev; \
 		sudo systemctl restart parts-dev'
 
@@ -120,7 +137,10 @@ rollback:
 	ssh $(HOST) 'set -e; \
 		cd $(REMOTE); \
 		prev=$$(readlink previous || true); \
-		if [ -z "$$prev" ]; then echo "No previous release to roll back to!" >&2; exit 1; fi; \
+		if [ -z "$$prev" ]; then \
+			echo "No previous release to roll back to!" >&2; \
+			exit 1; \
+		fi; \
 		ln -nfs "$$prev" current; \
 		systemctl restart parts'
 
