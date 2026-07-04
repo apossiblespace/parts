@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted — 2026-06-10.
+Superseded by ADR-0015 — 2026-07-04. Pre-launch usability testing showed the
+no-modes, region-based gesture model was undiscoverable; the canvas returns to
+explicit tools. One-shot Part creation and the persistent Relationship-type
+"ink" selector survive into ADR-0015.
+
+Originally accepted — 2026-06-10.
 
 ## Context
 
