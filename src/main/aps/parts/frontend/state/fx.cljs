@@ -36,12 +36,15 @@
 
 (rf/reg-fx
  :auth/register-fx
- (fn [{:keys [email display_name password password_confirmation callback]}]
+ (fn [{:keys [email display_name password password_confirmation
+              accepted-medical? accepted-legal? callback]}]
    (go
      (let [resp (<! (api/register {:email                 email
                                    :display_name          display_name
                                    :password              password
-                                   :password_confirmation password_confirmation}))]
+                                   :password_confirmation password_confirmation
+                                   :accepted-medical?     accepted-medical?
+                                   :accepted-legal?       accepted-legal?}))]
        (when (= 201 (:status resp))
          ;; Register sets the session cookie; the response body is the account.
          (rf/dispatch [:auth/set-user (:body resp)]))

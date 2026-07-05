@@ -7,6 +7,7 @@
    landing as login. `on-success`, when supplied, is called with the API
    result after a successful registration."
   (:require
+   [aps.parts.common.constants :as constants]
    [aps.parts.frontend.api.utils :as utils]
    [re-frame.core :as rf]
    [uix.core :refer [defui $ use-state]]))
@@ -16,6 +17,8 @@
         [display-name set-display-name]         (use-state "")
         [password set-password]                 (use-state "")
         [password-confirm set-password-confirm] (use-state "")
+        [accepted-medical set-accepted-medical] (use-state false)
+        [accepted-legal set-accepted-legal]     (use-state false)
         [error set-error]                       (use-state nil)
         [loading set-loading]                   (use-state false)
 
@@ -33,6 +36,8 @@
                  :display_name          display-name
                  :password              password
                  :password_confirmation password-confirm
+                 :accepted-medical?     accepted-medical
+                 :accepted-legal?       accepted-legal
                  :callback
                  (fn [result]
                    (set-loading false)
@@ -106,6 +111,41 @@
                     :disabled  loading
                     :on-change #(set-password-confirm (.. % -target -value))
                     :required  true}))
+
+             ;; Acceptance checkboxes mirror the invite-redemption form
+             ;; (views/partials). `required` is UX only — the server
+             ;; enforces acceptance before an account can exist (ADR-0009).
+             ($ :label {:class "flex items-start gap-3 mt-4 cursor-pointer"}
+                ($ :input
+                   {:type      "checkbox"
+                    :id        "signup-accept-medical"
+                    :class     "checkbox checkbox-sm shrink-0 mt-0.5"
+                    :checked   accepted-medical
+                    :disabled  loading
+                    :on-change #(set-accepted-medical (.. % -target -checked))
+                    :required  true})
+                ($ :span {:class "text-sm text-left"}
+                   constants/medical-data-notice))
+
+             ($ :label {:class "flex items-start gap-3 mt-3 cursor-pointer"}
+                ($ :input
+                   {:type      "checkbox"
+                    :id        "signup-accept-legal"
+                    :class     "checkbox checkbox-sm shrink-0 mt-0.5"
+                    :checked   accepted-legal
+                    :disabled  loading
+                    :on-change #(set-accepted-legal (.. % -target -checked))
+                    :required  true})
+                ($ :span {:class "text-sm text-left"}
+                   "I have read and agree to the "
+                   (interpose ", "
+                              (for [{:keys [slug label]} constants/legal-documents]
+                                ($ :a {:key    slug
+                                       :href   (str "/" slug)
+                                       :target "_blank"
+                                       :class  "link"}
+                                   label)))
+                   "."))
 
              ($ :div {:class "modal-action mt-4"}
                 ($ :button

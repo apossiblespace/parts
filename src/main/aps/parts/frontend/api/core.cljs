@@ -14,7 +14,10 @@
 
 (defn register
   "Register a new user account.
-   PARAMS should be a map containing :email, :display_name, :password, :password_confirmation.
+   PARAMS should be a map containing :email, :display_name, :password,
+   :password_confirmation, and the onboarding acceptance booleans
+   :accepted-medical? and :accepted-legal? (the server rejects
+   registration without both; ADR-0009).
    On success the server sets the auth-session cookie; clears playground data."
   [params]
   (go
