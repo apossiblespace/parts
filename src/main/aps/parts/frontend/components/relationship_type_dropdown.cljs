@@ -12,10 +12,6 @@
   []
   (some-> js/document .-activeElement .blur))
 
-(def relationship-types
-  "Menu order, fixed here rather than relying on map ordering."
-  [:unknown :protective :polarization :alliance :burden :blended])
-
 (defui relationship-type-dropdown
   "daisyUI dropdown listing the Relationship types — each a colour dot +
    name behind a fixed-width leading check column (macOS HIG: the state
@@ -62,4 +58,4 @@
                                     :style {:background-color
                                             (constants/relationship-colors type)}}))
                        label))))
-             relationship-types))))
+             constants/relationship-type-order))))

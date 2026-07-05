@@ -14,8 +14,8 @@
                                   {:id         "p2" :type       "exile" :label "B"
                                    :position_x 300  :position_y 0
                                    :width      100  :height     100}]
-                  :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
-                                   :type "protective"}]})
+                  :relationships [{:id   "r"        :source_id "p1" :target_id "p2"
+                                   :type "protects"}]})
           bytes (pdf/svg->pdf svg)]
       (is (bytes? bytes))
       (is (> (alength bytes) 0))

@@ -1,5 +1,6 @@
 (ns aps.parts.render.preview-test
   (:require
+   [aps.parts.common.constants :as constants]
    [aps.parts.render.preview :as preview]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]))
@@ -56,8 +57,8 @@
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
-                                 :type "protective"}]})]
+                :relationships [{:id   "r"        :source_id "p1" :target_id "p2"
+                                 :type "protects"}]})]
       (is (= 1 (count (re-seq #"<line " svg))))
       (is (str/includes? (str/lower-case svg) "#999999"))))
   (testing "Relationship type does not affect line colour — preview is monochrome"
@@ -68,10 +69,10 @@
                                  :position_x 300  :position_y 0       :width 100 :height 100}
                                 {:id         "p3" :type       "firefighter"
                                  :position_x 600  :position_y 0             :width 100 :height 100}]
-                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "polarization"}
-                                {:id "r2" :source_id "p2" :target_id "p3" :type "alliance"}]})]
-      (is (not (str/includes? svg "#f44336")))   ; polarization red
-      (is (not (str/includes? svg "#2196f3")))   ; alliance blue
+                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "polarizes-with"}
+                                {:id "r2" :source_id "p2" :target_id "p3" :type "works-with"}]})]
+      (is (not (str/includes? svg (constants/relationship-colors :polarizes-with))))
+      (is (not (str/includes? svg (constants/relationship-colors :works-with))))
       (is (= 2 (count (re-seq #"<line " svg))))))
   (testing "no bezier paths, no arrowhead markers — straight lines only"
     (let [svg (preview/render
@@ -79,8 +80,8 @@
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
-                                 :type "protective"}]})]
+                :relationships [{:id   "r"        :source_id "p1" :target_id "p2"
+                                 :type "protects"}]})]
       (is (not (str/includes? svg "<path")))
       (is (not (str/includes? svg "<marker")))
       (is (not (str/includes? svg "marker-end")))))
@@ -88,8 +89,8 @@
     (let [svg (preview/render
                {:parts         [{:id         "p1" :type       "manager"
                                  :position_x 0    :position_y 0         :width 100 :height 100}]
-                :relationships [{:id   "r"          :source_id "p1" :target_id "ghost"
-                                 :type "protective"}]})]
+                :relationships [{:id   "r"        :source_id "p1" :target_id "ghost"
+                                 :type "protects"}]})]
       (is (string? svg))
       (is (zero? (count (re-seq #"<line " svg)))))))
 
@@ -103,8 +104,8 @@
                                  :position_x 10   :position_y 20      :width 143 :height 143}
                                 {:id         "p2" :type       "manager"
                                  :position_x 300  :position_y 200       :width 211 :height 211}]
-                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
-                                 :type "protective"}]})]
+                :relationships [{:id   "r"        :source_id "p1" :target_id "p2"
+                                 :type "protects"}]})]
       (is (not (re-find #"=\"-?\d+/\d+" svg))
           "no attribute value may contain a Ratio literal")
       (is (re-find #"viewBox=\"-?[0-9.]+ -?[0-9.]+ [0-9.]+ [0-9.]+\"" svg)
@@ -120,7 +121,7 @@
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
-                                 :type "protective"}]})]
+                :relationships [{:id   "r"        :source_id "p1" :target_id "p2"
+                                 :type "protects"}]})]
       (when-let [m (re-find #"stroke-width=\"([0-9.]+)\"" svg)]
         (is (>= (Double/parseDouble (second m)) 2.0))))))

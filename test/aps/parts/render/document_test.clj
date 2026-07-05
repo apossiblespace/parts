@@ -1,5 +1,6 @@
 (ns aps.parts.render.document-test
   (:require
+   [aps.parts.common.constants :as constants]
    [aps.parts.render.document :as document]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]))
@@ -110,7 +111,7 @@
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protective"}]})]
+                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protects"}]})]
       (is (= 1 (count (re-seq #"<path[^>]*stroke=" svg))))
       (is (re-find #"d=\"M-?[0-9]" svg))
       (is (re-find #" C-?[0-9]" svg))))
@@ -120,23 +121,23 @@
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protective"}]})]
-      (is (str/includes? svg "#4caf50"))))
+                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protects"}]})]
+      (is (str/includes? svg (constants/relationship-colors :protects)))))
   (testing "bidirectional Relationships render as two bowed quadratic paths"
     (let [svg (document/render
                {:parts         [{:id         "p1" :type       "manager"
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "alliance"}
-                                {:id "r2" :source_id "p2" :target_id "p1" :type "alliance"}]})]
+                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "works-with"}
+                                {:id "r2" :source_id "p2" :target_id "p1" :type "works-with"}]})]
       (is (= 2 (count (re-seq #"<path[^>]*stroke=" svg))))
       (is (re-find #" Q-?[0-9]" svg))))
   (testing "a Relationship pointing at a missing Part is skipped, not errored"
     (let [svg (document/render
                {:parts         [{:id         "p1" :type       "manager"
                                  :position_x 0    :position_y 0         :width 100 :height 100}]
-                :relationships [{:id "r1" :source_id "p1" :target_id "ghost" :type "protective"}]})]
+                :relationships [{:id "r1" :source_id "p1" :target_id "ghost" :type "protects"}]})]
       (is (string? svg))
       (is (zero? (count (re-seq #"<path[^>]*stroke=" svg))))))
   (testing "one `<marker>` per Relationship type is defined; each edge
@@ -149,10 +150,10 @@
                                  :position_x 0    :position_y 0         :width 100 :height 100}
                                 {:id         "p2" :type       "exile"
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
-                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protective"}
-                                {:id "r2" :source_id "p2" :target_id "p1" :type "protective"}]})]
+                :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protects"}
+                                {:id "r2" :source_id "p2" :target_id "p1" :type "protects"}]})]
       (is (= 6 (count (re-seq #"<marker " svg))))
-      (is (= 2 (count (re-seq #"marker-end=\"url\(#edge-arrow-protective\)\"" svg)))))))
+      (is (= 2 (count (re-seq #"marker-end=\"url\(#edge-arrow-protects\)\"" svg)))))))
 
 (deftest render-no-ratios-in-path-d-test
   (testing "edges between unknown-type Parts produce only decimal numbers in
@@ -165,8 +166,8 @@
                                 {:id         "p2" :type       "unknown"
                                  :position_x 350  :position_y 280
                                  :width      100  :height     100}]
-                :relationships [{:id   "r"          :source_id "p1" :target_id "p2"
-                                 :type "protective"}]})]
+                :relationships [{:id   "r"        :source_id "p1" :target_id "p2"
+                                 :type "protects"}]})]
       ;; Any d-attribute that contains a `/` between two digit runs would be
       ;; a Clojure Ratio stringified verbatim. Should not appear anywhere.
       (is (not (re-find #"d=\"[^\"]*\d+/\d+" svg))))))

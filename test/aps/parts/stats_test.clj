@@ -38,7 +38,7 @@
         _       (relationship/create! {:map_id    (:id the-map)
                                        :source_id (:id p1)
                                        :target_id (:id p2)
-                                       :type      "protective"}
+                                       :type      "protects"}
                                       (:id user))
         result  (silently #(stats/user-stats! (:email user)))]
     (testing "carries account basics"
@@ -106,7 +106,7 @@
   (relationship/create! {:map_id    map-id
                          :source_id source
                          :target_id target
-                         :type      "protective"}
+                         :type      "protects"}
                         user-id))
 
 (deftest test-fleet-users-and-flags

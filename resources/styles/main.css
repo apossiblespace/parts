@@ -59,11 +59,11 @@
        SVG path stroke (.edge-* selectors) and the JS arrowhead-marker
        fill read these. */
     --edge-color-unknown: #999999;
-    --edge-color-protective: #4caf50;
-    --edge-color-polarization: #f44336;
-    --edge-color-alliance: #2196f3;
-    --edge-color-burden: #ff9800;
-    --edge-color-blended: #9c27b0;
+    --edge-color-protects: #4caf50;
+    --edge-color-polarizes-with: #f44336;
+    --edge-color-works-with: #2196f3;
+    --edge-color-activates: #9c27b0;
+    --edge-color-carries-burden: #ff9800;
 
     scroll-behavior: smooth;
 }
@@ -405,20 +405,20 @@ a.btn {
         .edge-unknown {
             stroke: var(--edge-color-unknown);
         }
-        .edge-protective {
-            stroke: var(--edge-color-protective);
+        .edge-protects {
+            stroke: var(--edge-color-protects);
         }
-        .edge-polarization {
-            stroke: var(--edge-color-polarization);
+        .edge-polarizes-with {
+            stroke: var(--edge-color-polarizes-with);
         }
-        .edge-alliance {
-            stroke: var(--edge-color-alliance);
+        .edge-works-with {
+            stroke: var(--edge-color-works-with);
         }
-        .edge-burden {
-            stroke: var(--edge-color-burden);
+        .edge-activates {
+            stroke: var(--edge-color-activates);
         }
-        .edge-blended {
-            stroke: var(--edge-color-blended);
+        .edge-carries-burden {
+            stroke: var(--edge-color-carries-burden);
         }
 
         /* No padding/margin on .node-wrapper: ReactFlow measures this element

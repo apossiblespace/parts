@@ -6,9 +6,9 @@
 (deftest relationship-create-attrs-test
   (testing "the selected type is threaded into the new Relationship"
     (let [db {:map {:id "map-1"}
-              :ui  {:relationship-type :protective}}]
+              :ui  {:relationship-type :protects}}]
       (is (= {:map_id    "map-1"
-              :type      "protective"
+              :type      "protects"
               :source_id "p1"
               :target_id "p2"}
              (toolbar/relationship-create-attrs

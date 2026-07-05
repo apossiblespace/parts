@@ -26,7 +26,7 @@
         relationship-data {:map_id    (:id the-map)
                            :source_id (:id part1)
                            :target_id (:id part2)
-                           :type      "protective"}]
+                           :type      "protects"}]
 
     (testing "create!"
       (let [created (relationship/create! relationship-data (:id user))]
@@ -43,10 +43,10 @@
     (testing "update!"
       (let [created (relationship/create! relationship-data (:id user))
             updated (relationship/update! (:id created)
-                                          {:type  "alliance"
+                                          {:type  "works-with"
                                            :notes "Updated notes"}
                                           (:id user))]
-        (is (= "alliance" (:type updated)))
+        (is (= "works-with" (:type updated)))
         (is (= "Updated notes" (:notes updated)))
         (is (= (:id created) (:id updated)))))
 
@@ -104,7 +104,7 @@
           relationship (relationship/create! {:map_id    (:id the-map)
                                               :source_id (:id part1)
                                               :target_id (:id part2)
-                                              :type      "protective"}
+                                              :type      "protects"}
                                              (:id user))]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Validation failed"
                             (relationship/update! (:id relationship) {:type "invalid-type"} (:id user)))))))
@@ -132,5 +132,5 @@
                             (relationship/create! {:map_id    (:id map-a)
                                                    :source_id (:id a-part)
                                                    :target_id (:id b-part)
-                                                   :type      "protective"}
+                                                   :type      "protects"}
                                                   (:id user)))))))

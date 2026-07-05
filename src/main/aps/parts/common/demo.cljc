@@ -32,7 +32,7 @@
    Expected parts order: [firefighter, exile, manager]
    Creates:
    - firefighter -> exile (unknown)
-   - manager -> exile (protective)"
+   - manager -> exile (protects)"
   [parts]
   (let [firefighter (first (filter #(= "firefighter" (:type %)) parts))
         exile       (first (filter #(= "exile" (:type %)) parts))
@@ -42,7 +42,7 @@
       :source_id (:id firefighter)
       :target_id (:id exile)
       :map_id    map-id}
-     {:type      "protective"
+     {:type      "protects"
       :source_id (:id manager)
       :target_id (:id exile)
       :notes     "Overachieving behaviour protects exile from getting triggered."

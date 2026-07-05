@@ -19,30 +19,38 @@
 
 (def part-max-size 400)
 
+(def relationship-type-order
+  "Relationship types in canonical display order. Menus render from this
+   vector rather than relying on map ordering."
+  [:unknown :protects :polarizes-with :works-with :activates :carries-burden])
+
 (def relationship-labels
-  {:unknown      {:label "Unknown"}
-   :protective   {:label "Protective"}
-   :polarization {:label "Polarisation"}
-   :alliance     {:label "Alliance"}
-   :burden       {:label "Burden"}
-   :blended      {:label "Blended"}})
+  "Keyword → UI label for Relationship types. Keywords use US spelling,
+   labels British English (the project spelling convention)."
+  {:unknown        {:label "Unknown"}
+   :protects       {:label "Protects"}
+   :polarizes-with {:label "Polarises with"}
+   :works-with     {:label "Works with"}
+   :activates      {:label "Activates"}
+   :carries-burden {:label "Carries burden"}})
 
 (def relationship-types
-  (set (map name (keys relationship-labels))))
+  (set (map name relationship-type-order)))
 
 (def relationship-colors
   "Per-Relationship-type stroke colour. Mirrors the `--edge-color-*` CSS
    custom properties in `resources/styles/main.css` — an SVG generated
    server-side cannot read CSS custom properties, so the palette lives
-   in two places. The cross-runtime drift is caught at manual review
-   (ADR-0008). All Clojure consumers (document renderer, preview
+   in two places. The architecture-fitness test checks the CSS side
+   covers every type with matching values (ADR-0008). All Clojure
+   consumers (document renderer, preview
    renderer's `:unknown`, anywhere else) read from here."
-  {:unknown      "#999999"
-   :protective   "#4caf50"
-   :polarization "#f44336"
-   :alliance     "#2196f3"
-   :burden       "#ff9800"
-   :blended      "#9c27b0"})
+  {:unknown        "#999999"
+   :protects       "#4caf50"
+   :polarizes-with "#f44336"
+   :works-with     "#2196f3"
+   :activates      "#9c27b0"
+   :carries-burden "#ff9800"})
 
 (def brand-suffix
   "The suffix appearing after the page title in the <title> element"

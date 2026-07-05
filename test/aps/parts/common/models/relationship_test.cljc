@@ -2,7 +2,19 @@
   (:require
    #?(:clj [clojure.test :refer [deftest is testing]]
       :cljs [cljs.test :refer-macros [deftest is testing]])
+   [aps.parts.common.constants :as constants]
    [aps.parts.common.models.relationship :as relationship]))
+
+(deftest relationship-vocabulary-test
+  (testing "The vocabulary is pinned — exactly these six types, nothing else"
+    (is (= #{"unknown" "protects" "polarizes-with" "works-with"
+             "activates" "carries-burden"}
+           constants/relationship-types)))
+
+  (testing "Display order, labels, and colours cover exactly the vocabulary"
+    (is (= (set constants/relationship-type-order)
+           (set (keys constants/relationship-labels))
+           (set (keys constants/relationship-colors))))))
 
 (deftest make-relationship-test
   (testing "Creates a valid relationship with minimal attributes"
@@ -23,7 +35,7 @@
   (testing "Creates a relationship with provided attributes"
     (let [attrs  {:id        "custom-id"
                   :map_id    "map-123"
-                  :type      "protective"
+                  :type      "protects"
                   :source_id "source-123"
                   :target_id "target-456"
                   :notes     "Test notes"}
@@ -38,6 +50,15 @@
                                           :source_id "source"
                                           :target_id "target"
                                           :type      "invalid-type"}))))
+
+  (testing "Rejects the retired blended type"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (relationship/make-relationship {:map_id    "test"
+                                          :source_id "source"
+                                          :target_id "target"
+                                          :type      "blended"}))))
 
   (testing "Throws exception for missing required attributes"
     (is (thrown-with-msg?
@@ -73,17 +94,17 @@
       (is (relationship/can-connect? [(rel a b "unknown")] a c)))
 
     (testing "Reverse direction permitted — A->B + B->A is the motivating case"
-      (is (relationship/can-connect? [(rel a b "protective")] b a))
-      (is (relationship/can-connect? [(rel a b "unknown")]    b a)))
+      (is (relationship/can-connect? [(rel a b "protects")] b a))
+      (is (relationship/can-connect? [(rel a b "unknown")]  b a)))
 
     (testing "Self-loops permitted on empty / on unrelated edges"
       (is (relationship/can-connect? [] a a))
       (is (relationship/can-connect? [(rel a b "unknown")] a a)))
 
     (testing "Same source/target blocked regardless of existing type"
-      (is (not (relationship/can-connect? [(rel a b "unknown")]    a b)))
-      (is (not (relationship/can-connect? [(rel a b "protective")] a b)))
-      (is (not (relationship/can-connect? [(rel a b "burden")]     a b))))
+      (is (not (relationship/can-connect? [(rel a b "unknown")]        a b)))
+      (is (not (relationship/can-connect? [(rel a b "protects")]       a b)))
+      (is (not (relationship/can-connect? [(rel a b "carries-burden")] a b))))
 
     (testing "Duplicate self-loop blocked"
-      (is (not (relationship/can-connect? [(rel a a "burden")] a a))))))
+      (is (not (relationship/can-connect? [(rel a a "carries-burden")] a a))))))

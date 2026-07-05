@@ -53,19 +53,19 @@
     (let [rel    {:id        "rel-123"
                   :source_id "source-123"
                   :target_id "target-456"
-                  :type      "protective"}
+                  :type      "protects"}
           result (js->clj (adapter/relationship->edge rel) :keywordize-keys true)]
 
       (is (= "rel-123" (:id result)))
       (is (= "source-123" (:source result)))
       (is (= "target-456" (:target result)))
-      (is (= "protective" (get-in result [:data :relationship])))
-      (is (= "edge-protective" (:className result))))))
+      (is (= "protects" (get-in result [:data :relationship])))
+      (is (= "edge-protects" (:className result))))))
 
 (deftest relationships->edges-test
   (testing "Converts collection of relationships to array of edges"
-    (let [rels   [{:id "rel-1" :source_id "s1" :target_id "t1" :type "protective"}
-                  {:id "rel-2" :source_id "s2" :target_id "t2" :type "polarization"}]
+    (let [rels   [{:id "rel-1" :source_id "s1" :target_id "t1" :type "protects"}
+                  {:id "rel-2" :source_id "s2" :target_id "t2" :type "polarizes-with"}]
           result (adapter/relationships->edges rels)]
 
       (is (array? result))
@@ -75,14 +75,14 @@
         (is (= "rel-1" (:id first-edge)))
         (is (= "s1" (:source first-edge)))
         (is (= "t1" (:target first-edge)))
-        (is (= "protective" (get-in first-edge [:data :relationship])))))))
+        (is (= "protects" (get-in first-edge [:data :relationship])))))))
 
 (deftest edge->relationship-test
   (testing "Converts edge to relationship with correct structure"
     (let [edge   #js {:id     "edge-123"
                       :source "source-123"
                       :target "target-456"
-                      :data   #js {:relationship "alliance"}}
+                      :data   #js {:relationship "works-with"}}
           map-id "map-789"
           result (adapter/edge->relationship edge map-id)]
 
@@ -90,7 +90,7 @@
       (is (= map-id (:map_id result)))
       (is (= "source-123" (:source_id result)))
       (is (= "target-456" (:target_id result)))
-      (is (= "alliance" (:type result))))))
+      (is (= "works-with" (:type result))))))
 
 (deftest bidirectional-conversion-test
   (testing "Part -> Node -> Part conversion preserves data"
@@ -108,7 +108,7 @@
   (testing "Relationship -> Edge -> Relationship conversion preserves data"
     (let [original-rel (relationship/make-relationship {:id        "test-id"
                                                         :map_id    "map-id"
-                                                        :type      "protective"
+                                                        :type      "protects"
                                                         :source_id "source-id"
                                                         :target_id "target-id"})
           edge         (adapter/relationship->edge original-rel)

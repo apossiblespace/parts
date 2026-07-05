@@ -3,6 +3,7 @@
    may appear in the codebase. Catches accidental leaks of temporal SQL or
    hard-DELETE statements into namespaces that shouldn't own those concerns."
   (:require
+   [aps.parts.common.constants :as constants]
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]))
@@ -62,6 +63,19 @@
           (str "These files add a second ReadableColumn extension; route the "
                "new PGobject type through the one in db/range_types instead:\n  "
                (str/join "\n  " offenders))))))
+
+(deftest css-edge-palette-covers-the-vocabulary
+  (testing
+   "the CSS side of the two-runtime edge palette (ADR-0008) carries a custom
+    property and a stroke selector for every Relationship type, with the hex
+    matching aps.parts.common.constants/relationship-colors — a missing or
+    drifted entry renders that edge with the default stroke, silently"
+    (let [css (slurp "resources/styles/main.css")]
+      (doseq [[type hex] constants/relationship-colors]
+        (is (str/includes? css (str "--edge-color-" (name type) ": " hex ";"))
+            (str "main.css lacks --edge-color-" (name type) ": " hex))
+        (is (re-find (re-pattern (str "\\.edge-" (name type) "\\s*\\{")) css)
+            (str "main.css lacks an .edge-" (name type) " selector"))))))
 
 (deftest hard-delete-is-quarantined
   (testing "DELETE FROM on temporal tables appears only in db/erasure"

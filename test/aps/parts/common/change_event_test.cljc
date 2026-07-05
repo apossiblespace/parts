@@ -32,7 +32,7 @@
   {:entity :relationship
    :type   :create
    :id     "rel-1"
-   :data   {:type      "protective"
+   :data   {:type      "protects"
             :source_id "part-1"
             :target_id "part-2"}})
 
@@ -78,7 +78,7 @@
     (is (not (s/valid? ::ce/change-event
                        (assoc part-create :data {:type "manager"}))))
     (is (not (s/valid? ::ce/change-event
-                       (assoc relationship-create :data {:type "protective"})))))
+                       (assoc relationship-create :data {:type "protects"})))))
 
   (testing ":create data rejects invalid attribute values"
     (is (not (s/valid? ::ce/change-event

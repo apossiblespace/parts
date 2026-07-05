@@ -4,7 +4,7 @@ The shared vocabulary for this codebase. New decisions go in `docs/adr/`; this f
 
 ## Product
 
-**Parts** is a tool for therapists practicing **IFS** (Internal Family Systems) therapy and their clients. The first version allows a therapist to build a **Map** of a client's inner landscape — a Map of **Parts** (manager, firefighter, exile, unknown) connected by **Relationships** (protective, polarization, alliance, burden, blended, unknown).
+**Parts** is a tool for therapists practicing **IFS** (Internal Family Systems) therapy and their clients. The first version allows a therapist to build a **Map** of a client's inner landscape — a Map of **Parts** (manager, firefighter, exile, unknown) connected by **Relationships** (protects, polarises with, works with, activates, carries burden, unknown).
 
 **Parts** doesn’t aim to be used during a therapy session; this time is best left as device-free as possible, so that the therapist and the client are both free to engage with the therapeutic process. Instead, it aims to support the therapist in the work that happens in between sessions: keeping track of what was uncovered during a session and facilitating review before the next session.
 
