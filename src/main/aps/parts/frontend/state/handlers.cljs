@@ -46,13 +46,6 @@
            [:api-utils/save-current-map-id map-id]]})))
 
 (rf/reg-event-db
- :selection/set
- (fn [db [_ selection]]
-   (-> db
-       (assoc-in [:ui :selected-node-ids] (mapv :id (:nodes selection)))
-       (assoc-in [:ui :selected-edge-ids] (mapv :id (:edges selection))))))
-
-(rf/reg-event-db
  :selection/toggle-node
  (fn [db [_ node-id selected?]]
    (update-in db [:ui :selected-node-ids]
@@ -79,7 +72,17 @@
 (rf/reg-event-db
  :ui/tool-mode-set
  (fn [db [_ mode]]
-   (assoc-in db [:ui :tool-mode] mode)))
+   (update db :ui toolbar/select-tool mode)))
+
+(rf/reg-event-db
+ :ui/tool-spring-down
+ (fn [db [_ tool]]
+   (update db :ui toolbar/spring-hold tool)))
+
+(rf/reg-event-db
+ :ui/tool-spring-up
+ (fn [db _]
+   (update db :ui toolbar/spring-release)))
 
 (rf/reg-event-db
  :ui/relationship-type-set

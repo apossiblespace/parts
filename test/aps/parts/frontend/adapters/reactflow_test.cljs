@@ -143,6 +143,31 @@
       (is (= [{:intent :part-selected :id "p1" :selected? true}]
              (adapter/translate-nodes-change changes)))))
 
+  (testing "a marquee lands as a batch of selects — one intent per Part"
+    (let [changes #js [#js {:type "select" :id "p1" :selected true}
+                       #js {:type "select" :id "p2" :selected true}
+                       #js {:type "select" :id "p3" :selected true}]]
+      (is (= [{:intent :part-selected :id "p1" :selected? true}
+              {:intent :part-selected :id "p2" :selected? true}
+              {:intent :part-selected :id "p3" :selected? true}]
+             (adapter/translate-nodes-change changes)))))
+
+  (testing "dragging a selection moves every member — a settled multi-node
+            batch commits a :part-moved per Part"
+    (let [changes #js [#js {:type     "position"
+                            :id       "p1"
+                            :position #js {:x 10 :y 20}
+                            :dragging false}
+                       #js {:type     "position"
+                            :id       "p2"
+                            :position #js {:x 110 :y 120}
+                            :dragging false}]]
+      (is (= [{:intent :part-position-frame :id "p1" :position {:x 10 :y 20}}
+              {:intent :part-moved :id "p1" :position {:x 10 :y 20}}
+              {:intent :part-position-frame :id "p2" :position {:x 110 :y 120}}
+              {:intent :part-moved :id "p2" :position {:x 110 :y 120}}]
+             (adapter/translate-nodes-change changes)))))
+
   (testing "remove translates to :part-removed"
     (let [changes #js [#js {:type "remove" :id "p1"}]]
       (is (= [{:intent :part-removed :id "p1"}]

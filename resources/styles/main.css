@@ -514,6 +514,35 @@ a.btn {
                to resize when a Part is selected (ADR-0011). */
             z-index: 1;
         }
+        /* Per-tool cursor honesty (ADR-0015): each tool announces itself
+           at the pointer — cheap mode-error insurance. Select = arrow,
+           Hand = grab/grabbing, armed Part tools = crosshair. */
+        &.mode-select .react-flow__pane {
+            cursor: default;
+        }
+        /* Parts under Select keep the plain arrow (macOS convention for
+           moving objects — Finder, Freeform); grab belongs to the Hand
+           tool. Overrides ReactFlow's grab/grabbing node defaults. */
+        &.mode-select .react-flow__node,
+        &.mode-select .react-flow__node.dragging {
+            cursor: default;
+        }
+
+        /* ReactFlow's post-marquee group box (NodesSelection): redundant
+           here — dragging any selected Part already moves the group — and
+           it reads as a viewport change. display:none also removes its
+           focus target and pointer-events hit area. */
+        .react-flow__nodesselection {
+            display: none;
+        }
+        &.mode-hand .react-flow__pane,
+        &.mode-hand .react-flow__node {
+            cursor: grab;
+        }
+        &.mode-hand .react-flow__pane:active,
+        &.mode-hand .react-flow__pane.dragging {
+            cursor: grabbing;
+        }
         &.mode-add-unknown .react-flow__pane,
         &.mode-add-exile .react-flow__pane,
         &.mode-add-firefighter .react-flow__pane,

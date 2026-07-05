@@ -21,11 +21,13 @@
   (let [connecting?             (useConnection (fn [^js c] (.-inProgress c)))
         [editing? set-editing!] (use-state false)]
     ($ :div {:class (str "node-wrapper" (when connecting? " connecting"))}
-       ;; Resize affordance: corner handles on selection, aspect-locked,
-       ;; bounded (TASK-032 / ADR-0011). The connecting lines between
-       ;; handles are hidden in CSS — edge midpoints belong to the
-       ;; connect ring.
-       ($ NodeResizer {:isVisible       (boolean selected)
+       ;; Resize affordance: corner handles, aspect-locked, bounded
+       ;; (TASK-032). :resizable arrives via node data (the canvas's
+       ;; resize-armed decision — see toolbar/resize-armed?), so no
+       ;; per-node subscriptions. The connecting lines between handles
+       ;; are hidden in CSS — edge midpoints belong to the connect ring.
+       ($ NodeResizer {:isVisible       (boolean (and selected
+                                                      (:resizable data)))
                        :keepAspectRatio true
                        :minWidth        constants/part-min-size
                        :minHeight       constants/part-min-size

@@ -19,6 +19,11 @@
 
 (def part-max-size 400)
 
+(def part-default-size
+  "Fallback width/height for Parts stored before size was recorded —
+   the DB default for legacy rows."
+  100)
+
 (def relationship-type-order
   "Relationship types in canonical display order. Menus render from this
    vector rather than relying on map ordering."

@@ -54,26 +54,18 @@
 
 (defn- edge-endpoints
   "Visible-shape intersection points and edge sides for an edge from
-   `source` to `target`. Returns `{:sx :sy :tx :ty :s-side :t-side}`."
+   `source` to `target`, from the shared border-to-border chord. Returns
+   `{:sx :sy :tx :ty :s-side :t-side}`, or nil for a degenerate pair."
   [source target]
-  (let [[s-cx s-cy] (geometry/part-center source)
-        [t-cx t-cy] (geometry/part-center target)
-        s-pt        (geometry/intersection-for-shape
-                     (geometry/shape-for (:type source))
-                     (:position_x source) (:position_y source)
-                     (or (:width source) 100) (or (:height source) 100)
-                     t-cx t-cy)
-        t-pt        (geometry/intersection-for-shape
-                     (geometry/shape-for (:type target))
-                     (:position_x target) (:position_y target)
-                     (or (:width target) 100) (or (:height target) 100)
-                     s-cx s-cy)]
-    {:sx     (:x s-pt)
-     :sy     (:y s-pt)
-     :tx     (:x t-pt)
-     :ty     (:y t-pt)
-     :s-side (geometry/classify-side s-pt s-cx s-cy)
-     :t-side (geometry/classify-side t-pt t-cx t-cy)}))
+  (when-let [[[sx sy] [tx ty]] (geometry/edge-chord source target)]
+    (let [[s-cx s-cy] (geometry/part-center source)
+          [t-cx t-cy] (geometry/part-center target)]
+      {:sx     sx
+       :sy     sy
+       :tx     tx
+       :ty     ty
+       :s-side (geometry/classify-side {:x sx :y sy} s-cx s-cy)
+       :t-side (geometry/classify-side {:x tx :y ty} t-cx t-cy)})))
 
 (defn- arrow-marker-id [type]
   (str "edge-arrow-" type))
@@ -86,16 +78,15 @@
   [parts-by-id bidi-pairs {:keys [source_id target_id type] :as rel}]
   (let [source (parts-by-id source_id)
         target (parts-by-id target_id)]
-    (when (and source target)
-      (let [type-kw                             (keyword type)
-            type'                               (if (contains? c/relationship-colors type-kw)
-                                                  type "unknown")
-            colour                              (c/relationship-colors (keyword type'))
-            endpoints                           (edge-endpoints source target)
-            {:keys [sx sy s-side tx ty t-side]} endpoints
-            d                                   (if (geometry/bidirectional? bidi-pairs rel)
-                                                  (geometry/quadratic-path endpoints geometry/bow-offset-px)
-                                                  (bezier-d sx sy s-side tx ty t-side))]
+    (when-let [{:keys [sx sy s-side tx ty t-side] :as endpoints}
+               (and source target (edge-endpoints source target))]
+      (let [type-kw (keyword type)
+            type'   (if (contains? c/relationship-colors type-kw)
+                      type "unknown")
+            colour  (c/relationship-colors (keyword type'))
+            d       (if (geometry/bidirectional? bidi-pairs rel)
+                      (geometry/quadratic-path endpoints geometry/bow-offset-px)
+                      (bezier-d sx sy s-side tx ty t-side))]
         [:path {:d            d
                 :fill         "none"
                 :stroke       colour

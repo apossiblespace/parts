@@ -9,7 +9,9 @@
    `aps.parts.frontend.components.edges`) and the server-side **Render**
    (`aps.parts.render`). Stays runtime-neutral — `Math/*` interop dispatches
    to `java.lang.Math` on JVM and `js/Math` on JS without reader
-   conditionals.")
+   conditionals."
+  (:require
+   [aps.parts.common.constants :as constants]))
 
 (def ^:private unit-square
   "Polygon used for square SVGs (`unknown`) and as the fallback for any
@@ -73,8 +75,8 @@
    produce a Ratio, and a Ratio `str`ed into SVG markup is an invalid
    number — see `unit-square`'s docstring."
   [{:keys [position_x position_y width height]}]
-  [(+ position_x (/ (or width  100) 2.0))
-   (+ position_y (/ (or height 100) 2.0))])
+  [(+ position_x (/ (or width  constants/part-default-size) 2.0))
+   (+ position_y (/ (or height constants/part-default-size) 2.0))])
 
 ;; ---- Relationship-edge math ---------------------------------------------
 ;;
@@ -203,6 +205,93 @@
     (when pt
       {:x (double (:x pt))
        :y (double (:y pt))})))
+
+;; ---- Marquee hit-testing --------------------------------------------------
+;;
+;; ReactFlow never rect-tests edges: its marquee auto-selects every edge
+;; connected to a selected node, which over-selects (touching one Part
+;; "grabs" all its Relationships). The canvas drops those and instead asks
+;; here which edges the rect actually crosses. The drawn curve is
+;; approximated by its border-to-border chord — the bow (bezier curvature /
+;; `bow-offset-px`) is small relative to a pointer-drawn rect.
+
+(defn corners->rect
+  "Axis-aligned `{:x :y :width :height}` spanning two opposite corners,
+   whichever way the drag ran."
+  [{x1 :x y1 :y} {x2 :x y2 :y}]
+  {:x      (min x1 x2)
+   :y      (min y1 y2)
+   :width  (Math/abs (- x2 x1))
+   :height (Math/abs (- y2 y1))})
+
+(defn- point-in-rect? [px py {:keys [x y width height]}]
+  (and (<= x px (+ x width))
+       (<= y py (+ y height))))
+
+(defn- orient
+  "Twice the signed area of triangle abc — sign gives c's side of ab."
+  [[ax ay] [bx by] [cx cy]]
+  (- (* (- bx ax) (- cy ay))
+     (* (- by ay) (- cx ax))))
+
+(defn- segments-cross? [p1 p2 p3 p4]
+  (let [d1 (orient p3 p4 p1)
+        d2 (orient p3 p4 p2)
+        d3 (orient p1 p2 p3)
+        d4 (orient p1 p2 p4)]
+    (and (or (and (pos? d1) (neg? d2)) (and (neg? d1) (pos? d2)))
+         (or (and (pos? d3) (neg? d4)) (and (neg? d3) (pos? d4))))))
+
+(defn segment-intersects-rect?
+  "Does the segment p1→p2 touch the axis-aligned rect
+   `{:x :y :width :height}`? An endpoint inside counts; exact collinear
+   grazes along a rect side are not detected — irrelevant at pointer
+   precision."
+  [[x1 y1 :as p1] [x2 y2 :as p2] {:keys [x y width height] :as rect}]
+  (let [xr (+ x width)
+        yb (+ y height)]
+    (boolean
+     (or (point-in-rect? x1 y1 rect)
+         (point-in-rect? x2 y2 rect)
+         (segments-cross? p1 p2 [x y]   [xr y])
+         (segments-cross? p1 p2 [xr y]  [xr yb])
+         (segments-cross? p1 p2 [xr yb] [x yb])
+         (segments-cross? p1 p2 [x yb]  [x y])))))
+
+(defn edge-chord
+  "The straight border-to-border segment between two Parts — the chord the
+   drawn edge follows, endpoints on each Part's visible shape. Nil when the
+   intersection math finds no boundary crossing. Consumed by the marquee
+   hit-test below and the document renderer's edge endpoints."
+  [{sx :position_x sy :position_y sw :width sh :height stype :type :as source}
+   {tx :position_x ty :position_y tw :width th :height ttype :type :as target}]
+  (let [[scx scy] (part-center source)
+        [tcx tcy] (part-center target)
+        default   constants/part-default-size
+        s-pt      (intersection-for-shape (shape-for (name stype))
+                                          sx sy (or sw default) (or sh default)
+                                          tcx tcy)
+        t-pt      (intersection-for-shape (shape-for (name ttype))
+                                          tx ty (or tw default) (or th default)
+                                          scx scy)]
+    (when (and s-pt t-pt)
+      [[(:x s-pt) (:y s-pt)] [(:x t-pt) (:y t-pt)]])))
+
+(defn marquee-hit-relationship-ids
+  "Ids of the Relationships whose drawn line the marquee rect touches —
+   the rect must cross the visible chord between the two Parts' borders;
+   merely overlapping an endpoint Part's body does not count."
+  [parts relationships rect]
+  (let [part-by-id (into {} (map (juxt :id identity)) parts)]
+    (into #{}
+          (keep (fn [{:keys [id source_id target_id]}]
+                  (let [source (part-by-id source_id)
+                        target (part-by-id target_id)]
+                    (when (and source target)
+                      (when-let [[p1 p2] (edge-chord source target)]
+                        (when (segment-intersects-rect? p1 p2 rect)
+                          id))))))
+          relationships)))
 
 (defn classify-side
   "Which side of the node centre (cx,cy) does the intersection {:x :y} lie

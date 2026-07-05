@@ -94,3 +94,44 @@
     (is (#{:right :bottom} (g/classify-side {:x 100 :y 100} 50 50)))
     (is (#{:left :bottom}  (g/classify-side {:x 0 :y 100} 50 50)))
     (is (#{:left :top}     (g/classify-side {:x 0 :y 0} 50 50)))))
+
+(deftest segment-intersects-rect?-test
+  (let [rect {:x 100 :y 100 :width 100 :height 100}]
+    (testing "an endpoint inside the rect is a hit"
+      (is (true? (g/segment-intersects-rect? [150 150] [400 400] rect))))
+    (testing "a segment crossing straight through (both ends outside) is a hit"
+      (is (true? (g/segment-intersects-rect? [0 150] [300 150] rect))))
+    (testing "a segment passing beside the rect misses"
+      (is (false? (g/segment-intersects-rect? [0 0] [300 0] rect))))
+    (testing "a segment entirely on one side misses"
+      (is (false? (g/segment-intersects-rect? [0 300] [50 400] rect))))))
+
+(deftest marquee-hit-relationship-ids-test
+  ;; Two square Parts stacked vertically: the chord between them runs from
+  ;; (50,100) — p1's bottom border — straight down to (50,300) — p2's top.
+  (let [parts [{:id    "p1" :type   "unknown" :position_x 0 :position_y 0
+                :width 100  :height 100}
+               {:id    "p2" :type   "unknown" :position_x 0 :position_y 300
+                :width 100  :height 100}]
+        rels  [{:id "r1" :source_id "p1" :target_id "p2" :type "unknown"}]]
+    (testing "a rect crossing the drawn chord hits the relationship"
+      (is (= #{"r1"} (g/marquee-hit-relationship-ids
+                      parts rels {:x 0 :y 150 :width 200 :height 50}))))
+    (testing "a rect overlapping only a Part's body does NOT hit its edges —
+              the chord starts at the border, not the centre"
+      (is (= #{} (g/marquee-hit-relationship-ids
+                  parts rels {:x 0 :y 0 :width 100 :height 50}))))
+    (testing "a rect away from everything hits nothing"
+      (is (= #{} (g/marquee-hit-relationship-ids
+                  parts rels {:x 500 :y 0 :width 50 :height 50}))))
+    (testing "a relationship pointing at a missing Part is skipped, not errored"
+      (is (= #{} (g/marquee-hit-relationship-ids
+                  parts
+                  [{:id "r2" :source_id "p1" :target_id "ghost" :type "unknown"}]
+                  {:x 0 :y 150 :width 200 :height 50}))))))
+
+(deftest corners->rect-test
+  (testing "normalises whichever way the drag ran"
+    (is (= {:x 10 :y 20 :width 30 :height 40}
+           (g/corners->rect {:x 40 :y 60} {:x 10 :y 20})
+           (g/corners->rect {:x 10 :y 20} {:x 40 :y 60})))))

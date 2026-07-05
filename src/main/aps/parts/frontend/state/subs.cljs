@@ -1,5 +1,6 @@
 (ns aps.parts.frontend.state.subs
   (:require
+   [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]))
 
 (rf/reg-sub
@@ -64,10 +65,9 @@
 
 (rf/reg-sub
  :ui/tool-mode
- ;; nil = neutral: nothing armed, the canvas is in its default
- ;; direct-manipulation state (ADR-0011).
+ ;; The active canvas tool (ADR-0015); Select is the resting default.
  (fn [db _]
-   (get-in db [:ui :tool-mode])))
+   (get-in db [:ui :tool-mode] toolbar/default-tool)))
 
 (rf/reg-sub
  :ui/relationship-type

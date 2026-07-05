@@ -3,8 +3,9 @@
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
    ["lucide-react" :refer [ChevronDown ChevronLeft ChevronUp Download
-                           FilePenLine Spline]]
+                           FilePenLine Hand MousePointer2 Spline]]
    [aps.parts.common.constants :as constants]
+   [aps.parts.common.geometry :as geometry]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
@@ -17,19 +18,25 @@
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-callback use-effect use-state]]
+   [uix.core :refer [$ defui use-callback use-effect use-ref use-state]]
    [uix.re-frame :as uix.rf]))
 
-;; Toolbar — the canvas has no modes (ADR-0011); the toolbar only chooses
-;; what a creation gesture produces. Two groups with different semantics,
-;; deliberately styled differently so two simultaneous highlights read as
-;; intended:
+;; Tool palette — the active tool decides what a drag means (ADR-0015).
+;; Three groups with different semantics, deliberately styled differently
+;; so simultaneous highlights read as intended:
+;; - `mode-tools` are the persistent tools: Select (default — click/marquee
+;;   selects, drag moves) and Hand (drag pans). Exactly one is active
+;;   whenever no creation tool is armed.
 ;; - `part-tools` are one-shot armed-creation modes (text buttons):
-;;   clicking the canvas places a Part of the matching type, then disarms;
-;;   shift-click placement keeps the tool armed. Text labels — Part shapes
-;;   have their own visual identity in the canvas, no need for tool icons.
+;;   clicking the canvas places a Part of the matching type, then springs
+;;   back to Select; shift-click placement keeps the tool armed. Text
+;;   labels — Part shapes have their own visual identity in the canvas.
 ;; - the relationship-type control is a persistent type selector: always
 ;;   exactly one type selected; every drawn edge gets that type.
+(def ^:private mode-tools
+  [{:mode :select :label "Select" :shortcut "V" :icon MousePointer2}
+   {:mode :hand :label "Hand" :shortcut "H" :icon Hand}])
+
 (def ^:private part-tools
   [{:mode :add-unknown :label "Unknown"}
    {:mode :add-exile :label "Exile"}
@@ -42,14 +49,29 @@
    :add-firefighter "firefighter"
    :add-manager     "manager"})
 
+;; Stable JS identities for ReactFlow props. A fresh #js array per render
+;; busts ReactFlow's memoized renderer — re-registering its key listeners
+;; and reconfiguring d3-zoom on every drag frame.
+(def ^:private middle-mouse-pan-buttons #js [1])
+(def ^:private multi-selection-key-codes #js ["Meta" "Shift"])
+
 (defn- non-input-target?
-  "True unless the keydown originated inside a form input. Lets Escape
-   not steal keystrokes from the sidebar's relationship/notes editors."
+  "True unless the keydown originated inside a form input. Keeps the tool
+   shortcuts (V/H/Escape) from stealing keystrokes while typing in the
+   sidebar's relationship/notes editors or an inline label."
   [^js event]
   (let [tag (.. event -target -tagName)]
     (not (or (= "INPUT" tag) (= "TEXTAREA" tag)))))
 
 (defn- plural [n one many] (if (= 1 n) one many))
+
+(defn- event->flow-position
+  "The pointer event's position in Map (flow) coordinates."
+  [^js rf-instance ^js event]
+  (let [p (.screenToFlowPosition rf-instance
+                                 #js {:x (.-clientX event)
+                                      :y (.-clientY event)})]
+    {:x (.-x p) :y (.-y p)}))
 
 (defn- delete-prompt
   "Given a non-nil pending-deletes map of `{:parts #{ids} :relationships #{ids}}`,
@@ -228,7 +250,22 @@
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
         tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
-        nodes                 (adapter/parts->nodes parts selected-node-ids)
+
+        ;; Render-only mirror of the marquee buffer below: nil when no
+        ;; marquee is active. React state (not re-frame) so each update
+        ;; flushes before the next mousemove — the live highlight stays
+        ;; in lockstep with ReactFlow's select emissions.
+        [marquee-overlay
+         set-marquee-overlay] (use-state nil)
+
+        nodes                 (adapter/parts->nodes
+                               parts
+                               (if marquee-overlay
+                                 (toolbar/marquee-preview-ids
+                                  selected-node-ids (:parts marquee-overlay))
+                                 selected-node-ids)
+                               (toolbar/resize-armed?
+                                tool-mode (count selected-node-ids)))
         edges                 (adapter/relationships->edges relationships selected-edge-ids)
         rf-instance           (useReactFlow)
 
@@ -267,53 +304,71 @@
                                    (set-pending-deletes nil)))
                                [pending-deletes demo])
 
+        ;; nil when no marquee is active; the whole gesture during one —
+        ;; `{:origin <flow point> :parts {id selected?}}`. The ref is the
+        ;; authoritative, synchronously-readable copy; marquee-overlay
+        ;; above mirrors it for rendering. Why the buffering exists: the
+        ;; marquee section in state.toolbar.
+        marquee-buffer        (use-ref nil)
+
+        ;; The ref and its render mirror always move together; this is
+        ;; the only writer.
+        set-marquee!          (use-callback
+                               (fn [buffer]
+                                 (reset! marquee-buffer buffer)
+                                 (set-marquee-overlay buffer))
+                               [])
+
         dispatch-intent       (use-callback
                                (fn [intent]
-                                 (case (:intent intent)
-                                   :part-position-frame
-                                   (rf/dispatch [:map/part-update-position
-                                                 (:id intent)
-                                                 (:position intent)])
+                                 (if-let [buffer' (some-> @marquee-buffer
+                                                          (toolbar/marquee-buffer-add intent))]
+                                   (set-marquee! buffer')
+                                   (case (:intent intent)
+                                     :part-position-frame
+                                     (rf/dispatch [:map/part-update-position
+                                                   (:id intent)
+                                                   (:position intent)])
 
-                                   :part-moved
-                                   (rf/dispatch [:map/part-finish-position-change
-                                                 (:id intent)
-                                                 (:position intent)])
+                                     :part-moved
+                                     (rf/dispatch [:map/part-finish-position-change
+                                                   (:id intent)
+                                                   (:position intent)])
 
-                                   :part-resize-frame
-                                   (rf/dispatch [:map/part-update-size
-                                                 (:id intent)
-                                                 (:dimensions intent)])
+                                     :part-resize-frame
+                                     (rf/dispatch [:map/part-update-size
+                                                   (:id intent)
+                                                   (:dimensions intent)])
 
-                                   :part-resized
-                                   (do (o/track "Part resized" {:demo demo})
-                                       (rf/dispatch [:map/part-finish-size-change
-                                                     (:id intent)
-                                                     (:dimensions intent)]))
+                                     :part-resized
+                                     (do (o/track "Part resized" {:demo demo})
+                                         (rf/dispatch [:map/part-finish-size-change
+                                                       (:id intent)
+                                                       (:dimensions intent)]))
 
-                                   :part-selected
-                                   (rf/dispatch [:selection/toggle-node
-                                                 (:id intent)
-                                                 (:selected? intent)])
+                                     :part-selected
+                                     (rf/dispatch [:selection/toggle-node
+                                                   (:id intent)
+                                                   (:selected? intent)])
 
-                                   :part-removed
-                                   (queue-delete :parts (:id intent))
+                                     :part-removed
+                                     (queue-delete :parts (:id intent))
 
-                                   :relationship-selected
-                                   (rf/dispatch [:selection/toggle-edge
-                                                 (:id intent)
-                                                 (:selected? intent)])
+                                     :relationship-selected
+                                     (rf/dispatch [:selection/toggle-edge
+                                                   (:id intent)
+                                                   (:selected? intent)])
 
-                                   :relationship-removed
-                                   (queue-delete :relationships (:id intent))
+                                     :relationship-removed
+                                     (queue-delete :relationships (:id intent))
 
-                                   :relationship-connected
-                                   (do (o/track "Relationship created" {:demo demo})
-                                       (rf/dispatch [:map/relationship-create
-                                                     (select-keys intent [:source_id :target_id])]))
+                                     :relationship-connected
+                                     (do (o/track "Relationship created" {:demo demo})
+                                         (rf/dispatch [:map/relationship-create
+                                                       (select-keys intent [:source_id :target_id])]))
 
-                                   (o/warn "map.dispatch-intent" "unknown intent" intent)))
-                               [demo queue-delete])
+                                     (o/warn "map.dispatch-intent" "unknown intent" intent))))
+                               [demo queue-delete set-marquee!])
 
         on-nodes-change       (use-callback
                                (fn [changes]
@@ -335,22 +390,70 @@
                                  (dispatch-intent (adapter/translate-connect connection)))
                                [dispatch-intent])
 
+        ;; Latest Map content for gesture-end reads. on-selection-end is
+        ;; a ReactFlow memo prop: closing over the subscriptions directly
+        ;; would mint it a fresh identity on every position frame and
+        ;; bust that memo — it reads through this ref instead.
+        map-content           (use-ref nil)
+
+        on-selection-start    (use-callback
+                               ;; The rect's start corner is tracked in the
+                               ;; buffer because ReactFlow nulls its own
+                               ;; userSelectionRect before onSelectionEnd
+                               ;; fires — the rect must be reconstructable
+                               ;; from the two pointer events.
+                               (fn [^js event]
+                                 (set-marquee!
+                                  {:origin (event->flow-position rf-instance event)
+                                   :parts  {}}))
+                               [rf-instance set-marquee!])
+
+        on-selection-end      (use-callback
+                               (fn [^js event]
+                                 (when-let [{:keys [origin] part-selects :parts}
+                                            @marquee-buffer]
+                                   ;; dispatch-sync: the committed selection
+                                   ;; must be in place before the overlay
+                                   ;; clears, or the highlight blinks off for
+                                   ;; a frame between the two renders.
+                                   (doseq [[id selected?] part-selects]
+                                     (rf/dispatch-sync
+                                      [:selection/toggle-node id selected?]))
+                                   ;; Edges join the selection when the rect
+                                   ;; crossed their drawn line — our own
+                                   ;; hit-test, since ReactFlow's rule (every
+                                   ;; edge of a selected node) over-selects.
+                                   (let [{:keys [parts relationships]} @map-content
+                                         rect                          (geometry/corners->rect
+                                                                        origin
+                                                                        (event->flow-position rf-instance event))]
+                                     (doseq [id (geometry/marquee-hit-relationship-ids
+                                                 parts relationships rect)]
+                                       (rf/dispatch-sync
+                                        [:selection/toggle-edge id true])))
+                                   (set-marquee! nil)))
+                               [rf-instance set-marquee!])
+
         on-pane-click         (use-callback
                                (fn [^js event]
                                  (when-let [part-type (add-mode->part-type tool-mode)]
-                                   (let [pos (.screenToFlowPosition
-                                              rf-instance
-                                              #js {:x (.-clientX event)
-                                                   :y (.-clientY event)})]
+                                   (let [{:keys [x y]} (event->flow-position
+                                                        rf-instance event)]
                                      (o/track "Part created" {:type part-type :demo demo})
                                      (rf/dispatch [:map/part-create
                                                    {:type       part-type
-                                                    :position_x (.-x pos)
-                                                    :position_y (.-y pos)}])
+                                                    :position_x x
+                                                    :position_y y}])
                                      (set-tool-mode
                                       (toolbar/tool-mode-after-create
                                        tool-mode (.-shiftKey event))))))
                                [tool-mode rf-instance demo set-tool-mode])]
+
+    (use-effect
+     (fn []
+       (reset! map-content {:parts parts :relationships relationships})
+       js/undefined)
+     [parts relationships])
 
     (use-effect
      (fn []
@@ -364,14 +467,38 @@
 
     (use-effect
      (fn []
-       (let [handler (fn [^js e]
+       (let [on-down (fn [^js e]
+                       ;; Bare keys only: Cmd+H (hide) etc. must stay the
+                       ;; browser's. Escape also lets ReactFlow clear the
+                       ;; selection itself.
                        (when (and (non-input-target? e)
-                                  (= "Escape" (.-key e)))
-                         ;; Disarm any armed part tool; ReactFlow itself
-                         ;; clears the selection on Escape.
-                         (set-tool-mode nil)))]
-         (.addEventListener js/document "keydown" handler)
-         (fn [] (.removeEventListener js/document "keydown" handler))))
+                                  (not (or (.-metaKey e)
+                                           (.-ctrlKey e)
+                                           (.-altKey e))))
+                         (if-let [held (toolbar/spring-tool (.-key e))]
+                           ;; Not mid-marquee: flipping the tool then would
+                           ;; abort ReactFlow's gesture with the selection
+                           ;; buffer still armed.
+                           (when (and (not (.-repeat e))
+                                      (nil? @marquee-buffer))
+                             (rf/dispatch [:ui/tool-spring-down held]))
+                           (when-let [tool (toolbar/shortcut-tool (.-key e))]
+                             (set-tool-mode tool)))))
+             ;; Release is unguarded: wherever focus went mid-hold, the
+             ;; hold must end. Window blur too, or a Cmd-Tab away leaves
+             ;; the canvas stuck in Hand.
+             on-up   (fn [^js e]
+                       (when (toolbar/spring-tool (.-key e))
+                         (rf/dispatch [:ui/tool-spring-up])))
+             on-blur (fn [_e]
+                       (rf/dispatch [:ui/tool-spring-up]))]
+         (.addEventListener js/document "keydown" on-down)
+         (.addEventListener js/document "keyup" on-up)
+         (.addEventListener js/window "blur" on-blur)
+         (fn []
+           (.removeEventListener js/document "keydown" on-down)
+           (.removeEventListener js/document "keyup" on-up)
+           (.removeEventListener js/window "blur" on-blur))))
      [set-tool-mode])
 
     ($ :div {:class "map-container"}
@@ -394,81 +521,120 @@
                          :orient       "auto-start-reverse"}
                 ($ :path {:d    "M 0 0 L 10 5 L 0 10 z"
                           :fill "context-stroke"}))))
-       ($ :div {:class (cond-> "map-view"
-                         minimal   (str " minimal")
-                         tool-mode (str " mode-" (name tool-mode)))}
-          ($ ReactFlow {:nodes                   nodes
-                        :edges                   edges
-                        :onNodesChange           on-nodes-change
-                        :onEdgesChange           on-edges-change
-                        :onConnect               on-connect
-                        :onPaneClick             on-pane-click
-                        ;; :onSelectionChange on-selection-change
-                        :nodeTypes               node-types
-                        :edgeTypes               edge-types
-                        :connectionLineComponent PartsConnectionLine
-                        :zoomOnScroll            (not minimal)
-                        :preventScrolling        (not minimal)
-                        ;; Marketing hero (lg only): the demo is a full-bleed
-                        ;; background with the headline overlaid on the left, so
-                        ;; nudge the initial view right to keep it clear of the
-                        ;; text. (Hidden below lg, so this only ever shows there.)
-                        :defaultViewport         (if minimal
-                                                   #js {:x 620 :y 90 :zoom 1}
-                                                   js/undefined)}
-             (when-not minimal
-               ($ Controls))
-             (when-not minimal
-               (if demo
-                 ;; Playground: mini logo linking back to the marketing site.
-                 ($ Panel {:position "top-left" :class "logo"}
-                    ($ :a {:href     "/"
-                           :on-click #(o/track "Playground logo click" {:demo demo})}
-                       ($ :svg
-                          {:aria-label "Previous",
-                           :class      "fill-current size-4",
-                           :slot       "previous",
-                           :xmlns      "http://www.w3.org/2000/svg",
-                           :viewBox    "0 0 24 24"}
-                          ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
-                       ($ :img {:src "/images/parts-logo-mini.svg"})))
-                 ;; Authenticated map view: back chevron + editable name.
-                 ($ map-name-panel)))
-             ($ Panel {:position "bottom-center"
-                       :class    "toolbar shadow-xs"}
-                ($ :div {:class "flex items-center gap-2"}
-                   ($ :div {:class "join"}
-                      (map (fn [{:keys [mode label]}]
-                             ;; Clicking an armed tool again disarms it.
-                             ;; The icon is the Part type's canvas shape —
-                             ;; the button previews the stamp it places
-                             ;; (stencil-palette pattern). The toolbar/
-                             ;; variants are solid-fill: the canvas SVGs'
-                             ;; 0.2-opacity fill washes out at 16px.
-                             ($ button {:key      (name mode)
-                                        :label    label
-                                        :icon     ($ :img {:src   (str "/images/nodes/toolbar/"
-                                                                       (add-mode->part-type mode)
-                                                                       ".svg")
-                                                           :alt   ""
-                                                           :class "h-4 w-auto"})
-                                        :on-click #(set-tool-mode
-                                                    (when-not (= tool-mode mode) mode))
-                                        :active?  (= tool-mode mode)}))
-                           part-tools))
-                   ($ relationship-type-control)))
-             ($ Panel {:position "top-right" :className "sidebar-container"}
-                ($ sidebar))
-             (when-not minimal
-               ($ MiniMap {:className   "tools parts-minimap shadow-sm"
-                           :position    "bottom-right"
-                           :ariaLabel   "Minimap"
-                           :pannable    true
-                           :zoomable    true
-                           :offsetScale 5}))
-             ($ Background {:variant "dots"
-                            :gap     12
-                            :size    1})))
+       ($ :div {:class (str "map-view"
+                            (when minimal " minimal")
+                            " mode-" (name tool-mode))}
+          ;; ⌘/Ctrl-scroll zoom rides on a ReactFlow default not visible
+          ;; below (`zoomActivationKeyCode`, converting `panOnScroll`).
+          ;; Space-drag is NOT ReactFlow's: `panActivationKeyCode` is
+          ;; disabled in favour of the spring-loaded Hand hold (keydown
+          ;; effect above), so holding Space is the real Hand tool —
+          ;; cursor, palette light, nothing draggable — not a pan filter.
+          (let [interaction (toolbar/tool-interaction tool-mode)]
+            ($ ReactFlow {:nodes                   nodes
+                          :edges                   edges
+                          :onNodesChange           on-nodes-change
+                          :onEdgesChange           on-edges-change
+                          :onConnect               on-connect
+                          :onPaneClick             on-pane-click
+                          :onSelectionStart        on-selection-start
+                          :onSelectionEnd          on-selection-end
+                          :nodeTypes               node-types
+                          :edgeTypes               edge-types
+                          :connectionLineComponent PartsConnectionLine
+                          :panOnDrag               (if (true? (:pan-on-drag interaction))
+                                                     true
+                                                     middle-mouse-pan-buttons)
+                          :selectionOnDrag         (:selection-on-drag interaction)
+                          :nodesDraggable          (:nodes-draggable interaction)
+                          :elementsSelectable      (:elements-selectable interaction)
+                          :nodesConnectable        (:nodes-connectable interaction)
+                          ;; A marquee only has to touch a Part to take it —
+                          ;; full containment punishes loose lassos around
+                          ;; big shapes.
+                          :selectionMode           "partial"
+                          :multiSelectionKeyCode   multi-selection-key-codes
+                          :panActivationKeyCode    nil
+                          :panOnScroll             (not minimal)
+                          ;; Default 0.5 felt sluggish on a trackpad;
+                          ;; +20% per hands-on testing.
+                          :panOnScrollSpeed        0.6
+                          :zoomOnScroll            false
+                          :preventScrolling        (not minimal)
+                          ;; Marketing hero (lg only): the demo is a full-bleed
+                          ;; background with the headline overlaid on the left, so
+                          ;; nudge the initial view right to keep it clear of the
+                          ;; text. (Hidden below lg, so this only ever shows there.)
+                          :defaultViewport         (if minimal
+                                                     #js {:x 620 :y 90 :zoom 1}
+                                                     js/undefined)}
+               (when-not minimal
+                 ($ Controls))
+               (when-not minimal
+                 (if demo
+                   ;; Playground: mini logo linking back to the marketing site.
+                   ($ Panel {:position "top-left" :class "logo"}
+                      ($ :a {:href     "/"
+                             :on-click #(o/track "Playground logo click" {:demo demo})}
+                         ($ :svg
+                            {:aria-label "Previous",
+                             :class      "fill-current size-4",
+                             :slot       "previous",
+                             :xmlns      "http://www.w3.org/2000/svg",
+                             :viewBox    "0 0 24 24"}
+                            ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
+                         ($ :img {:src "/images/parts-logo-mini.svg"})))
+                   ;; Authenticated map view: back chevron + editable name.
+                   ($ map-name-panel)))
+               ($ Panel {:position "bottom-center"
+                         :class    "toolbar shadow-xs"}
+                  ($ :div {:class "flex items-center gap-2"}
+                     ($ :div {:class "join"}
+                        (map (fn [{:keys [mode label shortcut icon]}]
+                               ;; Persistent tools: clicking one switches to
+                               ;; it — there is no "off", Select is the
+                               ;; resting state.
+                               ($ button {:key        (name mode)
+                                          :icon       ($ icon {:size 16})
+                                          :tooltip    (str label " — " shortcut)
+                                          :aria-label (str label " tool")
+                                          :on-click   #(set-tool-mode mode)
+                                          :active?    (= tool-mode mode)}))
+                             mode-tools))
+                     ($ :div {:class "join"}
+                        (map (fn [{:keys [mode label]}]
+                               ;; Clicking an armed tool again disarms it back
+                               ;; to Select. The icon is the Part type's canvas
+                               ;; shape — the button previews the stamp it
+                               ;; places (stencil-palette pattern). The toolbar/
+                               ;; variants are solid-fill: the canvas SVGs'
+                               ;; 0.2-opacity fill washes out at 16px.
+                               ($ button {:key      (name mode)
+                                          :label    label
+                                          :icon     ($ :img {:src   (str "/images/nodes/toolbar/"
+                                                                         (add-mode->part-type mode)
+                                                                         ".svg")
+                                                             :alt   ""
+                                                             :class "h-4 w-auto"})
+                                          :on-click #(set-tool-mode
+                                                      (if (= tool-mode mode)
+                                                        toolbar/default-tool
+                                                        mode))
+                                          :active?  (= tool-mode mode)}))
+                             part-tools))
+                     ($ relationship-type-control)))
+               ($ Panel {:position "top-right" :className "sidebar-container"}
+                  ($ sidebar))
+               (when-not minimal
+                 ($ MiniMap {:className   "tools parts-minimap shadow-sm"
+                             :position    "bottom-right"
+                             :ariaLabel   "Minimap"
+                             :pannable    true
+                             :zoomable    true
+                             :offsetScale 5}))
+               ($ Background {:variant "dots"
+                              :gap     12
+                              :size    1}))))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal
