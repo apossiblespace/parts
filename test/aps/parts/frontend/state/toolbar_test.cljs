@@ -25,7 +25,11 @@
     (is (= :select (toolbar/tool-mode-after-create :add-exile false))))
 
   (testing "shift-click keeps the tool armed for batch adds"
-    (is (= :add-exile (toolbar/tool-mode-after-create :add-exile true)))))
+    (is (= :add-exile (toolbar/tool-mode-after-create :add-exile true))))
+
+  (testing "Connect is one-shot the same way: back to Select, Shift batches"
+    (is (= :select (toolbar/tool-mode-after-create :connect false)))
+    (is (= :connect (toolbar/tool-mode-after-create :connect true)))))
 
 (deftest default-tool-test
   (testing "Select is the default tool"
@@ -37,6 +41,10 @@
     (is (= :hand (toolbar/shortcut-tool "H")))
     (is (= :select (toolbar/shortcut-tool "v")))
     (is (= :select (toolbar/shortcut-tool "V"))))
+
+  (testing "C arms the Connect tool"
+    (is (= :connect (toolbar/shortcut-tool "c")))
+    (is (= :connect (toolbar/shortcut-tool "C"))))
 
   (testing "Escape returns to Select — the disarm-everything key"
     (is (= :select (toolbar/shortcut-tool "Escape"))))
@@ -103,6 +111,15 @@
       (is (false? (:nodes-draggable props)))
       (is (false? (:elements-selectable props)))
       (is (false? (:nodes-connectable props)))))
+
+  (testing "Connect: a Part's body means endpoint, not move or select;
+            the ring drag stays available; drag-empty neither pans nor marquees"
+    (let [props (toolbar/tool-interaction :connect)]
+      (is (= [1] (:pan-on-drag props)))
+      (is (false? (:selection-on-drag props)))
+      (is (false? (:nodes-draggable props)))
+      (is (false? (:elements-selectable props)))
+      (is (true? (:nodes-connectable props)))))
 
   (testing "an armed one-shot Part tool interacts like Select — and the
             values are identity-stable, so ReactFlow's memoized renderer

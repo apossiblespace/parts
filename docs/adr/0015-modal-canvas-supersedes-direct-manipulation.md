@@ -31,16 +31,26 @@ region or modifier:
   marquee** and selects the group inside (no Shift required — this is the fix
   for the reported pain); drag a Part moves the whole selection.
   Shift/⌘-click extends a selection.
-- **Connect:** click a source Part then a target Part (or drag between them)
-  creates a Relationship. Its type is the persistent Relationship-type selector
-  — the "current ink" idea kept from ADR-0011. Connect is a **one-shot armed
-  tool**, exactly like the Part-placement tools: it draws one Relationship then
-  **auto-returns to Select**, with **Shift (or hold) to stay armed** for drawing
-  several, and Escape to disarm. Auto-return is deliberate mode-error insurance:
-  Connect is the mode a user is most likely to get stranded in (trying to move a
-  Part while it's active), so it self-exits by default. Consequence: Select and
-  Hand are the only *persistent* modes; every creation tool (Part types, Connect)
-  is one-shot and springs back to Select.
+- **Connect:** **drag from anywhere on a source Part to a target Part** —
+  the whole body is the drag source while the tool is active, with a live
+  preview line in the current type's colour. Drag-first because drawing *is*
+  dragging in every reference tool (OmniGraffle, FigJam, draw.io): the
+  first gesture a user tries must be the one that works. (A click-source-
+  then-click-target variant was built first and dropped: without a
+  rubber-band line the armed state was illegible, and the natural
+  drag-from-body attempt did nothing — hands-on testing found it
+  confusing.) A near-still press is guarded so a plain click can't mint a
+  self-loop; deliberate out-and-back self-loop drags still work. The new
+  Relationship's type is the persistent Relationship-type selector — the
+  "current ink" idea kept from ADR-0011. Connect is a **one-shot armed
+  tool**, exactly like the Part-placement tools: it draws one Relationship
+  then **auto-returns to Select**, with **Shift to stay armed** for drawing
+  several, and Escape to disarm. Auto-return is deliberate mode-error
+  insurance: Connect is the mode a user is most likely to get stranded in
+  (trying to move a Part while it's active), so it self-exits by default.
+  Consequence: Select and Hand are the only *persistent* modes; every
+  creation tool (Part types, Connect) is one-shot and springs back to
+  Select.
 - **Hand:** pans the viewport.
 - **Part placement** stays as ADR-0011's **one-shot armed tools** — arm a Part
   type, click to drop, the tool disarms. This protection is retained

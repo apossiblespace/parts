@@ -31,7 +31,8 @@
 ;;   clicking the canvas places a Part of the matching type, then springs
 ;;   back to Select; shift-click placement keeps the tool armed. Text
 ;;   labels — Part shapes have their own visual identity in the canvas.
-;; - the relationship-type control is a persistent type selector: always
+;; - the Connect split button pairs the one-shot Connect tool with the
+;;   relationship-type control — a persistent type selector: always
 ;;   exactly one type selected; every drawn edge gets that type.
 (def ^:private mode-tools
   [{:mode :select :label "Select" :shortcut "V" :icon MousePointer2}
@@ -108,11 +109,12 @@
        :confirm-label (plural rel-count "Delete connection" "Delete connections")})))
 
 (defui relationship-type-control
-  "The toolbar's persistent relationship-type selector (ADR-0011): a Spline
-   icon (connections as material, not a mode), a colour dot showing the
-   current type — the ink the next drawn edge uses — and a caret opening a
-   drop-up menu of all types, each a dot + name. The whole control is the
-   menu trigger; the caret is affordance, not a separate hit zone."
+  "The right half of the Connect split button: a colour dot showing the
+   persistent relationship type — the ink the next drawn edge uses — and
+   a caret opening a drop-up menu of all types, each a dot + name. The
+   whole segment is the menu trigger; the caret is affordance, not a
+   separate hit zone. The Connect half carries the icon and label, so
+   this half is just the ink."
   []
   (let [selected              (uix.rf/use-subscribe [:ui/relationship-type])
         label                 (get-in constants/relationship-labels [selected :label])
@@ -121,22 +123,27 @@
         ;; Suppress it from selection until the pointer leaves.
         [tip-suppressed?
          set-tip-suppressed!] (use-state false)]
-    ($ :div {:class          (if tip-suppressed? "" "tooltip tooltip-top")
-             :data-tip       (str "Relationship type: " label)
-             :on-mouse-leave #(set-tip-suppressed! false)}
-       ($ relationship-type-dropdown
-          {:selected           selected
-           :on-select          (fn [type]
-                                 (rf/dispatch [:ui/relationship-type-set type])
-                                 (set-tip-suppressed! true))
-           :dropdown-class     "dropdown-top"
-           :trigger-class      "btn btn-sm bg-white flex items-center gap-1.5"
-           :trigger-aria-label (str "Relationship type: " label)}
-          ($ Spline {:size 16})
-          ($ :span {:class "type-dot"
-                    :style {:background-color
-                            (constants/relationship-colors selected)}})
-          ($ ChevronUp {:size 12})))))
+    ;; Direct child of the join, tooltip riding on the same element —
+    ;; wrapper levels break the join's stretch and seam collapse (see
+    ;; the .toolbar .join rules in main.css). -ml-px overlaps the seam
+    ;; borders: daisyUI's join-item margin rule can't see an item that
+    ;; is the first child of its wrapper.
+    ($ relationship-type-dropdown
+       {:selected           selected
+        :on-select          (fn [type]
+                              (rf/dispatch [:ui/relationship-type-set type])
+                              (set-tip-suppressed! true))
+        :dropdown-class     (str "dropdown-top -ml-px"
+                                 (when-not tip-suppressed?
+                                   " tooltip tooltip-top"))
+        :data-tip           (str "Relationship type: " label)
+        :on-mouse-leave     #(set-tip-suppressed! false)
+        :trigger-class      "btn btn-sm join-item bg-white flex items-center gap-1.5"
+        :trigger-aria-label (str "Relationship type: " label)}
+       ($ :span {:class "type-dot"
+                 :style {:background-color
+                         (constants/relationship-colors selected)}})
+       ($ ChevronUp {:size 12}))))
 
 (defui map-name-panel
   "Top-left panel for the authenticated single-map view: a back-to-list
@@ -264,14 +271,23 @@
                                  (toolbar/marquee-preview-ids
                                   selected-node-ids (:parts marquee-overlay))
                                  selected-node-ids)
-                               (toolbar/resize-armed?
-                                tool-mode (count selected-node-ids)))
+                               {:resizable? (toolbar/resize-armed?
+                                             tool-mode
+                                             (count selected-node-ids))})
         edges                 (adapter/relationships->edges relationships selected-edge-ids)
         rf-instance           (useReactFlow)
 
         set-tool-mode         (use-callback
                                (fn [mode] (rf/dispatch [:ui/tool-mode-set mode]))
                                [])
+
+        ;; Clicking an armed one-shot tool again disarms it back to
+        ;; Select — one policy for the part tools and Connect alike.
+        toggle-tool           (fn [mode]
+                                (set-tool-mode
+                                 (if (= tool-mode mode)
+                                   toolbar/default-tool
+                                   mode)))
 
         [pending-deletes
          set-pending-deletes] (use-state nil)
@@ -384,11 +400,29 @@
                                        (adapter/translate-edges-change changes)))
                                [dispatch-intent])
 
+        ;; Set by on-connect, consumed by on-connect-end: the one-shot
+        ;; spring-back must happen at gesture end, where the release
+        ;; event's shiftKey is available (onConnect carries no event).
+        connect-landed?       (use-ref false)
+
         on-connect            (use-callback
                                (fn [connection]
                                  (o/debug "map.on-connect" "connection created" connection)
-                                 (dispatch-intent (adapter/translate-connect connection)))
+                                 (dispatch-intent (adapter/translate-connect connection))
+                                 (reset! connect-landed? true))
                                [dispatch-intent])
+
+        ;; One-shot Connect (ADR-0015): a landed connection springs the
+        ;; tool back to Select; Shift keeps it armed for batch drawing.
+        on-connect-end        (use-callback
+                               (fn [^js event _state]
+                                 (when @connect-landed?
+                                   (reset! connect-landed? false)
+                                   (when (= :connect tool-mode)
+                                     (set-tool-mode
+                                      (toolbar/tool-mode-after-create
+                                       :connect (boolean (.-shiftKey event)))))))
+                               [tool-mode set-tool-mode])
 
         ;; Latest Map content for gesture-end reads. on-selection-end is
         ;; a ReactFlow memo prop: closing over the subscriptions directly
@@ -536,6 +570,17 @@
                           :onNodesChange           on-nodes-change
                           :onEdgesChange           on-edges-change
                           :onConnect               on-connect
+                          :onConnectEnd            on-connect-end
+                          ;; Connecting is drag-only; RF's click-connect
+                          ;; can't render a preview line and reads as
+                          ;; dead clicks.
+                          :connectOnClick          false
+                          ;; A connection only starts after this much
+                          ;; pointer travel, so a plain click on a Part
+                          ;; can't mint a (permanent, bitemporal)
+                          ;; self-loop; deliberate out-and-back self-loop
+                          ;; drags exceed it on the way out.
+                          :connectionDragThreshold 8
                           :onPaneClick             on-pane-click
                           :onSelectionStart        on-selection-start
                           :onSelectionEnd          on-selection-end
@@ -616,13 +661,20 @@
                                                                          ".svg")
                                                              :alt   ""
                                                              :class "h-4 w-auto"})
-                                          :on-click #(set-tool-mode
-                                                      (if (= tool-mode mode)
-                                                        toolbar/default-tool
-                                                        mode))
+                                          :on-click #(toggle-tool mode)
                                           :active?  (= tool-mode mode)}))
                              part-tools))
-                     ($ relationship-type-control)))
+                     ;; The Connect split button: the left half arms the
+                     ;; one-shot tool, the right half is the persistent
+                     ;; type selector — the ink it draws with (ADR-0015).
+                     ($ :div {:class "join"}
+                        ($ button {:icon       ($ Spline {:size 16})
+                                   :label      "Connect"
+                                   :tooltip    "Connect — C"
+                                   :aria-label "Connect tool"
+                                   :on-click   #(toggle-tool :connect)
+                                   :active?    (= tool-mode :connect)})
+                        ($ relationship-type-control))))
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar))
                (when-not minimal

@@ -3,16 +3,17 @@
    [uix.core :refer [$ defui]]))
 
 (defui button
+  ;; The tooltip classes ride on the <button> itself — a wrapper div
+  ;; would become the join's child instead of the button, and its
+  ;; inline-block line box is taller than the button (the strut below
+  ;; the baseline), misaligning the whole toolbar row.
   [{:keys [label icon on-click tooltip active? aria-label]}]
-  (let [classes (str "btn btn-sm join-item "
-                     (if active? "bg-base-300" "bg-white"))
-        button  ($ :button {:class        classes
-                            :on-click     on-click
-                            :aria-label   aria-label
-                            :aria-pressed (boolean active?)}
-                   icon
-                   label)]
-    (if tooltip
-      ($ :div {:class "tooltip tooltip-top" :data-tip tooltip}
-         button)
-      button)))
+  ($ :button {:class        (str "btn btn-sm join-item "
+                                 (if active? "bg-base-300" "bg-white")
+                                 (when tooltip " tooltip tooltip-top"))
+              :data-tip     tooltip
+              :on-click     on-click
+              :aria-label   aria-label
+              :aria-pressed (boolean active?)}
+     icon
+     label))

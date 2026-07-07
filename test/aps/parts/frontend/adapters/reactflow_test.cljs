@@ -62,6 +62,20 @@
       (is (= "protects" (get-in result [:data :relationship])))
       (is (= "edge-protects" (:className result))))))
 
+(deftest parts->nodes-canvas-opts-test
+  (let [parts [{:id         "p1" :type       "unknown" :label "A"
+                :position_x 0    :position_y 0}
+               {:id         "p2" :type       "unknown" :label "B"
+                :position_x 10   :position_y 10}]]
+    (testing "the resize-armed decision threads into every node's data"
+      (let [nodes (adapter/parts->nodes parts ["p1"] {:resizable? true})]
+        (is (true? (.. (aget nodes 0) -data -resizable)))
+        (is (true? (.. (aget nodes 1) -data -resizable)))))
+
+    (testing "without opts, nodes are not resizable"
+      (let [nodes (adapter/parts->nodes parts)]
+        (is (false? (.. (aget nodes 0) -data -resizable)))))))
+
 (deftest relationships->edges-test
   (testing "Converts collection of relationships to array of edges"
     (let [rels   [{:id "rel-1" :source_id "s1" :target_id "t1" :type "protects"}

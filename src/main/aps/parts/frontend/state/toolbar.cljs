@@ -31,12 +31,13 @@
 
 (defn shortcut-tool
   "The tool a bare keypress switches to, or nil if the key isn't a tool
-   shortcut. H = Hand, V = Select (the industry-standard pair), Escape =
-   back to Select — the disarm-everything key."
+   shortcut. V = Select and H = Hand (the industry-standard pair),
+   C arms Connect, Escape = back to Select — the disarm-everything key."
   [key]
   (case (str/lower-case key)
     "h"      :hand
     "v"      :select
+    "c"      :connect
     "escape" :select
     nil))
 
@@ -90,6 +91,15 @@
    :elements-selectable true
    :nodes-connectable   true})
 
+(def ^:private connect-interaction
+  ;; A Part's body means "endpoint", not "move" or "select" — the whole
+  ;; body is the drag source (see the mode-connect CSS).
+  {:pan-on-drag         [1]
+   :selection-on-drag   false
+   :nodes-draggable     false
+   :elements-selectable false
+   :nodes-connectable   true})
+
 (defn tool-interaction
   "What a drag means under the active tool, as data for the ReactFlow
    props (ADR-0015). In Select — and any armed one-shot creation tool —
@@ -100,12 +110,12 @@
    only pans, and nothing is selectable or draggable, so a mis-click
    can never move a Part.
 
-   Returns one of two identity-stable values — fresh maps each call
-   would bust ReactFlow's memoized renderer via the props built from
-   them."
+   Returns identity-stable values — fresh maps each call would bust
+   ReactFlow's memoized renderer via the props built from them."
   [tool]
-  (if (= :hand tool)
-    hand-interaction
+  (case tool
+    :hand    hand-interaction
+    :connect connect-interaction
     select-interaction))
 
 ;; -- Marquee selection buffering -------------------------------------------

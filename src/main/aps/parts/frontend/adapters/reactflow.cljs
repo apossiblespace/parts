@@ -6,13 +6,15 @@
    [aps.parts.common.observe :as o]))
 
 (defn part->node
-  "Convert a Part to a ReactFlow node. `resizable?` threads the canvas's
-   resize-armed decision (Select tool + single selection) into node data,
-   so the node component needs no subscriptions of its own."
-  ([part] (part->node part nil))
-  ([part selected-ids] (part->node part selected-ids false))
+  "Convert a Part to a ReactFlow node. The opts map threads per-canvas
+   decisions into the node so the node component needs no subscriptions
+   of its own:
+   - `:resizable?` — the resize-armed decision (Select tool + single
+     selection); lands in node data."
+  ([part] (part->node part nil nil))
+  ([part selected-ids] (part->node part selected-ids nil))
   ([{:keys [id type label notes position_x position_y width height]}
-    selected-ids resizable?]
+    selected-ids {:keys [resizable?]}]
    #js {:id       id
         :position #js {:x position_x :y position_y}
         :selected (when selected-ids (contains? selected-ids id))
@@ -21,21 +23,21 @@
         :data     #js {:label     label
                        :type      (name type)
                        :notes     notes
-                       :resizable resizable?}}))
+                       :resizable (boolean resizable?)}}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.
   The optional selected-ids param is a vector containing the IDs of Parts the
-  nodes for which should be marked as selected."
+  nodes for which should be marked as selected; opts as in `part->node`."
   ([parts] (parts->nodes parts nil))
-  ([parts selected-ids] (parts->nodes parts selected-ids false))
-  ([parts selected-ids resizable?]
+  ([parts selected-ids] (parts->nodes parts selected-ids nil))
+  ([parts selected-ids opts]
    (o/debug
     "reactflow.parts->nodes"
     "converting parts to nodes" (count parts)
     "selected:" selected-ids)
    (let [selected-id-set (when selected-ids (set selected-ids))]
-     (to-array (map #(part->node % selected-id-set resizable?) parts)))))
+     (to-array (map #(part->node % selected-id-set opts) parts)))))
 
 (defn node->part
   "Convert ReactFlow node to a Part"

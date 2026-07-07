@@ -24,12 +24,17 @@
    - selected: the selected type, a keyword
    - on-select: (fn [type]) — receives the keyword; the menu closes itself
    - dropdown-class: positioning classes for the dropdown root
-     (e.g. \"dropdown-top\")
+     (e.g. \"dropdown-top\"); daisyUI tooltip classes may ride along —
+     dropdown and tooltip coexist on one element
+   - data-tip / on-mouse-leave: forwarded to the dropdown root, for that
+     tooltip
    - trigger-class: classes for the trigger
    - trigger-aria-label: aria-label for the trigger"
-  [{:keys [selected on-select dropdown-class trigger-class
-           trigger-aria-label children]}]
-  ($ :div {:class (str "dropdown " dropdown-class)}
+  [{:keys [selected on-select dropdown-class data-tip on-mouse-leave
+           trigger-class trigger-aria-label children]}]
+  ($ :div {:class          (str "dropdown " dropdown-class)
+           :data-tip       data-tip
+           :on-mouse-leave on-mouse-leave}
      ($ :div {:tabIndex   0
               :role       "button"
               :class      trigger-class
