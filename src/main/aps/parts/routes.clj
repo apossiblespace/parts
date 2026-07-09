@@ -4,6 +4,7 @@
    [aps.parts.api.account :as api.account]
    [aps.parts.api.auth :as api.auth]
    [aps.parts.api.maps :as api.maps]
+   [aps.parts.api.sessions :as api.sessions]
    [aps.parts.auth.middleware :as auth-mw]
    [aps.parts.handlers.invite :as invite]
    [aps.parts.handlers.legal :as legal]
@@ -198,4 +199,13 @@
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
       ["/render.pdf"  {:get {:handler api.maps/render-pdf}}]
       ["/export.json" {:get {:handler api.maps/export-json}}]
-      ["/changes" {:post {:handler api.maps/process-changes}}]]]]])
+      ["/changes" {:post {:handler api.maps/process-changes}}]
+      ["/sessions"
+       ["" {:get  {:handler api.sessions/list-sessions}
+            :post {:handler api.sessions/create-session}}]
+       ["/:session-id" {:parameters {:path {:id         string?
+                                            :session-id string?}}}
+        ["" {:put    {:handler api.sessions/update-trigger}
+             :delete {:handler api.sessions/delete-session}}]
+        ["/activation" {:put    {:handler api.sessions/set-activation}
+                        :delete {:handler api.sessions/clear-activation}}]]]]]]])

@@ -47,6 +47,17 @@
                      (throw (ex-info "Invalid UUID format" {:type :invalid-uuid :value id}))))
     :else (throw (ex-info "Invalid UUID type" {:type :invalid-uuid :value id}))))
 
+(defn ->instant
+  "A timestamp value as java.time.Instant, whatever shape it arrived in:
+   plain (non-range) `timestamptz` reads come back as java.sql.Timestamp,
+   while range endpoints and callers hand over java.time types."
+  [t]
+  (cond
+    (instance? java.time.Instant t)        t
+    (instance? java.time.OffsetDateTime t) (.toInstant ^java.time.OffsetDateTime t)
+    (instance? java.sql.Timestamp t)       (.toInstant ^java.sql.Timestamp t)
+    :else (throw (ex-info "Not a timestamp" {:type :internal :value t}))))
+
 (defn coerce-uuid-keys
   "Coerce each key in `ks` to a UUID via `->uuid` if present (and non-nil) in `m`.
    Missing or nil values are left as-is."

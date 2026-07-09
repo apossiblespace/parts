@@ -517,6 +517,27 @@
                        exec-opts)
         (map ->version))))
 
+(defn first-appearances
+  "Earliest moment each entity matching `where` entered the record —
+   `MIN(lower(valid_at))` per id across current-belief history (TT-current,
+   retracted entities included: first appearance is a fact about the record,
+   not about what currently exists). Returns `{id → java.time.Instant}` —
+   normalised here so the quarantine's public API doesn't export JDBC types.
+
+   The Sessions feature derives \"first appeared in Session N\" by bucketing
+   these instants into `[anchor, next-anchor)` ranges (ADR-0014). Lives here
+   because `valid_at` vocabulary is quarantined to this layer."
+  [ds table where]
+  (->> (jdbc/execute! ds
+                      (sql/format
+                       {:select   [:id [[:min [:lower :valid_at]] :first_at]]
+                        :from     [table]
+                        :where    (if where [:and tt-current where] tt-current)
+                        :group-by [:id]})
+                      exec-opts)
+       (into {} (map (juxt :id (comp #(.toInstant ^java.sql.Timestamp %)
+                                     :first_at))))))
+
 (defn latest-change-at
   "Most recent change time across rows of `table` matching `where` —
    specifically, `MAX(lower(sys_period))`. Returns nil when no rows
