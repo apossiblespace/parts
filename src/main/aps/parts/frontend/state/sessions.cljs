@@ -128,6 +128,26 @@
       close-undo-window
       clear-error))
 
+(defn stamp-first-appearance
+  "Give a freshly created Part/Relationship its recency-badge datum:
+   by the ADR-0014 invariant a new entity first appears in the ACTIVE
+   Session, so the optimistic row can carry `:first_appeared_ordinal`
+   without waiting for the server to fold it in on the next Map fetch.
+   Passes the entity through unstamped when there is no active Session
+   (demo Maps)."
+  [db entity]
+  (if-let [ordinal (:ordinal (active-session db))]
+    (assoc entity :first_appeared_ordinal ordinal)
+    entity))
+
+(defn trigger-preview
+  "The first `limit` characters of a trigger for the Session card, with
+   a flag for the see-more affordance. Newlines survive — the card
+   renders them (`whitespace-pre-line`)."
+  [trigger limit]
+  {:preview    (subs trigger 0 (min limit (count trigger)))
+   :truncated? (> (count trigger) limit)})
+
 (defn display-label
   "\"Session {ordinal} — {trigger}\", ordinal alone when no trigger."
   [{:keys [ordinal trigger]}]

@@ -137,6 +137,35 @@
   (testing "unsaved by default"
     (is (false? (sessions/trigger-saved? {:map {:id "m"}})))))
 
+(deftest stamp-first-appearance-test
+  (testing "a freshly created entity first appears in the active Session —
+            the optimistic row gets the badge datum the server would
+            compute, so badges never wait for a refetch"
+    (is (= 2 (:first_appeared_ordinal
+              (sessions/stamp-first-appearance
+               {:map {:id "m" :sessions [s1 s2]}}
+               {:id "p9" :label "new"})))))
+
+  (testing "no active Session (demo Maps) — the entity passes through
+            unstamped and wears no badge"
+    (is (= {:id "p9"}
+           (sessions/stamp-first-appearance {:demo-mode true :map {:id "m"}}
+                                            {:id "p9"})))))
+
+(deftest trigger-preview-test
+  (testing "short triggers pass through whole"
+    (is (= {:preview "conflict at work" :truncated? false}
+           (sessions/trigger-preview "conflict at work" 100))))
+
+  (testing "long triggers cut at the limit; the caller renders the
+            see-more affordance"
+    (is (= {:preview "abcde" :truncated? true}
+           (sessions/trigger-preview "abcdefgh" 5))))
+
+  (testing "multi-line text keeps its newlines in the preview"
+    (is (= {:preview "line one\nline" :truncated? true}
+           (sessions/trigger-preview "line one\nline two\nline three" 13)))))
+
 (deftest display-label-test
   (testing "Session {ordinal} — {trigger}; ordinal alone when no trigger"
     (is (= "Session 2 — argument at work" (sessions/display-label s2)))

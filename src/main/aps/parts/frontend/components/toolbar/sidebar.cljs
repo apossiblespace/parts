@@ -3,6 +3,7 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.toolbar.parts-tools :refer [parts-tools]]
    [aps.parts.frontend.components.toolbar.relationships-tools :refer [relationships-tools]]
+   [aps.parts.frontend.components.toolbar.session-card :refer [session-card]]
    [aps.parts.frontend.components.waitlist-modal :refer [waitlist-modal]]
    [uix.core :refer [$ defui use-state]]
    [uix.re-frame :as uix.rf]))
@@ -18,10 +19,14 @@
         launched                                      (uix.rf/use-subscribe [:launched])
         selected-parts                                (uix.rf/use-subscribe [:map/selected-parts])
         selected-rels                                 (uix.rf/use-subscribe [:map/selected-relationships])
+        the-sessions                                  (uix.rf/use-subscribe [:map/sessions])
         has-demo-cta                                  (and demo (not minimal))
         has-selection                                 (or (seq selected-parts) (seq selected-rels))
+        ;; The Session card is a permanent fixture once Sessions are
+        ;; loaded — the sidebar is no longer selection-only.
+        has-session-card                              (some? the-sessions)
         [show-waitlist-modal set-show-waitlist-modal] (use-state false)]
-    (when (or has-demo-cta has-selection)
+    (when (or has-demo-cta has-selection has-session-card)
       ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-base-100 shadow-sm"}
          (when has-demo-cta
            ($ :div {:class "p-2 space-y-2"}
@@ -44,6 +49,7 @@
                     :on-click #(o/track "Login Click" {:source "playground"})}
                    "Log in"))))
          ($ :div {:class "overflow-auto"}
+            ($ session-card)
             ($ parts-tools)
             ($ relationships-tools))
          ($ waitlist-modal

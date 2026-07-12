@@ -178,7 +178,7 @@
      ;; undo window closes here (and in relationship-create) — edits and
      ;; moves close nothing, mirroring the server's `require-empty!`.
      {:db              (-> db
-                           (add-part new-part)
+                           (add-part (sessions/stamp-first-appearance db new-part))
                            sessions/close-undo-window)
       :queue/add-event (ce/part-create
                         (:id new-part)
@@ -250,7 +250,8 @@
        ;; Only the success branch closes the undo window — a blocked
        ;; duplicate creates nothing, so the Session stays undoable.
        {:db              (-> db
-                             (add-relationship new-relationship)
+                             (add-relationship (sessions/stamp-first-appearance
+                                                db new-relationship))
                              sessions/close-undo-window)
         :queue/add-event (ce/relationship-create
                           (:id new-relationship)
@@ -291,7 +292,12 @@
 (rf/reg-event-fx
  :map/fetch-list
  (fn [{:keys [db]} _]
-   {:db               (assoc-in db [:maps :loading] true)
+   ;; Landing on the Maps list leaves Time-travel behind — without this,
+   ;; reopening the SAME Map (which skips the refetch that would reset
+   ;; the mode) would resume browsing the past.
+   {:db               (-> db
+                          time-travel/exit
+                          (assoc-in [:maps :loading] true))
     :storage/get-maps nil}))
 
 (rf/reg-event-db

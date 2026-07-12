@@ -3,7 +3,8 @@
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
    ["lucide-react" :refer [ChevronDown ChevronLeft ChevronUp Download
-                           FilePenLine Hand History MousePointer2 Spline]]
+                           FilePenLine Hand History MousePointer2 Plus
+                           Spline Undo2]]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
    [aps.parts.common.observe :as o]
@@ -14,10 +15,10 @@
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [close-dropdown! relationship-type-dropdown]]
-   [aps.parts.frontend.components.session-chip :refer [session-chip]]
    [aps.parts.frontend.components.time-travel-bar :refer [time-travel-bar]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
+   [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]
@@ -171,6 +172,8 @@
   (let [title                   (uix.rf/use-subscribe [:map/title])
         map-id                  (uix.rf/use-subscribe [:map/id])
         the-sessions            (uix.rf/use-subscribe [:map/sessions])
+        active-session          (uix.rf/use-subscribe [:session/active])
+        undoable?               (uix.rf/use-subscribe [:session/undoable?])
         time-travelling?        (uix.rf/use-subscribe [:time-travel/active?])
         ;; The caller owns the edit-mode bit; both the title click and the
         ;; Rename menu item flip it true, commit/cancel flip it false.
@@ -203,6 +206,14 @@
                                     (o/track "Map renamed" {})
                                     (rf/dispatch [:map/rename new-title])
                                     (set-editing! false))})
+               (when active-session
+                 ($ :div {:class (str "btn btn-sm join-item bg-base-100 "
+                                      "pointer-events-none")}
+                    (str "Session " (:ordinal active-session)
+                         (when-let [d (dates/format-date
+                                       dates/short-date-format
+                                       (:anchor_valid_at active-session))]
+                           (str " · " d)))))
                ;; -ml-px: join seam fix — see relationship-type-control.
                ;; dropdown-bottom is explicit because the join forces
                ;; display:flex on dropdowns (alignment), and daisyUI's
@@ -216,6 +227,27 @@
                      ($ ChevronDown {:size 16}))
                   ($ :ul {:tabIndex 0
                           :class    "dropdown-content menu menu-sm z-10 mt-1 w-44"}
+                     ;; Session actions lead — starting a session is the
+                     ;; most common item in this menu.
+                     (when active-session
+                       ($ :<>
+                          ($ :li
+                             ($ :a {:on-click (fn []
+                                                (o/track "Session started" {})
+                                                (rf/dispatch [:session/start])
+                                                (close-dropdown!))}
+                                ($ Plus {:size 16})
+                                "Start new session"))
+                          (when undoable?
+                            ($ :li
+                               ($ :a {:on-click (fn []
+                                                  (o/track "Session undone" {})
+                                                  (rf/dispatch [:session/delete
+                                                                (:id active-session)])
+                                                  (close-dropdown!))}
+                                  ($ Undo2 {:size 16})
+                                  "Undo new session")))
+                          ($ :li ($ :hr))))
                      ($ :li
                         ($ :a {:on-click (fn []
                                            (set-editing! true)
@@ -251,8 +283,6 @@
                                            (close-dropdown!))}
                            ($ :span {:class "w-4 shrink-0"})
                            "Export map data"))))))
-          (when-not time-travelling?
-            ($ session-chip))
           (when (time-travel/has-history? the-sessions)
             (let [toggle-label (if time-travelling?
                                  "Back to editing"
@@ -599,6 +629,11 @@
                        ;; browser's. Escape also lets ReactFlow clear the
                        ;; selection itself.
                        (when (and (non-input-target? e)
+                                  ;; An open modal owns the keyboard —
+                                  ;; Escape must close the dialog, not
+                                  ;; also exit a mode or reset the tool.
+                                  (nil? (.querySelector js/document
+                                                        "dialog[open]"))
                                   (not (or (.-metaKey e)
                                            (.-ctrlKey e)
                                            (.-altKey e))))
