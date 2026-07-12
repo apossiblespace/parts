@@ -5,6 +5,7 @@
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
+   [aps.parts.entity.session :as session]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!
                                     create-test-map!]]
    [clojure.string :as str]
@@ -14,9 +15,9 @@
 
 (defn- make-request
   "Helper to create authenticated request map"
-  [user & {:keys [params body headers]}]
+  [user & {:keys [params query body headers]}]
   {:identity    {:sub (:id user)}
-   :parameters  {:path params}
+   :parameters  {:path params :query query}
    :body-params body
    :headers     (or headers {})})
 
@@ -49,6 +50,62 @@
       (is (= (:id the-map) (-> response :body :id)))
       (is (vector? (-> response :body :parts)))
       (is (vector? (-> response :body :relationships))))))
+
+(deftest test-get-map-as-of-session
+  (let [user    (create-test-user!)
+        the-map (parts-map/create! {:title "Time travel" :owner_id (:id user)}
+                                   (:id user))
+        map-id  (:id the-map)
+        s1      (session/create! map-id (:id user))
+        p1      (part/create! {:map_id     map-id
+                               :type       "manager"
+                               :label      "In S1"
+                               :position_x 0
+                               :position_y 0}
+                              (:id user))
+        s2      (session/create! map-id (:id user))
+        _p2     (part/create! {:map_id     map-id
+                               :type       "exile"
+                               :label      "In S2"
+                               :position_x 10
+                               :position_y 10}
+                              (:id user))]
+
+    (testing "?at=<session-id> returns the Map as it stood in that Session"
+      (let [response (api/get-map (make-request user
+                                                :params {:id map-id}
+                                                :query {:at (str (:id s1))}))
+            parts    (-> response :body :parts)]
+        (is (= 200 (:status response)))
+        (is (= [(:id p1)] (mapv :id parts))
+            "only the Part that existed by the end of Session 1")))
+
+    (testing "at the latest Session the read is the live view"
+      (let [response (api/get-map (make-request user
+                                                :params {:id map-id}
+                                                :query {:at (str (:id s2))}))]
+        (is (= 2 (count (-> response :body :parts))))))
+
+    (testing "every response carries first_appeared_ordinal per row —
+              the badge data, consistent with the viewed moment"
+      (let [live  (api/get-map (make-request user :params {:id map-id}))
+            as-of (api/get-map (make-request user
+                                             :params {:id map-id}
+                                             :query {:at (str (:id s1))}))]
+        (is (= {"In S1" 1 "In S2" 2}
+               (into {} (map (juxt :label :first_appeared_ordinal))
+                     (-> live :body :parts))))
+        (is (= [1] (mapv :first_appeared_ordinal (-> as-of :body :parts))))))
+
+    (testing "a Session id from another Map reads as not-found"
+      (let [other-map (parts-map/create! {:title "Other" :owner_id (:id user)}
+                                         (:id user))
+            other-s   (session/create! (:id other-map) (:id user))]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not found"
+                              (api/get-map
+                               (make-request user
+                                             :params {:id map-id}
+                                             :query {:at (str (:id other-s))}))))))))
 
 (deftest test-update-map
   (testing "updates the map (non-owner case is `wrap-map-access`'s job)"

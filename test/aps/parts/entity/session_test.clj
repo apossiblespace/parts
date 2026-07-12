@@ -107,6 +107,26 @@
              (:id (session/session-at (:id the-map)
                                       (java.time.OffsetDateTime/now))))))))
 
+(deftest test-as-of-instant
+  (let [user    (create-test-user!)
+        the-map (make-map! user)
+        s1      (session/create! (:id the-map) (:id user))
+        s2      (session/create! (:id the-map) (:id user))]
+
+    (testing "a past Session reads 1µs before the next anchor — ranges are
+              half-open, so reading AT the anchor would leak the next
+              Session's first content"
+      (is (= (.minusNanos (db/->instant (:anchor_valid_at s2)) 1000)
+             (.toInstant (session/as-of-instant (:id the-map) (:id s1))))))
+
+    (testing "the latest Session's range is open — nil means the live view"
+      (is (nil? (session/as-of-instant (:id the-map) (:id s2)))))
+
+    (testing "a Session id from another Map reads as not-found"
+      (let [other-map (make-map! user)]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not found"
+                              (session/as-of-instant (:id other-map) (:id s1))))))))
+
 (deftest test-trigger-mutation-rules
   (let [user    (create-test-user!)
         the-map (make-map! user)

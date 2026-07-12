@@ -76,18 +76,26 @@
 
 (defn fetch
   "Get an alive map by ID, including its current title and current parts
-   and relationships."
-  [id]
-  (let [uuid-id (db/->uuid id)
-        the-map (fetch-identity uuid-id)]
-    (when-not the-map
-      (throw (ex-info "Map not found" {:type :not-found :id id})))
-    (assoc the-map
-           :title         (:title (current-metadata db/datasource uuid-id))
-           :parts         (vec (bt/as-of-now db/datasource :parts
-                                             [:= :map_id uuid-id]))
-           :relationships (vec (bt/as-of-now db/datasource :relationships
-                                             [:= :map_id uuid-id])))))
+   and relationships. With `at-valid`, parts and relationships are read
+   as of that instant instead (the Time-travel view; ADR-0014). The
+   title stays current either way — metadata is not part of the canvas
+   timeline."
+  ([id] (fetch id nil))
+  ([id at-valid]
+   (let [uuid-id (db/->uuid id)
+         the-map (fetch-identity uuid-id)
+         slice   (fn [table]
+                   (vec (if at-valid
+                          (bt/as-of-valid db/datasource table at-valid
+                                          [:= :map_id uuid-id])
+                          (bt/as-of-now db/datasource table
+                                        [:= :map_id uuid-id]))))]
+     (when-not the-map
+       (throw (ex-info "Map not found" {:type :not-found :id id})))
+     (assoc the-map
+            :title         (:title (current-metadata db/datasource uuid-id))
+            :parts         (slice :parts)
+            :relationships (slice :relationships)))))
 
 (defn index
   "List a user's alive maps. Each row carries `:title` (from the

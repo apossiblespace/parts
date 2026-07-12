@@ -40,6 +40,12 @@
   [map-id]
   (http/GET (str "/maps/" map-id "/sessions") {}))
 
+(defn load-map-at
+  "The Map as it stood at the end of a Session's range — the Time-travel
+   view. Same response shape as the live map fetch."
+  [map-id session-id]
+  (http/GET (str "/maps/" map-id) {:at session-id}))
+
 (defn create-session
   "Open a new Session. The anchor and ordinal are server-side; the
    trigger starts empty and is set afterwards via `update-session-trigger`."

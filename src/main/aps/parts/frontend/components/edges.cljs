@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.edges
   (:require
-   ["@xyflow/react" :refer [BaseEdge Position
+   ["@xyflow/react" :refer [BaseEdge EdgeLabelRenderer Position
                             getBezierPath useInternalNode]]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
@@ -78,10 +78,28 @@
             path       (if bidir?
                          (geometry/quadratic-path params geometry/bow-offset-px)
                          (bezier-path params))]
-        ($ BaseEdge {:path      path
-                     :className class-name
-                     :id        id
-                     :markerEnd marker-end})))))
+        ($ :<>
+           ($ BaseEdge {:path      path
+                        :className class-name
+                        :id        id
+                        :markerEnd marker-end})
+           ;; Recency badge at the chord midpoint (close enough to the
+           ;; curve for a label this small; bowed pairs sit slightly
+           ;; off-curve). EdgeLabelRenderer is ReactFlow's HTML overlay
+           ;; for edge decorations — SVG <text> can't carry the badge
+           ;; styling.
+           (when-let [ordinal (:firstAppeared data)]
+             (let [{:keys [sx sy tx ty]} params
+                   mx                    (/ (+ sx tx) 2)
+                   my                    (/ (+ sy ty) 2)]
+               ($ EdgeLabelRenderer
+                  ($ :span {:class (str "recency-badge on-edge"
+                                        (when (:recent data) " recent"))
+                            :title (str "First appeared in Session " ordinal)
+                            :style #js {:transform
+                                        (str "translate(-50%, -50%) translate("
+                                             mx "px," my "px)")}}
+                     (str "S" ordinal))))))))))
 
 (def PartsEdge
   (as-react

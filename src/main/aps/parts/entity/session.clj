@@ -108,6 +108,25 @@
   [map-id valid-t]
   (covering (index map-id) valid-t))
 
+(defn as-of-instant
+  "The instant at which to read the Map to see this Session's final
+   state: 1µs (the timestamptz resolution) before the next Session's
+   anchor — ranges are half-open, so reading AT the anchor would leak
+   the next Session's first content. Nil for the latest Session: its
+   range is open, so its final state is the live view.
+
+   Returns an OffsetDateTime (UTC) — the type the JDBC layer binds
+   directly; a bare Instant is not a bindable parameter."
+  [map-id session-id]
+  (let [session (fetch session-id map-id)
+        next-s  (->> (index map-id)
+                     (drop-while #(not= (:id %) (:id session)))
+                     second)]
+    (when next-s
+      (-> (db/->instant (:anchor_valid_at next-s))
+          (.minusNanos 1000)
+          (.atOffset java.time.ZoneOffset/UTC)))))
+
 (defn first-appearances
   "Which Session did each Part and Relationship first appear in? Returns
    `{entity-id → session-row}` for every entity ever recorded on the Map

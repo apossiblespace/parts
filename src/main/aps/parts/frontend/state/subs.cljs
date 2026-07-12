@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.state.subs
   (:require
    [aps.parts.frontend.state.sessions :as sessions]
+   [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]))
 
@@ -88,6 +89,47 @@
  (fn [db _]
    (sessions/trigger-saved? db)))
 
+;; -- Time-travel mode (TASK-073.03) -----------------------------------------
+
+(rf/reg-sub
+ :time-travel/active?
+ (fn [db _]
+   (time-travel/active? db)))
+
+(rf/reg-sub
+ :time-travel/viewing
+ (fn [db _]
+   (time-travel/viewing db)))
+
+(rf/reg-sub
+ :time-travel/loading?
+ (fn [db _]
+   (time-travel/snapshot-needed? db)))
+
+(rf/reg-sub
+ :time-travel/error
+ (fn [db _]
+   (time-travel/error db)))
+
+;; What the canvas (and everything that joins against it, like the
+;; sidebar's selected-entity views) renders: the live Map in Editing
+;; mode, the viewed Session's snapshot in Time-travel.
+
+(rf/reg-sub
+ :canvas/parts
+ (fn [db _]
+   (:parts (time-travel/canvas-content db))))
+
+(rf/reg-sub
+ :canvas/relationships
+ (fn [db _]
+   (:relationships (time-travel/canvas-content db))))
+
+(rf/reg-sub
+ :canvas/viewed-ordinal
+ (fn [db _]
+   (time-travel/viewed-ordinal db)))
+
 (rf/reg-sub
  :ui/selected-node-ids
  (fn [db _]
@@ -111,15 +153,18 @@
 
 (rf/reg-sub
  :map/selected-parts
+ ;; Joins against the CANVAS source, not [:map :parts] — in Time-travel
+ ;; the sidebar must show a Part's details as they stood in the viewed
+ ;; Session, not today's.
  :<- [:ui/selected-node-ids]
- :<- [:map/parts]
+ :<- [:canvas/parts]
  (fn [[selected-ids parts] _]
    (filterv #(contains? (set selected-ids) (:id %)) parts)))
 
 (rf/reg-sub
  :map/selected-relationships
  :<- [:ui/selected-edge-ids]
- :<- [:map/relationships]
+ :<- [:canvas/relationships]
  (fn [[selected-ids relationships] _]
    (filterv #(contains? (set selected-ids) (:id %)) relationships)))
 

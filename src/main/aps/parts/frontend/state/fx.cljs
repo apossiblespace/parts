@@ -3,6 +3,7 @@
    [aps.parts.frontend.api.core :as api]
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.api.utils :as utils]
+   [aps.parts.frontend.storage.http-backend :as http-backend]
    [aps.parts.frontend.storage.protocol :refer [list-maps load-map create-map update-map]]
    [aps.parts.frontend.storage.registry :as storage-registry]
    [cljs.core.async :refer [<! go]]
@@ -90,6 +91,19 @@
        (if (= 200 (:status resp))
          (rf/dispatch [:sessions/fetch-success map-id (:body resp)])
          (rf/dispatch [:sessions/fetch-failure map-id]))))))
+
+(rf/reg-fx
+ :time-travel/fetch-fx
+ (fn [{:keys [map-id session-id]}]
+   (go
+     (let [resp (<! (api/load-map-at map-id session-id))]
+       (if (= 200 (:status resp))
+         (rf/dispatch [:time-travel/snapshot-success session-id
+                       ;; Same id normalization as the live map load —
+                       ;; raw transit UUIDs as ReactFlow ids hide edges.
+                       (http-backend/normalize-map-ids (:body resp))])
+         (rf/dispatch [:time-travel/fetch-failure
+                       (error-message resp "Could not load that session")]))))))
 
 (rf/reg-fx
  :session/create-fx

@@ -35,9 +35,12 @@
    cannot drift apart."
   [db]
   (cond
-    (:demo-mode db)            nil
-    (nil? (active-session db)) :no-session
-    :else                      nil))
+    (:demo-mode db)                     nil
+    ;; A key access, not a require: `state/time-travel` depends on this
+    ;; namespace, so the gate reads its subtree directly.
+    (get-in db [:time-travel :active?]) :viewing-past
+    (nil? (active-session db))          :no-session
+    :else                               nil))
 
 (defn editable?
   "Editing requires an active Session (ADR-0014); demo Maps are exempt."

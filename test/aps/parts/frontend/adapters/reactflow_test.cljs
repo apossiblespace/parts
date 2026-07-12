@@ -76,6 +76,38 @@
       (let [nodes (adapter/parts->nodes parts)]
         (is (false? (.. (aget nodes 0) -data -resizable)))))))
 
+(deftest recency-badge-data-test
+  (testing "first_appeared_ordinal threads into node data; a Part born in
+            the viewed Session is marked recent (the accented badge)"
+    (let [parts [{:id                     "p1" :type       "unknown" :label "old"
+                  :position_x             0    :position_y 0
+                  :first_appeared_ordinal 1}
+                 {:id                     "p2" :type       "unknown" :label "new"
+                  :position_x             0    :position_y 0
+                  :first_appeared_ordinal 3}]
+          nodes (adapter/parts->nodes parts nil {:viewed-ordinal 3})]
+      (is (= 1 (.. (aget nodes 0) -data -firstAppeared)))
+      (is (false? (.. (aget nodes 0) -data -recent)))
+      (is (true? (.. (aget nodes 1) -data -recent)))))
+
+  (testing "a row without the ordinal (demo Maps: no Sessions) carries no
+            badge and is never recent"
+    (let [nodes (adapter/parts->nodes [{:id         "p1"   :type       "unknown"
+                                        :label      "demo"
+                                        :position_x 0      :position_y 0}]
+                                      nil {:viewed-ordinal nil})]
+      (is (nil? (.. (aget nodes 0) -data -firstAppeared)))
+      (is (false? (.. (aget nodes 0) -data -recent)))))
+
+  (testing "edges carry the same badge data"
+    (let [edges (adapter/relationships->edges
+                 [{:id                     "r1"       :source_id "a" :target_id "b"
+                   :type                   "protects"
+                   :first_appeared_ordinal 2}]
+                 nil {:viewed-ordinal 2})]
+      (is (= 2 (.. (aget edges 0) -data -firstAppeared)))
+      (is (true? (.. (aget edges 0) -data -recent))))))
+
 (deftest relationships->edges-test
   (testing "Converts collection of relationships to array of edges"
     (let [rels   [{:id "rel-1" :source_id "s1" :target_id "t1" :type "protects"}

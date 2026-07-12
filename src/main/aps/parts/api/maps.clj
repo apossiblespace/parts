@@ -3,6 +3,7 @@
    [aps.parts.api.maps-events :as events]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
+   [aps.parts.entity.session :as session]
    [aps.parts.export :as export]
    [aps.parts.render.document :as document]
    [aps.parts.render.pdf :as pdf]
@@ -56,12 +57,31 @@
     (-> (response/response created)
         (response/status 201))))
 
+(defn- with-first-appeared
+  "Fold each Part/Relationship's derived recency badge datum —
+   `:first_appeared_ordinal`, the Session it first appeared in
+   (ADR-0014) — into the rows. API-layer concern: render and export
+   read `parts-map/fetch` too and carry no badges."
+  [the-map]
+  (let [appeared (session/first-appearances (:id the-map))
+        tag      (fn [rows]
+                   (mapv #(assoc % :first_appeared_ordinal
+                                 (get-in appeared [(:id %) :ordinal]))
+                         rows))]
+    (-> the-map
+        (update :parts tag)
+        (update :relationships tag))))
+
 (defn get-map
-  "Get a map by ID. Access is gated by `wrap-map-access` middleware."
+  "Get a map by ID. Access is gated by `wrap-map-access` middleware.
+   `?at=<session-id>` reads the Map as it stood at the end of that
+   Session's range (Time-travel mode); the latest Session reads live."
   [{:keys [parameters] :as _request}]
   (let [map-id  (get-in parameters [:path :id])
-        the-map (parts-map/fetch map-id)]
-    (-> (response/response the-map)
+        at      (get-in parameters [:query :at])
+        the-map (parts-map/fetch map-id
+                                 (when at (session/as-of-instant map-id at)))]
+    (-> (response/response (with-first-appeared the-map))
         (response/status 200))))
 
 (defn update-map

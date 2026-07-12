@@ -6,10 +6,14 @@
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [<! go]]))
 
-(defn- normalize-map-ids
+(defn normalize-map-ids
   "Converts all UUID objects in a map's data to strings.
    Transit decodes Java UUIDs as CLJS UUID objects, but the rest of the app
-   (ReactFlow adapters, localStorage backend) expects plain strings."
+   (ReactFlow adapters, localStorage backend) expects plain strings — a
+   UUID object as a ReactFlow id breaks its nodeLookup (JS Maps compare
+   object keys by reference), which hides every edge. Public because the
+   Time-travel snapshot fetch reads the same endpoint outside this
+   backend and must normalize identically."
   [the-map]
   (-> the-map
       (update :id str)

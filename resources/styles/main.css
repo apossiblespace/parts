@@ -364,6 +364,7 @@ a.btn {
            wound the opposite way — more widely supported than
            polygon(evenodd). */
         .node-wrapper {
+            position: relative; /* anchors the recency badge */
             width: 100%;
             height: 100%;
             --ring: clamp(8px, 12%, 24px);
@@ -397,6 +398,37 @@ a.btn {
             &.firefighter {
                 background-image: url("/images/nodes/firefighter.svg");
             }
+        }
+
+        /* Recency badge (ADR-0014): which Session an element first
+           appeared in. Muted so a mature Map stays calm; `.recent`
+           accents the viewed Session's newcomers — stepping in
+           Time-travel answers "what arrived here?" at a glance. */
+        .recency-badge {
+            position: absolute;
+            bottom: -0.4rem;
+            right: -0.4rem;
+            font-size: 10px;
+            line-height: 1;
+            padding: 2px 5px;
+            border-radius: 0.5rem;
+            background: rgba(255, 255, 255, 0.85);
+            color: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(0, 0, 0, 0.12);
+        }
+        .recency-badge.recent {
+            background: var(--ifs-green);
+            border-color: transparent;
+            color: white;
+        }
+        /* The edge badge rides EdgeLabelRenderer (HTML overlay) and
+           positions itself via inline transform from the overlay's
+           origin — the node badge's corner anchors must not apply. */
+        .recency-badge.on-edge {
+            bottom: auto;
+            right: auto;
+            top: 0;
+            left: 0;
         }
 
         /* Custom edge styles per relationship type.

@@ -9,6 +9,7 @@
    [aps.parts.frontend.api.utils :as api-utils]
    [aps.parts.frontend.state.map-updates :as map-updates]
    [aps.parts.frontend.state.sessions :as sessions]
+   [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]))
 
@@ -358,8 +359,10 @@
  :map/fetch-success
  (fn [{:keys [db]} [_ the-map]]
    ;; Sessions load right behind the Map; until they arrive the canvas
-   ;; reads as read-only (`sessions/editable?`).
-   (cond-> {:db (assoc db :map the-map)}
+   ;; reads as read-only (`sessions/editable?`). A loaded Map always
+   ;; lands in Editing mode — any Time-travel state belonged to the
+   ;; previous Map.
+   (cond-> {:db (-> db (dissoc :time-travel) (assoc :map the-map))}
      (not (:demo-mode db))
      (assoc :sessions/fetch-fx {:map-id (:id the-map)}))))
 
@@ -435,6 +438,42 @@
  :session/delete-failure
  (fn [db [_ message]]
    (sessions/set-error db message)))
+
+;; -- Time-travel mode (TASK-073.03) -----------------------------------------
+;; Pure transitions live in `state/time-travel`; these pair them with the
+;; snapshot fetch. Only a step onto an uncached PAST Session fetches —
+;; the latest is the live Map, and revisits hit the snapshot cache (the
+;; past is immutable).
+
+(rf/reg-event-db
+ :time-travel/enter
+ (fn [db _]
+   (time-travel/enter db)))
+
+(rf/reg-event-db
+ :time-travel/exit
+ (fn [db _]
+   (time-travel/exit db)))
+
+(rf/reg-event-fx
+ :time-travel/step
+ (fn [{:keys [db]} [_ direction]]
+   (let [db' (time-travel/step db direction)]
+     (cond-> {:db db'}
+       (time-travel/snapshot-needed? db')
+       (assoc :time-travel/fetch-fx
+              {:map-id     (get-in db' [:map :id])
+               :session-id (get-in db' [:time-travel :session-id])})))))
+
+(rf/reg-event-db
+ :time-travel/snapshot-success
+ (fn [db [_ session-id the-map]]
+   (time-travel/store-snapshot db session-id the-map)))
+
+(rf/reg-event-db
+ :time-travel/fetch-failure
+ (fn [db [_ message]]
+   (time-travel/set-error db message)))
 
 (rf/reg-event-fx
  :map/create-success

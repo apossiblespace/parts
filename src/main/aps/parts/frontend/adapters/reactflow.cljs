@@ -10,20 +10,27 @@
    decisions into the node so the node component needs no subscriptions
    of its own:
    - `:resizable?` — the resize-armed decision (Select tool + single
-     selection); lands in node data."
+     selection); lands in node data.
+   - `:viewed-ordinal` — which Session is in view (ADR-0014); a Part
+     whose first appearance matches it wears the accented recency badge."
   ([part] (part->node part nil nil))
   ([part selected-ids] (part->node part selected-ids nil))
-  ([{:keys [id type label notes position_x position_y width height]}
-    selected-ids {:keys [resizable?]}]
+  ([{:keys [id type label notes position_x position_y width height
+            first_appeared_ordinal]}
+    selected-ids {:keys [resizable? viewed-ordinal]}]
    #js {:id       id
         :position #js {:x position_x :y position_y}
         :selected (when selected-ids (contains? selected-ids id))
         :width    (or width 100)
         :height   (or height 100)
-        :data     #js {:label     label
-                       :type      (name type)
-                       :notes     notes
-                       :resizable (boolean resizable?)}}))
+        :data     #js {:label         label
+                       :type          (name type)
+                       :notes         notes
+                       :resizable     (boolean resizable?)
+                       :firstAppeared first_appeared_ordinal
+                       :recent        (and (some? first_appeared_ordinal)
+                                           (= first_appeared_ordinal
+                                              viewed-ordinal))}}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.
@@ -69,8 +76,9 @@
    `bidir?` is precomputed by `relationships->edges` and threaded into
    `:data` so the edge component can pick its curve shape without doing
    its own O(N) reverse-sibling scan per render."
-  ([relationship] (relationship->edge relationship nil false))
-  ([{:keys [id source_id target_id notes type]} selected-id-set bidir?]
+  ([relationship] (relationship->edge relationship nil false nil))
+  ([{:keys [id source_id target_id notes type first_appeared_ordinal]}
+    selected-id-set bidir? {:keys [viewed-ordinal]}]
    (let [type-name (name type)]
      #js {:id           id
           :source       source_id
@@ -78,9 +86,13 @@
           :target       target_id
           :targetHandle target-handle-id
           :selected     (when selected-id-set (contains? selected-id-set id))
-          :data         #js {:relationship type-name
-                             :notes        notes
-                             :bidir        bidir?}
+          :data         #js {:relationship  type-name
+                             :notes         notes
+                             :bidir         bidir?
+                             :firstAppeared first_appeared_ordinal
+                             :recent        (and (some? first_appeared_ordinal)
+                                                 (= first_appeared_ordinal
+                                                    viewed-ordinal))}
           :className    (str "edge-" type-name)
           ;; ReactFlow's EdgeWrapper wraps `:markerEnd` in `url('#...')`
           ;; itself, so we pass just the bare marker id. Passing the
@@ -90,9 +102,11 @@
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges.
   The optional selected-ids param is a vector containing the IDs of selected
-  Relationships, the edges for which should be marked as selected."
+  Relationships, the edges for which should be marked as selected; opts as
+  in `relationship->edge`."
   ([relationships] (relationships->edges relationships nil))
-  ([relationships selected-ids]
+  ([relationships selected-ids] (relationships->edges relationships selected-ids nil))
+  ([relationships selected-ids opts]
    (o/debug
     "reactflow.relationships->edges"
     "converting relationships to edges"
@@ -100,7 +114,8 @@
    (let [selected-id-set (when selected-ids (set selected-ids))
          bidi-pairs      (geometry/bidirectional-pairs relationships)]
      (to-array (map #(relationship->edge % selected-id-set
-                                         (geometry/bidirectional? bidi-pairs %))
+                                         (geometry/bidirectional? bidi-pairs %)
+                                         opts)
                     relationships)))))
 
 (defn edge->relationship

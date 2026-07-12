@@ -3,7 +3,7 @@
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
    ["lucide-react" :refer [ChevronDown ChevronLeft ChevronUp Download
-                           FilePenLine Hand MousePointer2 Spline]]
+                           FilePenLine Hand History MousePointer2 Spline]]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
    [aps.parts.common.observe :as o]
@@ -15,6 +15,7 @@
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [close-dropdown! relationship-type-dropdown]]
    [aps.parts.frontend.components.session-chip :refer [session-chip]]
+   [aps.parts.frontend.components.time-travel-bar :refer [time-travel-bar]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.state.toolbar :as toolbar]
@@ -161,6 +162,8 @@
   []
   (let [title                   (uix.rf/use-subscribe [:map/title])
         map-id                  (uix.rf/use-subscribe [:map/id])
+        the-sessions            (uix.rf/use-subscribe [:map/sessions])
+        time-travelling?        (uix.rf/use-subscribe [:time-travel/active?])
         ;; The caller owns the edit-mode bit; both the title click and the
         ;; Rename menu item flip it true, commit/cancel flip it false.
         [editing? set-editing!] (use-state false)]
@@ -228,7 +231,21 @@
                                          (close-dropdown!))}
                          ($ :span {:class "w-4 shrink-0"})
                          "Export map data")))))
-          ($ session-chip)))))
+          ($ session-chip)
+          ;; Time-travel entry: hidden until there is history to travel
+          ;; (two Sessions), and while the mode is on — the bar owns
+          ;; navigation there.
+          (when (and (>= (count the-sessions) 2)
+                     (not time-travelling?))
+            ($ :div {:class "shadow-xs"}
+               ($ :button {:class      (str "btn btn-sm btn-square bg-white "
+                                            "tooltip tooltip-bottom")
+                           :data-tip   "Session history"
+                           :aria-label "Session history"
+                           :on-click   (fn []
+                                         (o/track "Time travel entered" {})
+                                         (rf/dispatch [:time-travel/enter]))}
+                  ($ History {:size 16}))))))))
 
 (defui save-error-banner
   "Persistent warning shown when a change batch failed and was rolled back
@@ -254,8 +271,13 @@
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
         map-id                (uix.rf/use-subscribe [:map/id])
-        parts                 (uix.rf/use-subscribe [:map/parts])
-        relationships         (uix.rf/use-subscribe [:map/relationships])
+        ;; Canvas sources, not [:map :parts] directly: in Time-travel
+        ;; these serve the viewed Session's snapshot instead of the
+        ;; live Map.
+        parts                 (uix.rf/use-subscribe [:canvas/parts])
+        relationships         (uix.rf/use-subscribe [:canvas/relationships])
+        viewed-ordinal        (uix.rf/use-subscribe [:canvas/viewed-ordinal])
+        time-travelling?      (uix.rf/use-subscribe [:time-travel/active?])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
         tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
@@ -276,11 +298,14 @@
                                  (toolbar/marquee-preview-ids
                                   selected-node-ids (:parts marquee-overlay))
                                  selected-node-ids)
-                               {:resizable? (toolbar/resize-armed?
-                                             tool-mode
-                                             (count selected-node-ids)
-                                             editable?)})
-        edges                 (adapter/relationships->edges relationships selected-edge-ids)
+                               {:resizable?     (toolbar/resize-armed?
+                                                 tool-mode
+                                                 (count selected-node-ids)
+                                                 editable?)
+                                :viewed-ordinal viewed-ordinal})
+        edges                 (adapter/relationships->edges
+                               relationships selected-edge-ids
+                               {:viewed-ordinal viewed-ordinal})
         rf-instance           (useReactFlow)
 
         set-tool-mode         (use-callback
@@ -515,15 +540,29 @@
                                   (not (or (.-metaKey e)
                                            (.-ctrlKey e)
                                            (.-altKey e))))
-                         (if-let [held (toolbar/spring-tool (.-key e))]
-                           ;; Not mid-marquee: flipping the tool then would
-                           ;; abort ReactFlow's gesture with the selection
-                           ;; buffer still armed.
-                           (when (and (not (.-repeat e))
-                                      (nil? @marquee-buffer))
-                             (rf/dispatch [:ui/tool-spring-down held]))
-                           (when-let [tool (toolbar/shortcut-tool (.-key e))]
-                             (set-tool-mode tool)))))
+                         (cond
+                           ;; Time-travel owns Escape (exit the mode) and
+                           ;; the arrows (step); V/H and Space fall
+                           ;; through — pan and select stay available.
+                           (and time-travelling? (= "Escape" (.-key e)))
+                           (rf/dispatch [:time-travel/exit])
+
+                           (and time-travelling? (= "ArrowLeft" (.-key e)))
+                           (rf/dispatch [:time-travel/step :back])
+
+                           (and time-travelling? (= "ArrowRight" (.-key e)))
+                           (rf/dispatch [:time-travel/step :forward])
+
+                           :else
+                           (if-let [held (toolbar/spring-tool (.-key e))]
+                             ;; Not mid-marquee: flipping the tool then would
+                             ;; abort ReactFlow's gesture with the selection
+                             ;; buffer still armed.
+                             (when (and (not (.-repeat e))
+                                        (nil? @marquee-buffer))
+                               (rf/dispatch [:ui/tool-spring-down held]))
+                             (when-let [tool (toolbar/shortcut-tool (.-key e))]
+                               (set-tool-mode tool))))))
              ;; Release is unguarded: wherever focus went mid-hold, the
              ;; hold must end. Window blur too, or a Cmd-Tab away leaves
              ;; the canvas stuck in Hand.
@@ -539,7 +578,7 @@
            (.removeEventListener js/document "keydown" on-down)
            (.removeEventListener js/document "keyup" on-up)
            (.removeEventListener js/window "blur" on-blur))))
-     [set-tool-mode])
+     [set-tool-mode time-travelling?])
 
     ($ :div {:class "map-container"}
        ($ save-error-banner)
@@ -659,37 +698,45 @@
                                           :on-click   #(set-tool-mode mode)
                                           :active?    (= tool-mode mode)}))
                              mode-tools))
-                     ($ :div {:class "join"}
-                        (map (fn [{:keys [mode label]}]
-                               ;; Clicking an armed tool again disarms it back
-                               ;; to Select. The icon is the Part type's canvas
-                               ;; shape — the button previews the stamp it
-                               ;; places (stencil-palette pattern). The toolbar/
-                               ;; variants are solid-fill: the canvas SVGs'
-                               ;; 0.2-opacity fill washes out at 16px.
-                               ($ button {:key       (name mode)
-                                          :label     label
-                                          :icon      ($ :img {:src   (str "/images/nodes/toolbar/"
-                                                                          (add-mode->part-type mode)
-                                                                          ".svg")
-                                                              :alt   ""
-                                                              :class "h-4 w-auto"})
-                                          :on-click  #(toggle-tool mode)
-                                          :active?   (= tool-mode mode)
-                                          :disabled? (not editable?)}))
-                             part-tools))
-                     ;; The Connect split button: the left half arms the
-                     ;; one-shot tool, the right half is the persistent
-                     ;; type selector — the ink it draws with (ADR-0015).
-                     ($ :div {:class "join"}
-                        ($ button {:icon       ($ Spline {:size 16})
-                                   :label      "Connect"
-                                   :tooltip    "Connect — C"
-                                   :aria-label "Connect tool"
-                                   :on-click   #(toggle-tool :connect)
-                                   :active?    (= tool-mode :connect)
-                                   :disabled?  (not editable?)})
-                        ($ relationship-type-control))))
+                     ;; Time-travel keeps only the two persistent tools —
+                     ;; Select and Hand still mean something read-only;
+                     ;; the creation tools vanish with the mode.
+                     (when-not time-travelling?
+                       ($ :<>
+                          ($ :div {:class "join"}
+                             (map (fn [{:keys [mode label]}]
+                                    ;; Clicking an armed tool again disarms it back
+                                    ;; to Select. The icon is the Part type's canvas
+                                    ;; shape — the button previews the stamp it
+                                    ;; places (stencil-palette pattern). The toolbar/
+                                    ;; variants are solid-fill: the canvas SVGs'
+                                    ;; 0.2-opacity fill washes out at 16px.
+                                    ($ button {:key       (name mode)
+                                               :label     label
+                                               :icon      ($ :img {:src   (str "/images/nodes/toolbar/"
+                                                                               (add-mode->part-type mode)
+                                                                               ".svg")
+                                                                   :alt   ""
+                                                                   :class "h-4 w-auto"})
+                                               :on-click  #(toggle-tool mode)
+                                               :active?   (= tool-mode mode)
+                                               :disabled? (not editable?)}))
+                                  part-tools))
+                          ;; The Connect split button: the left half arms the
+                          ;; one-shot tool, the right half is the persistent
+                          ;; type selector — the ink it draws with (ADR-0015).
+                          ($ :div {:class "join"}
+                             ($ button {:icon       ($ Spline {:size 16})
+                                        :label      "Connect"
+                                        :tooltip    "Connect — C"
+                                        :aria-label "Connect tool"
+                                        :on-click   #(toggle-tool :connect)
+                                        :active?    (= tool-mode :connect)
+                                        :disabled?  (not editable?)})
+                             ($ relationship-type-control))))))
+               (when time-travelling?
+                 ($ Panel {:position "top-center"}
+                    ($ time-travel-bar)))
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar))
                (when-not minimal

@@ -73,7 +73,12 @@
               :on-cancel     #(set-editing! false)
               :on-commit     (fn [new-label]
                                (rf/dispatch [:map/part-update id {:label new-label}])
-                               (set-editing! false))})))))
+                               (set-editing! false))}))
+       (when-let [ordinal (:firstAppeared data)]
+         ($ :span {:class (str "recency-badge"
+                               (when (:recent data) " recent"))
+                   :title (str "First appeared in Session " ordinal)}
+            (str "S" ordinal))))))
 
 (def PartsNode
   (as-react

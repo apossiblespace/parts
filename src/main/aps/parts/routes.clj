@@ -18,7 +18,8 @@
 
    [reitit.ring.coercion :as rrc]
    [reitit.ring.middleware.muuntaja :as muuntaja-middleware]
-   [ring.util.response :as response]))
+   [ring.util.response :as response]
+   [spec-tools.data-spec :as ds]))
 
 ;; NOTE: What is coercion and how does it work?
 ;;
@@ -193,7 +194,8 @@
      ;; namespace.
      ["/:id" {:parameters {:path {:id string?}}
               :middleware [auth-mw/wrap-map-access]}
-      ["" {:get    {:handler api.maps/get-map}
+      ["" {:get    {:parameters {:query {(ds/opt :at) string?}}
+                    :handler    api.maps/get-map}
            :put    {:handler api.maps/update-map}
            :delete {:handler api.maps/delete-map}}]
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
