@@ -85,28 +85,46 @@
                  {:id                     "p2" :type       "unknown" :label "new"
                   :position_x             0    :position_y 0
                   :first_appeared_ordinal 3}]
-          nodes (adapter/parts->nodes parts nil {:viewed-ordinal 3})]
+          nodes (adapter/parts->nodes parts nil {:session-badges? true
+                                                 :viewed-ordinal  3})]
       (is (= 1 (.. (aget nodes 0) -data -firstAppeared)))
       (is (false? (.. (aget nodes 0) -data -recent)))
       (is (true? (.. (aget nodes 1) -data -recent)))))
+
+  (testing "a single-Session Map shows no badges — every element would
+            read 'S1'; the ordinal is withheld even though the row has it"
+    (let [nodes (adapter/parts->nodes [{:id                     "p1"
+                                        :type                   "unknown"
+                                        :label                  "only"
+                                        :position_x             0
+                                        :position_y             0
+                                        :first_appeared_ordinal 1}]
+                                      nil {:viewed-ordinal 1})]
+      (is (nil? (.. (aget nodes 0) -data -firstAppeared)))
+      (is (false? (.. (aget nodes 0) -data -recent)))))
 
   (testing "a row without the ordinal (demo Maps: no Sessions) carries no
             badge and is never recent"
     (let [nodes (adapter/parts->nodes [{:id         "p1"   :type       "unknown"
                                         :label      "demo"
                                         :position_x 0      :position_y 0}]
-                                      nil {:viewed-ordinal nil})]
+                                      nil {:session-badges? true
+                                           :viewed-ordinal  nil})]
       (is (nil? (.. (aget nodes 0) -data -firstAppeared)))
       (is (false? (.. (aget nodes 0) -data -recent)))))
 
-  (testing "edges carry the same badge data"
-    (let [edges (adapter/relationships->edges
-                 [{:id                     "r1"       :source_id "a" :target_id "b"
-                   :type                   "protects"
-                   :first_appeared_ordinal 2}]
-                 nil {:viewed-ordinal 2})]
-      (is (= 2 (.. (aget edges 0) -data -firstAppeared)))
-      (is (true? (.. (aget edges 0) -data -recent))))))
+  (testing "edges carry the same badge data, gated the same way"
+    (let [rel   {:id                     "r1"       :source_id "a" :target_id "b"
+                 :type                   "protects"
+                 :first_appeared_ordinal 2}
+          badge (adapter/relationships->edges
+                 [rel] nil {:session-badges? true :viewed-ordinal 2})
+          bare  (adapter/relationships->edges
+                 [rel] nil {:viewed-ordinal 2})]
+      (is (= 2 (.. (aget badge 0) -data -firstAppeared)))
+      (is (true? (.. (aget badge 0) -data -recent)))
+      (is (nil? (.. (aget bare 0) -data -firstAppeared)))
+      (is (false? (.. (aget bare 0) -data -recent))))))
 
 (deftest relationships->edges-test
   (testing "Converts collection of relationships to array of edges"

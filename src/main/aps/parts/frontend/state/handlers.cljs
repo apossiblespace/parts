@@ -417,11 +417,6 @@
                                 :session-id session-id
                                 :trigger    trigger}}))
 
-(rf/reg-event-db
- :session/trigger-saved
- (fn [db _]
-   (sessions/mark-trigger-saved db)))
-
 (rf/reg-event-fx
  :session/trigger-save-failure
  (fn [{:keys [db]} [_ map-id message]]

@@ -93,29 +93,15 @@
     (boolean (and active
                   (= (:id active) (get-in db [:ui :session-undo-id]))))))
 
-;; -- Trigger save feedback -----------------------------------------------------
-
-(defn mark-trigger-saved
-  "The PUT round-tripped — the quiet 'Saved' can show."
-  [db]
-  (assoc-in db [:ui :session-trigger-saved?] true))
-
-(defn trigger-saved?
-  [db]
-  (boolean (get-in db [:ui :session-trigger-saved?])))
-
 (defn set-trigger
-  "Optimistically retitle one Session's trigger. Typing again withdraws
-   the 'Saved' indicator until the next round-trip confirms."
+  "Optimistically retitle one Session's trigger."
   [db session-id trigger]
-  (-> db
-      (update-in [:map :sessions]
-                 (fn [sessions]
-                   (mapv #(if (= (:id %) session-id)
-                            (assoc % :trigger trigger)
-                            %)
-                         sessions)))
-      (update :ui dissoc :session-trigger-saved?)))
+  (update-in db [:map :sessions]
+             (fn [sessions]
+               (mapv #(if (= (:id %) session-id)
+                        (assoc % :trigger trigger)
+                        %)
+                     sessions))))
 
 (defn remove-session
   "Drop a deleted Session; the previous one becomes active again — the

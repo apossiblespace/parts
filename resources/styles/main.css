@@ -178,6 +178,13 @@ body {
     width: auto;
 }
 
+/* Fixed-width variant: view/edit modes of one dialog must not resize
+   as content changes. (Width utilities can't do this — this file's
+   .modal-box rule is unlayered, so it beats any Tailwind layer.) */
+.modal-box.modal-box-fixed {
+    width: 28rem;
+}
+
 a {
     @apply underline;
     @apply underline-offset-4;

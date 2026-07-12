@@ -118,10 +118,8 @@
  (fn [{:keys [map-id session-id trigger]}]
    (go
      (let [resp (<! (api/update-session-trigger map-id session-id trigger))]
-       ;; The text was set optimistically; success just confirms it so
-       ;; the quiet "Saved" indicator can show.
-       (if (= 200 (:status resp))
-         (rf/dispatch [:session/trigger-saved])
+       ;; The text was set optimistically; only a failure needs handling.
+       (when-not (= 200 (:status resp))
          (rf/dispatch [:session/trigger-save-failure map-id
                        (error-message resp "Could not save the trigger")]))))))
 

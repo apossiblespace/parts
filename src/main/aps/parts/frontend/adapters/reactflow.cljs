@@ -18,13 +18,16 @@
    of its own:
    - `:resizable?` — the resize-armed decision (Select tool + single
      selection); lands in node data.
+   - `:session-badges?` — whether recency badges show at all: a Map
+     with a single Session would label everything 'S1' (the same ≥2
+     gate as the History button). Off unless requested.
    - `:viewed-ordinal` — which Session is in view (ADR-0014); a Part
      whose first appearance matches it wears the accented recency badge."
   ([part] (part->node part nil nil))
   ([part selected-ids] (part->node part selected-ids nil))
   ([{:keys [id type label notes position_x position_y width height
             first_appeared_ordinal]}
-    selected-ids {:keys [resizable? viewed-ordinal]}]
+    selected-ids {:keys [resizable? session-badges? viewed-ordinal]}]
    #js {:id       id
         :position #js {:x position_x :y position_y}
         :selected (when selected-ids (contains? selected-ids id))
@@ -40,9 +43,12 @@
                        :type          (name type)
                        :notes         notes
                        :resizable     (boolean resizable?)
-                       :firstAppeared first_appeared_ordinal
-                       :recent        (recent? first_appeared_ordinal
-                                               viewed-ordinal)}}))
+                       :firstAppeared (when session-badges?
+                                        first_appeared_ordinal)
+                       :recent        (boolean
+                                       (and session-badges?
+                                            (recent? first_appeared_ordinal
+                                                     viewed-ordinal)))}}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.
@@ -90,7 +96,7 @@
    its own O(N) reverse-sibling scan per render."
   ([relationship] (relationship->edge relationship nil false nil))
   ([{:keys [id source_id target_id notes type first_appeared_ordinal]}
-    selected-id-set bidir? {:keys [viewed-ordinal]}]
+    selected-id-set bidir? {:keys [session-badges? viewed-ordinal]}]
    (let [type-name (name type)]
      #js {:id           id
           :source       source_id
@@ -101,9 +107,12 @@
           :data         #js {:relationship  type-name
                              :notes         notes
                              :bidir         bidir?
-                             :firstAppeared first_appeared_ordinal
-                             :recent        (recent? first_appeared_ordinal
-                                                     viewed-ordinal)}
+                             :firstAppeared (when session-badges?
+                                              first_appeared_ordinal)
+                             :recent        (boolean
+                                             (and session-badges?
+                                                  (recent? first_appeared_ordinal
+                                                           viewed-ordinal)))}
           :className    (str "edge-" type-name)
           ;; ReactFlow's EdgeWrapper wraps `:markerEnd` in `url('#...')`
           ;; itself, so we pass just the bare marker id. Passing the

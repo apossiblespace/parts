@@ -333,6 +333,7 @@
         parts                 (uix.rf/use-subscribe [:canvas/parts])
         relationships         (uix.rf/use-subscribe [:canvas/relationships])
         viewed-ordinal        (uix.rf/use-subscribe [:canvas/viewed-ordinal])
+        session-badges?       (uix.rf/use-subscribe [:canvas/session-badges?])
         time-travelling?      (uix.rf/use-subscribe [:time-travel/active?])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
@@ -369,14 +370,16 @@
                                  (toolbar/marquee-preview-ids
                                   selected-node-ids (:parts marquee-overlay))
                                  selected-node-ids)
-                               {:resizable?     (toolbar/resize-armed?
-                                                 tool-mode
-                                                 (count selected-node-ids)
-                                                 editable?)
-                                :viewed-ordinal viewed-ordinal})
+                               {:resizable?      (toolbar/resize-armed?
+                                                  tool-mode
+                                                  (count selected-node-ids)
+                                                  editable?)
+                                :session-badges? session-badges?
+                                :viewed-ordinal  viewed-ordinal})
         edges                 (adapter/relationships->edges
                                relationships selected-edge-ids
-                               {:viewed-ordinal viewed-ordinal})
+                               {:session-badges? session-badges?
+                                :viewed-ordinal  viewed-ordinal})
         rf-instance           (useReactFlow)
 
         set-tool-mode         (use-callback

@@ -84,11 +84,6 @@
  (fn [db _]
    (sessions/undoable? db)))
 
-(rf/reg-sub
- :session/trigger-saved?
- (fn [db _]
-   (sessions/trigger-saved? db)))
-
 ;; -- Time-travel mode (TASK-073.03) -----------------------------------------
 
 (rf/reg-sub
@@ -124,6 +119,13 @@
  :canvas/viewed-ordinal
  (fn [db _]
    (time-travel/viewed-ordinal db)))
+
+(rf/reg-sub
+ :canvas/session-badges?
+ (fn [db _]
+   ;; The badge gate is the History-button gate: with a single Session
+   ;; every badge would read "S1" — noise until there is history.
+   (time-travel/has-history? (get-in db [:map :sessions]))))
 
 (rf/reg-sub
  :ui/selected-node-ids

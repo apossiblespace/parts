@@ -127,16 +127,6 @@
       (is (false? (sessions/undoable? db)))
       (is (= s1 (sessions/active-session db))))))
 
-(deftest trigger-saved-test
-  (testing "a confirmed save sets the flag; typing again clears it"
-    (let [saved (sessions/mark-trigger-saved {:map {:id "m" :sessions [s1]}})]
-      (is (true? (sessions/trigger-saved? saved)))
-      (is (false? (sessions/trigger-saved?
-                   (sessions/set-trigger saved "s1" "new text"))))))
-
-  (testing "unsaved by default"
-    (is (false? (sessions/trigger-saved? {:map {:id "m"}})))))
-
 (deftest stamp-first-appearance-test
   (testing "a freshly created entity first appears in the active Session —
             the optimistic row gets the badge datum the server would
