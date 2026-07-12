@@ -192,6 +192,14 @@
     (is (nil? (tt/key-event " ")))
     (is (nil? (tt/key-event "h")))))
 
+(deftest toggle-key?-test
+  (testing "T toggles the mode from either side, case-insensitive"
+    (is (true? (tt/toggle-key? "t")))
+    (is (true? (tt/toggle-key? "T"))))
+  (testing "other keys don't"
+    (is (false? (tt/toggle-key? "h")))
+    (is (false? (tt/toggle-key? "Escape")))))
+
 (deftest has-history?-test
   (testing "two Sessions make a Map travelable; fewer leave nothing to see"
     (is (false? (tt/has-history? [])))

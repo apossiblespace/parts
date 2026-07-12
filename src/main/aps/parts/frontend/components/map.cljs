@@ -264,7 +264,7 @@
                                                   "bg-base-100")
                                                 " flex items-center gap-1.5"
                                                 " tooltip tooltip-bottom")
-                             :data-tip     toggle-label
+                             :data-tip     (str toggle-label " — T")
                              :aria-label   toggle-label
                              :aria-pressed (boolean time-travelling?)
                              :on-click     (fn []
@@ -605,15 +605,20 @@
                          (if-let [travel-event (and time-travelling?
                                                     (time-travel/key-event (.-key e)))]
                            (rf/dispatch travel-event)
-                           (if-let [held (toolbar/spring-tool (.-key e))]
-                             ;; Not mid-marquee: flipping the tool then would
-                             ;; abort ReactFlow's gesture with the selection
-                             ;; buffer still armed.
-                             (when (and (not (.-repeat e))
-                                        (nil? @marquee-buffer))
-                               (rf/dispatch [:ui/tool-spring-down held]))
-                             (when-let [tool (toolbar/shortcut-tool (.-key e))]
-                               (set-tool-mode tool))))))
+                           (if (time-travel/toggle-key? (.-key e))
+                             ;; enter is a pure no-op without history.
+                             (rf/dispatch (if time-travelling?
+                                            [:time-travel/exit]
+                                            [:time-travel/enter]))
+                             (if-let [held (toolbar/spring-tool (.-key e))]
+                               ;; Not mid-marquee: flipping the tool then would
+                               ;; abort ReactFlow's gesture with the selection
+                               ;; buffer still armed.
+                               (when (and (not (.-repeat e))
+                                          (nil? @marquee-buffer))
+                                 (rf/dispatch [:ui/tool-spring-down held]))
+                               (when-let [tool (toolbar/shortcut-tool (.-key e))]
+                                 (set-tool-mode tool)))))))
              ;; Release is unguarded: wherever focus went mid-hold, the
              ;; hold must end. Window blur too, or a Cmd-Tab away leaves
              ;; the canvas stuck in Hand.

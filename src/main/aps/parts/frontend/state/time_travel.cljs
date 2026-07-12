@@ -37,6 +37,12 @@
     "ArrowRight" [:time-travel/step :forward]
     nil))
 
+(defn toggle-key?
+  "T toggles the mode from either side — the shortcut the History
+   button's tooltip advertises. Escape additionally exits (`key-event`)."
+  [key]
+  (contains? #{"t" "T"} key))
+
 (defn- clear-selection
   "Selection ids must not dangle across content sources — cleared on
    both mode boundaries."

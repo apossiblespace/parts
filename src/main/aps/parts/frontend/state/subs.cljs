@@ -102,11 +102,6 @@
    (time-travel/viewing db)))
 
 (rf/reg-sub
- :time-travel/loading?
- (fn [db _]
-   (time-travel/snapshot-needed? db)))
-
-(rf/reg-sub
  :time-travel/error
  (fn [db _]
    (time-travel/error db)))
