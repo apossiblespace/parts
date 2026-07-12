@@ -640,17 +640,21 @@ a.btn {
             max-width: calc(100% - 30px);
         }
 
-        /* Shrink toolbar tooltip text — DaisyUI's default 0.875rem is
-           heavier than we want for the small icon buttons. */
-        .toolbar .tooltip[data-tip]::before {
+        /* Shrink canvas-chrome tooltip text (DaisyUI's 0.875rem default
+           is heavy for the small buttons). The weight reset matters: a
+           tooltip is a ::before of its button and inherits its
+           font-weight — 600 on btn-primary. */
+        .react-flow__panel .tooltip[data-tip]::before {
             font-size: 0.65rem;
+            font-weight: 400;
         }
 
         /* A dropdown inside a join must never size from inline-block
            baseline rules — flex sidesteps the line-box strut that some
-           engines add around the button, which otherwise makes the
-           split-button segment taller than its neighbour. */
-        .toolbar .join > .dropdown {
+           engines add around the button, which otherwise makes that
+           segment taller than its neighbours (the Connect split button
+           and the map-name row both hit this). */
+        .join > .dropdown {
             display: flex;
         }
 

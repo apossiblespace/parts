@@ -91,10 +91,13 @@
         active       (uix.rf/use-subscribe [:session/active])
         error        (uix.rf/use-subscribe [:ui/session-error])]
     (when (some? the-sessions)
-      ($ :div {:class "dropdown shadow-xs"}
+      ;; flex, not daisyUI's inline-block default: the inline box's
+      ;; line-box strut would make this the row's tallest child and
+      ;; stretch every sibling join out of alignment.
+      ($ :div {:class "dropdown dropdown-bottom flex shadow-xs"}
          ($ :div {:tabIndex   0
                   :role       "button"
-                  :class      "btn btn-sm bg-white flex items-center gap-1.5"
+                  :class      "btn btn-sm bg-base-100 flex items-center gap-1.5"
                   :aria-label (if active
                                 (sessions/display-label active)
                                 "Start a session")}
@@ -109,7 +112,7 @@
          ($ :div {:tabIndex 0
                   :class    (str "dropdown-content z-10 mt-1 w-72 p-3 "
                                  "rounded-box border border-base-300 "
-                                 "bg-white shadow-md")}
+                                 "bg-base-100 shadow-md")}
             (if active
               ($ active-session-popover {:session active})
               ($ no-session-popover))

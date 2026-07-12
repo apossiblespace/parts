@@ -9,7 +9,7 @@
   ;; the baseline), misaligning the whole toolbar row.
   [{:keys [label icon on-click tooltip active? aria-label disabled?]}]
   ($ :button {:class        (str "btn btn-sm join-item "
-                                 (if active? "bg-base-300" "bg-white")
+                                 (if active? "bg-base-300" "bg-base-100")
                                  (when tooltip " tooltip tooltip-top"))
               :data-tip     tooltip
               :on-click     on-click

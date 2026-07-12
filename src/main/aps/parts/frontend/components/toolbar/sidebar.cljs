@@ -22,7 +22,7 @@
         has-selection                                 (or (seq selected-parts) (seq selected-rels))
         [show-waitlist-modal set-show-waitlist-modal] (use-state false)]
     (when (or has-demo-cta has-selection)
-      ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-white shadow-sm"}
+      ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-base-100 shadow-sm"}
          (when has-demo-cta
            ($ :div {:class "p-2 space-y-2"}
               (if launched

@@ -148,7 +148,7 @@
                                    " tooltip tooltip-top"))
         :data-tip           (str "Relationship type: " label)
         :on-mouse-leave     #(set-tip-suppressed! false)
-        :trigger-class      "btn btn-sm join-item bg-white flex items-center gap-1.5"
+        :trigger-class      "btn btn-sm join-item bg-base-100 flex items-center gap-1.5"
         :trigger-aria-label (str "Relationship type: " label)}
        ($ :span {:class "type-dot"
                  :style {:background-color
@@ -179,79 +179,102 @@
        ($ :div {:class "flex gap-2"}
           ($ :div {:class "shadow-xs"}
              ($ :a {:href       "/app"
-                    :class      "btn btn-sm join-item bg-white"
+                    :class      "btn btn-sm join-item bg-base-100"
                     :aria-label "Back to maps"}
                 ($ ChevronLeft {:size 16})))
-          ($ :div {:class "join shadow-xs"}
-             ($ inline-text-field
-                {:value         title
-                 :aria-label    "Map name"
-                 :display-class "btn btn-sm join-item bg-white"
-                 :input-class   "input input-sm join-item w-48"
-                 :editing?      editing?
-                 :edit-on       :click
-                 :on-edit-start #(set-editing! true)
-                 :on-cancel     #(set-editing! false)
-                 :on-commit     (fn [new-title]
-                                  (o/track "Map renamed" {})
-                                  (rf/dispatch [:map/rename new-title])
-                                  (set-editing! false))})
-             ($ :div {:class "dropdown"}
-                ($ :div {:tabIndex   0
-                         :role       "button"
-                         :class      "btn btn-sm btn-square join-item bg-white"
-                         :aria-label "Map actions"}
-                   ($ ChevronDown {:size 16}))
-                ($ :ul {:tabIndex 0
-                        :class    "dropdown-content menu menu-sm z-10 mt-1 w-44"}
-                   ($ :li
-                      ($ :a {:on-click (fn []
-                                         (set-editing! true)
-                                         (close-dropdown!))}
-                         ($ FilePenLine {:size 16})
-                         "Rename"))
-                   ($ :li
-                      ;; Native `<a download>` does the work: the browser
-                      ;; sends the cookie-authenticated GET, follows the
-                      ;; server's `Content-Disposition` for the filename,
-                      ;; and opens the Save dialog. Cache-Control on
-                      ;; `/render.pdf` is `no-cache`, so an
-                      ;; edit-then-redownload flow always sees the fresh
-                      ;; PDF via the ETag revalidation.
-                      ($ :a {:href     (str "/api/maps/" map-id "/render.pdf")
-                             :download ""
-                             :on-click (fn []
-                                         (o/track "Map PDF downloaded" {})
-                                         (close-dropdown!))}
-                         ($ Download {:size 16})
-                         "Download PDF"))
-                   ($ :li ($ :hr))
-                   ($ :li
-                      ;; Like the PDF above (native `<a download>`), but the full
-                      ;; Map history as JSON — the data-subject export (ADR-0010).
-                      ;; Used far less than Rename / PDF, so it sits below a
-                      ;; separator and drops the icon; the empty w-4 spacer keeps
-                      ;; its label aligned with the icon'd items above.
-                      ($ :a {:href     (str "/api/maps/" map-id "/export.json")
-                             :download ""
-                             :on-click (fn []
-                                         (o/track "Map data exported" {})
-                                         (close-dropdown!))}
-                         ($ :span {:class "w-4 shrink-0"})
-                         "Export map data")))))
-          ($ session-chip)
-          ;; Hidden while the mode is on — the bar owns navigation there.
-          (when (and (time-travel/has-history? the-sessions)
-                     (not time-travelling?))
+          (if time-travelling?
+            ;; Read-only while viewing the past: the name is a plain
+            ;; label — no rename, no actions menu (the viewed-Session
+            ;; PDF gets its own affordance later).
             ($ :div {:class "shadow-xs"}
-               ($ :button {:class      (str "btn btn-sm btn-square bg-white "
-                                            "tooltip tooltip-bottom")
-                           :data-tip   "Session history"
-                           :aria-label "Session history"
-                           :on-click   (fn []
-                                         (o/track "Time travel entered" {})
-                                         (rf/dispatch [:time-travel/enter]))}
-                  ($ History {:size 16}))))))))
+               ($ :div {:class "btn btn-sm bg-base-100 pointer-events-none"}
+                  title))
+            ($ :div {:class "join shadow-xs"}
+               ($ inline-text-field
+                  {:value         title
+                   :aria-label    "Map name"
+                   :display-class "btn btn-sm join-item bg-base-100"
+                   :input-class   "input input-sm join-item w-48"
+                   :editing?      editing?
+                   :edit-on       :click
+                   :on-edit-start #(set-editing! true)
+                   :on-cancel     #(set-editing! false)
+                   :on-commit     (fn [new-title]
+                                    (o/track "Map renamed" {})
+                                    (rf/dispatch [:map/rename new-title])
+                                    (set-editing! false))})
+               ;; -ml-px: join seam fix — see relationship-type-control.
+               ;; dropdown-bottom is explicit because the join forces
+               ;; display:flex on dropdowns (alignment), and daisyUI's
+               ;; default placement relies on static flow — in a flex
+               ;; container that would put the menu BESIDE the trigger.
+               ($ :div {:class "dropdown dropdown-bottom -ml-px"}
+                  ($ :div {:tabIndex   0
+                           :role       "button"
+                           :class      "btn btn-sm btn-square join-item bg-base-100"
+                           :aria-label "Map actions"}
+                     ($ ChevronDown {:size 16}))
+                  ($ :ul {:tabIndex 0
+                          :class    "dropdown-content menu menu-sm z-10 mt-1 w-44"}
+                     ($ :li
+                        ($ :a {:on-click (fn []
+                                           (set-editing! true)
+                                           (close-dropdown!))}
+                           ($ FilePenLine {:size 16})
+                           "Rename"))
+                     ($ :li
+                        ;; Native `<a download>` does the work: the browser
+                        ;; sends the cookie-authenticated GET, follows the
+                        ;; server's `Content-Disposition` for the filename,
+                        ;; and opens the Save dialog. Cache-Control on
+                        ;; `/render.pdf` is `no-cache`, so an
+                        ;; edit-then-redownload flow always sees the fresh
+                        ;; PDF via the ETag revalidation.
+                        ($ :a {:href     (str "/api/maps/" map-id "/render.pdf")
+                               :download ""
+                               :on-click (fn []
+                                           (o/track "Map PDF downloaded" {})
+                                           (close-dropdown!))}
+                           ($ Download {:size 16})
+                           "Download PDF"))
+                     ($ :li ($ :hr))
+                     ($ :li
+                        ;; Like the PDF above (native `<a download>`), but the full
+                        ;; Map history as JSON — the data-subject export (ADR-0010).
+                        ;; Used far less than Rename / PDF, so it sits below a
+                        ;; separator and drops the icon; the empty w-4 spacer keeps
+                        ;; its label aligned with the icon'd items above.
+                        ($ :a {:href     (str "/api/maps/" map-id "/export.json")
+                               :download ""
+                               :on-click (fn []
+                                           (o/track "Map data exported" {})
+                                           (close-dropdown!))}
+                           ($ :span {:class "w-4 shrink-0"})
+                           "Export map data"))))))
+          (when-not time-travelling?
+            ($ session-chip))
+          (when (time-travel/has-history? the-sessions)
+            (let [toggle-label (if time-travelling?
+                                 "Back to editing"
+                                 "Session history")]
+              ($ :div {:class "shadow-xs"}
+                 ($ :button {:class        (str "btn btn-sm "
+                                                (if time-travelling?
+                                                  "btn-primary"
+                                                  "bg-base-100")
+                                                " flex items-center gap-1.5"
+                                                " tooltip tooltip-bottom")
+                             :data-tip     toggle-label
+                             :aria-label   toggle-label
+                             :aria-pressed (boolean time-travelling?)
+                             :on-click     (fn []
+                                             (if time-travelling?
+                                               (do (o/track "Time travel exited" {})
+                                                   (rf/dispatch [:time-travel/exit]))
+                                               (do (o/track "Time travel entered" {})
+                                                   (rf/dispatch [:time-travel/enter]))))}
+                    ($ History {:size 16})
+                    "History"))))))))
 
 (defui save-error-banner
   "Persistent warning shown when a change batch failed and was rolled back
