@@ -158,8 +158,12 @@
         (is (= [(:id s1)] (mapv :id (session/index (:id the-map)))))))
 
     (testing "a Session with content in its range does not delete"
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"content"
-                            (session/delete! (:id s1) (:id the-map) (:id user)))))
+      ;; The content must sit in a Session with a predecessor — deleting
+      ;; the only Session is refused before the content rule is reached.
+      (let [s2 (session/create! (:id the-map) (:id user))]
+        (make-part! user the-map "Content in S2")
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"content"
+                              (session/delete! (:id s2) (:id the-map) (:id user))))))
 
     (testing "a non-latest Session does not delete"
       (let [_s2 (session/create! (:id the-map) (:id user))]
@@ -173,28 +177,41 @@
             part-id (-> (parts-map/fetch (:id the-map)) :parts first :id)]
         (session/set-activation! (:id s-last) (:id the-map) part-id (:id user))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"activation"
-                              (session/delete! (:id s-last) (:id the-map) (:id user))))))))
+                              (session/delete! (:id s-last) (:id the-map) (:id user)))))))
+
+  (testing "a Map's only Session does not delete, even empty — Maps are
+            born with Session 1 and no-session Maps must not exist"
+    (let [user    (create-test-user!)
+          the-map (make-map! user)
+          s1      (session/create! (:id the-map) (:id user))]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"only"
+                            (session/delete! (:id s1) (:id the-map) (:id user)))))))
 
 (deftest test-explicit-audit
   (let [user    (create-test-user!)
         the-map (make-map! user)
         s1      (session/create! (:id the-map) (:id user))
-        audits  (fn [table]
+        audits  (fn [session-id]
                   (db/query (db/sql-format
                              {:select   [:operation :actor_id]
                               :from     [:audit_log]
                               :where    [:and
-                                         [:= :table_name table]
-                                         [:= [:raw "row_pk->>'id'"] (str (:id s1))]]
+                                         [:= :table_name "sessions"]
+                                         [:= [:raw "row_pk->>'id'"] (str session-id)]]
                               :order-by [[:occurred_at :asc]]})))]
 
     (testing "create! writes its own audit row — no trigger fires on the
               non-temporal sessions table"
-      (let [rows (audits "sessions")]
+      (let [rows (audits (:id s1))]
         (is (= ["I"] (mapv :operation rows)))
         (is (= (:id user) (:actor_id (first rows))))))
 
-    (testing "trigger edits and deletes audit too"
+    (testing "trigger edits audit too"
       (session/update-trigger! (:id s1) (:id the-map) "t" (:id user))
-      (session/delete! (:id s1) (:id the-map) (:id user))
-      (is (= ["I" "U" "D"] (mapv :operation (audits "sessions")))))))
+      (is (= ["I" "U"] (mapv :operation (audits (:id s1))))))
+
+    (testing "deletes audit too (a second Session — the only one is
+              undeletable)"
+      (let [s2 (session/create! (:id the-map) (:id user))]
+        (session/delete! (:id s2) (:id the-map) (:id user))
+        (is (= ["I" "D"] (mapv :operation (audits (:id s2)))))))))

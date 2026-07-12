@@ -200,9 +200,13 @@
 (defn delete!
   "Delete the latest Session when it is empty — re-activating the previous
    Session. Anything else would silently re-home content and shift every
-   downstream badge (ADR-0014)."
+   downstream badge (ADR-0014). The only Session never deletes: Maps are
+   born with Session 1 and a no-session Map must not exist."
   [session-id map-id actor-id]
   (let [session (require-latest! session-id map-id)]
+    (when (= 1 (count (index map-id)))
+      (throw (ex-info "A Map's only Session cannot be deleted"
+                      {:type :validation :id (:id session)})))
     (require-empty! session map-id)
     (jdbc/with-transaction [tx db/datasource]
       (db/delete! :sessions [:= :id (:id session)] tx)

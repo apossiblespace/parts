@@ -49,11 +49,17 @@
         (response/status 200))))
 
 (defn create-map
-  "Create a new map"
+  "Create a new map, born with its Session 1 — no-session Maps must not
+   exist (ADR-0014's derivation is total, and a new Map is editable from
+   its first moment). Same pairing as account provisioning."
   [{:keys [identity body-params] :as _request}]
   (let [user-id  (:sub identity)
         map-data (assoc body-params :owner_id user-id)
-        created  (parts-map/create! map-data user-id)]
+        created  (db/with-transaction
+                   (fn [tx]
+                     (let [the-map (parts-map/create! map-data user-id tx)]
+                       (session/create! (:id the-map) user-id tx)
+                       the-map)))]
     (-> (response/response created)
         (response/status 201))))
 

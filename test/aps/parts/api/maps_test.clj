@@ -38,7 +38,12 @@
           response (api/create-map request)]
       (is (= 201 (:status response)))
       (is (= "New Map" (-> response :body :title)))
-      (is (= (:id user) (-> response :body :owner_id))))))
+      (is (= (:id user) (-> response :body :owner_id)))
+
+      (testing "born with Session 1 — no-session Maps must not exist
+                (a Map is editable from its first moment)"
+        (let [sessions (session/index (-> response :body :id))]
+          (is (= [1] (mapv :ordinal sessions))))))))
 
 (deftest test-get-map
   (testing "returns the map (non-owner case is `wrap-map-access`'s job)"
