@@ -10,17 +10,22 @@
   "Renders a tool palette that displays the selected Parts for editing"
   []
   (let [selected-parts (uix.rf/use-subscribe [:map/selected-parts])
+        editable?      (uix.rf/use-subscribe [:canvas/editable?])
         part-count     (count selected-parts)
         multiple-parts (> part-count 1)]
     (when (seq selected-parts)
       ($ :div {:class "tools parts-tools"}
          ($ header {:title "Selected parts" :count part-count})
-         ($ :section {:class "selected-parts"}
-            (map
-             (fn [part]
-               ($ part-form {:key       (str (:id part) part-count)
-                             :part      part
-                             :collapsed multiple-parts
-                             :on-save   (fn [id updated-attrs]
-                                          (rf/dispatch [:map/part-update id updated-attrs]))}))
-             selected-parts))))))
+         ;; A disabled fieldset greys out every input inside the forms —
+         ;; the read-only canvas still shows a Part's details (reading is
+         ;; the point), it just refuses edits.
+         ($ :fieldset {:disabled (not editable?)}
+            ($ :section {:class "selected-parts"}
+               (map
+                (fn [part]
+                  ($ part-form {:key       (str (:id part) part-count)
+                                :part      part
+                                :collapsed multiple-parts
+                                :on-save   (fn [id updated-attrs]
+                                             (rf/dispatch [:map/part-update id updated-attrs]))}))
+                selected-parts)))))))

@@ -5,7 +5,8 @@
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [re-frame.core :as rf]
-   [uix.core :refer [$ as-react defui use-state]]))
+   [uix.core :refer [$ as-react defui use-state]]
+   [uix.re-frame :as uix.rf]))
 
 (defui parts-node [{:keys [id data selected]}]
   ;; Easy-connect pattern (https://reactflow.dev/examples/nodes/easy-connect),
@@ -19,6 +20,7 @@
   ;; and identical handle ids on both ends collide for bidirectional pairs
   ;; (then drag-select misses one edge).
   (let [connecting?             (useConnection (fn [^js c] (.-inProgress c)))
+        editable?               (uix.rf/use-subscribe [:canvas/editable?])
         [editing? set-editing!] (use-state false)]
     ($ :div {:class (str "node-wrapper" (when connecting? " connecting"))}
        ;; Resize affordance: corner handles, aspect-locked, bounded
@@ -40,7 +42,8 @@
                 ;; preceding single-clicks still select the node.
                 :on-double-click (fn [^js e]
                                    (.stopPropagation e)
-                                   (set-editing! true))}
+                                   (when editable?
+                                     (set-editing! true)))}
           ($ Handle {:type               "target"
                      :position           (.-Top Position)
                      :id                 adapter/target-handle-id

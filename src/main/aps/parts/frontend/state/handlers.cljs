@@ -8,8 +8,25 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as api-utils]
    [aps.parts.frontend.state.map-updates :as map-updates]
+   [aps.parts.frontend.state.sessions :as sessions]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]))
+
+(def ^:private require-editable
+  "Backstop for the read-only canvas (ADR-0014: editing requires an
+   active Session; demo Maps exempt): drops a mutating :map/* event
+   before its handler runs. The UI already disables every edit path —
+   this guarantees that anything it misses still can't touch the
+   optimistic state or the change-event queue."
+  (rf/->interceptor
+   :id :require-editable
+   :before (fn [context]
+             (if (sessions/editable? (get-in context [:coeffects :db]))
+               context
+               (do (o/info "handlers.require-editable"
+                           "dropped mutation on read-only canvas"
+                           (get-in context [:coeffects :event 0]))
+                   (assoc context :queue []))))))
 
 (rf/reg-event-fx
  :app/init-db
@@ -149,48 +166,60 @@
 
 (rf/reg-event-fx
  :map/part-create
+ [require-editable]
  (fn [{:keys [db]} [_ attrs]]
    (let [map-id   (get-in db [:map :id])
          new-part (make-part (merge {:map_id     map-id
                                      :position_x 390
                                      :position_y 290}
                                     attrs))]
-     {:db              (add-part db new-part)
+     ;; A first appearance makes the active Session undeletable, so its
+     ;; undo window closes here (and in relationship-create) — edits and
+     ;; moves close nothing, mirroring the server's `require-empty!`.
+     {:db              (-> db
+                           (add-part new-part)
+                           sessions/close-undo-window)
       :queue/add-event (ce/part-create
                         (:id new-part)
                         (select-keys new-part [:type :label :position_x :position_y]))})))
 
 (rf/reg-event-fx
  :map/part-update
+ [require-editable]
  (fn [{:keys [db]} [_ part-id attrs]]
    {:db              (merge-part db part-id attrs)
     :queue/add-event (ce/part-update part-id attrs)}))
 
 (rf/reg-event-fx
  :map/part-remove
+ [require-editable]
  (fn [{:keys [db]} [_ part-id]]
    {:db              (remove-part db part-id)
     :queue/add-event (ce/part-remove part-id)}))
 
 (rf/reg-event-db
  :map/part-update-position
+ [require-editable]
  (fn [db [_ node-id position]]
    (merge-part db node-id {:position_x (int (:x position))
                            :position_y (int (:y position))})))
 
 (rf/reg-event-fx
  :map/part-finish-position-change
+ [require-editable]
  (fn [_ [_ node-id position]]
    {:queue/add-event (ce/part-moved node-id (:x position) (:y position))}))
 
 (rf/reg-event-db
  :map/part-update-size
+ [require-editable]
  (fn [db [_ node-id {:keys [width height]}]]
    (merge-part db node-id {:width  (int width)
                            :height (int height)})))
 
 (rf/reg-event-fx
  :map/part-finish-size-change
+ [require-editable]
  ;; One change-event per completed resize. It carries the position too:
  ;; resizing from a top/left corner moves the Part, but those position
  ;; frames never commit on their own (the adapter suppresses :part-moved
@@ -209,6 +238,7 @@
 
 (rf/reg-event-fx
  :map/relationship-create
+ [require-editable]
  (fn [{:keys [db]} [_ attrs]]
    (let [relationships    (get-in db [:map :relationships])
          new-relationship (make-relationship
@@ -216,7 +246,11 @@
      (if (relationship/can-connect? relationships
                                     (:source_id new-relationship)
                                     (:target_id new-relationship))
-       {:db              (add-relationship db new-relationship)
+       ;; Only the success branch closes the undo window — a blocked
+       ;; duplicate creates nothing, so the Session stays undoable.
+       {:db              (-> db
+                             (add-relationship new-relationship)
+                             sessions/close-undo-window)
         :queue/add-event (ce/relationship-create
                           (:id new-relationship)
                           (select-keys new-relationship [:type :source_id :target_id]))}
@@ -227,12 +261,14 @@
 
 (rf/reg-event-fx
  :map/relationship-update
+ [require-editable]
  (fn [{:keys [db]} [_ relationship-id attrs]]
    {:db              (merge-relationship db relationship-id attrs)
     :queue/add-event (ce/relationship-update relationship-id attrs)}))
 
 (rf/reg-event-fx
  :map/relationship-remove
+ [require-editable]
  (fn [{:keys [db]} [_ relationship-id]]
    {:db              (remove-relationship db relationship-id)
     :queue/add-event (ce/relationship-remove relationship-id)}))
@@ -318,10 +354,87 @@
        (assoc-in [:maps :loading] false)
        (assoc-in [:maps :error] "Failed to create map"))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :map/fetch-success
- (fn [db [_ the-map]]
-   (assoc db :map the-map)))
+ (fn [{:keys [db]} [_ the-map]]
+   ;; Sessions load right behind the Map; until they arrive the canvas
+   ;; reads as read-only (`sessions/editable?`).
+   (cond-> {:db (assoc db :map the-map)}
+     (not (:demo-mode db))
+     (assoc :sessions/fetch-fx {:map-id (:id the-map)}))))
+
+;; -- Sessions (ADR-0014) ----------------------------------------------------
+;; Pure transitions live in `state/sessions` (kept re-frame-free so the
+;; cljs test suite can reach them); these register them and pair each
+;; with its HTTP effect. Trigger edits are optimistic; delete waits for
+;; the server's verdict — only it can judge "empty", because membership
+;; is derived, not stored.
+
+(rf/reg-event-db
+ :sessions/fetch-success
+ (fn [db [_ map-id the-sessions]]
+   (sessions/apply-sessions db map-id the-sessions)))
+
+(rf/reg-event-db
+ :sessions/fetch-failure
+ (fn [db [_ _map-id]]
+   ;; The canvas stays read-only (no Sessions loaded) — safe by default.
+   (sessions/set-error db "Could not load this map's sessions")))
+
+(rf/reg-event-fx
+ :session/start
+ (fn [{:keys [db]} _]
+   {:session/create-fx {:map-id (get-in db [:map :id])}}))
+
+(rf/reg-event-db
+ :session/start-success
+ (fn [db [_ map-id session]]
+   (if (= map-id (get-in db [:map :id]))
+     (-> db
+         (sessions/add-session session)
+         (sessions/open-undo-window (:id session)))
+     db)))
+
+(rf/reg-event-db
+ :session/start-failure
+ (fn [db [_ message]]
+   (sessions/set-error db message)))
+
+(rf/reg-event-fx
+ :session/set-trigger
+ (fn [{:keys [db]} [_ session-id trigger]]
+   {:db                        (sessions/set-trigger db session-id trigger)
+    :session/update-trigger-fx {:map-id     (get-in db [:map :id])
+                                :session-id session-id
+                                :trigger    trigger}}))
+
+(rf/reg-event-db
+ :session/trigger-saved
+ (fn [db _]
+   (sessions/mark-trigger-saved db)))
+
+(rf/reg-event-fx
+ :session/trigger-save-failure
+ (fn [{:keys [db]} [_ map-id message]]
+   ;; Refetch to roll the optimistic trigger back to the stored truth.
+   {:db                (sessions/set-error db message)
+    :sessions/fetch-fx {:map-id map-id}}))
+
+(rf/reg-event-fx
+ :session/delete
+ (fn [{:keys [db]} [_ session-id]]
+   {:session/delete-fx {:map-id     (get-in db [:map :id])
+                        :session-id session-id}}))
+
+(rf/reg-event-db
+ :session/delete-success
+ (fn [db [_ session-id]]
+   (sessions/remove-session db session-id)))
+
+(rf/reg-event-db
+ :session/delete-failure
+ (fn [db [_ message]]
+   (sessions/set-error db message)))
 
 (rf/reg-event-fx
  :map/create-success
@@ -331,10 +444,15 @@
                     (assoc-in [:map] the-map)
                     (update-in [:maps :list] conj the-map))}
      ;; In the app (not the playground demo) a freshly created Map opens
-     ;; its canvas via the client-side router.
+     ;; its canvas via the client-side router. The Sessions fetch must
+     ;; ride along here: the route effect skips :map/fetch for an
+     ;; already-loaded Map, and without the (empty) Session list the
+     ;; chip's "Start a session" call-to-action never renders — a new
+     ;; Map would open read-only with no way out.
      (not (:demo-mode db))
      (assoc :router/navigate {:name        :aps.parts.frontend.router/map
-                              :path-params {:id (:id the-map)}}))))
+                              :path-params {:id (:id the-map)}}
+            :sessions/fetch-fx {:map-id (:id the-map)}))))
 
 ;; -- map metadata: rename -------------------------------------------------
 ;; Pure transitions live in `state/map-updates` (kept re-frame-free so the

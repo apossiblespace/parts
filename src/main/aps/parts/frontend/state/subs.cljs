@@ -1,5 +1,6 @@
 (ns aps.parts.frontend.state.subs
   (:require
+   [aps.parts.frontend.state.sessions :as sessions]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]))
 
@@ -52,6 +53,40 @@
  :map/save-error
  (fn [db _]
    (boolean (get-in db [:map :save-error]))))
+
+;; -- Sessions (ADR-0014) ----------------------------------------------------
+
+(rf/reg-sub
+ :map/sessions
+ ;; nil until the fetch lands — the chip renders nothing rather than a
+ ;; false "no sessions" state.
+ (fn [db _]
+   (get-in db [:map :sessions])))
+
+(rf/reg-sub
+ :session/active
+ (fn [db _]
+   (sessions/active-session db)))
+
+(rf/reg-sub
+ :canvas/editable?
+ (fn [db _]
+   (sessions/editable? db)))
+
+(rf/reg-sub
+ :ui/session-error
+ (fn [db _]
+   (get-in db [:ui :session-error])))
+
+(rf/reg-sub
+ :session/undoable?
+ (fn [db _]
+   (sessions/undoable? db)))
+
+(rf/reg-sub
+ :session/trigger-saved?
+ (fn [db _]
+   (sessions/trigger-saved? db)))
 
 (rf/reg-sub
  :ui/selected-node-ids

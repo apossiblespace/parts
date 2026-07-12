@@ -101,7 +101,9 @@ Both are guaranteed rather than hoped for:
      is created in an earlier action — so its anchor precedes any content. This
      also satisfies invariant (1)'s ordering guard: never emit content
      change-events in the same batch as the Session-create; if unavoidable,
-     order the Session row first.
+     order the Session row first. Server-side seeding must honour the same
+     rule: account provisioning creates "Session 1" (empty trigger) in the
+     same transaction *before* populating the starter Map's demo content.
    - *Pre-existing Maps* (dev/staging; production is zero-data): a **backfill
      migration** synthesises a "Session 1" (empty trigger) anchored at or just
      before the Map's earliest content `valid_at`, for every Map that has any

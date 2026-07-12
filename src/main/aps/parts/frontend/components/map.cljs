@@ -14,6 +14,7 @@
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [close-dropdown! relationship-type-dropdown]]
+   [aps.parts.frontend.components.session-chip :refer [session-chip]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.state.toolbar :as toolbar]
@@ -226,7 +227,8 @@
                                          (o/track "Map data exported" {})
                                          (close-dropdown!))}
                          ($ :span {:class "w-4 shrink-0"})
-                         "Export map data")))))))))
+                         "Export map data")))))
+          ($ session-chip)))))
 
 (defui save-error-banner
   "Persistent warning shown when a change batch failed and was rolled back
@@ -257,6 +259,9 @@
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
         tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
+        ;; The read-only seam (ADR-0014): false until the Map's Sessions
+        ;; load and one is active; demo Maps are always true.
+        editable?             (uix.rf/use-subscribe [:canvas/editable?])
 
         ;; Render-only mirror of the marquee buffer below: nil when no
         ;; marquee is active. React state (not re-frame) so each update
@@ -273,7 +278,8 @@
                                  selected-node-ids)
                                {:resizable? (toolbar/resize-armed?
                                              tool-mode
-                                             (count selected-node-ids))})
+                                             (count selected-node-ids)
+                                             editable?)})
         edges                 (adapter/relationships->edges relationships selected-edge-ids)
         rf-instance           (useReactFlow)
 
@@ -564,7 +570,7 @@
           ;; disabled in favour of the spring-loaded Hand hold (keydown
           ;; effect above), so holding Space is the real Hand tool —
           ;; cursor, palette light, nothing draggable — not a pan filter.
-          (let [interaction (toolbar/tool-interaction tool-mode)]
+          (let [interaction (toolbar/tool-interaction tool-mode editable?)]
             ($ ReactFlow {:nodes                   nodes
                           :edges                   edges
                           :onNodesChange           on-nodes-change
@@ -581,6 +587,13 @@
                           ;; self-loop; deliberate out-and-back self-loop
                           ;; drags exceed it on the way out.
                           :connectionDragThreshold 8
+                          ;; Parts stay selectable read-only, so the
+                          ;; delete key must go too — else Backspace
+                          ;; opens a confirm modal for a delete the
+                          ;; state layer then drops.
+                          :deleteKeyCode           (if editable?
+                                                     js/undefined
+                                                     nil)
                           :onPaneClick             on-pane-click
                           :onSelectionStart        on-selection-start
                           :onSelectionEnd          on-selection-end
@@ -654,15 +667,16 @@
                                ;; places (stencil-palette pattern). The toolbar/
                                ;; variants are solid-fill: the canvas SVGs'
                                ;; 0.2-opacity fill washes out at 16px.
-                               ($ button {:key      (name mode)
-                                          :label    label
-                                          :icon     ($ :img {:src   (str "/images/nodes/toolbar/"
-                                                                         (add-mode->part-type mode)
-                                                                         ".svg")
-                                                             :alt   ""
-                                                             :class "h-4 w-auto"})
-                                          :on-click #(toggle-tool mode)
-                                          :active?  (= tool-mode mode)}))
+                               ($ button {:key       (name mode)
+                                          :label     label
+                                          :icon      ($ :img {:src   (str "/images/nodes/toolbar/"
+                                                                          (add-mode->part-type mode)
+                                                                          ".svg")
+                                                              :alt   ""
+                                                              :class "h-4 w-auto"})
+                                          :on-click  #(toggle-tool mode)
+                                          :active?   (= tool-mode mode)
+                                          :disabled? (not editable?)}))
                              part-tools))
                      ;; The Connect split button: the left half arms the
                      ;; one-shot tool, the right half is the persistent
@@ -673,7 +687,8 @@
                                    :tooltip    "Connect — C"
                                    :aria-label "Connect tool"
                                    :on-click   #(toggle-tool :connect)
-                                   :active?    (= tool-mode :connect)})
+                                   :active?    (= tool-mode :connect)
+                                   :disabled?  (not editable?)})
                         ($ relationship-type-control))))
                ($ Panel {:position "top-right" :className "sidebar-container"}
                   ($ sidebar))

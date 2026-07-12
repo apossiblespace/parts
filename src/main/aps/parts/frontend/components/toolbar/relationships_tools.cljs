@@ -10,17 +10,19 @@
   "Renders a tool palette that displays the selected relationships for editing"
   []
   (let [selected-relationships (uix.rf/use-subscribe [:map/selected-relationships])
+        editable?              (uix.rf/use-subscribe [:canvas/editable?])
         relationship-count     (count selected-relationships)
         multiple-relationships (> relationship-count 1)]
     (when (seq selected-relationships)
       ($ :div {:class "tools relationships-tools"}
          ($ header {:title "Selected relationships" :count relationship-count})
-         ($ :section {:class "selected-relationships"}
-            (map
-             (fn [relationship]
-               ($ relationship-form {:key          (str (:id relationship) relationship-count)
-                                     :relationship relationship
-                                     :collapsed    multiple-relationships
-                                     :on-save      (fn [id updated-attrs]
-                                                     (rf/dispatch [:map/relationship-update id updated-attrs]))}))
-             selected-relationships))))))
+         ($ :fieldset {:disabled (not editable?)}
+            ($ :section {:class "selected-relationships"}
+               (map
+                (fn [relationship]
+                  ($ relationship-form {:key          (str (:id relationship) relationship-count)
+                                        :relationship relationship
+                                        :collapsed    multiple-relationships
+                                        :on-save      (fn [id updated-attrs]
+                                                        (rf/dispatch [:map/relationship-update id updated-attrs]))}))
+                selected-relationships)))))))

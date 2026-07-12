@@ -71,6 +71,58 @@
        (when (= 200 (:status resp))
          (rf/dispatch [:auth/set-user (:body resp)]))))))
 
+;; -- Sessions (ADR-0014) ----------------------------------------------------
+;; HTTP-only: Sessions exist for authenticated Maps; demo Maps are exempt
+;; from the Session model, so these effects never fire in the playground.
+
+(defn- error-message
+  "The server's own message from an error response body, or a fallback.
+   Session refusals (e.g. deleting a non-empty Session) carry the precise
+   reason under :error — the UI relays it verbatim."
+  [resp fallback]
+  (or (get-in resp [:body :error]) fallback))
+
+(rf/reg-fx
+ :sessions/fetch-fx
+ (fn [{:keys [map-id]}]
+   (go
+     (let [resp (<! (api/list-sessions map-id))]
+       (if (= 200 (:status resp))
+         (rf/dispatch [:sessions/fetch-success map-id (:body resp)])
+         (rf/dispatch [:sessions/fetch-failure map-id]))))))
+
+(rf/reg-fx
+ :session/create-fx
+ (fn [{:keys [map-id]}]
+   (go
+     (let [resp (<! (api/create-session map-id))]
+       (if (= 201 (:status resp))
+         (rf/dispatch [:session/start-success map-id (:body resp)])
+         (rf/dispatch [:session/start-failure
+                       (error-message resp "Could not start a session")]))))))
+
+(rf/reg-fx
+ :session/update-trigger-fx
+ (fn [{:keys [map-id session-id trigger]}]
+   (go
+     (let [resp (<! (api/update-session-trigger map-id session-id trigger))]
+       ;; The text was set optimistically; success just confirms it so
+       ;; the quiet "Saved" indicator can show.
+       (if (= 200 (:status resp))
+         (rf/dispatch [:session/trigger-saved])
+         (rf/dispatch [:session/trigger-save-failure map-id
+                       (error-message resp "Could not save the trigger")]))))))
+
+(rf/reg-fx
+ :session/delete-fx
+ (fn [{:keys [map-id session-id]}]
+   (go
+     (let [resp (<! (api/delete-session map-id session-id))]
+       (if (= 204 (:status resp))
+         (rf/dispatch [:session/delete-success session-id])
+         (rf/dispatch [:session/delete-failure
+                       (error-message resp "Could not delete the session")]))))))
+
 (rf/reg-fx
  :storage/get-map
  (fn [{:keys [id]}]

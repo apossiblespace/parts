@@ -32,6 +32,31 @@
   []
   (http/POST "/auth/logout" {}))
 
+;; Session-related functions (ADR-0014). Out-of-band REST, not
+;; change-events — each is a single-row write to the non-temporal
+;; sessions table.
+(defn list-sessions
+  "A Map's Sessions, ordered by anchor."
+  [map-id]
+  (http/GET (str "/maps/" map-id "/sessions") {}))
+
+(defn create-session
+  "Open a new Session. The anchor and ordinal are server-side; the
+   trigger starts empty and is set afterwards via `update-session-trigger`."
+  [map-id]
+  (http/POST (str "/maps/" map-id "/sessions") {}))
+
+(defn update-session-trigger
+  "Set the active Session's trigger text. The server refuses for a past
+   Session (the past is read-only)."
+  [map-id session-id trigger]
+  (http/PUT (str "/maps/" map-id "/sessions/" session-id) {:trigger trigger}))
+
+(defn delete-session
+  "Delete a Session — the server only allows the latest-and-empty one."
+  [map-id session-id]
+  (http/DELETE (str "/maps/" map-id "/sessions/" session-id)))
+
 ;; Account-related functions
 (defn get-current-user
   "Retrieve the information about the currently signed in user:

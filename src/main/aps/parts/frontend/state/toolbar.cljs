@@ -100,6 +100,15 @@
    :elements-selectable false
    :nodes-connectable   true})
 
+(def ^:private read-only-interaction
+  ;; Selection and pan stay — reading a Part's notes is what viewing is
+  ;; for — but nothing can move or connect.
+  {:pan-on-drag         [1]
+   :selection-on-drag   true
+   :nodes-draggable     false
+   :elements-selectable true
+   :nodes-connectable   false})
+
 (defn tool-interaction
   "What a drag means under the active tool, as data for the ReactFlow
    props (ADR-0015). In Select — and any armed one-shot creation tool —
@@ -110,13 +119,18 @@
    only pans, and nothing is selectable or draggable, so a mis-click
    can never move a Part.
 
+   On a read-only canvas every tool but Hand collapses to the read-only
+   interaction: select and pan, never move or connect.
+
    Returns identity-stable values — fresh maps each call would bust
    ReactFlow's memoized renderer via the props built from them."
-  [tool]
-  (case tool
-    :hand    hand-interaction
-    :connect connect-interaction
-    select-interaction))
+  ([tool] (tool-interaction tool true))
+  ([tool editable?]
+   (cond
+     (= :hand tool)   hand-interaction
+     (not editable?)  read-only-interaction
+     (= :connect tool) connect-interaction
+     :else            select-interaction)))
 
 ;; -- Marquee selection buffering -------------------------------------------
 ;; During a marquee drag ReactFlow emits per-mousemove select changes.
@@ -155,6 +169,7 @@
    move/delete — group-resize is deferred — and no other tool shows
    handles at all. Each node then shows handles iff it is the one
    selected."
-  [tool selected-count]
-  (and (= :select tool)
+  [tool selected-count editable?]
+  (and editable?
+       (= :select tool)
        (= 1 selected-count)))

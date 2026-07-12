@@ -7,6 +7,7 @@
   (:require
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
+   [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-layout-effect use-ref use-state]]
@@ -23,18 +24,13 @@
           (.includes t q)))))
 
 (defn- fmt-date
-  "Format a date-ish value as `YYYY/MM/DD`. Transit deserialises Java
-   `Date`/`Instant`/`Timestamp` to a `js/Date` on the cljs side; this
-   also accepts an ISO string defensively, and returns nil for anything
-   it can't parse."
+  "Format a date-ish value as `YYYY/MM/DD`, or nil when unparseable."
   [d]
-  (when d
-    (let [^js dt (if (instance? js/Date d) d (js/Date. d))]
-      (when-not (js/isNaN (.getTime dt))
-        (let [pad #(.padStart (str %) 2 "0")]
-          (str (.getFullYear dt) "/"
-               (pad (inc (.getMonth dt))) "/"
-               (pad (.getDate dt))))))))
+  (when-let [^js dt (dates/->js-date d)]
+    (let [pad #(.padStart (str %) 2 "0")]
+      (str (.getFullYear dt) "/"
+           (pad (inc (.getMonth dt))) "/"
+           (pad (.getDate dt))))))
 
 (defui ^:private map-preview
   "The server-rendered SVG preview for one Map (ADR-0008). Owns a `loaded?`

@@ -127,7 +127,33 @@
     (is (identical? (toolbar/tool-interaction :select)
                     (toolbar/tool-interaction :add-exile)))
     (is (identical? (toolbar/tool-interaction :hand)
-                    (toolbar/tool-interaction :hand)))))
+                    (toolbar/tool-interaction :hand))))
+
+  (testing "read-only (no active Session, or 073.03's viewing-the-past):
+            selection and pan stay — reading is the point — but nothing
+            can move, connect, or marquee-less tools mutate"
+    (let [props (toolbar/tool-interaction :select false)]
+      (is (= [1] (:pan-on-drag props)))
+      (is (true? (:selection-on-drag props)) "marquee still selects")
+      (is (true? (:elements-selectable props)) "click-to-read stays")
+      (is (false? (:nodes-draggable props)))
+      (is (false? (:nodes-connectable props)))))
+
+  (testing "read-only Hand is just Hand — it never mutated anything"
+    (is (identical? (toolbar/tool-interaction :hand)
+                    (toolbar/tool-interaction :hand false))))
+
+  (testing "read-only Connect falls back to the read-only interaction —
+            an armed Connect must not become a drag source"
+    (is (false? (:nodes-connectable (toolbar/tool-interaction :connect false)))))
+
+  (testing "read-only values are identity-stable too"
+    (is (identical? (toolbar/tool-interaction :select false)
+                    (toolbar/tool-interaction :add-exile false))))
+
+  (testing "editable? true is the existing per-tool behaviour"
+    (is (identical? (toolbar/tool-interaction :select)
+                    (toolbar/tool-interaction :select true)))))
 
 (deftest marquee-buffer-add-test
   (testing "Part selects accumulate — the latest selected? per id wins;
@@ -166,12 +192,15 @@
 (deftest resize-armed?-test
   (testing "resize arms only for a single selection in Select — each node
             then shows handles iff it is the selected one"
-    (is (true? (toolbar/resize-armed? :select 1))))
+    (is (true? (toolbar/resize-armed? :select 1 true))))
 
   (testing "not for multi-selections — marquee selections are for move/delete"
-    (is (false? (toolbar/resize-armed? :select 2)))
-    (is (false? (toolbar/resize-armed? :select 0))))
+    (is (false? (toolbar/resize-armed? :select 2 true)))
+    (is (false? (toolbar/resize-armed? :select 0 true))))
 
   (testing "not outside the Select tool"
-    (is (false? (toolbar/resize-armed? :hand 1)))
-    (is (false? (toolbar/resize-armed? :add-exile 1)))))
+    (is (false? (toolbar/resize-armed? :hand 1 true)))
+    (is (false? (toolbar/resize-armed? :add-exile 1 true))))
+
+  (testing "never on a read-only canvas"
+    (is (false? (toolbar/resize-armed? :select 1 false)))))
