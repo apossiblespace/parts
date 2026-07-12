@@ -4,6 +4,7 @@
    [aps.parts.auth :as auth]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
+   [aps.parts.entity.session :as session]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.string :as str]
@@ -104,6 +105,23 @@
           the-map   (parts-map/fetch (:map_id user))]
       (is (some? the-map) "the map exists in the database")
       (is (= (:id user) (:owner_id the-map)) "the map is owned by the new account")))
+
+  (testing "provisioning opens Session 1 before seeding demo content, so
+            derived membership is total from the first moment (ADR-0014)"
+    (let [user-data   (factory/build-test-user)
+          response    (account/register-account
+                       {:body-params (merge user-data acceptance)})
+          map-id      (get-in response [:body :map_id])
+          sessions    (session/index map-id)
+          appeared    (session/first-appearances map-id)
+          the-map     (parts-map/fetch map-id)
+          content-ids (concat (map :id (:parts the-map))
+                              (map :id (:relationships the-map)))]
+      (is (= [1] (mapv :ordinal sessions)) "exactly one Session, ordinal 1")
+      (is (nil? (:trigger (first sessions))) "the provisioned trigger is empty")
+      (is (seq content-ids) "the starter Map is seeded")
+      (is (every? #(= (:id (first sessions)) (:id (get appeared %))) content-ids)
+          "every seeded Part and Relationship buckets into Session 1")))
 
   (testing "if a write inside the tx throws, the user insert is rolled back"
     (let [user-data    (factory/build-test-user)

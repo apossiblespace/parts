@@ -65,28 +65,30 @@
    previous one — its range now ends at this anchor. Always a separate
    write from any content batch, so the anchor precedes content attributed
    to the new Session (ADR-0014's ordering guard)."
-  [map-id actor-id]
-  (jdbc/with-transaction [tx db/datasource]
-    (let [map-uuid (db/->uuid map-id)
-          next-ord (-> (jdbc/execute-one!
-                        tx
-                        (db/sql-format
-                         {:select [[[:+ [:coalesce [:max :ordinal] 0] 1] :next]]
-                          :from   [:sessions]
-                          :where  [:= :map_id map-uuid]}))
-                       :next)
-          row      (db/insert! :sessions
-                               {:map_id          map-uuid
-                                :ordinal         next-ord
-                                :trigger         nil
-                                :anchor_valid_at [:now]}
-                               tx)]
-      (audit/record! tx {:actor-id actor-id
-                         :table    :sessions
-                         :op       :insert
-                         :row-id   (:id row)
-                         :after    (snapshot row)})
-      row)))
+  ([map-id actor-id]
+   (jdbc/with-transaction [tx db/datasource]
+     (create! map-id actor-id tx)))
+  ([map-id actor-id tx]
+   (let [map-uuid (db/->uuid map-id)
+         next-ord (-> (jdbc/execute-one!
+                       tx
+                       (db/sql-format
+                        {:select [[[:+ [:coalesce [:max :ordinal] 0] 1] :next]]
+                         :from   [:sessions]
+                         :where  [:= :map_id map-uuid]}))
+                      :next)
+         row      (db/insert! :sessions
+                              {:map_id          map-uuid
+                               :ordinal         next-ord
+                               :trigger         nil
+                               :anchor_valid_at [:now]}
+                              tx)]
+     (audit/record! tx {:actor-id actor-id
+                        :table    :sessions
+                        :op       :insert
+                        :row-id   (:id row)
+                        :after    (snapshot row)})
+     row)))
 
 ;; -- Derived membership -----------------------------------------------------
 

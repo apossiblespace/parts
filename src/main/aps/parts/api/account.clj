@@ -8,6 +8,7 @@
    [aps.parts.entity.part :as part]
    [aps.parts.entity.policy-acceptance :as policy-acceptance]
    [aps.parts.entity.relationship :as relationship]
+   [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
@@ -67,6 +68,9 @@
   (let [account (user/create! (dissoc params :accepted-legal? :accepted-medical?) tx)
         title   "Example Map"
         the-map (parts-map/create! {:title title :owner_id (:id account)} (:id account) tx)]
+    ;; Session 1 must exist before any content so the seeded demo Parts land
+    ;; inside its range — ADR-0014's "derivation is total" invariant.
+    (session/create! (:id the-map) (:id account) tx)
     (populate-initial-map! (:id the-map) (:id account) tx)
     (policy-acceptance/record-onboarding! (:id account) tx)
     {:account account :map-id (:id the-map)}))
