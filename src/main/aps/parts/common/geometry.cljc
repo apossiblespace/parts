@@ -111,6 +111,23 @@
   [bidi-pairs {:keys [source_id target_id]}]
   (contains? bidi-pairs #{source_id target_id}))
 
+(defn curve-midpoint
+  "The visual midpoint of a drawn edge: the chord midpoint for a plain
+   edge (`offset` 0), or the quadratic bow's t=0.5 point — half the
+   offset off the chord, using `quadratic-path`'s perpendicular
+   convention, so the two edges of a bidirectional pair get midpoints on
+   OPPOSITE sides and their badges never stack."
+  [{:keys [sx sy tx ty]} offset]
+  (let [mx  (/ (+ sx tx) 2)
+        my  (/ (+ sy ty) 2)
+        dx  (- tx sx)
+        dy  (- ty sy)
+        len (Math/sqrt (+ (* dx dx) (* dy dy)))]
+    (if (or (zero? len) (zero? offset))
+      {:x mx :y my}
+      {:x (+ mx (* (/ offset 2) (/ (- dy) len)))
+       :y (+ my (* (/ offset 2) (/ dx len)))})))
+
 (defn quadratic-path
   "SVG-path `d` attribute for a quadratic Bezier from (sx,sy) to (tx,ty)
    bowed perpendicular to the chord by `offset` pixels. Used for

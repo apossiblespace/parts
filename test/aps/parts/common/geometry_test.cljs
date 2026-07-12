@@ -130,6 +130,19 @@
                   [{:id "r2" :source_id "p1" :target_id "ghost" :type "unknown"}]
                   {:x 0 :y 150 :width 200 :height 50}))))))
 
+(deftest curve-midpoint-test
+  (testing "zero offset: the chord midpoint (plain bezier edges)"
+    (is (= {:x 50 :y 0} (g/curve-midpoint {:sx 0 :sy 0 :tx 100 :ty 0} 0))))
+
+  (testing "a bowed edge's visual midpoint sits half the offset off the
+            chord; the pair's opposite chord directions land the two
+            midpoints on OPPOSITE sides — badges never stack"
+    (is (= {:x 50 :y 20} (g/curve-midpoint {:sx 0 :sy 0 :tx 100 :ty 0} 40)))
+    (is (= {:x 50 :y -20} (g/curve-midpoint {:sx 100 :sy 0 :tx 0 :ty 0} 40))))
+
+  (testing "degenerate zero-length chord stays at the point"
+    (is (= {:x 5 :y 5} (g/curve-midpoint {:sx 5 :sy 5 :tx 5 :ty 5} 40)))))
+
 (deftest corners->rect-test
   (testing "normalises whichever way the drag ran"
     (is (= {:x 10 :y 20 :width 30 :height 40}

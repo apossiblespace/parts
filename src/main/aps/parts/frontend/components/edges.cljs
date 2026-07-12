@@ -83,22 +83,19 @@
                         :className class-name
                         :id        id
                         :markerEnd marker-end})
-           ;; Recency badge at the chord midpoint (close enough to the
-           ;; curve for a label this small; bowed pairs sit slightly
-           ;; off-curve). EdgeLabelRenderer is ReactFlow's HTML overlay
-           ;; for edge decorations — SVG <text> can't carry the badge
-           ;; styling.
+           ;; EdgeLabelRenderer is ReactFlow's HTML overlay for edge
+           ;; decorations — SVG <text> can't carry the badge styling.
            (when-let [ordinal (:firstAppeared data)]
-             (let [{:keys [sx sy tx ty]} params
-                   mx                    (/ (+ sx tx) 2)
-                   my                    (/ (+ sy ty) 2)]
+             (let [{:keys [x y]} (geometry/curve-midpoint
+                                  params
+                                  (if bidir? geometry/bow-offset-px 0))]
                ($ EdgeLabelRenderer
                   ($ :span {:class (str "recency-badge on-edge"
                                         (when (:recent data) " recent"))
                             :title (str "First appeared in Session " ordinal)
                             :style #js {:transform
                                         (str "translate(-50%, -50%) translate("
-                                             mx "px," my "px)")}}
+                                             x "px," y "px)")}}
                      (str "S" ordinal))))))))))
 
 (def PartsEdge

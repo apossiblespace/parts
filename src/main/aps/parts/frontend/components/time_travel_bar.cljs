@@ -11,18 +11,15 @@
    [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))
 
-(def ^:private bar-date-format
-  (js/Intl.DateTimeFormat. js/undefined #js {:day "numeric" :month "short"}))
-
 (defui time-travel-bar
   []
   (let [viewing                               (uix.rf/use-subscribe [:time-travel/viewing])
         loading?                              (uix.rf/use-subscribe [:time-travel/loading?])
         error                                 (uix.rf/use-subscribe [:time-travel/error])
         {:keys [session count latest? index]} viewing
-        date                                  (some->> (:anchor_valid_at session)
-                                                       (dates/->js-date)
-                                                       (.format bar-date-format))
+        date                                  (dates/format-date
+                                               dates/short-date-format
+                                               (:anchor_valid_at session))
         label                                 (str "Session " (:ordinal session) " of " count
                                                    (when (seq (:trigger session))
                                                      (str " — " (:trigger session)))

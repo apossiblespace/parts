@@ -440,10 +440,8 @@
    (sessions/set-error db message)))
 
 ;; -- Time-travel mode (TASK-073.03) -----------------------------------------
-;; Pure transitions live in `state/time-travel`; these pair them with the
-;; snapshot fetch. Only a step onto an uncached PAST Session fetches —
-;; the latest is the live Map, and revisits hit the snapshot cache (the
-;; past is immutable).
+;; Pure transitions live in `state/time-travel`; these pair them with
+;; the snapshot fetch (`snapshot-needed?` is the fetch policy).
 
 (rf/reg-event-db
  :time-travel/enter

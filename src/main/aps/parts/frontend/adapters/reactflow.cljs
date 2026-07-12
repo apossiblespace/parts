@@ -5,6 +5,13 @@
    [aps.parts.common.models.relationship :refer [make-relationship]]
    [aps.parts.common.observe :as o]))
 
+(defn- recent?
+  "The accented recency badge: this element first appeared in the
+   Session currently in view (nil ordinal — demo Maps — never accents)."
+  [first-appeared viewed-ordinal]
+  (and (some? first-appeared)
+       (= first-appeared viewed-ordinal)))
+
 (defn part->node
   "Convert a Part to a ReactFlow node. The opts map threads per-canvas
    decisions into the node so the node component needs no subscriptions
@@ -23,14 +30,19 @@
         :selected (when selected-ids (contains? selected-ids id))
         :width    (or width 100)
         :height   (or height 100)
+        ;; `adoptUserNodes` re-seeds internals.measured from the user
+        ;; node on EVERY nodes-prop change; without this the node reads
+        ;; as unmeasured for a beat each time, unmounting every floating
+        ;; edge during the Time-travel glide's per-frame updates.
+        :measured #js {:width  (or width 100)
+                       :height (or height 100)}
         :data     #js {:label         label
                        :type          (name type)
                        :notes         notes
                        :resizable     (boolean resizable?)
                        :firstAppeared first_appeared_ordinal
-                       :recent        (and (some? first_appeared_ordinal)
-                                           (= first_appeared_ordinal
-                                              viewed-ordinal))}}))
+                       :recent        (recent? first_appeared_ordinal
+                                               viewed-ordinal)}}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.
@@ -90,9 +102,8 @@
                              :notes         notes
                              :bidir         bidir?
                              :firstAppeared first_appeared_ordinal
-                             :recent        (and (some? first_appeared_ordinal)
-                                                 (= first_appeared_ordinal
-                                                    viewed-ordinal))}
+                             :recent        (recent? first_appeared_ordinal
+                                                     viewed-ordinal)}
           :className    (str "edge-" type-name)
           ;; ReactFlow's EdgeWrapper wraps `:markerEnd` in `url('#...')`
           ;; itself, so we pass just the bare marker id. Passing the

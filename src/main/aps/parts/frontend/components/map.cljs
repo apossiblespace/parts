@@ -18,10 +18,18 @@
    [aps.parts.frontend.components.time-travel-bar :refer [time-travel-bar]]
    [aps.parts.frontend.components.toolbar.button :refer [button]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
+   [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-callback use-effect use-ref use-state]]
    [uix.re-frame :as uix.rf]))
+
+(def ^:private session-glide-ms
+  "Duration of the Time-travel session-switch glide."
+  250)
+
+(defn- ease-out-cubic [t]
+  (- 1 (js/Math.pow (- 1 t) 3)))
 
 ;; Tool palette — the active tool decides what a drag means (ADR-0015).
 ;; Three groups with different semantics, deliberately styled differently
@@ -232,10 +240,8 @@
                          ($ :span {:class "w-4 shrink-0"})
                          "Export map data")))))
           ($ session-chip)
-          ;; Time-travel entry: hidden until there is history to travel
-          ;; (two Sessions), and while the mode is on — the bar owns
-          ;; navigation there.
-          (when (and (>= (count the-sessions) 2)
+          ;; Hidden while the mode is on — the bar owns navigation there.
+          (when (and (time-travel/has-history? the-sessions)
                      (not time-travelling?))
             ($ :div {:class "shadow-xs"}
                ($ :button {:class      (str "btn btn-sm btn-square bg-white "
@@ -271,9 +277,6 @@
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
         map-id                (uix.rf/use-subscribe [:map/id])
-        ;; Canvas sources, not [:map :parts] directly: in Time-travel
-        ;; these serve the viewed Session's snapshot instead of the
-        ;; live Map.
         parts                 (uix.rf/use-subscribe [:canvas/parts])
         relationships         (uix.rf/use-subscribe [:canvas/relationships])
         viewed-ordinal        (uix.rf/use-subscribe [:canvas/viewed-ordinal])
@@ -292,8 +295,23 @@
         [marquee-overlay
          set-marquee-overlay] (use-state nil)
 
+        ;; Session-switch glide: tween the Parts that persist across the
+        ;; switch (`time-travel/interpolate-parts`). Local React state,
+        ;; not re-frame — per-frame updates stay out of app-db (same
+        ;; reasoning as the marquee overlay); the ref is the synchronous
+        ;; read for a tween starting mid-flight. Editing mode bypasses
+        ;; this state entirely: drag frames must not tween, nor pay a
+        ;; second render.
+        [glide-parts
+         set-glide-parts]     (use-state nil)
+        glide-parts-ref       (use-ref nil)
+        glide-raf             (use-ref nil)
+        shown-parts           (if (and time-travelling? glide-parts)
+                                glide-parts
+                                parts)
+
         nodes                 (adapter/parts->nodes
-                               parts
+                               shown-parts
                                (if marquee-overlay
                                  (toolbar/marquee-preview-ids
                                   selected-node-ids (:parts marquee-overlay))
@@ -522,6 +540,27 @@
 
     (use-effect
      (fn []
+       (if-not time-travelling?
+         ;; Track the live positions silently (ref only, no re-render):
+         ;; entering the mode tweens FROM whatever was last on screen.
+         (do (reset! glide-parts-ref parts)
+             (set-glide-parts nil))
+         (let [from  @glide-parts-ref
+               start (js/performance.now)
+               step  (fn step [now]
+                       (let [t     (min 1 (/ (- now start) session-glide-ms))
+                             frame (time-travel/interpolate-parts
+                                    from parts (ease-out-cubic t))]
+                         (reset! glide-parts-ref frame)
+                         (set-glide-parts frame)
+                         (when (< t 1)
+                           (reset! glide-raf (js/requestAnimationFrame step)))))]
+           (reset! glide-raf (js/requestAnimationFrame step))))
+       (fn [] (js/cancelAnimationFrame @glide-raf)))
+     [parts time-travelling?])
+
+    (use-effect
+     (fn []
        (when map-id
          (o/info "map.lifecycle" "starting event queue for map" map-id)
          (queue/start map-id)
@@ -540,20 +579,9 @@
                                   (not (or (.-metaKey e)
                                            (.-ctrlKey e)
                                            (.-altKey e))))
-                         (cond
-                           ;; Time-travel owns Escape (exit the mode) and
-                           ;; the arrows (step); V/H and Space fall
-                           ;; through — pan and select stay available.
-                           (and time-travelling? (= "Escape" (.-key e)))
-                           (rf/dispatch [:time-travel/exit])
-
-                           (and time-travelling? (= "ArrowLeft" (.-key e)))
-                           (rf/dispatch [:time-travel/step :back])
-
-                           (and time-travelling? (= "ArrowRight" (.-key e)))
-                           (rf/dispatch [:time-travel/step :forward])
-
-                           :else
+                         (if-let [travel-event (and time-travelling?
+                                                    (time-travel/key-event (.-key e)))]
+                           (rf/dispatch travel-event)
                            (if-let [held (toolbar/spring-tool (.-key e))]
                              ;; Not mid-marquee: flipping the tool then would
                              ;; abort ReactFlow's gesture with the selection
@@ -602,6 +630,7 @@
                           :fill "context-stroke"}))))
        ($ :div {:class (str "map-view"
                             (when minimal " minimal")
+                            (when time-travelling? " time-travelling")
                             " mode-" (name tool-mode))}
           ;; ⌘/Ctrl-scroll zoom rides on a ReactFlow default not visible
           ;; below (`zoomActivationKeyCode`, converting `panOnScroll`).

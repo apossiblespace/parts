@@ -104,13 +104,99 @@
                                           :relationships []}))]
       (is (= [{:id "p1"}] (:parts (tt/canvas-content db)))))))
 
+(deftest no-flicker-test
+  (testing "stepping to an uncached Session keeps the previous content on
+            screen until its snapshot lands — the canvas never blanks"
+    (let [db (-> db3 tt/enter (tt/step :back))]
+      (is (= "s2" (get-in db [:time-travel :session-id])) "the bar shows the target")
+      (is (= [{:id "p1"} {:id "p2"}] (:parts (tt/canvas-content db)))
+          "the canvas still shows the previous (live) content")
+      (is (true? (tt/snapshot-needed? db)))))
+
+  (testing "the arriving snapshot switches the shown content"
+    (let [db (-> db3 tt/enter (tt/step :back)
+                 (tt/store-snapshot "s2" {:parts [{:id "p1"}] :relationships []}))]
+      (is (= [{:id "p1"}] (:parts (tt/canvas-content db))))
+      (is (false? (tt/snapshot-needed? db)))))
+
+  (testing "a snapshot for a Session that is no longer the target is
+            cached but does not hijack the view (rapid multi-step)"
+    (let [db (-> db3 tt/enter
+                 (tt/step :back)            ; target s2, fetch fires
+                 (tt/step :back)            ; target s1 before s2 lands
+                 (tt/store-snapshot "s2" {:parts [{:id "p1"}] :relationships []}))]
+      (is (= "s1" (get-in db [:time-travel :session-id])))
+      (is (= [{:id "p1"} {:id "p2"}] (:parts (tt/canvas-content db)))
+          "still the last shown content — s1's snapshot hasn't arrived")
+      (is (some? (get-in db [:time-travel :snapshots "s2"])) "s2 cached for later")))
+
+  (testing "stepping to an already-cached Session switches instantly"
+    (let [db (-> db3 tt/enter (tt/step :back)
+                 (tt/store-snapshot "s2" {:parts [{:id "p1"}] :relationships []})
+                 (tt/step :forward)
+                 (tt/step :back))]
+      (is (= [{:id "p1"}] (:parts (tt/canvas-content db))))
+      (is (false? (tt/snapshot-needed? db)))))
+
+  (testing "stepping to the latest is always instant — it is the live Map"
+    (let [db (-> db3 tt/enter (tt/step :back) (tt/step :forward))]
+      (is (= [{:id "p1"} {:id "p2"}] (:parts (tt/canvas-content db))))
+      (is (false? (tt/snapshot-needed? db))))))
+
 (deftest viewed-ordinal-test
   (testing "editing mode: the active Session's ordinal (its newcomers
             wear the accented badge)"
     (is (= 3 (tt/viewed-ordinal db3))))
 
-  (testing "time travel: the viewed Session's ordinal"
-    (is (= 2 (tt/viewed-ordinal (-> db3 tt/enter (tt/step :back)))))))
+  (testing "time travel: the SHOWN Session's ordinal — badges must match
+            the content on screen, which lags the target until its
+            snapshot lands"
+    (let [stepped (-> db3 tt/enter (tt/step :back))]
+      (is (= 3 (tt/viewed-ordinal stepped))
+          "still the latest while s2's snapshot loads")
+      (is (= 2 (tt/viewed-ordinal
+                (tt/store-snapshot stepped "s2" {:parts [] :relationships []})))))))
+
+(deftest interpolate-parts-test
+  (let [from [{:id "a" :position_x 0 :position_y 0 :label "old label"}
+              {:id "gone" :position_x 5 :position_y 5}]
+        to   [{:id "a" :position_x 100 :position_y 50 :label "new label"}
+              {:id "new" :position_x 20 :position_y 20}]]
+    (testing "Parts present in both glide: positions lerp, everything else
+              is already the target's"
+      (let [half (tt/interpolate-parts from to 0.5)]
+        (is (= {:id "a" :position_x 50 :position_y 25 :label "new label"}
+               (first half)))))
+
+    (testing "a Part new to the target renders at its final position from
+              the first frame"
+      (is (= {:id "new" :position_x 20 :position_y 20}
+             (second (tt/interpolate-parts from to 0.5)))))
+
+    (testing "t=1 is exactly the target — the tween lands, never drifts"
+      (is (= to (tt/interpolate-parts from to 1))))
+
+    (testing "t=0 is the target set at the source's positions"
+      (is (= {:id "a" :position_x 0 :position_y 0 :label "new label"}
+             (first (tt/interpolate-parts from to 0)))))))
+
+(deftest key-event-test
+  (testing "the mode's keys: Escape exits, arrows step"
+    (is (= [:time-travel/exit] (tt/key-event "Escape")))
+    (is (= [:time-travel/step :back] (tt/key-event "ArrowLeft")))
+    (is (= [:time-travel/step :forward] (tt/key-event "ArrowRight"))))
+
+  (testing "other keys are not the mode's — they fall through to the
+            tool shortcuts (V/H, Space spring-hand)"
+    (is (nil? (tt/key-event "v")))
+    (is (nil? (tt/key-event " ")))
+    (is (nil? (tt/key-event "h")))))
+
+(deftest has-history?-test
+  (testing "two Sessions make a Map travelable; fewer leave nothing to see"
+    (is (false? (tt/has-history? [])))
+    (is (false? (tt/has-history? [s1])))
+    (is (true? (tt/has-history? [s1 s2])))))
 
 (deftest error-test
   (testing "a fetch failure is held for the bar; stepping clears it"

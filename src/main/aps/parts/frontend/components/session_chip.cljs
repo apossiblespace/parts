@@ -17,18 +17,6 @@
    [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))
 
-(def ^:private chip-date-format
-  ;; Browser locale decides the shape ("4 Jul" / "Jul 4") — no date lib.
-  (js/Intl.DateTimeFormat. js/undefined #js {:day "numeric" :month "short"}))
-
-(def ^:private popover-date-format
-  (js/Intl.DateTimeFormat. js/undefined #js {:dateStyle "medium"}))
-
-(defn- fmt-date
-  [^js format d]
-  (when-let [^js dt (dates/->js-date d)]
-    (.format format dt)))
-
 (defn- commit-trigger
   "Save the trigger on blur when it actually changed; Enter just blurs."
   [session ^js event]
@@ -48,7 +36,8 @@
           ($ :span {:class "font-medium text-sm"}
              (str "Session " (:ordinal session)))
           ($ :span {:class "text-xs text-base-content/60"}
-             (fmt-date popover-date-format (:anchor_valid_at session))))
+             (dates/format-date dates/medium-date-format
+                                (:anchor_valid_at session))))
        ($ :label {:class "flex flex-col gap-1"}
           ($ :span {:class "flex justify-between text-xs text-base-content/60"}
              "Trigger (optional)"
@@ -111,8 +100,9 @@
                                 "Start a session")}
             (if active
               (str "Session " (:ordinal active)
-                   (when-let [date (fmt-date chip-date-format
-                                             (:anchor_valid_at active))]
+                   (when-let [date (dates/format-date
+                                    dates/short-date-format
+                                    (:anchor_valid_at active))]
                      (str " · " date)))
               "Start a session")
             ($ ChevronDown {:size 16}))

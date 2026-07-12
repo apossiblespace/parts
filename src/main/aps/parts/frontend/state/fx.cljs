@@ -99,8 +99,6 @@
      (let [resp (<! (api/load-map-at map-id session-id))]
        (if (= 200 (:status resp))
          (rf/dispatch [:time-travel/snapshot-success session-id
-                       ;; Same id normalization as the live map load —
-                       ;; raw transit UUIDs as ReactFlow ids hide edges.
                        (http-backend/normalize-map-ids (:body resp))])
          (rf/dispatch [:time-travel/fetch-failure
                        (error-message resp "Could not load that session")]))))))

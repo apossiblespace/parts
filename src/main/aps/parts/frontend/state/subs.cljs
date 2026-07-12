@@ -111,9 +111,9 @@
  (fn [db _]
    (time-travel/error db)))
 
-;; What the canvas (and everything that joins against it, like the
-;; sidebar's selected-entity views) renders: the live Map in Editing
-;; mode, the viewed Session's snapshot in Time-travel.
+;; Canvas source subs: the live Map in Editing mode, the viewed
+;; Session's snapshot in Time-travel. Everything that joins against
+;; the canvas (sidebar selected-entity views included) reads these.
 
 (rf/reg-sub
  :canvas/parts
