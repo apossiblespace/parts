@@ -56,12 +56,14 @@
 
 (defn can-connect?
   "Return true if a new Relationship from `source-id` to `target-id` can be
-   added to `relationships`. Blocks any duplicate (source_id, target_id) —
-   only one relationship is allowed per ordered pair. Reverse direction
-   (A->B alongside B->A) and self-loops (A->A) stay allowed."
+   added to `relationships`. Blocks self-loops (A->A) — a Part cannot
+   relate to itself — and any duplicate (source_id, target_id): only one
+   relationship is allowed per ordered pair. Reverse direction (A->B
+   alongside B->A) stays allowed."
   [relationships source-id target-id]
-  (not-any? (fn [{existing-source :source_id
-                  existing-target :target_id}]
-              (and (= existing-source source-id)
-                   (= existing-target target-id)))
-            relationships))
+  (and (not= source-id target-id)
+       (not-any? (fn [{existing-source :source_id
+                       existing-target :target_id}]
+                   (and (= existing-source source-id)
+                        (= existing-target target-id)))
+                 relationships)))

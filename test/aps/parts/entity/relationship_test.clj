@@ -134,3 +134,25 @@
                                                    :target_id (:id b-part)
                                                    :type      "protects"}
                                                   (:id user)))))))
+
+(deftest test-relationship-rejects-self-loop
+  ;; A Part cannot relate to itself: the concept has no meaning in the
+  ;; domain, and the floating-edge geometry degenerates (identical
+  ;; centres → invisible zero-length curve). The client's `can-connect?`
+  ;; blocks it too; this is the enforcement of record.
+  (testing "create rejects source = target"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Self" :owner_id (:id user)}
+                                     (:id user))
+          p       (part/create! {:map_id     (:id the-map)
+                                 :type       "manager"
+                                 :label      "Loop"
+                                 :position_x 1
+                                 :position_y 1}
+                                (:id user))]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"itself"
+                            (relationship/create! {:map_id    (:id the-map)
+                                                   :source_id (:id p)
+                                                   :target_id (:id p)
+                                                   :type      "protects"}
+                                                  (:id user)))))))

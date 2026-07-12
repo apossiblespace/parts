@@ -97,14 +97,12 @@
       (is (relationship/can-connect? [(rel a b "protects")] b a))
       (is (relationship/can-connect? [(rel a b "unknown")]  b a)))
 
-    (testing "Self-loops permitted on empty / on unrelated edges"
-      (is (relationship/can-connect? [] a a))
-      (is (relationship/can-connect? [(rel a b "unknown")] a a)))
+    (testing "Self-loops blocked — a Part cannot relate to itself, and a
+              degenerate self-edge has no drawable curve"
+      (is (not (relationship/can-connect? [] a a)))
+      (is (not (relationship/can-connect? [(rel a b "unknown")] a a))))
 
     (testing "Same source/target blocked regardless of existing type"
       (is (not (relationship/can-connect? [(rel a b "unknown")]        a b)))
       (is (not (relationship/can-connect? [(rel a b "protects")]       a b)))
-      (is (not (relationship/can-connect? [(rel a b "carries-burden")] a b))))
-
-    (testing "Duplicate self-loop blocked"
-      (is (not (relationship/can-connect? [(rel a a "carries-burden")] a a))))))
+      (is (not (relationship/can-connect? [(rel a b "carries-burden")] a b))))))

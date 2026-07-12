@@ -22,6 +22,12 @@
    with `:type :validation` when an endpoint is missing or lives in a
    different Map."
   [tx {:keys [map_id source_id target_id]}]
+  ;; A Part cannot relate to itself — meaningless in the domain, and the
+  ;; canvas has no drawable curve for it. The client's `can-connect?`
+  ;; blocks it too; this is the enforcement of record.
+  (when (= source_id target_id)
+    (throw (ex-info "A Part cannot relate to itself"
+                    {:type :validation :id source_id :map_id map_id})))
   ;; `live-rows`, not `as-of-now`: the endpoint Parts are usually created
   ;; earlier in this same change-batch transaction, where the now()-based
   ;; reader can't see them (Postgres freezes now() at transaction start).
