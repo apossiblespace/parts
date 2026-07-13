@@ -63,6 +63,17 @@
   [map-id session-id]
   (http/DELETE (str "/maps/" map-id "/sessions/" session-id)))
 
+(defn set-session-activation
+  "Link the Part this Session activated (one per Session at launch)."
+  [map-id session-id part-id]
+  (http/PUT (str "/maps/" map-id "/sessions/" session-id "/activation")
+    {:part_id part-id}))
+
+(defn clear-session-activation
+  "Remove the Session's activated-Part link."
+  [map-id session-id]
+  (http/DELETE (str "/maps/" map-id "/sessions/" session-id "/activation")))
+
 ;; Account-related functions
 (defn get-current-user
   "Retrieve the information about the currently signed in user:

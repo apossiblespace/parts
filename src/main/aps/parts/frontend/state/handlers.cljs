@@ -425,9 +425,10 @@
  :session/start-success
  (fn [db [_ map-id session]]
    (if (= map-id (get-in db [:map :id]))
-     (-> db
-         (sessions/add-session session)
-         (sessions/open-undo-window (:id session)))
+     (let [session (sessions/normalize-session session)]
+       (-> db
+           (sessions/add-session session)
+           (sessions/open-undo-window (:id session))))
      db)))
 
 (rf/reg-event-db
@@ -444,11 +445,20 @@
                                 :trigger    trigger}}))
 
 (rf/reg-event-fx
- :session/trigger-save-failure
+ :session/save-failure
  (fn [{:keys [db]} [_ map-id message]]
-   ;; Refetch to roll the optimistic trigger back to the stored truth.
+   ;; Refetch to roll the optimistic Session write back to the stored
+   ;; truth.
    {:db                (sessions/set-error db message)
     :sessions/fetch-fx {:map-id map-id}}))
+
+(rf/reg-event-fx
+ :session/set-activation
+ (fn [{:keys [db]} [_ session-id part-id]]
+   {:db                           (sessions/set-activation db session-id part-id)
+    :session/update-activation-fx {:map-id     (get-in db [:map :id])
+                                   :session-id session-id
+                                   :part-id    part-id}}))
 
 (rf/reg-event-fx
  :session/delete

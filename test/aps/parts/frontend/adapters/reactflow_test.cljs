@@ -113,6 +113,28 @@
       (is (nil? (.. (aget nodes 0) -data -firstAppeared)))
       (is (false? (.. (aget nodes 0) -data -recent)))))
 
+  (testing "the viewed Session's activated Part wears the marker with the
+            trigger text; other Parts don't — and the marker is independent
+            of the badge gate (a single-Session Map can have an activation)"
+    (let [parts [{:id         "p1" :type       "unknown" :label "activated"
+                  :position_x 0    :position_y 0}
+                 {:id         "p2" :type       "unknown" :label "bystander"
+                  :position_x 0    :position_y 0}]
+          nodes (adapter/parts->nodes parts nil
+                                      {:activated-part-id  "p1"
+                                       :activation-trigger "conflict at work"})]
+      (is (true? (.. (aget nodes 0) -data -activated)))
+      (is (= "conflict at work" (.. (aget nodes 0) -data -activationTrigger)))
+      (is (false? (.. (aget nodes 1) -data -activated)))
+      (is (nil? (.. (aget nodes 1) -data -activationTrigger)))))
+
+  (testing "no activation in the viewed Session — no markers"
+    (let [nodes (adapter/parts->nodes [{:id         "p1" :type       "unknown"
+                                        :label      "p"
+                                        :position_x 0    :position_y 0}]
+                                      nil {:activated-part-id nil})]
+      (is (false? (.. (aget nodes 0) -data -activated)))))
+
   (testing "edges carry the same badge data, gated the same way"
     (let [rel   {:id                     "r1"       :source_id "a" :target_id "b"
                  :type                   "protects"

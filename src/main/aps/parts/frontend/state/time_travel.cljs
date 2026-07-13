@@ -149,6 +149,16 @@
     (some #(when (= (:id %) shown-id) %)
           (get-in db [:map :sessions]))))
 
+(defn viewed-session
+  "The Session whose annotations are on screen: the SHOWN Session in the
+   mode (it lags the target until a snapshot lands), the active Session
+   in Editing mode. Recency badges and the activation marker both key
+   off this, so they always match the content on screen."
+  [db]
+  (if (active? db)
+    (shown-session db)
+    (sessions/active-session db)))
+
 (defn canvas-content
   "What the canvas renders: the live Map in Editing mode and when the
    SHOWN Session is the latest; otherwise the shown Session's snapshot.
@@ -161,15 +171,6 @@
       (get-in db [:time-travel :snapshots shown-id])
       {:parts         (get-in db [:map :parts])
        :relationships (get-in db [:map :relationships])})))
-
-(defn viewed-ordinal
-  "Which Session's newcomers wear the accented recency badge: the SHOWN
-   Session in the mode (badges must match the content on screen), the
-   active Session in Editing mode."
-  [db]
-  (if (active? db)
-    (:ordinal (shown-session db))
-    (:ordinal (sessions/active-session db))))
 
 (defn interpolate-parts
   "One frame of the session-switch glide: the TARGET Parts, with each

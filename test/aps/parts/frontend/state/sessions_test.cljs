@@ -71,6 +71,40 @@
              (:trigger (sessions/active-session db))))
       (is (nil? (:trigger (first (get-in db [:map :sessions]))))))))
 
+(deftest set-activation-test
+  (testing "only the target Session's activated Part changes"
+    (let [db (sessions/set-activation {:map {:id "m" :sessions [s1 s2]}}
+                                      "s2" "part-9")]
+      (is (= "part-9" (:activated_part_id (sessions/active-session db))))
+      (is (nil? (:activated_part_id (first (get-in db [:map :sessions])))))))
+
+  (testing "nil clears the link"
+    (let [db (sessions/set-activation
+              {:map {:id "m" :sessions [(assoc s2 :activated_part_id "part-9")]}}
+              "s2" nil)]
+      (is (nil? (:activated_part_id (sessions/active-session db)))))))
+
+(deftest normalize-session-test
+  (testing "ingestion stringifies transit's cljs-UUID ids, so
+            [:map :sessions] holds one representation and consumers can
+            compare :activated_part_id to (string) Part ids directly"
+    (let [raw {:id                (uuid "0f8fad5b-d9cb-469f-a165-70867728950e")
+               :activated_part_id (uuid "2f8fad5b-d9cb-469f-a165-70867728950e")
+               :ordinal           1}
+          db  (sessions/apply-sessions {:map {:id "m"}} "m" [raw])
+          s   (first (get-in db [:map :sessions]))]
+      (is (= "0f8fad5b-d9cb-469f-a165-70867728950e" (:id s)))
+      (is (= "2f8fad5b-d9cb-469f-a165-70867728950e" (:activated_part_id s)))))
+
+  (testing "add-session normalizes the started Session the same way; a
+            missing activation stays nil"
+    (let [db (sessions/add-session
+              {:map {:id "m" :sessions []}}
+              {:id (uuid "0f8fad5b-d9cb-469f-a165-70867728950e") :ordinal 1})
+          s  (sessions/active-session db)]
+      (is (= "0f8fad5b-d9cb-469f-a165-70867728950e" (:id s)))
+      (is (nil? (:activated_part_id s))))))
+
 (deftest remove-session-test
   (testing "deleting the latest Session re-activates the previous one —
             the started-by-mistake undo"

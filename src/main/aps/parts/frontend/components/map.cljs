@@ -424,7 +424,8 @@
         map-id                (uix.rf/use-subscribe [:map/id])
         parts                 (uix.rf/use-subscribe [:canvas/parts])
         relationships         (uix.rf/use-subscribe [:canvas/relationships])
-        viewed-ordinal        (uix.rf/use-subscribe [:canvas/viewed-ordinal])
+        viewed-session        (uix.rf/use-subscribe [:canvas/viewed-session])
+        viewed-ordinal        (:ordinal viewed-session)
         session-badges?       (uix.rf/use-subscribe [:canvas/session-badges?])
         time-travelling?      (uix.rf/use-subscribe [:time-travel/active?])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
@@ -463,12 +464,15 @@
                                  (toolbar/marquee-preview-ids
                                   selected-node-ids (:parts marquee-overlay))
                                  selected-node-ids)
-                               {:resizable?      (toolbar/resize-armed?
-                                                  tool-mode
-                                                  (count selected-node-ids)
-                                                  editable?)
-                                :session-badges? session-badges?
-                                :viewed-ordinal  viewed-ordinal})
+                               {:resizable?         (toolbar/resize-armed?
+                                                     tool-mode
+                                                     (count selected-node-ids)
+                                                     editable?)
+                                :session-badges?    session-badges?
+                                :viewed-ordinal     viewed-ordinal
+                                :activated-part-id  (:activated_part_id
+                                                     viewed-session)
+                                :activation-trigger (:trigger viewed-session)})
         edges                 (adapter/relationships->edges
                                relationships selected-edge-ids
                                {:session-badges? session-badges?

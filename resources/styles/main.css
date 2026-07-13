@@ -444,6 +444,24 @@ a.btn {
             left: 0;
         }
 
+        /* Activation marker (ADR-0014): the Part the viewed Session
+           activated. Opposite corner from the recency badge so the
+           two never collide. */
+        .activation-marker {
+            position: absolute;
+            top: -0.4rem;
+            left: -0.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 9999px;
+            background: var(--ifs-orange);
+            color: white;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
         .react-flow__edge-path {
             stroke-width: 2;
         }

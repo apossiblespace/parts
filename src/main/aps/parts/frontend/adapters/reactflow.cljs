@@ -22,12 +22,17 @@
      with a single Session would label everything 'S1' (the same ≥2
      gate as the History button). Off unless requested.
    - `:viewed-ordinal` — which Session is in view (ADR-0014); a Part
-     whose first appearance matches it wears the accented recency badge."
+     whose first appearance matches it wears the accented recency badge.
+   - `:activated-part-id` / `:activation-trigger` — the viewed Session's
+     activated Part (session_activations link) and its trigger text; the
+     matching node wears the activation marker. Not gated by
+     `:session-badges?` — a single-Session Map can have an activation."
   ([part] (part->node part nil nil))
   ([part selected-ids] (part->node part selected-ids nil))
   ([{:keys [id type label notes position_x position_y width height
             first_appeared_ordinal]}
-    selected-ids {:keys [resizable? session-badges? viewed-ordinal]}]
+    selected-ids {:keys [resizable? session-badges? viewed-ordinal
+                         activated-part-id activation-trigger]}]
    #js {:id       id
         :position #js {:x position_x :y position_y}
         :selected (when selected-ids (contains? selected-ids id))
@@ -39,16 +44,20 @@
         ;; edge during the Time-travel glide's per-frame updates.
         :measured #js {:width  (or width 100)
                        :height (or height 100)}
-        :data     #js {:label         label
-                       :type          (name type)
-                       :notes         notes
-                       :resizable     (boolean resizable?)
-                       :firstAppeared (when session-badges?
-                                        first_appeared_ordinal)
-                       :recent        (boolean
-                                       (and session-badges?
-                                            (recent? first_appeared_ordinal
-                                                     viewed-ordinal)))}}))
+        :data     (let [activated? (= id activated-part-id)]
+                    #js {:label             label
+                         :type              (name type)
+                         :notes             notes
+                         :resizable         (boolean resizable?)
+                         :firstAppeared     (when session-badges?
+                                              first_appeared_ordinal)
+                         :recent            (boolean
+                                             (and session-badges?
+                                                  (recent? first_appeared_ordinal
+                                                           viewed-ordinal)))
+                         :activated         activated?
+                         :activationTrigger (when activated?
+                                              activation-trigger)})}))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.

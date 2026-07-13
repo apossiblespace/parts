@@ -122,8 +122,23 @@
        (if (= 200 (:status resp))
          (rf/dispatch [:save-status/write-succeeded])
          (do (rf/dispatch [:save-status/write-failed])
-             (rf/dispatch [:session/trigger-save-failure map-id
+             (rf/dispatch [:session/save-failure map-id
                            (error-message resp "Could not save the trigger")])))))))
+
+(rf/reg-fx
+ :session/update-activation-fx
+ (fn [{:keys [map-id session-id part-id]}]
+   (rf/dispatch [:save-status/write-started])
+   (go
+     (let [resp (<! (if part-id
+                      (api/set-session-activation map-id session-id part-id)
+                      (api/clear-session-activation map-id session-id)))]
+       (if (contains? #{200 204} (:status resp))
+         (rf/dispatch [:save-status/write-succeeded])
+         (do (rf/dispatch [:save-status/write-failed])
+             (rf/dispatch [:session/save-failure map-id
+                           (error-message
+                            resp "Could not save the activated part")])))))))
 
 (rf/reg-fx
  :session/delete-fx

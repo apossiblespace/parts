@@ -14,12 +14,22 @@
    Dependency-free so the kaocha cljs suite can unit-test it (that suite
    carries no re-frame); `state/handlers` and the session chip consume it.")
 
+(defn normalize-session
+  "Session rows land raw from transit, with cljs-UUID ids, while the
+   rest of the app (Part ids, DOM values) speaks strings. Stringify at
+   ingestion so [:map :sessions] holds one representation — the map
+   fetch's `normalize-map-ids` convention."
+  [session]
+  (reduce (fn [s k] (cond-> s (some? (get s k)) (update k str)))
+          session
+          [:id :map_id :activated_part_id]))
+
 (defn apply-sessions
   "Land a fetched Session list, dropping a stale response for a Map that
    is no longer the open one (navigated away mid-request)."
   [db map-id sessions]
   (if (= map-id (get-in db [:map :id]))
-    (assoc-in db [:map :sessions] (vec sessions))
+    (assoc-in db [:map :sessions] (mapv normalize-session sessions))
     db))
 
 (defn active-session
@@ -62,7 +72,7 @@
    the active one."
   [db session]
   (-> db
-      (update-in [:map :sessions] (fnil conj []) session)
+      (update-in [:map :sessions] (fnil conj []) (normalize-session session))
       clear-error))
 
 ;; -- Undo window --------------------------------------------------------------
@@ -93,15 +103,24 @@
     (boolean (and active
                   (= (:id active) (get-in db [:ui :session-undo-id]))))))
 
+(defn- update-session
+  "Apply f to the one Session with `session-id`."
+  [db session-id f]
+  (update-in db [:map :sessions]
+             (fn [sessions]
+               (mapv #(if (= (:id %) session-id) (f %) %) sessions))))
+
 (defn set-trigger
   "Optimistically retitle one Session's trigger."
   [db session-id trigger]
-  (update-in db [:map :sessions]
-             (fn [sessions]
-               (mapv #(if (= (:id %) session-id)
-                        (assoc % :trigger trigger)
-                        %)
-                     sessions))))
+  (update-session db session-id #(assoc % :trigger trigger)))
+
+(defn set-activation
+  "Optimistically link (or with nil, unlink) the Part one Session
+   activated. One per Session at launch, but stored per Session so
+   several later is a widening, not a reshape (ADR-0014)."
+  [db session-id part-id]
+  (update-session db session-id #(assoc % :activated_part_id part-id)))
 
 (defn remove-session
   "Drop a deleted Session; the previous one becomes active again — the

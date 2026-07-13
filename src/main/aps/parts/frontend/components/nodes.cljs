@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.components.nodes
   (:require
    ["@xyflow/react" :refer [Handle NodeResizer Position useConnection]]
+   ["lucide-react" :refer [Zap]]
    [aps.parts.common.constants :as constants]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
@@ -78,7 +79,16 @@
          ($ :span {:class (str "recency-badge"
                                (when (:recent data) " recent"))
                    :title (str "First appeared in Session " ordinal)}
-            (str "S" ordinal))))))
+            (str "S" ordinal)))
+       ;; Activation marker (ADR-0014): the viewed Session activated
+       ;; this Part. A node chip, deliberately nothing edge-like —
+       ;; distinct from the Part→Part "activates" Relationship.
+       (when (:activated data)
+         ($ :span {:class "activation-marker"
+                   :title (if-let [trigger (:activationTrigger data)]
+                            (str "Activated in this session — " trigger)
+                            "Activated in this session")}
+            ($ Zap {:size 12}))))))
 
 (def PartsNode
   (as-react

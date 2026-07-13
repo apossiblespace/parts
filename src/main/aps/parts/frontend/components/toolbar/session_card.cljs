@@ -13,6 +13,7 @@
      opens the same modal in read-only form.
    Session errors (undo/save refusals) surface here as well."
   (:require
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.modal :refer [modal]]
    [aps.parts.frontend.components.toolbar.header :refer [header]]
    [aps.parts.frontend.dates :as dates]
@@ -104,6 +105,37 @@
                         :on-click on-see-more}
                "See more"))))))
 
+(defui ^:private activation-row
+  "Which Part the Session activated (session_activations, ADR-0014):
+   a discrete control, so it commits on change (the silent-autosave
+   convention)."
+  [{:keys [session parts read-only?]}]
+  (let [activated-id (:activated_part_id session)]
+    (if read-only?
+      (when activated-id
+        ($ :p {:class "text-xs"}
+           ($ :span {:class "text-base-content/60"} "Activated part: ")
+           (:label (some #(when (= (:id %) activated-id) %) parts))))
+      ($ :label {:class "block text-xs space-y-1"}
+         ($ :span {:class "text-base-content/60"} "Activated part")
+         ($ :select
+            {:class      "select select-xs w-full"
+             :aria-label "Activated part"
+             :value      (or activated-id "")
+             :on-change  (fn [e]
+                           (let [v       (.. e -target -value)
+                                 part-id (when (seq v) v)]
+                             (o/track (if part-id
+                                        "Session activation set"
+                                        "Session activation cleared") {})
+                             (rf/dispatch [:session/set-activation
+                                           (:id session) part-id])))}
+            ($ :option {:value ""} "None")
+            (map (fn [part]
+                   ($ :option {:key (:id part) :value (:id part)}
+                      (:label part)))
+                 parts))))))
+
 (defui session-card
   "Renders nothing until the Session list has loaded (and never in the
    playground, which has no Sessions)."
@@ -112,6 +144,11 @@
         active                  (uix.rf/use-subscribe [:session/active])
         travelling?             (uix.rf/use-subscribe [:time-travel/active?])
         viewing                 (uix.rf/use-subscribe [:time-travel/viewing])
+        ;; The activation row rides the same seams as the canvas
+        ;; marker — the SHOWN Session joined against the Parts on
+        ;; screen — so card and marker cannot disagree.
+        viewed-session          (uix.rf/use-subscribe [:canvas/viewed-session])
+        part-options            (uix.rf/use-subscribe [:canvas/part-options])
         error                   (uix.rf/use-subscribe [:ui/session-error])
         [modal-mode set-modal!] (use-state nil)
         session                 (if travelling? (:session viewing) active)
@@ -137,6 +174,10 @@
                     :right edit-button})
          ($ :div {:class "p-2 space-y-2"}
             body
+            (when viewed-session
+              ($ activation-row {:session    viewed-session
+                                 :parts      part-options
+                                 :read-only? travelling?}))
             (when error
               ($ :p {:class "text-error text-xs" :role "alert"} error)))
          ($ trigger-modal {:mode     modal-mode

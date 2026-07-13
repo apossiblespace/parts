@@ -143,19 +143,20 @@
       (is (= [{:id "p1"} {:id "p2"}] (:parts (tt/canvas-content db))))
       (is (false? (tt/snapshot-needed? db))))))
 
-(deftest viewed-ordinal-test
-  (testing "editing mode: the active Session's ordinal (its newcomers
-            wear the accented badge)"
-    (is (= 3 (tt/viewed-ordinal db3))))
+(deftest viewed-session-test
+  (testing "editing mode: the active Session — its activation marker is
+            the one on screen"
+    (is (= s3 (tt/viewed-session db3))))
 
-  (testing "time travel: the SHOWN Session's ordinal — badges must match
-            the content on screen, which lags the target until its
-            snapshot lands"
+  (testing "time travel: the SHOWN Session, lagging the target until its
+            snapshot lands — the marker must match the content on screen"
     (let [stepped (-> db3 tt/enter (tt/step :back))]
-      (is (= 3 (tt/viewed-ordinal stepped))
-          "still the latest while s2's snapshot loads")
-      (is (= 2 (tt/viewed-ordinal
-                (tt/store-snapshot stepped "s2" {:parts [] :relationships []})))))))
+      (is (= s3 (tt/viewed-session stepped)))
+      (is (= s2 (tt/viewed-session
+                 (tt/store-snapshot stepped "s2" {:parts [] :relationships []}))))))
+
+  (testing "nil when no Sessions are loaded (demo Maps)"
+    (is (nil? (tt/viewed-session {:map {:id "m"}})))))
 
 (deftest interpolate-parts-test
   (let [from [{:id "a" :position_x 0 :position_y 0 :label "old label"}
