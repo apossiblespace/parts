@@ -393,6 +393,7 @@
          set-glide-parts]     (use-state nil)
         glide-parts-ref       (use-ref nil)
         glide-raf             (use-ref nil)
+        fitted-map-id         (use-ref nil)
         shown-parts           (if (and time-travelling? glide-parts)
                                 glide-parts
                                 parts)
@@ -657,6 +658,20 @@
            (o/info "map.lifecycle" "stopping event queue")
            (queue/stop))))
      [map-id])
+
+    ;; A Map drawn far from the origin would land off-screen, so fit the
+    ;; view on open — after the parts arrive (async; mount is too early).
+    ;; maxZoom 1 keeps a small Map at 100% instead of blowing it up.
+    (use-effect
+     (fn []
+       (when (and map-id
+                  (not demo)
+                  (seq parts)
+                  (not= @fitted-map-id map-id))
+         (reset! fitted-map-id map-id)
+         (.fitView ^js rf-instance #js {:padding 0.2 :maxZoom 1}))
+       js/undefined)
+     [demo map-id parts rf-instance])
 
     (use-effect
      (fn []
