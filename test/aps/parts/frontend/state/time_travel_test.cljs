@@ -178,7 +178,20 @@
 
     (testing "t=0 is the target set at the source's positions"
       (is (= {:id "a" :position_x 0 :position_y 0 :label "new label"}
-             (first (tt/interpolate-parts from to 0)))))))
+             (first (tt/interpolate-parts from to 0))))))
+
+  (testing "sizes glide too — nil means the default size"
+    (let [from [{:id "a" :position_x 0 :position_y 0 :width 100 :height 100}
+                {:id "b" :position_x 0 :position_y 0}]
+          to   [{:id "a" :position_x 0 :position_y 0 :width 200 :height 100}
+                {:id "b" :position_x 0 :position_y 0 :width 150 :height 150}]
+          half (tt/interpolate-parts from to 0.5)]
+      (is (= 150 (:width (first half))))
+      (is (= 100 (:height (first half))) "an unchanged size stays put")
+      (is (= 125 (:width (second half)))
+          "a never-resized Part glides from the default size")
+      (is (= to (tt/interpolate-parts from to 1))
+          "sizes land exactly on the target too"))))
 
 (deftest key-event-test
   (testing "the mode's keys: Escape exits, arrows step"

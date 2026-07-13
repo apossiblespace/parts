@@ -14,6 +14,7 @@
    Re-frame-free so the kaocha cljs suite can unit-test it; the
    read-only gate itself lives in `sessions/read-only-reason`."
   (:require
+   [aps.parts.common.constants :as constants]
    [aps.parts.frontend.state.sessions :as sessions]))
 
 (defn active? [db]
@@ -173,18 +174,27 @@
 (defn interpolate-parts
   "One frame of the session-switch glide: the TARGET Parts, with each
    Part that also existed in `from` placed `t` (0..1) of the way from
-   its old position to its new one. Everything animates from this one
-   source — the canvas re-derives nodes, edge curves, and badges from
-   the interpolated positions, so nothing snaps out of step. Apply
-   easing to `t` before calling; t=1 is exactly the target."
+   its old position and size to its new ones. Everything animates from
+   this one source — the canvas re-derives nodes, edge curves, and
+   badges from the interpolated geometry, so nothing snaps out of step.
+   Apply easing to `t` before calling; t=1 is exactly the target.
+
+   A nil size means the default (as rendered); an unchanged size is
+   left untouched, so never-resized Parts keep their nils."
   [from to t]
   (let [from-by-id (into {} (map (juxt :id identity)) from)
-        lerp       (fn [a b] (+ a (* t (- b a))))]
+        lerp       (fn [a b] (+ a (* t (- b a))))
+        lerp-size  (fn [part prev k]
+                     (let [a (or (get prev k) constants/part-default-size)
+                           b (or (get part k) constants/part-default-size)]
+                       (if (== a b) part (assoc part k (lerp a b)))))]
     (mapv (fn [part]
             (if-let [prev (from-by-id (:id part))]
-              (assoc part
-                     :position_x (lerp (:position_x prev) (:position_x part))
-                     :position_y (lerp (:position_y prev) (:position_y part)))
+              (-> part
+                  (assoc :position_x (lerp (:position_x prev) (:position_x part))
+                         :position_y (lerp (:position_y prev) (:position_y part)))
+                  (lerp-size prev :width)
+                  (lerp-size prev :height))
               part))
           to)))
 
