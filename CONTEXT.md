@@ -26,6 +26,8 @@ We should also be mindful of possible future legal requirements for tools dealin
 
 UI decisions defer to the **macOS Human Interface Guidelines**. Parts aims for UI quality in the tradition of the best macOS applications — sometimes aspirational, but when an interaction or visual question has no project-specific answer, the HIG is the tie-breaker. (Example: menu checkmarks sit in a fixed leading column, not trailing.)
 
+Saving is **silent and automatic** (the macOS model: no Save buttons, no per-widget "Saved" feedback). Text fields commit on blur — which includes deselection — with a blank commit reverting to the previous value, and Escape as the abandon-this-edit gesture; discrete controls commit on change. Modals are the exception: they keep explicit commit/cancel semantics. The single feedback surface is the **map status indicator** beside the Map name — green (nothing needs saving, the resting state), yellow (unsaved changes), spinner (request in flight), red (a save failed; the error banner elaborates). Exceptions are loud, success is quiet.
+
 ## Domain entities
 
 - **User** — anyone with an account. Today the only role is **therapist**; **client** is a planned future role with its own access scope.

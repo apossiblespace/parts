@@ -57,10 +57,13 @@
   (go-loop []
     (when-let [batch (<! debounced-chan)]
       (when-let [backend (storage-registry/get-backend)]
+        (rf/dispatch [:save-status/flush-started])
         (let [response (<! (process-batched-changes backend map-id batch))]
           (o/debug "queue.batch-response" "batch update response" response)
+          (rf/dispatch [:save-status/request-done])
           ;; A failed batch was rolled back server-side, so the canvas no
           ;; longer matches what's stored — that must never be silent.
+          ;; (`:map/save-error` also drives the indicator's red state.)
           (when-not (:success response)
             (rf/dispatch [:map/batch-failed]))))
       (recur))))
@@ -95,5 +98,7 @@
    when no Map queue is running."
   [events]
   (when-let [input-chan @active]
+    (when (seq events)
+      (rf/dispatch [:save-status/dirty]))
     (doseq [event events]
       (put! input-chan event))))

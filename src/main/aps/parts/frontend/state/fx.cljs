@@ -116,12 +116,14 @@
 (rf/reg-fx
  :session/update-trigger-fx
  (fn [{:keys [map-id session-id trigger]}]
+   (rf/dispatch [:save-status/write-started])
    (go
      (let [resp (<! (api/update-session-trigger map-id session-id trigger))]
-       ;; The text was set optimistically; only a failure needs handling.
-       (when-not (= 200 (:status resp))
-         (rf/dispatch [:session/trigger-save-failure map-id
-                       (error-message resp "Could not save the trigger")]))))))
+       (if (= 200 (:status resp))
+         (rf/dispatch [:save-status/write-succeeded])
+         (do (rf/dispatch [:save-status/write-failed])
+             (rf/dispatch [:session/trigger-save-failure map-id
+                           (error-message resp "Could not save the trigger")])))))))
 
 (rf/reg-fx
  :session/delete-fx
@@ -184,10 +186,14 @@
 (rf/reg-fx
  :storage/update-map
  (fn [{:keys [id map-data]}]
+   (rf/dispatch [:save-status/write-started])
    (go
      (if-let [backend (storage-registry/get-backend)]
        (let [updated-map (<! (update-map backend id map-data))]
          (if updated-map
-           (rf/dispatch [:map/update-success updated-map])
-           (rf/dispatch [:map/update-failure "Failed to update map"])))
-       (rf/dispatch [:map/update-failure "No storage backend available"])))))
+           (do (rf/dispatch [:save-status/write-succeeded])
+               (rf/dispatch [:map/update-success updated-map]))
+           (do (rf/dispatch [:save-status/write-failed])
+               (rf/dispatch [:map/update-failure "Failed to update map"]))))
+       (do (rf/dispatch [:save-status/write-failed])
+           (rf/dispatch [:map/update-failure "No storage backend available"]))))))

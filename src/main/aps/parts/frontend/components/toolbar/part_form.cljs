@@ -3,113 +3,66 @@
    [aps.parts.common.constants :refer [part-labels]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.body-location :refer [location-field]]
-   [uix.core :refer [$ defui use-effect use-state]]))
+   [aps.parts.frontend.components.toolbar.form :as form]
+   [uix.core :refer [$ defui use-effect]]))
 
 (defui part-form
   "Form for viewing and editing part properties, to render in the sidebar.
+   Autosaving — the commit semantics live in `form/use-autosave-form`;
+   the label is the blank-reverting field.
    Props:
    - part: The part model to edit
-   - on-save: Callback function (id, form-data) when data is saved
+   - on-save: Callback function (id, form-data) on each commit
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save collapsed]}]
   (let [{:keys [id type label notes body_location]} part
-        fields                                      {:type          type
-                                                     :label         label
-                                                     :notes         notes
-                                                     :body_location body_location}
-        [form-state set-form-state]                 (use-state
-                                                     {:values     fields
-                                                      :initial    fields
-                                                      :collapsed? collapsed})
-        {:keys [values initial collapsed?]}         form-state
-        changed?                                    (not= values initial)
-        update-field                                (fn [field value]
-                                                      (set-form-state
-                                                       (fn [state]
-                                                         (assoc-in state [:values field] value))))
-        toggle-collapsed                            (fn []
-                                                      (set-form-state
-                                                       (fn [state]
-                                                         (update state :collapsed? not))))
-        handle-save                                 (fn []
-                                                      (o/track "Part saved" {:type (:type values)})
-                                                      (on-save id values)
-                                                      (set-form-state
-                                                       (fn [state]
-                                                         (assoc state :initial (:values state))))
-                                                      (when (.-activeElement js/document)
-                                                        (.blur (.-activeElement js/document))))
-        handle-submit                               (fn [e]
-                                                      (.preventDefault e)
-                                                      (when changed?
-                                                        (handle-save)))]
-
-    ;; Re-sync when the selected Part's fields change. `fields` is rebuilt from
-    ;; the primitives the effect depends on (not the outer binding, whose
-    ;; identity changes every render and would re-fire the effect).
-    (use-effect
-     (fn []
-       (let [fields {:type type :label label :notes notes :body_location body_location}]
-         (set-form-state
-          (fn [state]
-            (assoc state :values fields :initial fields :collapsed? collapsed)))))
-     [label type notes body_location id collapsed])
+        {:keys [values collapsed? update-field toggle-collapsed
+                commit-field! text-blur text-keys]}
+        (form/use-autosave-form
+         {:entity-id    id
+          :fields       {:type          type
+                         :label         label
+                         :notes         notes
+                         :body_location body_location}
+          :collapsed    collapsed
+          :revert-blank :label
+          :on-save      (fn [vals]
+                          (o/track "Part saved" {:type (:type vals)})
+                          (on-save id vals))})]
 
     (use-effect
      (fn [] (o/debug "part-form" "Part" id))
      [id])
 
-    ($ :form {:onSubmit handle-submit
-              :class    "fieldset node-form p-2 border-b border-b-1 border-base-300"}
-       ($ :div {:class "flex justify-between"}
-          ($ :h3 {:class    "text-xs/4 mr-2 font-bold cursor-pointer w-full pl-3 relative"
-                  :on-click toggle-collapsed}
-             (if collapsed?
-               ($ :svg
-                  {:xmlns   "http://www.w3.org/2000/svg"
-                   :viewBox "0 0 16 16"
-                   :fill    "currentColor"
-                   :class   "size-4 absolute -left-1"}
-                  ($ :path
-                     {:fill-rule "evenodd"
-                      :d         "M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"
-                      :clip-rule "evenodd"}))
-               ($ :svg
-                  {:xmlns   "http://www.w3.org/2000/svg"
-                   :viewBox "0 0 16 16"
-                   :fill    "currentColor"
-                   :class   "size-4 absolute -left-1"}
-                  ($ :path
-                     {:fill-rule "evenodd"
-                      :d         "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
-                      :clip-rule "evenodd"})))
-             ($ :span (:label values)))
-          (when-not collapsed?
-            ($ :button {:class    "btn btn-primary btn-xs"
-                        :disabled (not changed?)
-                        :type     "submit"}
-               "Save")))
+    ($ :div {:class "fieldset node-form p-2 border-b border-b-1 border-base-300"}
+       ($ form/collapsible-header {:title      (:label values)
+                                   :collapsed? collapsed?
+                                   :on-toggle  toggle-collapsed})
        (when-not collapsed?
          ($ :div
             ($ :label {:class "fieldset-label"} "Type:")
             ($ :select {:class    "select select-sm mb-1"
                         :value    (:type values)
-                        :onChange #(update-field :type (.. % -target -value))}
+                        :onChange #(commit-field! :type (.. % -target -value))}
                (->> part-labels
                     (map (fn [[k {:keys [label]}]]
                            ($ :option {:key k :value k}
                               label)))))
 
             ($ :label {:class "fieldset-label"} "Label:")
-            ($ :input {:class    "input input-sm mb-1"
-                       :type     "text"
-                       :value    (:label values)
-                       :onChange #(update-field :label (.. % -target -value))})
+            ($ :input {:class     "input input-sm mb-1"
+                       :type      "text"
+                       :value     (:label values)
+                       :onChange  #(update-field :label (.. % -target -value))
+                       :on-blur   text-blur
+                       :onKeyDown (text-keys :label :blur-on-enter? true)})
 
             ($ :label {:class "fieldset-label"} "Notes:")
-            ($ :textarea {:class    "textarea textarea-sm mb-1"
-                          :value    (:notes values)
-                          :onChange #(update-field :notes (.. % -target -value))})
+            ($ :textarea {:class     "textarea textarea-sm mb-1"
+                          :value     (:notes values)
+                          :onChange  #(update-field :notes (.. % -target -value))
+                          :on-blur   text-blur
+                          :onKeyDown (text-keys :notes)})
 
             ($ location-field {:location  (:body_location values)
-                               :on-change #(update-field :body_location %)}))))))
+                               :on-change #(commit-field! :body_location %)}))))))

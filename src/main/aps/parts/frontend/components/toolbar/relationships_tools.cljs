@@ -11,6 +11,8 @@
   []
   (let [selected-relationships (uix.rf/use-subscribe [:map/selected-relationships])
         editable?              (uix.rf/use-subscribe [:canvas/editable?])
+        ;; See parts-tools: reload → epoch bump → forms remount.
+        epoch                  (uix.rf/use-subscribe [:map/epoch])
         relationship-count     (count selected-relationships)
         multiple-relationships (> relationship-count 1)]
     (when (seq selected-relationships)
@@ -20,7 +22,7 @@
             ($ :section {:class "selected-relationships"}
                (map
                 (fn [relationship]
-                  ($ relationship-form {:key          (str (:id relationship) relationship-count)
+                  ($ relationship-form {:key          (str (:id relationship) "-" relationship-count "-" epoch)
                                         :relationship relationship
                                         :collapsed    multiple-relationships
                                         :on-save      (fn [id updated-attrs]

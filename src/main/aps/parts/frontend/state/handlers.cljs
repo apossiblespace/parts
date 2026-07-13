@@ -8,6 +8,7 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as api-utils]
    [aps.parts.frontend.state.map-updates :as map-updates]
+   [aps.parts.frontend.state.save-status :as save-status]
    [aps.parts.frontend.state.sessions :as sessions]
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
@@ -106,6 +107,23 @@
  :ui/relationship-type-set
  (fn [db [_ type]]
    (update db :ui toolbar/choose-relationship-type type)))
+
+;; -- save-status indicator (TASK-077) ----------------------------------------
+;; Dispatched by the change-event queue and the direct-write fx; the pure
+;; transitions live in `state/save-status`.
+
+(rf/reg-event-db :save-status/dirty
+                 (fn [db _] (save-status/mark-dirty db)))
+(rf/reg-event-db :save-status/flush-started
+                 (fn [db _] (save-status/flush-started db)))
+(rf/reg-event-db :save-status/request-done
+                 (fn [db _] (save-status/request-done db)))
+(rf/reg-event-db :save-status/write-started
+                 (fn [db _] (save-status/write-started db)))
+(rf/reg-event-db :save-status/write-succeeded
+                 (fn [db _] (save-status/write-succeeded db)))
+(rf/reg-event-db :save-status/write-failed
+                 (fn [db _] (save-status/write-failed db)))
 
 ;; -- optimistic mutation helpers ------------------------------------------
 ;; Each :map/* handler below does the same two-beat: mutate :db optimistically,
@@ -368,7 +386,15 @@
    ;; reads as read-only (`sessions/editable?`). A loaded Map always
    ;; lands in Editing mode — any Time-travel state belonged to the
    ;; previous Map.
-   (cond-> {:db (-> db (dissoc :time-travel) (assoc :map the-map))}
+   ;; :save-status resets too — its counters belong to the state this
+   ;; reload replaced. The epoch bump remounts any open sidebar form
+   ;; (it's in their React keys): forms re-sync only on entity-id
+   ;; change, so a reload would otherwise leave a pre-reload draft
+   ;; primed to re-diverge the canvas.
+   (cond-> {:db (-> db
+                    (dissoc :time-travel :save-status)
+                    (assoc :map the-map)
+                    (update-in [:ui :map-epoch] (fnil inc 0)))}
      (not (:demo-mode db))
      (assoc :sessions/fetch-fx {:map-id (:id the-map)}))))
 

@@ -184,6 +184,60 @@
 (def ^:private map-name-width-classes "shrink min-w-16 max-w-96")
 (def ^:private map-name-text-class "truncate min-w-0")
 
+(def ^:private save-status-copy
+  {:saved  "All changes saved"
+   :dirty  "Unsaved changes"
+   :saving "Saving…"
+   :error  "Saving failed — changes may not be stored"})
+
+(def ^:private spinner-min-ms
+  "A batch POST lands in tens of milliseconds; a spinner that flashes
+   for one frame is jarring, so once shown it stays up at least this
+   long (display smoothing only — the underlying status stays honest)."
+  500)
+
+(defui save-status-indicator
+  "The app's single save-feedback surface (silent autosave — see
+   CONTEXT.md): green at rest, yellow while changes wait in the queue's
+   debounce window, a spinner while a request is in flight, red after a
+   failure. The slot is fixed-width so state changes never shift the row."
+  []
+  (let [status             (uix.rf/use-subscribe [:map/save-status])
+        [shown set-shown!] (use-state status)
+        spinner-shown-at   (use-ref 0)]
+    (use-effect
+     (fn []
+       (if (= :saving status)
+         (do (reset! spinner-shown-at (js/Date.now))
+             (set-shown! :saving)
+             js/undefined)
+         ;; `remaining` is only positive within the hold window, so no
+         ;; explicit was-the-spinner-shown check is needed.
+         (let [remaining (- spinner-min-ms
+                            (- (js/Date.now) @spinner-shown-at))]
+           (if (pos? remaining)
+             (let [timer (js/setTimeout #(set-shown! status) remaining)]
+               #(js/clearTimeout timer))
+             (do (set-shown! status)
+                 js/undefined)))))
+     [status])
+    ;; macOS proxy-icon position; the fixed 16px slot keeps the
+    ;; dot/spinner swap from shifting the title.
+    ($ :span {:class      (str "w-3 shrink-0 flex items-center justify-center "
+                               "tooltip tooltip-bottom")
+              :data-tip   (save-status-copy shown)
+              :aria-label (save-status-copy shown)
+              :role       "status"
+              ;; The name around it is click-to-rename; the dot is not.
+              :on-click   (fn [^js e] (.stopPropagation e))}
+       (if (= :saving shown)
+         ($ :span {:class "loading loading-spinner loading-xs text-base-content/40"})
+         ($ :span {:class (str "status status-md "
+                               (case shown
+                                 :dirty "status-warning"
+                                 :error "status-error"
+                                 "status-success"))})))))
+
 (defui map-name-widgets
   "Left group of the top chrome row for the authenticated single-map view:
    a back-to-list chevron, the Map's name, and a chevron-down dropdown
@@ -220,16 +274,21 @@
          ;; The wrapper must be flex: a plain block shrinks while its
          ;; .btn child (a non-item) keeps its width and overflows.
          ($ :div {:class "shadow-xs min-w-0 flex"}
-            ($ :div {:class (str "btn btn-sm bg-base-100 pointer-events-none "
+            ($ :div {:class (str "btn btn-sm bg-base-100 gap-1.5 cursor-default "
                                  map-name-width-classes)}
-               ($ :span {:class map-name-text-class} title)))
+               ;; The indicator keeps its hover tooltip; only the label
+               ;; text is click-inert in the mode.
+               ($ save-status-indicator)
+               ($ :span {:class (str map-name-text-class " pointer-events-none")}
+                  title)))
          ($ :div {:class "join shadow-xs min-w-0"}
             ($ inline-text-field
                {:value              title
                 :aria-label         "Map name"
-                :display-class      (str "btn btn-sm join-item bg-base-100 "
+                :display-class      (str "btn btn-sm join-item bg-base-100 gap-1.5 "
                                          map-name-width-classes)
                 :display-text-class map-name-text-class
+                :display-prefix     ($ save-status-indicator)
                 :input-class        "input input-sm join-item w-48"
                 :editing?           editing?
                 :edit-on            :click

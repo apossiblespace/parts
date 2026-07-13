@@ -11,6 +11,9 @@
   []
   (let [selected-parts (uix.rf/use-subscribe [:map/selected-parts])
         editable?      (uix.rf/use-subscribe [:canvas/editable?])
+        ;; In the form keys: reload → epoch bump → open forms remount
+        ;; (rationale at :map/fetch-success).
+        epoch          (uix.rf/use-subscribe [:map/epoch])
         part-count     (count selected-parts)
         multiple-parts (> part-count 1)]
     (when (seq selected-parts)
@@ -23,7 +26,7 @@
             ($ :section {:class "selected-parts"}
                (map
                 (fn [part]
-                  ($ part-form {:key       (str (:id part) part-count)
+                  ($ part-form {:key       (str (:id part) "-" part-count "-" epoch)
                                 :part      part
                                 :collapsed multiple-parts
                                 :on-save   (fn [id updated-attrs]

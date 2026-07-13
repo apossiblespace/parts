@@ -1,5 +1,6 @@
 (ns aps.parts.frontend.state.subs
   (:require
+   [aps.parts.frontend.state.save-status :as save-status]
    [aps.parts.frontend.state.sessions :as sessions]
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
@@ -83,6 +84,16 @@
  :session/undoable?
  (fn [db _]
    (sessions/undoable? db)))
+
+(rf/reg-sub
+ :map/save-status
+ (fn [db _]
+   (save-status/status db)))
+
+(rf/reg-sub
+ :map/epoch
+ (fn [db _]
+   (get-in db [:ui :map-epoch] 0)))
 
 ;; -- Time-travel mode (TASK-073.03) -----------------------------------------
 
