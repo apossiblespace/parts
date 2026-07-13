@@ -49,6 +49,15 @@
       (assoc :tool-mode tool)
       (dissoc :spring-return-tool)))
 
+(defn choose-relationship-type
+  "Pick the persistent relationship type AND arm the Connect tool —
+   there is no situation where you choose an ink without wanting to
+   draw with it right away."
+  [ui type]
+  (-> ui
+      (assoc :relationship-type type)
+      (select-tool :connect)))
+
 (defn spring-tool
   "The tool temporarily held while a key is down: Space spring-loads the
    Hand tool — full Hand behaviour (cursor, lit palette button, nothing

@@ -105,7 +105,7 @@
 (rf/reg-event-db
  :ui/relationship-type-set
  (fn [db [_ type]]
-   (assoc-in db [:ui :relationship-type] type)))
+   (update db :ui toolbar/choose-relationship-type type)))
 
 ;; -- optimistic mutation helpers ------------------------------------------
 ;; Each :map/* handler below does the same two-beat: mutate :db optimistically,

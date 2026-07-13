@@ -63,6 +63,17 @@
            (toolbar/select-tool {:tool-mode          :hand
                                  :spring-return-tool :select} :hand)))))
 
+(deftest choose-relationship-type-test
+  (testing "picking an ink arms the Connect tool with it — choosing a
+            type and not drawing with it is a dead end"
+    (is (= {:relationship-type :protects :tool-mode :connect}
+           (toolbar/choose-relationship-type {:tool-mode :select} :protects))))
+  (testing "already connecting: the type just switches"
+    (is (= {:relationship-type :activates :tool-mode :connect}
+           (toolbar/choose-relationship-type {:tool-mode         :connect
+                                              :relationship-type :protects}
+                                             :activates)))))
+
 (deftest spring-tool-test
   (testing "holding Space holds the Hand tool"
     (is (= :hand (toolbar/spring-tool " "))))
