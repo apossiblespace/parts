@@ -152,7 +152,7 @@
         ($ :path {:d         path
                   :className "react-flow__connection-path"
                   :style     #js {:stroke      (constants/relationship-colors rel-type)
-                                  :strokeWidth 1.5
+                                  :strokeWidth 2
                                   :fill        "none"}})))))
 
 (def PartsConnectionLine

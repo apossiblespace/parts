@@ -377,12 +377,17 @@ a.btn {
             height: 100%;
             --ring: clamp(8px, 12%, 24px);
             --ring-clip: polygon(
-                0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+                0 0,
+                100% 0,
+                100% 100%,
+                0 100%,
+                0 0,
                 var(--ring) var(--ring),
                 var(--ring) calc(100% - var(--ring)),
                 calc(100% - var(--ring)) calc(100% - var(--ring)),
                 calc(100% - var(--ring)) var(--ring),
-                var(--ring) var(--ring));
+                var(--ring) var(--ring)
+            );
         }
         .node {
             display: flex;
@@ -437,6 +442,10 @@ a.btn {
             right: auto;
             top: 0;
             left: 0;
+        }
+
+        .react-flow__edge-path {
+            stroke-width: 2;
         }
 
         /* Custom edge styles per relationship type.
@@ -683,7 +692,6 @@ a.btn {
         .toolbar .dropdown:focus-within > [role="button"] {
             background-color: var(--color-base-300);
         }
-
     }
 
     .sidebar-container {
