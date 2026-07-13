@@ -36,10 +36,13 @@
    - :edit-on        :click (default) | :double-click | :none — built-in entry gesture on the display span
    - :validate       (optional) predicate on the trimmed draft; default non-blank
    - :display-class  CSS classes for the display element
+   - :display-text-class  (optional) wraps the display text in a span with
+                     these classes — needed for `truncate`, which can't
+                     ellipsize a bare text node inside a flex display element
    - :input-class    CSS classes for the <input> shown while editing
    - :aria-label     accessible label, applied in both states"
   [{:keys [value editing? on-edit-start on-commit on-cancel validate edit-on
-           display-class input-class aria-label]}]
+           display-class display-text-class input-class aria-label]}]
   (let [validate  (or validate (complement str/blank?))
         edit-on   (or edit-on :click)
         input-ref (use-ref nil)
@@ -92,4 +95,6 @@
                                             :tabIndex 0
                                             :on-click (fn [] (when on-edit-start (on-edit-start))))
            (= edit-on :double-click) (assoc :on-double-click (fn [] (when on-edit-start (on-edit-start)))))
-         value))))
+         (if display-text-class
+           ($ :span {:class display-text-class} value)
+           value)))))

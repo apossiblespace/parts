@@ -40,8 +40,12 @@
               :class      trigger-class
               :aria-label trigger-aria-label}
         children)
+     ;; -ml-5 aligns the menu's dot column with the trigger's dot. The
+     ;; 20px = menu dot offset (ul pad 8 + item px-2 8 + check w-3.5 14
+     ;; + gap-1.5 6 = 36) minus trigger dot offset (≈16); re-derive if
+     ;; any of those paddings change.
      ($ :ul {:tabIndex 0
-             :class    "dropdown-content menu menu-sm z-10 my-1 w-44"}
+             :class    "dropdown-content menu menu-sm z-10 my-1 w-44 -ml-5"}
         (map (fn [type]
                (let [{:keys [label]} (constants/relationship-labels type)]
                  ($ :li {:key (name type)}
@@ -52,9 +56,7 @@
                                            (close-dropdown!))}
                        ;; Check + dot share one cell — daisyUI menu items
                        ;; are a grid whose *middle* column stretches, and
-                       ;; that column must be the label. The px-2 / w-3.5 /
-                       ;; gap-1.5 trio lands the menu dots on the same x as
-                       ;; the toolbar trigger's dot.
+                       ;; that column must be the label.
                        ($ :span {:class "flex items-center gap-1.5"}
                           (if (= selected type)
                             ($ Check {:size 14 :className "w-3.5 shrink-0"})

@@ -110,9 +110,10 @@
    would clip an absolutely-positioned menu into the scroll area. With
    daisyUI's default (downward) placement the menu's insets are auto, so
    position:fixed keeps it visually in place while measuring against the
-   viewport — escaping the clip. Safe here: the sidebar panel
-   (react-flow__panel top-right) has no transformed ancestor, which would
-   otherwise re-capture fixed positioning. */
+   viewport — escaping the clip. Safe here: neither sidebar home (the
+   authenticated top-chrome row nor the demo's top-right panel) has a
+   transformed ancestor, which would otherwise re-capture fixed
+   positioning. */
 .sidebar .dropdown-content {
     position: fixed;
 }
@@ -637,11 +638,13 @@ a.btn {
             border: 1px solid #cccccc;
         }
 
-        /* React Flow centres a bottom panel with left:50% + translateX(-50%).
-           With auto width that shrink-to-fit caps at ~half the canvas, which
-           forces the toolbar onto two lines in the narrow marketing demo.
-           Sizing it to its content keeps it on one centred line; the
-           max-width keeps it inside the canvas (30px = the panel's margins). */
+        /* Demo/marketing contexts only (in the authenticated view .toolbar
+           is a bottom-chrome flex child and these properties are inert):
+           React Flow centres a bottom panel with left:50% + translateX,
+           and auto width shrink-to-fit caps at ~half the canvas — forcing
+           two lines in the narrow demo. max-content keeps one centred
+           line; the max-width keeps it inside the canvas (30px = the
+           panel's margins). */
         .toolbar {
             width: max-content;
             max-width: calc(100% - 30px);
@@ -686,4 +689,28 @@ a.btn {
     .sidebar-container {
         width: 200px;
     }
+}
+
+/* The authenticated view's chrome ROWS: full-width panels whose flex
+   children share the space (so chrome elements cannot overlap). The
+   30px is React Flow's panel margins — the same constant the .toolbar
+   max-width rule above encodes. The rows themselves must not swallow
+   canvas clicks: interactive children opt back in via .chrome-item,
+   while the flex spacers stay pointer-transparent. */
+.react-flow__panel.top-chrome,
+.react-flow__panel.bottom-chrome {
+    width: calc(100% - 30px);
+    pointer-events: none;
+}
+
+.top-chrome .chrome-item,
+.bottom-chrome .chrome-item {
+    pointer-events: auto;
+}
+
+/* The palette's tooltips are ::before/::after of its buttons; the
+   minimap panel comes later in the DOM and would paint over them
+   (React Flow panels all share z-index 5). */
+.react-flow__panel.bottom-chrome {
+    z-index: 6;
 }
