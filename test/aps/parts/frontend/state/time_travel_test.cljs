@@ -143,6 +143,24 @@
       (is (= [{:id "p1"} {:id "p2"}] (:parts (tt/canvas-content db))))
       (is (false? (tt/snapshot-needed? db))))))
 
+(deftest last-step-test
+  (testing "a step that moves the target records its direction — the
+            steppers' flash keys off this, so a clamped step (no move)
+            must record nothing"
+    (let [stepped (-> db3 tt/enter (tt/step :back))]
+      (is (= :back (get-in stepped [:time-travel :last-step :dir])))
+      (let [at-s1   (tt/step stepped :back)
+            clamped (tt/step at-s1 :back)]
+        (is (= (get-in at-s1 [:time-travel :last-step])
+               (get-in clamped [:time-travel :last-step]))
+            "at Session 1 further back-steps are clamped — no new record"))))
+
+  (testing "repeated moves in one direction still register as distinct
+            steps (a counter, not just the direction)"
+    (let [db (-> db3 tt/enter (tt/step :back) (tt/step :forward))]
+      (is (= :forward (get-in db [:time-travel :last-step :dir])))
+      (is (= 2 (get-in db [:time-travel :last-step :n]))))))
+
 (deftest viewed-session-test
   (testing "editing mode: the active Session — its activation marker is
             the one on screen"

@@ -2,9 +2,9 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
-   ["lucide-react" :refer [ChevronDown ChevronLeft ChevronUp Download
-                           FilePenLine Hand History MousePointer2 Plus
-                           Spline Undo2]]
+   ["lucide-react" :refer [ChevronDown ChevronLeft ChevronRight ChevronUp
+                           Download FilePenLine Hand History MousePointer2
+                           Plus Spline Undo2]]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
    [aps.parts.common.observe :as o]
@@ -15,8 +15,7 @@
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [close-dropdown! relationship-type-dropdown]]
-   [aps.parts.frontend.components.time-travel-bar :refer [time-travel-bar]]
-   [aps.parts.frontend.components.toolbar.button :refer [button]]
+   [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.state.time-travel :as time-travel]
@@ -238,6 +237,48 @@
                                  :error "status-error"
                                  "status-success"))})))))
 
+(defui ^:private session-steppers
+  "◀ ▶ — the Time-travel steppers, joined and wearing the History
+   button's mode yellow: one colour-grouped cluster of history controls
+   (the Photos-style chrome shift, scoped to the mode's own buttons).
+   Every step that MOVES — clicked or keyed, the one code path —
+   records `[:time-travel :last-step]`; the flash subscribes to it, so
+   a key press gives the same feedback as a click and a clamped step
+   flashes nothing."
+  [{:keys [viewing]}]
+  (let [{:keys [index latest?]} viewing
+        last-step               (uix.rf/use-subscribe [:time-travel/last-step])
+        [flash set-flash!]      (use-state nil)]
+    (use-effect
+     (fn []
+       (when last-step
+         (set-flash! (:dir last-step))
+         (let [t (js/setTimeout #(set-flash! nil) 150)]
+           (fn [] (js/clearTimeout t)))))
+     [last-step])
+    ($ :div {:class "join shadow-xs shrink-0"}
+       (for [{:keys [dir disabled? tip glyph icon]}
+             [{:dir       :back
+               :disabled? (= 1 index)
+               :tip       "Previous session"
+               :glyph     "←"
+               :icon      ChevronLeft}
+              {:dir       :forward
+               :disabled? (boolean latest?)
+               :tip       "Next session"
+               :glyph     "→"
+               :icon      ChevronRight}]]
+         ($ :button {:key        (name dir)
+                     :class      (str "btn btn-sm btn-square btn-primary "
+                                      "tt-stepper join-item tooltip "
+                                      "tooltip-bottom"
+                                      (when (= dir flash) " btn-active"))
+                     :disabled   disabled?
+                     :aria-label tip
+                     :on-click   #(rf/dispatch [:time-travel/step dir])}
+            ($ tooltip-content {:tip tip :shortcut glyph})
+            ($ icon {:size 16}))))))
+
 (defui map-name-widgets
   "Left group of the top chrome row for the authenticated single-map view:
    a back-to-list chevron, the Map's name, and a chevron-down dropdown
@@ -258,123 +299,146 @@
         active-session          (uix.rf/use-subscribe [:session/active])
         undoable?               (uix.rf/use-subscribe [:session/undoable?])
         time-travelling?        (uix.rf/use-subscribe [:time-travel/active?])
+        viewing                 (uix.rf/use-subscribe [:time-travel/viewing])
+        ;; The widget's Session segment answers "which Session is in
+        ;; view" in both modes: the active Session while editing, the
+        ;; TARGET Session while time-travelling — it must match the
+        ;; position the steppers state, not the lagging shown snapshot.
+        segment-session         (if time-travelling?
+                                  (:session viewing)
+                                  active-session)
         ;; The caller owns the edit-mode bit; both the title click and the
         ;; Rename menu item flip it true, commit/cancel flip it false.
-        [editing? set-editing!] (use-state false)]
+        [editing? set-editing!] (use-state false)
+        ;; Viewing the past: every menu action except the Session PDF
+        ;; download is off — disabled, not hidden (the menu keeps its
+        ;; geography). `menu-disabled` is only styling and nil'd
+        ;; handlers only UX; the `require-not-viewing-past` interceptor
+        ;; is the guard of record.
+        menu-item-class         (when time-travelling? "menu-disabled")
+        gated                   (fn [handler]
+                                  (when-not time-travelling? handler))
+        menu-action             (fn [{:keys [icon label on-click]}]
+                                  ($ :li {:class menu-item-class}
+                                     ($ :a {:on-click (gated on-click)}
+                                        icon label)))]
     ($ :div {:class "flex gap-2 min-w-0 chrome-item"}
        ($ :div {:class "shadow-xs shrink-0"}
           ($ :a {:href       "/app"
                  :class      "btn btn-sm join-item bg-base-100"
                  :aria-label "Back to maps"}
              ($ ChevronLeft {:size 16})))
-       (if time-travelling?
-         ;; Read-only while viewing the past: the name is a plain
-         ;; label — no rename, no actions menu (the viewed-Session
-         ;; PDF gets its own affordance later).
-         ;; The wrapper must be flex: a plain block shrinks while its
-         ;; .btn child (a non-item) keeps its width and overflows.
-         ($ :div {:class "shadow-xs min-w-0 flex"}
-            ($ :div {:class (str "btn btn-sm bg-base-100 gap-1.5 cursor-default "
-                                 map-name-width-classes)}
-               ;; The indicator keeps its hover tooltip; only the label
-               ;; text is click-inert in the mode.
-               ($ save-status-indicator)
-               ($ :span {:class (str map-name-text-class " pointer-events-none")}
-                  title)))
-         ($ :div {:class "join shadow-xs min-w-0"}
-            ($ inline-text-field
-               {:value              title
-                :aria-label         "Map name"
-                :display-class      (str "btn btn-sm join-item bg-base-100 gap-1.5 "
-                                         map-name-width-classes)
-                :display-text-class map-name-text-class
-                :display-prefix     ($ save-status-indicator)
-                :input-class        "input input-sm join-item w-48"
-                :editing?           editing?
-                :edit-on            :click
-                :on-edit-start      #(set-editing! true)
-                :on-cancel          #(set-editing! false)
-                :on-commit          (fn [new-title]
-                                      (o/track "Map renamed" {})
-                                      (rf/dispatch [:map/rename new-title])
-                                      (set-editing! false))})
-            (when active-session
-              ($ :div {:class (str "btn btn-sm join-item bg-base-100 "
-                                   "pointer-events-none")}
-                 (str "Session " (:ordinal active-session)
-                      (when-let [d (dates/format-date
-                                    dates/short-date-format
-                                    (:anchor_valid_at active-session))]
-                        (str " · " d)))))
-            ;; -ml-px: join seam fix — see relationship-type-control.
-            ;; dropdown-bottom is explicit because the join forces
-            ;; display:flex on dropdowns (alignment), and daisyUI's
-            ;; default placement relies on static flow — in a flex
-            ;; container that would put the menu BESIDE the trigger.
-            ($ :div {:class "dropdown dropdown-bottom -ml-px"}
-               ($ :div {:tabIndex   0
-                        :role       "button"
-                        :class      "btn btn-sm btn-square join-item bg-base-100"
-                        :aria-label "Map actions"}
-                  ($ ChevronDown {:size 16}))
-               ($ :ul {:tabIndex 0
-                       :class    "dropdown-content menu menu-sm z-10 mt-1 w-44"}
-                  ;; Session actions lead — starting a session is the
-                  ;; most common item in this menu.
-                  (when active-session
-                    ($ :<>
-                       ($ :li
-                          ($ :a {:on-click (fn []
-                                             (o/track "Session started" {})
-                                             (rf/dispatch [:session/start])
-                                             (close-dropdown!))}
-                             ($ Plus {:size 16})
-                             "Start new session"))
-                       (when undoable?
-                         ($ :li
-                            ($ :a {:on-click (fn []
-                                               (o/track "Session undone" {})
-                                               (rf/dispatch [:session/delete
-                                                             (:id active-session)])
-                                               (close-dropdown!))}
-                               ($ Undo2 {:size 16})
-                               "Undo new session")))
-                       ($ :li ($ :hr))))
-                  ($ :li
-                     ($ :a {:on-click (fn []
-                                        (set-editing! true)
-                                        (close-dropdown!))}
-                        ($ FilePenLine {:size 16})
-                        "Rename"))
-                  ($ :li
-                     ;; Native `<a download>` does the work: the browser
-                     ;; sends the cookie-authenticated GET, follows the
-                     ;; server's `Content-Disposition` for the filename,
-                     ;; and opens the Save dialog. Cache-Control on
-                     ;; `/render.pdf` is `no-cache`, so an
-                     ;; edit-then-redownload flow always sees the fresh
-                     ;; PDF via the ETag revalidation.
-                     ($ :a {:href     (str "/api/maps/" map-id "/render.pdf")
-                            :download ""
-                            :on-click (fn []
-                                        (o/track "Map PDF downloaded" {})
-                                        (close-dropdown!))}
-                        ($ Download {:size 16})
-                        "Download PDF"))
-                  ($ :li ($ :hr))
-                  ($ :li
-                     ;; Like the PDF above (native `<a download>`), but the full
-                     ;; Map history as JSON — the data-subject export (ADR-0010).
-                     ;; Used far less than Rename / PDF, so it sits below a
-                     ;; separator and drops the icon; the empty w-4 spacer keeps
-                     ;; its label aligned with the icon'd items above.
-                     ($ :a {:href     (str "/api/maps/" map-id "/export.json")
-                            :download ""
-                            :on-click (fn []
-                                        (o/track "Map data exported" {})
-                                        (close-dropdown!))}
-                        ($ :span {:class "w-4 shrink-0"})
-                        "Export map data"))))))
+       ($ :div {:class "join shadow-xs min-w-0"}
+          ($ inline-text-field
+             {:value              title
+              :aria-label         "Map name"
+              :display-class      (str "btn btn-sm join-item bg-base-100 gap-1.5 "
+                                       map-name-width-classes
+                                       (when time-travelling? " cursor-default"))
+              :display-text-class map-name-text-class
+              :display-prefix     ($ save-status-indicator)
+              :input-class        "input input-sm join-item w-48"
+              :editing?           editing?
+              :edit-on            (if time-travelling? :none :click)
+              :on-edit-start      #(set-editing! true)
+              :on-cancel          #(set-editing! false)
+              :on-commit          (fn [new-title]
+                                    (o/track "Map renamed" {})
+                                    (rf/dispatch [:map/rename new-title])
+                                    (set-editing! false))})
+          ;; Fixed width — room for a two-digit ordinal and the longest
+          ;; short date ("Session 88 · 28 Aug") — so stepping through
+          ;; Sessions never shifts the neighbouring controls.
+          (when segment-session
+            ($ :div {:class (str "btn btn-sm join-item bg-base-100 "
+                                 "pointer-events-none w-36")}
+               (str "Session " (:ordinal segment-session)
+                    (when-let [d (dates/format-date
+                                  dates/short-date-format
+                                  (:anchor_valid_at segment-session))]
+                      (str " · " d)))))
+          ;; -ml-px: join seam fix — see relationship-type-control.
+          ;; dropdown-bottom is explicit because the join forces
+          ;; display:flex on dropdowns (alignment), and daisyUI's
+          ;; default placement relies on static flow — in a flex
+          ;; container that would put the menu BESIDE the trigger.
+          ($ :div {:class "dropdown dropdown-bottom -ml-px"}
+             ($ :div {:tabIndex   0
+                      :role       "button"
+                      :class      "btn btn-sm btn-square join-item bg-base-100"
+                      :aria-label "Map actions"}
+                ($ ChevronDown {:size 16}))
+             ;; w-max: the menu sizes to its widest command (macOS
+             ;; behaviour) — "Download PDF of Session N" stays on one
+             ;; line for any ordinal instead of wrapping.
+             ($ :ul {:tabIndex 0
+                     :class    (str "dropdown-content menu menu-sm z-10 "
+                                    "mt-1 w-max min-w-44")}
+                ;; Session actions lead — starting a session is the
+                ;; most common item in this menu.
+                (when active-session
+                  ($ :<>
+                     (menu-action
+                      {:icon     ($ Plus {:size 16})
+                       :label    "Start new session"
+                       :on-click (fn []
+                                   (o/track "Session started" {})
+                                   (rf/dispatch [:session/start])
+                                   (close-dropdown!))})
+                     (when undoable?
+                       (menu-action
+                        {:icon     ($ Undo2 {:size 16})
+                         :label    "Undo new session"
+                         :on-click (fn []
+                                     (o/track "Session undone" {})
+                                     (rf/dispatch [:session/delete
+                                                   (:id active-session)])
+                                     (close-dropdown!))}))
+                     ($ :li ($ :hr))))
+                (menu-action
+                 {:icon     ($ FilePenLine {:size 16})
+                  :label    "Rename map"
+                  :on-click (fn []
+                              (set-editing! true)
+                              (close-dropdown!))})
+                ($ :li
+                   ;; Native `<a download>` does the work: the browser
+                   ;; sends the cookie-authenticated GET, follows the
+                   ;; server's `Content-Disposition` for the filename,
+                   ;; and opens the Save dialog. Cache-Control on
+                   ;; `/render.pdf` is `no-cache`, so an
+                   ;; edit-then-redownload flow always sees the fresh
+                   ;; PDF via the ETag revalidation.
+                   ($ :a {:href     (cond-> (str "/api/maps/" map-id
+                                                 "/render.pdf")
+                                      time-travelling?
+                                      (str "?at=" (:id segment-session)))
+                          :download ""
+                          :on-click (fn []
+                                      (o/track "Map PDF downloaded"
+                                               {:as-of time-travelling?})
+                                      (close-dropdown!))}
+                      ($ Download {:size 16})
+                      (if time-travelling?
+                        (str "Download PDF of Session "
+                             (:ordinal segment-session))
+                        "Download PDF")))
+                ($ :li ($ :hr))
+                ($ :li {:class menu-item-class}
+                   ;; Like the PDF above (native `<a download>`), but the full
+                   ;; Map history as JSON — the data-subject export (ADR-0010).
+                   ;; Used far less than Rename / PDF, so it sits below a
+                   ;; separator and drops the icon; the empty w-4 spacer keeps
+                   ;; its label aligned with the icon'd items above.
+                   ($ :a {:href     (gated
+                                     (str "/api/maps/" map-id "/export.json"))
+                          :download ""
+                          :on-click (gated
+                                     (fn []
+                                       (o/track "Map data exported" {})
+                                       (close-dropdown!)))}
+                      ($ :span {:class "w-4 shrink-0"})
+                      "Export map data")))))
        (when (time-travel/has-history? the-sessions)
          (let [toggle-label (if time-travelling?
                               "Back to editing"
@@ -386,7 +450,6 @@
                                                "bg-base-100")
                                              " flex items-center gap-1.5"
                                              " tooltip tooltip-bottom")
-                          :data-tip     (str toggle-label " — T")
                           :aria-label   toggle-label
                           :aria-pressed (boolean time-travelling?)
                           :on-click     (fn []
@@ -395,8 +458,11 @@
                                                 (rf/dispatch [:time-travel/exit]))
                                             (do (o/track "Time travel entered" {})
                                                 (rf/dispatch [:time-travel/enter]))))}
+                 ($ tooltip-content {:tip toggle-label :shortcut "T"})
                  ($ History {:size 16})
-                 ($ :span {:class history-label-class} "History"))))))))
+                 ($ :span {:class history-label-class} "Time Travel")))))
+       (when time-travelling?
+         ($ session-steppers {:viewing viewing})))))
 
 (defui save-error-banner
   "Persistent warning shown when a change batch failed and was rolled back
@@ -882,7 +948,8 @@
                                   ;; resting state.
                                   ($ button {:key        (name mode)
                                              :icon       ($ icon {:size 16})
-                                             :tooltip    (str label " — " shortcut)
+                                             :tooltip    label
+                                             :shortcut   shortcut
                                              :aria-label (str label " tool")
                                              :on-click   #(set-tool-mode mode)
                                              :active?    (= tool-mode mode)}))
@@ -921,7 +988,8 @@
                                 ($ button {:icon        ($ Spline {:size 16})
                                            :label       "Connect"
                                            :label-class connect-label-class
-                                           :tooltip     "Connect — C"
+                                           :tooltip     "Connect"
+                                           :shortcut    "C"
                                            :aria-label  "Connect tool"
                                            :on-click    #(toggle-tool :connect)
                                            :active?     (= tool-mode :connect)
@@ -957,13 +1025,7 @@
                       ($ Panel {:position "top-left" :className "top-chrome"}
                          ($ :div {:class "flex items-start gap-2"}
                             ($ map-name-widgets)
-                            ;; The session navigator centres in the LEFTOVER
-                            ;; space; min-w-fit means it is never crushed
-                            ;; below its own width — the name yields instead.
-                            ($ :div {:class "flex-1 flex justify-center min-w-fit"}
-                               (when time-travelling?
-                                 ($ :div {:class "chrome-item"}
-                                    ($ time-travel-bar))))
+                            ($ :div {:class "flex-1"})
                             ($ :div {:class "w-50 shrink-0 chrome-item"}
                                ($ sidebar))))
                       ($ Panel {:position "bottom-left" :className "bottom-chrome"}

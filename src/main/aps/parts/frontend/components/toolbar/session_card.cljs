@@ -150,6 +150,9 @@
         viewed-session          (uix.rf/use-subscribe [:canvas/viewed-session])
         part-options            (uix.rf/use-subscribe [:canvas/part-options])
         error                   (uix.rf/use-subscribe [:ui/session-error])
+        ;; Snapshot-fetch failures surface here since the navigation
+        ;; steppers (map.cljs) have no room for text.
+        tt-error                (uix.rf/use-subscribe [:time-travel/error])
         [modal-mode set-modal!] (use-state nil)
         session                 (if travelling? (:session viewing) active)
         has-trigger?            (seq (:trigger session))
@@ -178,8 +181,11 @@
               ($ activation-row {:session    viewed-session
                                  :parts      part-options
                                  :read-only? travelling?}))
-            (when error
-              ($ :p {:class "text-error text-xs" :role "alert"} error)))
+            (for [msg (remove nil? [error tt-error])]
+              ($ :p {:key   msg
+                     :class "text-error text-xs"
+                     :role  "alert"}
+                 msg)))
          ($ trigger-modal {:mode     modal-mode
                            :session  session
                            :on-close #(set-modal! nil)

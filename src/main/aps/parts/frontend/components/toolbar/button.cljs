@@ -2,20 +2,33 @@
   (:require
    [uix.core :refer [$ defui]]))
 
+(defui tooltip-content
+  "daisyUI rich-tooltip body (`data-tip` is text-only): the tip text
+   plus an optional shortcut rendered as a kbd key cap. The one home
+   for the key-cap markup — every chrome button that advertises a
+   shortcut renders this."
+  [{:keys [tip shortcut]}]
+  ($ :span {:class "tooltip-content"}
+     tip
+     (when shortcut
+       ($ :<> " " ($ :kbd {:class "kbd kbd-xs"} shortcut)))))
+
 (defui button
   ;; The tooltip classes ride on the <button> itself — a wrapper div
   ;; would become the join's child instead of the button, and its
   ;; inline-block line box is taller than the button (the strut below
   ;; the baseline), misaligning the whole toolbar row.
-  [{:keys [label label-class icon on-click tooltip active? aria-label disabled?]}]
+  [{:keys [label label-class icon on-click tooltip shortcut active?
+           aria-label disabled?]}]
   ($ :button {:class        (str "btn btn-sm join-item "
                                  (if active? "bg-base-300" "bg-base-100")
                                  (when tooltip " tooltip tooltip-top"))
-              :data-tip     tooltip
               :on-click     on-click
               :aria-label   aria-label
               :aria-pressed (boolean active?)
               :disabled     (boolean disabled?)}
+     (when tooltip
+       ($ tooltip-content {:tip tooltip :shortcut shortcut}))
      icon
      ;; `label-class` lets narrow-window stages hide the label; icon and
      ;; tooltip then carry the meaning.

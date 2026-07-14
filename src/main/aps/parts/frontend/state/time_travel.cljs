@@ -103,7 +103,12 @@
    ends. The shown content follows immediately when the target is
    displayable; otherwise it waits for the snapshot (`store-snapshot`).
    Clears any held fetch error — the failure belonged to the previous
-   target."
+   target.
+
+   A step that actually moves records `[:time-travel :last-step]`
+   (`{:dir … :n …}`, n counting so same-direction repeats register) —
+   the steppers' keyboard flash keys off it; a clamped step records
+   nothing, so the flash can't lie."
   [db direction]
   (if-let [{:keys [index]} (viewing db)]
     (let [the-sessions (get-in db [:map :sessions])
@@ -112,10 +117,14 @@
                              :forward index)
                            (max 0)
                            (min (dec (count the-sessions))))
-          target-id    (:id (nth the-sessions idx))]
+          target-id    (:id (nth the-sessions idx))
+          moved?       (not= target-id (get-in db [:time-travel :session-id]))]
       (cond-> (-> db
                   (assoc-in [:time-travel :session-id] target-id)
                   (update :time-travel dissoc :error))
+        moved?
+        (update-in [:time-travel :last-step]
+                   (fn [ls] {:dir direction :n (inc (:n ls 0))}))
         (displayable? db target-id)
         (assoc-in [:time-travel :shown-session-id] target-id)))
     db))

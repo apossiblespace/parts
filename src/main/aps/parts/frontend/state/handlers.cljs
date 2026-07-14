@@ -30,6 +30,23 @@
                            (get-in context [:coeffects :event 0]))
                    (assoc context :queue []))))))
 
+(def ^:private require-not-viewing-past
+  "Time-travel's backstop for Session-lifecycle and Map-metadata events
+   (rename, start, undo): the menu disables them in the mode, but a
+   stale UI path — a title editor left open across mode entry — can
+   still dispatch. Narrower than `require-editable`: these events are
+   legal without an active Session, just not while viewing the past."
+  (rf/->interceptor
+   :id :require-not-viewing-past
+   :before (fn [context]
+             (if (= :viewing-past (sessions/read-only-reason
+                                   (get-in context [:coeffects :db])))
+               (do (o/info "handlers.require-not-viewing-past"
+                           "dropped event while viewing the past"
+                           (get-in context [:coeffects :event 0]))
+                   (assoc context :queue []))
+               context))))
+
 (rf/reg-event-fx
  :app/init-db
  (fn [_ [_ default-db]]
@@ -418,6 +435,7 @@
 
 (rf/reg-event-fx
  :session/start
+ [require-not-viewing-past]
  (fn [{:keys [db]} _]
    {:session/create-fx {:map-id (get-in db [:map :id])}}))
 
@@ -462,6 +480,7 @@
 
 (rf/reg-event-fx
  :session/delete
+ [require-not-viewing-past]
  (fn [{:keys [db]} [_ session-id]]
    {:session/delete-fx {:map-id     (get-in db [:map :id])
                         :session-id session-id}}))
@@ -536,6 +555,7 @@
 
 (rf/reg-event-fx
  :map/rename
+ [require-not-viewing-past]
  (fn [{:keys [db]} [_ new-title]]
    (map-updates/rename-map db new-title)))
 

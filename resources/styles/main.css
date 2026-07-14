@@ -100,9 +100,12 @@
 
 /* Tooltips appear after a 300ms hover delay (macOS-style: deliberate
    hover shows help, a pointer passing through doesn't); hiding keeps
-   DaisyUI's quick fade. Keyboard focus keeps the instant show. */
+   DaisyUI's quick fade. Keyboard focus keeps the instant show. Covers
+   both variants: data-tip's ::before and the rich tooltip-content
+   child (used where the tip carries a kbd key cap). */
 .tooltip[data-tip]:hover::before,
-.tooltip[data-tip]:hover::after {
+.tooltip:hover::after,
+.tooltip:hover > .tooltip-content {
     transition-delay: 300ms;
 }
 
@@ -679,11 +682,22 @@ a.btn {
 
         /* Shrink canvas-chrome tooltip text (DaisyUI's 0.875rem default
            is heavy for the small buttons). The weight reset matters: a
-           tooltip is a ::before of its button and inherits its
-           font-weight — 600 on btn-primary. */
-        .react-flow__panel .tooltip[data-tip]::before {
+           tooltip inherits its button's font-weight — 600 on
+           btn-primary. Both variants: data-tip's ::before and the
+           tooltip-content child. */
+        .react-flow__panel .tooltip[data-tip]::before,
+        .react-flow__panel .tooltip > .tooltip-content {
             font-size: 0.65rem;
             font-weight: 400;
+        }
+
+        /* The kbd cap inside a tooltip: the tooltip's light-on-dark
+           text would render the key's glyph light-on-light — pin the
+           cap to its own colours, and give it room from the label. */
+        .tooltip > .tooltip-content .kbd {
+            color: var(--color-base-content);
+            background-color: var(--color-base-100);
+            margin-left: 0.3rem;
         }
 
         /* A dropdown inside a join must never size from inline-block
@@ -739,4 +753,15 @@ a.btn {
    (React Flow panels all share z-index 5). */
 .react-flow__panel.bottom-chrome {
     z-index: 6;
+}
+
+/* Time-travel steppers: a disabled end keeps the mode yellow — only
+   the chevron mutes. daisyUI's default disabled grey would break the
+   colour-grouped history cluster next to the lit History button. */
+.tt-stepper:disabled {
+    background-color: var(--color-primary);
+    color: color-mix(in oklab,
+                     var(--color-primary-content) 35%,
+                     var(--color-primary));
+    border-color: transparent;
 }

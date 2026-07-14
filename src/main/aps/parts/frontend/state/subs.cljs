@@ -112,6 +112,11 @@
  (fn [db _]
    (time-travel/error db)))
 
+(rf/reg-sub
+ :time-travel/last-step
+ (fn [db _]
+   (get-in db [:time-travel :last-step])))
+
 ;; Canvas source subs: the live Map in Editing mode, the viewed
 ;; Session's snapshot in Time-travel. Everything that joins against
 ;; the canvas (sidebar selected-entity views included) reads these.
