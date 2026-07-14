@@ -9,6 +9,7 @@
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
    [aps.parts.db.erasure :as erasure]
+   [aps.parts.entity.session :as session]
    [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc]
@@ -110,6 +111,39 @@
         (is (zero? (:c maps-left))))
       (testing "user row physically gone"
         (is (zero? (:c users-left)))))))
+
+(deftest test-purge-deletes-sessions-and-activations
+  ;; Clinical trigger text must not survive erasure (ADR-0014).
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user) "With history")
+        part-id (random-uuid)]
+    (bt/insert! db/datasource :parts
+                {:id         part-id
+                 :map_id     (:id the-map)
+                 :type       "exile"
+                 :label      "Activated"
+                 :position_x 0             :position_y 0}
+                {:actor-id (:id user)})
+    (let [s1 (session/create! (:id the-map) (:id user))]
+      (session/update-trigger! (:id s1) (:id the-map)
+                               "conflict with the client's mother" (:id user))
+      (session/set-activation! (:id s1) (:id the-map) part-id (:id user))
+      (session/create! (:id the-map) (:id user))
+
+      (erasure/purge-account! db/datasource (:id user))
+
+      (let [count-q (fn [sql param]
+                      (:c (jdbc/execute-one!
+                           db/datasource [sql param]
+                           {:builder-fn rs/as-unqualified-maps})))]
+        (testing "no session rows (and no trigger text) survive the purge"
+          (is (zero? (count-q
+                      "SELECT count(*) AS c FROM sessions WHERE map_id = ?::uuid"
+                      (str (:id the-map))))))
+        (testing "no activation link survives the purge"
+          (is (zero? (count-q
+                      "SELECT count(*) AS c FROM session_activations WHERE session_id = ?::uuid"
+                      (str (:id s1))))))))))
 
 (deftest test-purge-erases-email-from-invitations-and-waitlist
   ;; invitations and waitlist_signups are keyed by email, not user-id, and the

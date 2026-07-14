@@ -5,6 +5,7 @@
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
+   [aps.parts.entity.session :as session]
    [aps.parts.export :as export]
    [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]))
@@ -55,4 +56,42 @@
             (is (not (contains? v :sys_period))))))
 
       (testing "relationships section is present (empty here)"
-        (is (= [] (:relationships result)))))))
+        (is (= [] (:relationships result))))
+
+      (testing "sessions section is present (empty here)"
+        (is (= [] (:sessions result)))))))
+
+(deftest test-export-includes-sessions
+  (testing "the export carries Sessions — ordinal, trigger, anchor — and
+            their activated Part links (GDPR Art. 15/20, ADR-0014)"
+    (let [user    (create-test-user!)
+          the-map (create-test-map! (:id user))
+          part    (part-row (:id the-map))
+          _       (bt/insert! db/datasource :parts part {:actor-id (:id user)})
+          s1      (session/create! (:id the-map) (:id user))
+          _       (session/update-trigger! (:id s1) (:id the-map)
+                                           "conflict with the client's mother"
+                                           (:id user))
+          _       (session/set-activation! (:id s1) (:id the-map)
+                                           (:id part) (:id user))
+          _       (session/create! (:id the-map) (:id user))
+          result  (export/export-map db/datasource (:id the-map))
+          [e1 e2] (:sessions result)]
+
+      (testing "both Sessions export in anchor order"
+        (is (= 2 (count (:sessions result))))
+        (is (= [1 2] (map :ordinal (:sessions result)))))
+
+      (testing "the trigger text — clinical data — is included"
+        (is (= "conflict with the client's mother" (:trigger e1)))
+        (is (nil? (:trigger e2))))
+
+      (testing "the anchor instant is the Session's valid-time place"
+        (is (some? (:anchor_valid_at e1))))
+
+      (testing "the activation link is included"
+        (is (= (:id part) (:activated_part_id e1)))
+        (is (nil? (:activated_part_id e2))))
+
+      (testing "map_id is dropped — the export is scoped to one Map"
+        (is (not (contains? e1 :map_id)))))))

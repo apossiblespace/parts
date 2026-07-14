@@ -13,7 +13,8 @@
    [aps.parts.db.audit :as audit]
    [aps.parts.db.bitemporal :as bt]
    [clojure.spec.alpha :as s]
-   [next.jdbc :as jdbc]))
+   [next.jdbc :as jdbc]
+   [next.jdbc.result-set :as rs]))
 
 (defn- snapshot
   "A Session row as jsonb-friendly audit data."
@@ -38,15 +39,19 @@
 
 (defn index
   "A Map's Sessions ordered by anchor, each carrying its activated Part id
-   (nil when none) — the shape the Session picker renders."
-  [map-id]
-  (db/query
-   (db/sql-format
-    {:select    [:s.* [:sa.part_id :activated_part_id]]
-     :from      [[:sessions :s]]
-     :left-join [[:session_activations :sa] [:= :sa.session_id :s.id]]
-     :where     [:= :s.map_id (db/->uuid map-id)]
-     :order-by  [[:s.anchor_valid_at :asc]]})))
+   (nil when none) — the shape the Session picker renders and the GDPR
+   export reuses."
+  ([map-id] (index db/datasource map-id))
+  ([ds map-id]
+   (jdbc/execute!
+    ds
+    (db/sql-format
+     {:select    [:s.* [:sa.part_id :activated_part_id]]
+      :from      [[:sessions :s]]
+      :left-join [[:session_activations :sa] [:= :sa.session_id :s.id]]
+      :where     [:= :s.map_id (db/->uuid map-id)]
+      :order-by  [[:s.anchor_valid_at :asc]]})
+    {:builder-fn rs/as-unqualified-maps})))
 
 (defn- latest
   "The active Session — the latest by anchor — or nil for a Map with none."

@@ -9,6 +9,7 @@
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
+   [aps.parts.entity.session :as session]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs])
   (:import
@@ -53,4 +54,8 @@
                             (mapv #(dissoc % :id :map_id)
                                   (bt/history ds :map_metadata [:= :map_id mid])))
      :parts          (by-entity (bt/history ds :parts [:= :map_id mid]))
-     :relationships  (by-entity (bt/history ds :relationships [:= :map_id mid]))}))
+     :relationships  (by-entity (bt/history ds :relationships [:= :map_id mid]))
+     ;; Sessions are non-temporal (ADR-0014): each exports once,
+     ;; unversioned — the anchor instant is its valid-time place. Full
+     ;; rows, so a future Session column exports by default.
+     :sessions       (mapv #(dissoc % :map_id) (session/index ds mid))}))

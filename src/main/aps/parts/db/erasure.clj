@@ -82,7 +82,8 @@
         DELETEs below write rows that don't FK-reference the dying user.
      2. Hard-DELETE the user's email-keyed rows in invitations and
         waitlist_signups (resolving the email before the users row goes).
-     3. Hard-DELETE relationships / parts / maps owned by the user.
+     3. Hard-DELETE relationships / parts / sessions (with their
+        activation links) / maps owned by the user.
      4. Pseudonymize any historical `audit_log` rows still attributing
         pre-deletion activity to this user — they survive but are anonymous.
      5. Mark `deletion_completed_at` (sentinel for log correlation).
@@ -122,6 +123,15 @@
                       user-uuid])
       (jdbc/execute! tx
                      ["DELETE FROM map_metadata
+                       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
+                      user-uuid])
+      ;; Sessions carry clinical trigger text and sit outside the
+      ;; bitemporal machinery — deleted deliberately here (ADR-0014);
+      ;; their activation links go with them via the sessions FK
+      ;; cascade. NOT mirrored in entity.map/delete-impl!: a
+      ;; soft-deleted Map keeps its Sessions, restorable.
+      (jdbc/execute! tx
+                     ["DELETE FROM sessions
                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
                       user-uuid])
       (jdbc/execute! tx

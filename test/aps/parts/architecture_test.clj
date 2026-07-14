@@ -77,12 +77,31 @@
         (is (re-find (re-pattern (str "\\.edge-" (name type) "\\s*\\{")) css)
             (str "main.css lacks an .edge-" (name type) " selector"))))))
 
+(def ^:private delete-quarantine
+  "Which namespaces may hard-delete rows from which tables. Every delete
+   spelling — raw SQL, `db/delete!`, a hand-built `:delete-from` map — is
+   generated from this one table, so a new table or spelling can't be
+   guarded in one form and silently missed in another. The session tables
+   are non-temporal (ADR-0014), so they need naming by hand here, and
+   entity/session holds their legitimate deletes (the latest-empty Session
+   undo and the activation replace/clear)."
+  [{:tables  ["parts" "relationships" "maps" "map_metadata"]
+    :allowed ["db/erasure"]}
+   {:tables  ["sessions" "session_activations"]
+    :allowed ["db/erasure" "entity/session"]}])
+
+(defn- delete-patterns [tables]
+  (let [alt (str/join "|" tables)]
+    [(re-pattern (str "(?i)DELETE FROM (" alt ")\\b"))
+     (re-pattern (str "db/delete!\\s+:(" alt ")\\b"))
+     (re-pattern (str ":delete-from\\s+:(" alt ")\\b"))]))
+
 (deftest hard-delete-is-quarantined
-  (testing "DELETE FROM on temporal tables appears only in db/erasure"
-    (let [patterns  [#"(?i)DELETE FROM (parts|relationships|maps|map_metadata)\b"]
-          allowed   ["db/erasure"]
-          offenders (offending-files patterns allowed)]
-      (is (empty? offenders)
-          (str "These files issue raw DELETEs against temporal tables but "
-               "aren't in db/erasure:\n  "
-               (str/join "\n  " offenders))))))
+  (testing "every spelling of hard-delete on a lifecycle table appears only
+            in that table group's allowed namespaces"
+    (doseq [{:keys [tables allowed]} delete-quarantine]
+      (let [offenders (offending-files (delete-patterns tables) allowed)]
+        (is (empty? offenders)
+            (str "These files delete from " (str/join "/" tables)
+                 " but aren't in " (str/join ", " allowed) ":\n  "
+                 (str/join "\n  " offenders)))))))
