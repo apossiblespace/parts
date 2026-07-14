@@ -3,7 +3,9 @@
    [aps.parts.common.constants :as constants]
    [aps.parts.render.document :as document]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing]]))
+   [clojure.test :refer [deftest is testing]])
+  (:import
+   (java.time LocalDate)))
 
 (deftest render-empty-test
   (testing "renders a valid SVG document even when the Map has no Parts"
@@ -36,6 +38,51 @@
       (is (str/includes? svg "href=\"#part-exile\""))
       (is (str/includes? svg "x=\"10\""))
       (is (str/includes? svg "x=\"200\"")))))
+
+(deftest render-session-header-test
+  (testing "a Session export carries one quiet top-right line — the
+            Session and its date, not today's"
+    (let [svg (document/render {:title "A test map" :parts [] :relationships []}
+                               {:as-of-date (LocalDate/of 2026 7 5)
+                                :subtitle   "As of Session 1"})]
+      (is (str/includes? svg "As of Session 1, 5 July 2026"))))
+
+  (testing "no subtitle — the header stays title + date only"
+    (let [svg (document/render {:title "A test map" :parts [] :relationships []})]
+      (is (not (str/includes? svg "As of")))))
+
+  (testing "a long title wraps into tspan lines instead of overflowing
+            onto the Session/date text (SVG text does not clip or wrap
+            on its own)"
+    (let [svg (document/render {:title (str "The extraordinarily verbose "
+                                            "cartography of an inner "
+                                            "family system")
+                                :parts []                                  :relationships []}
+                               {:as-of-date (LocalDate/of 2026 7 5)
+                                :subtitle   "As of Session 1"})]
+      (is (>= (count (re-seq #"<tspan" svg)) 2))))
+
+  (testing "an absurdly long title is capped with an ellipsis, not
+            allowed to escape the header band"
+    (let [svg (document/render {:title (apply str (repeat 40 "Sesquipedalian "))
+                                :parts []                                        :relationships []})]
+      (is (str/includes? svg "…"))
+      (is (<= (count (re-seq #"<tspan" svg)) 2)))))
+
+(deftest render-historical-self-loop-test
+  (testing "a self-loop relationship renders without crashing — self-loops
+            are disallowed at creation now, but as-of reads resurrect eras
+            when they validly existed, and the past is immutable. (JVM
+            regression: geometry's pair set-literal threw Duplicate key;
+            cljs tolerated it, so only this side could catch it.)"
+    (let [svg (document/render
+               {:parts         [{:id         "p1" :type       "manager" :label "Loop"
+                                 :position_x 0    :position_y 0         :width 100    :height 100}]
+                :relationships [{:id        "r1"       :source_id "p1"
+                                 :target_id "p1"
+                                 :type      "protects"}]})]
+      (is (string? svg))
+      (is (str/includes? svg "</svg>")))))
 
 (deftest render-labels-test
   (testing "a Part's label appears as a <text> element with the label text"

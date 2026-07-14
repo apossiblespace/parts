@@ -199,7 +199,8 @@
            :put    {:handler api.maps/update-map}
            :delete {:handler api.maps/delete-map}}]
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
-      ["/render.pdf"  {:get {:handler api.maps/render-pdf}}]
+      ["/render.pdf"  {:get {:parameters {:query {(ds/opt :at) string?}}
+                             :handler    api.maps/render-pdf}}]
       ["/export.json" {:get {:handler api.maps/export-json}}]
       ["/changes" {:post {:handler api.maps/process-changes}}]
       ["/sessions"

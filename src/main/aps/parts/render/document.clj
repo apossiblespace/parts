@@ -43,10 +43,12 @@
       :relationships [{:id :source_id :target_id :type} …]}
 
    Optional opts: `:as-of-date` — a `java.time.LocalDate` for the
-   header date. Defaults to today; useful in tests to pin the date."
+   header date (defaults to today; an as-of export passes the viewed
+   Session's date). `:subtitle` — a quiet line under the title, e.g.
+   \"As of Session 1\"."
   ([the-map] (render the-map {}))
   ([{:keys [title parts relationships] :as _the-map}
-    {:keys [as-of-date]}]
+    {:keys [as-of-date subtitle]}]
    (let [[vx vy vw vh]          (shapes/viewbox parts)
          by-id                  (into {} (map (juxt :id identity)) parts)
          bidi                   (geometry/bidirectional-pairs relationships)
@@ -73,7 +75,7 @@
         [:defs
          (raw-string @shapes/shape-symbols)
          edges/edge-arrow-markers]
-        (chrome/header-block title as-of)
+        (chrome/header-block title as-of subtitle)
         (chrome/footer-block)
         ;; Nested <svg> auto-scales the map's natural bounding box into
         ;; the content area.

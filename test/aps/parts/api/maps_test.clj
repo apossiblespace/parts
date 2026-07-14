@@ -8,6 +8,7 @@
    [aps.parts.entity.session :as session]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!
                                     create-test-map!]]
+   [aps.parts.render.document :as document]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
@@ -288,6 +289,71 @@
       ;; The header has exactly the wrapping `filename="…"` quotes — the
       ;; raw `"` from the title is stripped, not allowed to inject.
       (is (= 2 (count (re-seq #"\"" disp)))))))
+
+(deftest test-render-pdf-as-of-session
+  (let [user    (create-test-user!)
+        the-map (parts-map/create! {:title "Time travel" :owner_id (:id user)}
+                                   (:id user))
+        map-id  (:id the-map)
+        s1      (session/create! map-id (:id user))
+        _p1     (part/create! {:map_id     map-id
+                               :type       "manager"
+                               :label      "In S1"
+                               :position_x 0
+                               :position_y 0}
+                              (:id user))
+        _       (session/update-trigger! (:id s1) map-id
+                                         "SENSITIVE-TRIGGER" (:id user))
+        s2      (session/create! map-id (:id user))
+        _p2     (part/create! {:map_id     map-id
+                               :type       "exile"
+                               :label      "In S2"
+                               :position_x 10
+                               :position_y 10}
+                              (:id user))
+        at-s1   (api/render-pdf (make-request user
+                                              :params {:id map-id}
+                                              :query {:at (str (:id s1))}))
+        at-tip  (api/render-pdf (make-request user :params {:id map-id}))
+        length  #(Long/parseLong (get-in % [:headers "Content-Length"]))]
+
+    (testing "?at=<session-id> renders the Map as of that Session — less
+              content than the tip, so a smaller PDF"
+      (is (= 200 (:status at-s1)))
+      (is (< (length at-s1) (length at-tip))))
+
+    (testing "the filename names the Session, so exporting several
+              Sessions doesn't overwrite one file"
+      (is (str/includes? (get-in at-s1 [:headers "Content-Disposition"])
+                         "Time travel - Session 1.pdf"))
+      (is (str/includes? (get-in at-tip [:headers "Content-Disposition"])
+                         "Time travel.pdf")))
+
+    (testing "?at at the latest Session is the live view — more content
+              than S1 (the header differs from the tip render by design:
+              Session subtitle + the Session's date)"
+      (let [at-s2 (api/render-pdf (make-request user
+                                                :params {:id map-id}
+                                                :query {:at (str (:id s2))}))]
+        (is (= 200 (:status at-s2)))
+        (is (> (length at-s2) (length at-s1)))
+        (is (str/includes? (get-in at-s2 [:headers "Content-Disposition"])
+                           "Time travel - Session 2.pdf"))))
+
+    (testing "the rendered document is structure-only: as-of content
+              excludes later Parts, and no Session data — trigger text,
+              badge ordinals — can reach it (AC #6)"
+      (let [svg (document/render
+                 (parts-map/fetch map-id
+                                  (session/as-of-instant map-id (str (:id s1)))))]
+        (is (str/includes? svg "In S1"))
+        (is (not (str/includes? svg "In S2")))
+        (is (not (str/includes? svg "SENSITIVE-TRIGGER")))))
+
+    (testing "the Maps-list thumbnail always renders the tip — the
+              preview route takes no ?at by design"
+      (let [preview (api/preview-svg (make-request user :params {:id map-id}))]
+        (is (= 2 (count (re-seq #"<circle" (:body preview)))))))))
 
 (deftest test-preview-svg
   (testing "returns an SVG body with Content-Type image/svg+xml and an ETag header"

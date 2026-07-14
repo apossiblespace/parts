@@ -121,9 +121,14 @@
    range is open, so its final state is the live view.
 
    Returns an OffsetDateTime (UTC) — the type the JDBC layer binds
-   directly; a bare Instant is not a bindable parameter."
-  [map-id session-id]
-  (let [session (fetch session-id map-id)
+   directly; a bare Instant is not a bindable parameter.
+
+   Takes a session id or an already-fetched row (spares a caller
+   holding the row a refetch)."
+  [map-id session-or-id]
+  (let [session (if (map? session-or-id)
+                  session-or-id
+                  (fetch session-or-id map-id))
         next-s  (->> (index map-id)
                      (drop-while #(not= (:id %) (:id session)))
                      second)]

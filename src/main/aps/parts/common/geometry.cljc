@@ -107,9 +107,13 @@
 
 (defn bidirectional?
   "Predicate: is the given relationship's pair in the
-   `bidirectional-pairs` set? Cheap query against a precomputed set."
+   `bidirectional-pairs` set? Cheap query against a precomputed set.
+   `hash-set`, not a set literal: a historical self-loop (source =
+   target — disallowed at creation now, but as-of reads resurrect eras
+   where they existed) collapses to a one-element set here, where the
+   literal would throw Duplicate key on the JVM."
   [bidi-pairs {:keys [source_id target_id]}]
-  (contains? bidi-pairs #{source_id target_id}))
+  (contains? bidi-pairs (hash-set source_id target_id)))
 
 (defn curve-midpoint
   "The visual midpoint of a drawn edge: the chord midpoint for a plain

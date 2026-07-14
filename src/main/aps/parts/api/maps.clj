@@ -14,7 +14,12 @@
    [jsonista.core :as json]
    [ring.util.response :as response])
   (:import
-   (java.io ByteArrayInputStream)))
+   (java.io ByteArrayInputStream)
+   (java.time LocalDate ZoneOffset)))
+
+(defn- quoted-etag
+  [inst]
+  (format "\"%d\"" (inst-ms inst)))
 
 (defn- etag-for-map
   "Quoted ETag string derived from a Map's version timestamp. nil when
@@ -23,7 +28,7 @@
    output format; the browser keys cache entries by URL anyway."
   [map-id]
   (when-let [v (parts-map/version map-id)]
-    (format "\"%d\"" (inst-ms v))))
+    (quoted-etag v)))
 
 (defn- not-modified
   [tag]
@@ -186,15 +191,38 @@
   "Render a Map as a PDF — the document renderer's SVG transcoded via
    Apache FOP. Access gated by `wrap-map-access`. Same ETag/304 dance
    as `preview-svg`; PDF transcoding is the expensive step
-   (hundreds of ms), so skipping it on unchanged Maps is the real win."
+   (hundreds of ms), so skipping it on unchanged Maps is the real win.
+
+   `?at=<session-id>` renders the Map as of that Session (Time-travel's
+   download); the filename then names the Session so exporting several
+   doesn't overwrite one file. A resolved past instant doubles as the
+   ETag — the past is immutable, so those responses cache perfectly."
   [{:keys [parameters headers] :as _request}]
-  (let [map-id (get-in parameters [:path :id])
-        tag    (etag-for-map map-id)]
+  (let [map-id     (get-in parameters [:path :id])
+        at         (get-in parameters [:query :at])
+        at-session (when at (session/fetch at map-id))
+        as-of      (when at-session (session/as-of-instant map-id at-session))
+        tag        (if as-of
+                     (quoted-etag (db/->instant as-of))
+                     (etag-for-map map-id))]
     (if (and tag (= tag (get headers "if-none-match")))
       (not-modified tag)
-      (let [the-map  (parts-map/fetch map-id)
-            filename (safe-filename (:title the-map))
-            bytes    (pdf/svg->pdf (document/render the-map))]
+      (let [the-map  (parts-map/fetch map-id as-of)
+            filename (safe-filename
+                      (cond-> (:title the-map)
+                        at-session (str " - Session " (:ordinal at-session))))
+            bytes    (pdf/svg->pdf
+                      (document/render
+                       the-map
+                       ;; The header carries the Session context: its
+                       ;; date (not today's) and a quiet subtitle.
+                       (when at-session
+                         {:as-of-date (LocalDate/ofInstant
+                                       (db/->instant
+                                        (:anchor_valid_at at-session))
+                                       ZoneOffset/UTC)
+                          :subtitle   (str "As of Session "
+                                           (:ordinal at-session))})))]
         (cond-> (-> (response/response (ByteArrayInputStream. bytes))
                     (response/status 200)
                     (response/header "Content-Type" "application/pdf")
