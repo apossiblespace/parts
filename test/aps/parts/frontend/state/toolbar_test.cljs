@@ -53,6 +53,51 @@
     (is (nil? (toolbar/shortcut-tool "x")))
     (is (nil? (toolbar/shortcut-tool " ")))))
 
+(deftest part-chord-test
+  (testing "P opens the Part chord, case-insensitive"
+    (is (true? (toolbar/part-chord-key? "p")))
+    (is (true? (toolbar/part-chord-key? "P")))
+    (is (false? (toolbar/part-chord-key? "u"))))
+
+  (testing "the second key picks the Part type, case-insensitive"
+    (is (= :add-unknown (toolbar/chord-tool "u")))
+    (is (= :add-exile (toolbar/chord-tool "E")))
+    (is (= :add-firefighter (toolbar/chord-tool "f")))
+    (is (= :add-manager (toolbar/chord-tool "M"))))
+
+  (testing "an unmatched second key cancels — nil, so the caller routes
+            the key as if pressed alone"
+    (is (nil? (toolbar/chord-tool "v")))
+    (is (nil? (toolbar/chord-tool "Escape")))
+    (is (nil? (toolbar/chord-tool "p")))))
+
+(deftest chord-step-test
+  (testing "P arms the chord; the next matching key picks the tool"
+    (is (= {:arm? true} (toolbar/chord-step false "p")))
+    (is (= {:tool :add-exile} (toolbar/chord-step true "e"))))
+
+  (testing "an unmatched second key returns {} — consumed, and the caller
+            routes the key as if pressed alone"
+    (is (= {} (toolbar/chord-step true "v")))
+    (is (= {} (toolbar/chord-step true "t")))
+    (is (= {} (toolbar/chord-step true "Escape"))))
+
+  (testing "a repeated P re-arms — holding P down must not flip the chord
+            off on every other auto-repeat"
+    (is (= {:arm? true} (toolbar/chord-step true "p"))))
+
+  (testing "chord keys mean nothing without the prefix"
+    (is (= {} (toolbar/chord-step false "e")))))
+
+(deftest modifier-key?-test
+  (testing "pure modifier keydowns don't advance the chord — Shift+E must
+            still complete a pending chord"
+    (is (true? (toolbar/modifier-key? "Shift")))
+    (is (true? (toolbar/modifier-key? "Meta")))
+    (is (true? (toolbar/modifier-key? "Control")))
+    (is (true? (toolbar/modifier-key? "Alt")))
+    (is (false? (toolbar/modifier-key? "p")))))
+
 (deftest select-tool-test
   (testing "an explicit choice sets the tool"
     (is (= {:tool-mode :hand}

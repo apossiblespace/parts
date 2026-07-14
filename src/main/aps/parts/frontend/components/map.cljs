@@ -54,9 +54,13 @@
 ;; NOTE: these labels' rendered width feeds the `part-label-class`
 ;; threshold — adding or renaming a type means re-measuring that stage.
 (def ^:private part-tools
-  (mapv (fn [{:keys [label] :as tool}]
-          (assoc tool :create-label
-                 (str "Create " (indefinite-article label) " " label " part")))
+  (mapv (fn [{:keys [mode label] :as tool}]
+          (assoc tool
+                 :create-label
+                 (str "Create " (indefinite-article label) " " label " part")
+                 ;; From the router's table — the tooltip can't drift
+                 ;; from the routing.
+                 :shortcut ["P" (toolbar/chord-keys mode)]))
         [{:mode :add-unknown :label "Unknown"}
          {:mode :add-exile :label "Exile"}
          {:mode :add-firefighter :label "Firefighter"}
@@ -484,6 +488,22 @@
                      :on-click #(.reload (.-location js/window))}
             "Reload Map")))))
 
+(defui ^:private canvas-empty-state
+  "Static empty-state for a Map with no Parts yet (HIG shape: a quiet
+   headline naming the first action, one supporting line, no tour).
+   Purely presentational — the caller owns the whole show gate.
+   pointer-events-none: an armed create-tool click lands on the canvas
+   straight through it."
+  []
+  ($ :div {:class (str "absolute inset-0 z-[4] flex flex-col "
+                       "items-center justify-center gap-2 "
+                       "pointer-events-none text-center")}
+     ($ :h2 {:class "text-lg font-medium text-base-content/60"}
+        "Add your first Part")
+     ($ :p {:class "text-sm text-base-content/50 max-w-xs"}
+        (str "Choose a Part type in the toolbar below, then click "
+             "anywhere on the canvas to place it."))))
+
 (defui map-canvas []
   (let [demo                  (uix.rf/use-subscribe [:demo])
         minimal               (uix.rf/use-subscribe [:minimal-demo])
@@ -520,6 +540,8 @@
         glide-parts-ref       (use-ref nil)
         glide-raf             (use-ref nil)
         fitted-map-id         (use-ref nil)
+        ;; Two-key Part chord: true between P and its second key.
+        pending-chord         (use-ref false)
         shown-parts           (if (and time-travelling? glide-parts)
                                 glide-parts
                                 parts)
@@ -804,44 +826,77 @@
 
     (use-effect
      (fn []
-       (let [on-down (fn [^js e]
-                       ;; Bare keys only: Cmd+H (hide) etc. must stay the
-                       ;; browser's. Escape also lets ReactFlow clear the
-                       ;; selection itself.
-                       (when (and (non-input-target? e)
-                                  ;; An open modal owns the keyboard —
-                                  ;; Escape must close the dialog, not
-                                  ;; also exit a mode or reset the tool.
-                                  (nil? (.querySelector js/document
-                                                        "dialog[open]"))
-                                  (not (or (.-metaKey e)
-                                           (.-ctrlKey e)
-                                           (.-altKey e))))
-                         (if-let [travel-event (and time-travelling?
-                                                    (time-travel/key-event (.-key e)))]
-                           (rf/dispatch travel-event)
-                           (if (time-travel/toggle-key? (.-key e))
-                             ;; enter is a pure no-op without history.
-                             (rf/dispatch (if time-travelling?
-                                            [:time-travel/exit]
-                                            [:time-travel/enter]))
-                             (if-let [held (toolbar/spring-tool (.-key e))]
-                               ;; Not mid-marquee: flipping the tool then would
-                               ;; abort ReactFlow's gesture with the selection
-                               ;; buffer still armed.
-                               (when (and (not (.-repeat e))
-                                          (nil? @marquee-buffer))
-                                 (rf/dispatch [:ui/tool-spring-down held]))
-                               (when-let [tool (toolbar/shortcut-tool (.-key e))]
-                                 (set-tool-mode tool)))))))
+       (let [route-tool-key
+             (fn [^js e]
+               (if-let [held (toolbar/spring-tool (.-key e))]
+                 ;; Not mid-marquee: flipping the tool then would
+                 ;; abort ReactFlow's gesture with the selection
+                 ;; buffer still armed.
+                 (when (and (not (.-repeat e))
+                            (nil? @marquee-buffer))
+                   (rf/dispatch [:ui/tool-spring-down held]))
+                 (when-let [tool (toolbar/shortcut-tool (.-key e))]
+                   (set-tool-mode tool))))
+             on-down        (fn [^js e]
+                              (let [k (.-key e)]
+                                (when-not (toolbar/modifier-key? k)
+                                  (let [{:keys [tool arm?]}
+                                        (toolbar/chord-step @pending-chord k)]
+                                    ;; The chord is consumed by the very
+                                    ;; next real keydown wherever it
+                                    ;; lands — keys the guards below
+                                    ;; swallow cancel it too, so a
+                                    ;; pending chord can never fire
+                                    ;; minutes later.
+                                    (reset! pending-chord false)
+                                    ;; Bare keys only: Cmd+H (hide) etc.
+                                    ;; must stay the browser's. Escape
+                                    ;; also lets ReactFlow clear the
+                                    ;; selection itself. An open modal
+                                    ;; owns the keyboard.
+                                    (when (and (non-input-target? e)
+                                               (nil? (.querySelector
+                                                      js/document
+                                                      "dialog[open]"))
+                                               (not (or (.-metaKey e)
+                                                        (.-ctrlKey e)
+                                                        (.-altKey e))))
+                                      (let [travel-event
+                                            (and time-travelling?
+                                                 (time-travel/key-event k))]
+                                        (cond
+                                          travel-event
+                                          (rf/dispatch travel-event)
+
+                                          ;; enter is a pure no-op
+                                          ;; without history.
+                                          (time-travel/toggle-key? k)
+                                          (rf/dispatch
+                                           (if time-travelling?
+                                             [:time-travel/exit]
+                                             [:time-travel/enter]))
+
+                                          tool
+                                          (set-tool-mode tool)
+
+                                          ;; No chords in Time-travel —
+                                          ;; the Part tools don't exist
+                                          ;; there.
+                                          arm?
+                                          (when-not time-travelling?
+                                            (reset! pending-chord true))
+
+                                          :else
+                                          (route-tool-key e))))))))
              ;; Release is unguarded: wherever focus went mid-hold, the
              ;; hold must end. Window blur too, or a Cmd-Tab away leaves
              ;; the canvas stuck in Hand.
-             on-up   (fn [^js e]
-                       (when (toolbar/spring-tool (.-key e))
-                         (rf/dispatch [:ui/tool-spring-up])))
-             on-blur (fn [_e]
-                       (rf/dispatch [:ui/tool-spring-up]))]
+             on-up          (fn [^js e]
+                              (when (toolbar/spring-tool (.-key e))
+                                (rf/dispatch [:ui/tool-spring-up])))
+             on-blur        (fn [_e]
+                              (reset! pending-chord false)
+                              (rf/dispatch [:ui/tool-spring-up]))]
          (.addEventListener js/document "keydown" on-down)
          (.addEventListener js/document "keyup" on-up)
          (.addEventListener js/window "blur" on-blur)
@@ -960,7 +1015,7 @@
                         (when-not time-travelling?
                           ($ :<>
                              ($ :div {:class "join"}
-                                (map (fn [{:keys [mode label create-label]}]
+                                (map (fn [{:keys [mode label create-label shortcut]}]
                                        ;; Clicking an armed tool again disarms it back
                                        ;; to Select. The icon is the Part type's canvas
                                        ;; shape — the button previews the stamp it
@@ -976,6 +1031,7 @@
                                                                         :alt   ""
                                                                         :class "h-4 w-auto"})
                                                   :tooltip     create-label
+                                                  :shortcut    shortcut
                                                   :aria-label  create-label
                                                   :on-click    #(toggle-tool mode)
                                                   :active?     (= tool-mode mode)
@@ -1049,7 +1105,11 @@
                              :offsetScale 5}))
                ($ Background {:variant "dots"
                               :gap     12
-                              :size    1}))))
+                              :size    1})
+               ;; ReactFlow's wrapper is position:relative — the same
+               ;; anchor every other overlay uses.
+               (when (and (not demo) editable? (empty? parts))
+                 ($ canvas-empty-state)))))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal

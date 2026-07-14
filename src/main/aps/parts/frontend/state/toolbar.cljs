@@ -41,6 +41,48 @@
     "escape" :select
     nil))
 
+(defn part-chord-key?
+  "P opens the two-key Part chord (P then U/E/F/M)."
+  [key]
+  (= "p" (str/lower-case key)))
+
+(def chord-keys
+  "The Part chord's second key per creation tool — the single source
+   the router derives from and the toolbar tooltips display."
+  {:add-unknown     "U"
+   :add-exile       "E"
+   :add-firefighter "F"
+   :add-manager     "M"})
+
+(def ^:private key->chord-tool
+  (into {} (map (fn [[tool k]] [(str/lower-case k) tool])) chord-keys))
+
+(defn chord-tool
+  "The creation tool the Part chord's second key arms, or nil — an
+   unmatched second key cancels the chord, and the caller routes it as
+   if it had been pressed alone."
+  [key]
+  (key->chord-tool (str/lower-case key)))
+
+(defn modifier-key?
+  "A pure modifier keydown (the Shift of Shift+E) — these must not
+   advance the chord, or the modifier's own keydown would consume it
+   before the real key arrives."
+  [key]
+  (contains? #{"Shift" "Meta" "Control" "Alt"} key))
+
+(defn chord-step
+  "Advance the Part chord one (non-modifier) keydown. The chord is
+   consumed by the very next key regardless of what it is:
+   - pending + matching key  → {:tool <creation tool>}
+   - P (pending or not)      → {:arm? true} (held-P auto-repeat re-arms)
+   - anything else           → {} — the key routes as if pressed alone."
+  [pending? key]
+  (cond
+    (and pending? (chord-tool key)) {:tool (chord-tool key)}
+    (part-chord-key? key)           {:arm? true}
+    :else                           {}))
+
 (defn select-tool
   "Explicitly choose a tool on the `:ui` state map. Also cancels any
    spring-loaded hold — the release must not undo a deliberate choice."

@@ -4,14 +4,16 @@
 
 (defui tooltip-content
   "daisyUI rich-tooltip body (`data-tip` is text-only): the tip text
-   plus an optional shortcut rendered as a kbd key cap. The one home
-   for the key-cap markup — every chrome button that advertises a
-   shortcut renders this."
+   plus an optional shortcut — a key string or a vector of them for a
+   chord — rendered as kbd key caps (spacing comes from the tooltip
+   kbd CSS rule). The one home for the key-cap markup — every chrome
+   button that advertises a shortcut renders this."
   [{:keys [tip shortcut]}]
   ($ :span {:class "tooltip-content"}
      tip
      (when shortcut
-       ($ :<> " " ($ :kbd {:class "kbd kbd-xs"} shortcut)))))
+       (for [k (if (string? shortcut) [shortcut] shortcut)]
+         ($ :kbd {:key k :class "kbd kbd-xs"} k)))))
 
 (defui button
   ;; The tooltip classes ride on the <button> itself — a wrapper div
