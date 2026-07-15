@@ -3,13 +3,10 @@
    auto-wrap, so we compute line breaks server-side with
    `java.awt.FontMetrics` (via `Font/getStringBounds`). Avoids
    `<foreignObject>`, whose Batik support is incomplete (see ADR-0008).
-
-   Font measurement uses Liberation Sans if the JVM can resolve it
-   (true on production Linux); otherwise AWT silently falls back to a
-   logical font, which measures slightly differently. The SVG declares
-   the same fallback chain so the browser / Batik render against the
-   closest match they have."
+   The font itself — one operator-installed family covering every
+   script a label can hold — lives in `aps.parts.render.fonts`."
   (:require
+   [aps.parts.render.fonts :as fonts]
    [clojure.string :as str])
   (:import
    (java.awt Font RenderingHints)
@@ -19,17 +16,6 @@
 (def ^:private label-font-size 14)
 (def ^:private label-line-height 17)
 
-(def font-name
-  "The physical font both measurement (AWT) and the SVG output name —
-   chrome builds its title/meta fonts from this too, so a font swap is
-   one edit."
-  "Liberation Sans")
-
-(def label-font-family
-  "SVG `font-family` string — shared with the chrome header/footer so
-   one font choice applies across the whole document."
-  (str "\"" font-name "\", Arial, sans-serif"))
-
 (def ^:private label-max-lines 3)
 (def ^:private label-inset
   "Horizontal padding inside a Part's box: usable text width is
@@ -38,7 +24,7 @@
 (def ^:private label-ellipsis "…")
 
 (def ^:private ^Font label-font
-  (Font. font-name Font/PLAIN label-font-size))
+  (fonts/document-font :regular label-font-size))
 
 (def ^:private ^FontRenderContext frc
   ;; RenderingHints constants rather than booleans: Clojure boxes booleans to
@@ -125,7 +111,7 @@
               :y                 first-cy
               :text-anchor       "middle"
               :dominant-baseline "middle"
-              :font-family       label-font-family
+              :font-family       fonts/font-family
               :font-size         label-font-size
               :font-weight       500
               :fill              "currentColor"}

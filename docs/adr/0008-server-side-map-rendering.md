@@ -72,8 +72,15 @@ Supporting decisions:
 - **Wrap label text server-side** with `java.awt.FontMetrics`, emitting one
   `<tspan>` per line (cap 3, ellipsis on overflow). Avoids `<foreignObject>`,
   whose Batik support is incomplete. The SVG declares
-  `"Liberation Sans", Arial, sans-serif`; production runs on Linux with
-  Liberation Sans available.
+  `"Noto Sans CJK TC", sans-serif`, read from `:render/font-dir`
+  (`PARTS__RENDER__FONT_DIR`) and registered explicitly with FOP
+  (2026-07-15, superseding the original `"Liberation Sans", Arial` choice):
+  FOP does no per-glyph font fallback — glyphs missing from the selected
+  font render as literal `#` — so the one document font must itself cover
+  every script a label can hold. Noto Sans CJK TC covers the full CJK
+  repertoire (both Chinese scripts; TC picks traditional shapes for shared
+  Han ideographs) plus Latin/Greek/Cyrillic. Measurement loads the same
+  files FOP embeds, so wrapping cannot drift from rendering.
 - **No server-side cache.** Emit an HTTP `ETag` computed from
   `MAX(lower(sys_period))` over the Map's parts, relationships, and
   metadata rows (`bt/latest-change-at` × 3, max in Clojure); browsers
@@ -140,11 +147,23 @@ Supporting decisions:
   handful of transitive Batik / Xerces jars (~10MB total). Mature and stable;
   not in active feature development upstream but well-maintained for security.
   No other code path uses it, so it stays cleanly excisable.
-- **A server-side font dependency.** Both `java.awt.FontMetrics` and Batik
-  resolve fonts from the JVM. The SVG declares
-  `"Liberation Sans", Arial, sans-serif`; Liberation Sans is present on every
-  standard Linux distribution including the production runtime. We do not
-  ship a font.
+- **An operator-installed font.** Originally this ADR relied on fontconfig
+  discovery ("Liberation Sans is present on every standard Linux
+  distribution... We do not ship a font"), which broke for non-Latin labels:
+  FOP substitutes `#` for glyphs missing from the selected font, and no
+  per-glyph fallback exists to reach a host CJK font. Since 2026-07-15 the
+  renderer requires Noto Sans CJK TC (Regular + Bold OTF, version-pinned,
+  OFL) at `:render/font-dir` (`PARTS__RENDER__FONT_DIR`): the Nix dev shell
+  provides a pinned derivation (dev + CI), Ubuntu hosts install the same
+  two files per the runbook. Both AWT measurement and FOP embedding read
+  those exact files — fontconfig is never consulted, and the render
+  namespaces fail fast at boot when the files are missing, because the
+  failure mode of a wrong font is silent `#` glyphs in a client-facing
+  hand-out. FOP's subsetting keeps Latin-only PDFs small. The distro
+  `fonts-noto-cjk` package was rejected: it ships all-region TTC
+  collections (sub-font selection complexity in both FOP and AWT) at
+  whatever build the distro pinned, so staging and production on different
+  Ubuntu releases could measure differently.
 - **`MAX(lower(sys_period))` becomes part of the public ETag contract.**
   Any future change to how bitemporal rows are written — e.g. a soft
   re-write that closes and reopens `sys_period` without a real data

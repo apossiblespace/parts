@@ -59,6 +59,28 @@ mkdir -p /var/lib/parts/legal
 chown "$ADMIN_USER:$APP_USER" /var/lib/parts/legal
 chmod 755 /var/lib/parts/legal
 
+# PDF document fonts — the renderer requires Noto Sans CJK TC (see
+# ADR-0008): FOP renders glyphs missing from its font as a literal `#`,
+# so the app fails fast at boot when these files are absent. Pinned to
+# the same upstream release (and byte-identical files) as the dev
+# flake's derivation, so every environment measures and embeds the same
+# glyphs. Idempotent: files that already verify are left alone.
+FONT_DIR=/var/lib/parts/fonts
+FONT_BASE_URL=https://raw.githubusercontent.com/notofonts/noto-cjk/Sans2.004/Sans/OTF/TraditionalChinese
+install_font() {
+    local file=$1 sha=$2
+    if ! echo "$sha  $FONT_DIR/$file" | sha256sum -c - >/dev/null 2>&1; then
+        curl -fsSL -o "$FONT_DIR/$file" "$FONT_BASE_URL/$file"
+        echo "$sha  $FONT_DIR/$file" | sha256sum -c - >/dev/null
+        echo "✓ Installed $file"
+    fi
+}
+mkdir -p "$FONT_DIR"
+install_font NotoSansCJKtc-Regular.otf dce08bd4fd91aa8aa76ed8fea4b694c2dfb8550f67871e326843212ddbeb88b4
+install_font NotoSansCJKtc-Bold.otf 3ee160e5015106e3ec1a394301df54fa9bbbf8a251519984aec5c0abc50840c0
+chmod 755 "$FONT_DIR"
+chmod 644 "$FONT_DIR"/*.otf
+
 # 3. postgres + secrets + env file — generated once. The env file's existence
 # is the "already provisioned" signal, so a re-run never regenerates secrets
 # (regenerating would drift the DB password from the role and rotate the
@@ -99,6 +121,9 @@ PARTS__DB__PASSWORD=$DB_PASSWORD
 #   LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
 PARTS__SESSION__KEY=$SESSION_KEY
 
+# PDF document fonts (Noto Sans CJK TC; see ADR-0008 and the runbook).
+PARTS__RENDER__FONT_DIR=/var/lib/parts/fonts
+
 JAVA_OPTS=-server -Xms512m -Xmx512m
 
 # --- Optional: operator error-alert emails (stays off until all four are set;
@@ -117,6 +142,14 @@ EOF
     chown root:root /etc/$APP_NAME.env
     chmod 600 /etc/$APP_NAME.env
     echo "✓ Wrote /etc/$APP_NAME.env with generated secrets (root:root, 600)"
+fi
+
+# Boxes provisioned before the fonts step have an env file that predates
+# PARTS__RENDER__FONT_DIR — append it once. Never rewrites existing
+# values, so secrets stay untouched.
+if ! grep -q '^PARTS__RENDER__FONT_DIR=' /etc/$APP_NAME.env; then
+    printf '\n# PDF document fonts (Noto Sans CJK TC; see ADR-0008 and the runbook).\nPARTS__RENDER__FONT_DIR=%s\n' "$FONT_DIR" >>/etc/$APP_NAME.env
+    echo "✓ Appended PARTS__RENDER__FONT_DIR to /etc/$APP_NAME.env"
 fi
 
 # 4. ufw

@@ -89,6 +89,15 @@
   []
   (l-config/get config :legal/content-dir))
 
+(defn render-font-dir
+  "Filesystem directory holding the PDF document fonts, or nil. The Nix
+   dev shell exports PARTS__RENDER__FONT_DIR (dev and CI); hosts install
+   the pinned files and set the variable — see the runbook. Unlike the
+   legal templates there is no fallback; `aps.parts.render.fonts` fails
+   fast and documents why."
+  []
+  (l-config/get config :render/font-dir))
+
 (defn smtp-config
   "Operator error-alert SMTP settings, read entirely from the environment
    (`PARTS__SMTP__*` / `PARTS__ALERT__*`). Nothing here is committed: this repo

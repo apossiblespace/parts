@@ -107,9 +107,8 @@
                                  :position_x 0                                         :position_y 0
                                  :width      100                                       :height     100}]
                 :relationships []})]
-      ;; Exact line count depends on font metrics (Liberation Sans on Linux
-      ;; vs the JVM's logical fallback on macOS measure slightly different
-      ;; widths). What matters is the cap and the ellipsis.
+      ;; What matters is the cap and the ellipsis, not the exact line
+      ;; count.
       (is (<= (count (re-seq #"<tspan" svg)) 3))
       (is (str/includes? svg "…"))))
   (testing "Parts with no label render no <tspan> — chrome <text> elements

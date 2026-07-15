@@ -45,6 +45,8 @@ SERVICE=$APP_NAME-$INSTANCE
 DB_NAME=${APP_NAME}_${INSTANCE}
 DB_USER=${APP_NAME}_${INSTANCE}
 ENV_FILE=/etc/$SERVICE.env
+# Installed by bootstrap-prod.sh; instances share the box's font dir.
+FONT_DIR=/var/lib/parts/fonts
 
 # oauth2-proxy lives on PORT+1000: instance on 3001 → sidecar on 4001.
 OAUTH2_PORT=$((PORT + 1000))
@@ -150,11 +152,19 @@ PARTS__DB__NAME=$DB_NAME
 PARTS__DB__USER=$DB_USER
 PARTS__DB__PASSWORD=$DB_PASSWORD
 PARTS__SESSION__KEY=$SESSION_KEY
+PARTS__RENDER__FONT_DIR=$FONT_DIR
 JAVA_OPTS=-server -Xms256m -Xmx256m
 EOF
     chown root:root "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     echo "✓ Wrote $ENV_FILE with generated secrets (root:root, 600)"
+fi
+
+# Instances provisioned before the fonts step predate this var —
+# append it once without touching existing values.
+if ! grep -q '^PARTS__RENDER__FONT_DIR=' "$ENV_FILE"; then
+    printf '\n# PDF document fonts (Noto Sans CJK TC; see ADR-0008 and the runbook).\nPARTS__RENDER__FONT_DIR=%s\n' "$FONT_DIR" >>"$ENV_FILE"
+    echo "✓ Appended PARTS__RENDER__FONT_DIR to $ENV_FILE"
 fi
 
 # 4. app systemd unit — mirrors parts.service but with its own env file,

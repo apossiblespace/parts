@@ -25,4 +25,11 @@
  ;; PARTS__LEGAL__CONTENT_DIR.
  :legal/content-dir nil
 
+ ;; Directory holding the PDF document fonts (Noto Sans CJK TC, Regular +
+ ;; Bold OTF). The Nix dev shell exports PARTS__RENDER__FONT_DIR pointing at
+ ;; a pinned derivation; production hosts install the same two files (see
+ ;; runbook) and set the variable. No fallback — the render namespaces fail
+ ;; fast when it is missing.
+ :render/font-dir nil
+
  :launch/launched? true}

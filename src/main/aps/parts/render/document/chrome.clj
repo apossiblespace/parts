@@ -4,7 +4,8 @@
    PDFTranscoder maps 1:1 to PDF page units (PostScript points)."
   (:require
    [aps.parts.common.models.map :as map-model]
-   [aps.parts.render.document.labels :as labels])
+   [aps.parts.render.document.labels :as labels]
+   [aps.parts.render.fonts :as fonts])
   (:import
    (java.awt Font)
    (java.time LocalDate)
@@ -34,10 +35,10 @@
 (def ^:private title-meta-gap 16)
 
 (def ^:private ^Font title-font
-  (Font. labels/font-name Font/BOLD title-font-size))
+  (fonts/document-font :bold title-font-size))
 
 (def ^:private ^Font meta-font
-  (Font. labels/font-name Font/PLAIN meta-font-size))
+  (fonts/document-font :regular meta-font-size))
 
 (defn header-block
   "Top band: Map title on the left; on the right one quiet line — the
@@ -67,7 +68,7 @@
     [:g
      [:text {:x           page-margin
              :y           first-y
-             :font-family labels/label-font-family
+             :font-family fonts/font-family
              :font-size   title-font-size
              :font-weight 600
              :fill        "#1a1a1a"}
@@ -85,7 +86,7 @@
      [:text {:x           (- (:width page) page-margin)
              :y           first-y
              :text-anchor "end"
-             :font-family labels/label-font-family
+             :font-family fonts/font-family
              :font-size   meta-font-size
              :fill        "#888"}
       right-text]]))
@@ -97,7 +98,7 @@
    [:text {:x           (/ (:width page) 2)
            :y           (- (:height page) 14)
            :text-anchor "middle"
-           :font-family labels/label-font-family
+           :font-family fonts/font-family
            :font-size   11
            :fill        "#aaa"}
     "Made with Parts: https://parts.ifs.tools"]])
