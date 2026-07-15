@@ -152,6 +152,16 @@ if ! grep -q '^PARTS__RENDER__FONT_DIR=' /etc/$APP_NAME.env; then
     echo "✓ Appended PARTS__RENDER__FONT_DIR to /etc/$APP_NAME.env"
 fi
 
+# Ownership force-sync — same reasoning as the ALTER ROLE above: a
+# database that arrived by restore (box migration) can leave the DB and
+# its `public` schema owned by the restoring role, and since
+# PostgreSQL 15 only the schema owner may CREATE in `public` —
+# migrations then fail at boot with "permission denied for schema
+# public" (bit production 2026-07-15; see the runbook's restore traps).
+# Idempotent and a no-op on a healthy box.
+sudo -u postgres psql -c "ALTER DATABASE ${APP_NAME}_prod OWNER TO $APP_NAME"
+sudo -u postgres psql -d "${APP_NAME}_prod" -c "ALTER SCHEMA public OWNER TO $APP_NAME"
+
 # 4. ufw
 ufw allow 22/tcp
 ufw allow 80/tcp

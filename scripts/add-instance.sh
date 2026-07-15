@@ -139,6 +139,13 @@ if [[ "$FIRST_RUN" == true ]]; then
     [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER"
 fi
 
+# Ownership force-sync (see bootstrap-prod.sh): a restored database can
+# leave the DB / `public` schema owned by the restoring role, and since
+# PostgreSQL 15 that denies the app role CREATE in `public` — later
+# migrations fail at boot. Idempotent; no-op on a healthy instance.
+sudo -u postgres psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER"
+sudo -u postgres psql -d "$DB_NAME" -c "ALTER SCHEMA public OWNER TO $DB_USER"
+
 # 3. app environment file — written once, with the generated secrets
 # already filled in. Every runtime parameter lives here (12-factor):
 # PARTS__ENV selects the config base, PARTS__HTTP__PORT the bind port,
