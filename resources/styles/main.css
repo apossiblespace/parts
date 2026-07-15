@@ -112,14 +112,30 @@
 }
 
 /* Sidebar dropdowns: the sidebar's tools scroll (overflow-auto), which
-   would clip an absolutely-positioned menu into the scroll area. With
-   daisyUI's default (downward) placement the menu's insets are auto, so
-   position:fixed keeps it visually in place while measuring against the
-   viewport — escaping the clip. Safe here: neither sidebar home (the
-   authenticated top-chrome row nor the demo's top-right panel) has a
-   transformed ancestor, which would otherwise re-capture fixed
-   positioning. */
+   would clip an absolutely-positioned menu into the scroll area, so
+   the menu is position:fixed to escape the clip — and anchored to its
+   trigger, because fixed with auto insets resolves against the
+   UNSCROLLED flow position. The anchor-scope is load-bearing: for
+   fixed boxes every in-flow anchor counts as laid out before them, so
+   a duplicated anchor-name resolves to the LAST trigger in the whole
+   document; scoping pins each menu to its own subtree's trigger.
+   Browsers without anchor positioning drop these declarations and
+   keep the fixed fallback (correct while unscrolled). Safe here:
+   neither sidebar home (the authenticated top-chrome row nor the
+   demo's top-right panel) has a transformed ancestor, which would
+   otherwise re-capture fixed positioning. */
+.sidebar .dropdown {
+    anchor-scope: --sidebar-dropdown-trigger;
+}
+
+.sidebar .dropdown > [role="button"] {
+    anchor-name: --sidebar-dropdown-trigger;
+}
+
 .sidebar .dropdown-content {
+    position-anchor: --sidebar-dropdown-trigger;
+    top: anchor(bottom);
+    left: anchor(left);
     position: fixed;
 }
 
@@ -793,6 +809,16 @@ a.btn {
    minimap panel comes later in the DOM and would paint over them
    (React Flow panels all share z-index 5). */
 .react-flow__panel.bottom-chrome {
+    z-index: 6;
+}
+
+/* Same for the sidebar's hosts (authenticated top-chrome row, demo
+   top-right panel): the panel is a stacking context, so a dropdown
+   menu's own z-index cannot escape it — without this the minimap
+   paints over an open menu. Sidebar-over-minimap is also the right
+   order on viewports short enough for them to overlap. */
+.react-flow__panel.top-chrome,
+.react-flow__panel.sidebar-container {
     z-index: 6;
 }
 
