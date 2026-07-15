@@ -5,7 +5,9 @@
 
    The mode lives under its own `[:time-travel]` subtree: the live
    `[:map]`, its optimistic state, and the change-event queue are never
-   touched by browsing, so exiting is a pure render switch. Snapshots
+   touched by browsing, so exiting is a pure state switch (the canvas
+   glides home over it — see the session-glide effect in map.cljs).
+   Snapshots
    are cached per Session id for the visit — the past is immutable (only
    the ops-level `correction!` can rewrite it), so a revisited Session
    never refetches. The latest Session has no snapshot: its range is

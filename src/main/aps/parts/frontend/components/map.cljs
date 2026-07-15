@@ -540,10 +540,13 @@
          set-glide-content]   (use-state nil)
         glide-content-ref     (use-ref nil)
         glide-raf             (use-ref nil)
+        was-time-travelling?  (use-ref false)
         fitted-map-id         (use-ref nil)
         ;; Two-key Part chord: true between P and its second key.
         pending-chord         (use-ref false)
-        gliding?              (boolean (and time-travelling? glide-content))
+        ;; Non-nil during Time-travel and the exit glide home; nil
+        ;; throughout editing.
+        gliding?              (boolean glide-content)
         intensity-preview     (uix.rf/use-subscribe [:ui/intensity-preview])
         shown-parts           (if gliding? (:parts glide-content) parts)
         shown-relationships   (cond->> (if gliding?
@@ -793,24 +796,36 @@
 
     (use-effect
      (fn []
-       (if-not time-travelling?
-         ;; Track the live content silently (ref only, no re-render):
-         ;; entering the mode tweens FROM whatever was last on screen.
-         (do (reset! glide-content-ref {:parts         parts
-                                        :relationships relationships})
-             (set-glide-content nil))
-         (let [from  @glide-content-ref
-               to    {:parts parts :relationships relationships}
-               start (js/performance.now)
-               step  (fn step [now]
-                       (let [t     (min 1 (/ (- now start) session-glide-ms))
-                             frame (time-travel/interpolate-content
-                                    from to (ease-out-cubic t))]
-                         (reset! glide-content-ref frame)
-                         (set-glide-content frame)
-                         (when (< t 1)
-                           (reset! glide-raf (js/requestAnimationFrame step)))))]
-           (reset! glide-raf (js/requestAnimationFrame step))))
+       (let [to      {:parts parts :relationships relationships}
+             exited? (and (not time-travelling?) @was-time-travelling?)]
+         (reset! was-time-travelling? time-travelling?)
+         (if-not (or time-travelling? exited?)
+           ;; Track the live content silently (ref only, no re-render):
+           ;; entering the mode tweens FROM whatever was last on screen.
+           (do (reset! glide-content-ref to)
+               (set-glide-content nil))
+           ;; One tween serves steps within the mode AND the glide home
+           ;; on exit. Only the exit tween ends by clearing the overlay
+           ;; — the in-mode tween must KEEP its final frame: the exit
+           ;; re-render arrives before this effect re-runs, and with a
+           ;; nil overlay that gap renders one frame of live content (a
+           ;; visible flash of the destination). An edit landing
+           ;; mid-exit-tween re-runs this effect with both flags false
+           ;; and snaps to live — self-cancelling.
+           (let [from  @glide-content-ref
+                 start (js/performance.now)
+                 step  (fn step [now]
+                         (let [t (min 1 (/ (- now start) session-glide-ms))]
+                           (if (>= t 1)
+                             (do (reset! glide-content-ref to)
+                                 (set-glide-content (when-not exited? to)))
+                             (let [frame (time-travel/interpolate-content
+                                          from to (ease-out-cubic t))]
+                               (reset! glide-content-ref frame)
+                               (set-glide-content frame)
+                               (reset! glide-raf
+                                       (js/requestAnimationFrame step))))))]
+             (reset! glide-raf (js/requestAnimationFrame step)))))
        (fn [] (js/cancelAnimationFrame @glide-raf)))
      [parts relationships time-travelling?])
 
