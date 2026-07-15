@@ -181,6 +181,21 @@
       {:parts         (get-in db [:map :parts])
        :relationships (get-in db [:map :relationships])})))
 
+(defn- glide-frame
+  "The glide contract, shared by every tweened attribute: the TARGET
+   rows, with `(blend prev row)` applied to each row that also existed
+   in `from` (matched by :id). Rows new to the target arrive at full
+   value; at t=1 every blend lands exactly on the target."
+  [from to blend]
+  (let [from-by-id (into {} (map (juxt :id identity)) from)]
+    (mapv (fn [row]
+            (if-let [prev (from-by-id (:id row))]
+              (blend prev row)
+              row))
+          to)))
+
+(defn- lerp [t a b] (+ a (* t (- b a))))
+
 (defn interpolate-parts
   "One frame of the session-switch glide: the TARGET Parts, with each
    Part that also existed in `from` placed `t` (0..1) of the way from
@@ -192,21 +207,45 @@
    A nil size means the default (as rendered); an unchanged size is
    left untouched, so never-resized Parts keep their nils."
   [from to t]
-  (let [from-by-id (into {} (map (juxt :id identity)) from)
-        lerp       (fn [a b] (+ a (* t (- b a))))
-        lerp-size  (fn [part prev k]
-                     (let [a (or (get prev k) constants/part-default-size)
-                           b (or (get part k) constants/part-default-size)]
-                       (if (== a b) part (assoc part k (lerp a b)))))]
-    (mapv (fn [part]
-            (if-let [prev (from-by-id (:id part))]
-              (-> part
-                  (assoc :position_x (lerp (:position_x prev) (:position_x part))
-                         :position_y (lerp (:position_y prev) (:position_y part)))
-                  (lerp-size prev :width)
-                  (lerp-size prev :height))
-              part))
-          to)))
+  (let [lerp-size (fn [part prev k]
+                    (let [a (or (get prev k) constants/part-default-size)
+                          b (or (get part k) constants/part-default-size)]
+                      (if (== a b) part (assoc part k (lerp t a b)))))]
+    (glide-frame from to
+                 (fn [prev part]
+                   (-> part
+                       (assoc :position_x (lerp t (:position_x prev)
+                                                (:position_x part))
+                              :position_y (lerp t (:position_y prev)
+                                                (:position_y part)))
+                       (lerp-size prev :width)
+                       (lerp-size prev :height))))))
+
+(defn interpolate-relationships
+  "One frame of the session-switch glide for Relationship data: the
+   TARGET Relationships, with each one that also existed in `from`
+   carrying an intensity `t` (0..1) of the way from old to new — the
+   jaggedness eases between eras like positions and sizes do. Type and
+   notes switch instantly (only intensity is continuous); a nil
+   intensity means calm, so it glides from/to 0. Apply easing to `t`
+   before calling; t=1 is exactly the target."
+  [from to t]
+  (glide-frame from to
+               (fn [prev rel]
+                 (let [a (or (:intensity prev) 0)
+                       b (or (:intensity rel) 0)]
+                   (if (== a b)
+                     rel
+                     (assoc rel :intensity (lerp t a b)))))))
+
+(defn interpolate-content
+  "One glide frame over whole canvas content maps — the shape
+   `canvas-content` returns, so the component's RAF step tweens both
+   collections with one call."
+  [from to t]
+  {:parts         (interpolate-parts (:parts from) (:parts to) t)
+   :relationships (interpolate-relationships (:relationships from)
+                                             (:relationships to) t)})
 
 (defn set-error [db message]
   (if (active? db)

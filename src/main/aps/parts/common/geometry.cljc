@@ -82,11 +82,8 @@
 ;;
 ;; Math that's the same regardless of who's drawing. Both the canvas
 ;; (`frontend/components/edges.cljs`) and the document renderer
-;; (`render/document/edges.clj`) consume from here. The bezier path for
-;; singular edges is the one piece that *isn't* here yet — the canvas
-;; uses ReactFlow's JS `getBezierPath`, and the document renderer ports
-;; it independently. Unifying those is a larger move (would require the
-;; canvas to stop using ReactFlow's built-in) and isn't done.
+;; (`render/document/edges.clj`) consume from here — including the
+;; curve itself (`edge-path`).
 
 (def bow-offset-px
   "Perpendicular distance each edge in a bidirectional pair is bowed
@@ -115,22 +112,35 @@
   [bidi-pairs {:keys [source_id target_id]}]
   (contains? bidi-pairs (hash-set source_id target_id)))
 
+(defn- offset-perpendicular
+  "Point `dist` along the LEFT normal of direction (dx,dy) from (x,y),
+   or nil for a degenerate zero direction. The one home for the
+   perpendicular convention every edge decoration shares — bow side,
+   badge side, and jag side stay coherent because they all offset
+   through here."
+  [x y dx dy dist]
+  (let [len (Math/sqrt (+ (* dx dx) (* dy dy)))]
+    (when-not (zero? len)
+      [(+ x (* dist (/ (- dy) len)))
+       (+ y (* dist (/ dx len)))])))
+
+(defn- bow-control
+  "The quadratic bow's control point: `offset` off the chord midpoint,
+   perpendicular. Nil for a degenerate (zero-length) chord."
+  [{:keys [sx sy tx ty]} offset]
+  (offset-perpendicular (/ (+ sx tx) 2.0) (/ (+ sy ty) 2.0)
+                        (- tx sx) (- ty sy) offset))
+
 (defn curve-midpoint
   "The visual midpoint of a drawn edge: the chord midpoint for a plain
    edge (`offset` 0), or the quadratic bow's t=0.5 point — half the
-   offset off the chord, using `quadratic-path`'s perpendicular
-   convention, so the two edges of a bidirectional pair get midpoints on
-   OPPOSITE sides and their badges never stack."
-  [{:keys [sx sy tx ty]} offset]
-  (let [mx  (/ (+ sx tx) 2)
-        my  (/ (+ sy ty) 2)
-        dx  (- tx sx)
-        dy  (- ty sy)
-        len (Math/sqrt (+ (* dx dx) (* dy dy)))]
-    (if (or (zero? len) (zero? offset))
-      {:x mx :y my}
-      {:x (+ mx (* (/ offset 2) (/ (- dy) len)))
-       :y (+ my (* (/ offset 2) (/ dx len)))})))
+   offset off the chord, so the two edges of a bidirectional pair get
+   midpoints on OPPOSITE sides and their badges never stack."
+  [{:keys [sx sy tx ty] :as endpoints} offset]
+  (or (when-not (zero? offset)
+        (when-let [[cx cy] (bow-control endpoints (/ offset 2))]
+          {:x cx :y cy}))
+      {:x (/ (+ sx tx) 2) :y (/ (+ sy ty) 2)}))
 
 (defn quadratic-path
   "SVG-path `d` attribute for a quadratic Bezier from (sx,sy) to (tx,ty)
@@ -138,19 +148,172 @@
    bidirectional edge pairs — opposite chord vectors flip the
    perpendicular automatically, so passing the same `offset` to both
    sides separates them cleanly."
-  [{:keys [sx sy tx ty]} offset]
-  (let [mx  (/ (+ sx tx) 2)
-        my  (/ (+ sy ty) 2)
+  [{:keys [sx sy tx ty] :as endpoints} offset]
+  (if-let [[cx cy] (bow-control endpoints offset)]
+    (str "M" sx "," sy " Q" cx "," cy " " tx "," ty)
+    (str "M" sx "," sy " L" tx "," ty)))
+
+(def ^:private bezier-curvature
+  "Default curvature constant in ReactFlow's `getBezierPath`. Scales
+   the negative-distance fallback in `control-offset`."
+  0.25)
+
+(defn- control-offset
+  "Port of ReactFlow's `calculateControlOffset`. When the target lies
+   in the direction this face exits, the control sits half the distance
+   away (strong forward curve); otherwise a smaller distance based on
+   `√|distance|` (a gentler loop reaching around)."
+  [distance]
+  (if (>= distance 0)
+    (* 0.5 distance)
+    (* bezier-curvature 25 (Math/sqrt (- distance)))))
+
+(defn- control-point
+  [side x y ox oy]
+  (case side
+    :left   [(- x (control-offset (- x ox))) y]
+    :right  [(+ x (control-offset (- ox x))) y]
+    :top    [x (- y (control-offset (- y oy)))]
+    :bottom [x (+ y (control-offset (- oy y)))]))
+
+(defn- cubic-controls
+  [{:keys [sx sy tx ty s-side t-side]}]
+  [(control-point s-side sx sy tx ty)
+   (control-point t-side tx ty sx sy)])
+
+(defn cubic-path
+  "SVG-path `d` for a singular Relationship's cubic Bezier —
+   ReactFlow's default shape, so canvas and PDF draw the same curve.
+   Sides are `classify-side` keywords for each endpoint."
+  [{:keys [sx sy tx ty] :as endpoints}]
+  (let [[[c1x c1y] [c2x c2y]] (cubic-controls endpoints)]
+    (str "M" sx "," sy
+         " C" c1x "," c1y " " c2x "," c2y " " tx "," ty)))
+
+(defn- cubic-point
+  [sx sy c1x c1y c2x c2y tx ty t]
+  (let [u (- 1.0 t)
+        a (* u u u)
+        b (* 3 u u t)
+        c (* 3 u t t)
+        d (* t t t)]
+    [(+ (* a sx) (* b c1x) (* c c2x) (* d tx))
+     (+ (* a sy) (* b c1y) (* c c2y) (* d ty))]))
+
+(defn- quad-point
+  [sx sy cx cy tx ty t]
+  (let [u (- 1.0 t)
+        a (* u u)
+        b (* 2 u t)
+        c (* t t)]
+    [(+ (* a sx) (* b cx) (* c tx))
+     (+ (* a sy) (* b cy) (* c ty))]))
+
+(def jag-wavelength-px
+  "Distance between zigzag reversals of a jagged (Intensity > 0) edge.
+   Fixed — intensity scales amplitude only, so a curve stays the same
+   recognisable rhythm as it intensifies."
+  8)
+
+(def jag-max-amplitude-px
+  "Perpendicular excursion of the zigzag at Intensity 100."
+  20)
+
+(defn- jag-taper
+  "0→1 ramp over the first and last quarter of the curve: the jag dies
+   out where the curve meets the Parts, keeping the attachment points
+   clean and the arrowhead's `orient` stable."
+  [t]
+  (min 1.0 (* 4.0 (min t (- 1.0 t)))))
+
+(defn- emit-point
+  "\"x,y\" at two decimals — sub-pixel precision keeps jagged `d`
+   strings a fraction of their full-double size (the browser re-parses
+   them per glide/drag frame)."
+  [x y]
+  (letfn [(r2 [v] (/ (Math/round (* (double v) 100.0)) 100.0))]
+    (str (r2 x) "," (r2 y))))
+
+(defn jag-sharpness
+  "Corner rounding of the zigzag as a fraction of each segment: 0.5 at
+   the lowest intensities (on-curve points at segment midpoints — a
+   pure smooth wave), shrinking linearly to 0 at 100 (hard corners — a
+   sawtooth). Intensity drives amplitude AND edge character."
+  [intensity]
+  (* 0.5 (- 1.0 (/ intensity 100.0))))
+
+(defn- zigzag-d
+  "`d` through the zigzag vertices `pts`, corners rounded by
+   `sharpness` (see `jag-sharpness`): each interior vertex becomes a
+   quadratic with the vertex as control and on-curve points `sharpness`
+   of the way into its two segments. Below 0.01 — reachable because the
+   session glide lerps intensity to fractions — the rounding would be
+   invisible at the two-decimal emit precision, so plain line segments
+   replace the degenerate quadratics."
+  [pts sharpness]
+  (let [emit   (fn [[x y]] (emit-point x y))
+        toward (fn [[vx vy] [ox oy]]
+                 (emit-point (+ vx (* sharpness (- ox vx)))
+                             (+ vy (* sharpness (- oy vy)))))]
+    (str "M" (emit (first pts))
+         (if (< sharpness 0.01)
+           (apply str (map #(str " L" (emit %)) (rest pts)))
+           (str (apply str
+                       (map (fn [[prev vertex next]]
+                              (str " L" (toward vertex prev)
+                                   " Q" (emit vertex) " " (toward vertex next)))
+                            (partition 3 1 pts)))
+                " L" (emit (peek pts)))))))
+
+(defn- jagged-d
+  "`d` zigzagging around the parametric curve `point-fn`
+   (t ∈ [0,1] → [x y]): vertices at the fixed wavelength, offset
+   alternately along the local perpendicular, amplitude scaled by
+   intensity and the endpoint taper; corner character from
+   `jag-sharpness` — a soft wave at low intensity, a sawtooth at 100.
+   The curve is evaluated once per sample; tangents come from
+   neighbouring samples."
+  [point-fn chord-len intensity]
+  (let [segs (max 4 (long (Math/round (/ (double chord-len)
+                                         jag-wavelength-px))))
+        amp  (* jag-max-amplitude-px (/ intensity 100.0))
+        base (mapv #(point-fn (/ % (double segs))) (range (inc segs)))
+        pts  (into []
+                   (map-indexed
+                    (fn [i [x y]]
+                      (let [[x1 y1] (nth base (max 0 (dec i)))
+                            [x2 y2] (nth base (min segs (inc i)))
+                            a       (* amp (jag-taper (/ i (double segs)))
+                                       (if (odd? i) 1.0 -1.0))]
+                        (or (offset-perpendicular x y (- x2 x1) (- y2 y1) a)
+                            [x y]))))
+                   base)]
+    (zigzag-d pts (jag-sharpness intensity))))
+
+(defn edge-path
+  "The `d` for a Relationship's drawn curve — the one path source for
+   the canvas and the document renderer. Singular edges draw the
+   ReactFlow-shaped cubic, bidirectional pairs (`:bow?`) the quadratic
+   bow; positive `:intensity` (0–100, see CONTEXT.md) replaces the
+   smooth curve with a fixed-wavelength zigzag around it."
+  [{:keys [sx sy tx ty] :as endpoints} {:keys [bow? intensity]}]
+  (let [i   (or intensity 0)
         dx  (- tx sx)
         dy  (- ty sy)
         len (Math/sqrt (+ (* dx dx) (* dy dy)))]
-    (if (zero? len)
-      (str "M" sx "," sy " L" tx "," ty)
-      (let [nx (/ (- dy) len)
-            ny (/    dx  len)
-            cx (+ mx (* offset nx))
-            cy (+ my (* offset ny))]
-        (str "M" sx "," sy " Q" cx "," cy " " tx "," ty)))))
+    (cond
+      (or (zero? len) (not (pos? i)))
+      (if bow?
+        (quadratic-path endpoints bow-offset-px)
+        (cubic-path endpoints))
+
+      bow?
+      (let [[cx cy] (bow-control endpoints bow-offset-px)]
+        (jagged-d #(quad-point sx sy cx cy tx ty %) len i))
+
+      :else
+      (let [[[c1x c1y] [c2x c2y]] (cubic-controls endpoints)]
+        (jagged-d #(cubic-point sx sy c1x c1y c2x c2y tx ty %) len i)))))
 
 (defn- ray-segment-intersection
   "Where does the ray from (cx,cy) in direction (dx,dy) cross segment

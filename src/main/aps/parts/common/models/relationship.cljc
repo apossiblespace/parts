@@ -11,6 +11,7 @@
 (s/def ::source_id (s/or :string string? :uuid uuid?))
 (s/def ::target_id (s/or :string string? :uuid uuid?))
 (s/def ::notes (s/nilable string?))
+(s/def ::intensity (s/and number? #(<= 0 % 100)))
 
 (s/def ::relationship
   (s/keys :req-un [::map_id
@@ -18,7 +19,8 @@
                    ::source_id
                    ::target_id]
           :opt-un [::id
-                   ::notes]))
+                   ::notes
+                   ::intensity]))
 
 (def spec
   "Relationship model spec for reuse outside of the namespace"
@@ -29,8 +31,9 @@
    In ClojureScript (frontend), generates a string UUID for :id. 
    In Clojure (backend), :id is set by the database layer."
   [attrs]
-  (let [base         {:type  "unknown"
-                      :notes nil}
+  (let [base         {:type      "unknown"
+                      :notes     nil
+                      :intensity 0}
         relationship #?(:cljs (merge {:id (str (random-uuid))} base attrs)
                         :clj (merge base attrs))]
     (o/debug "[make-relationship]" relationship)
@@ -46,7 +49,8 @@
   (s/and (s/keys :opt-un [::type
                           ::source_id
                           ::target_id
-                          ::notes])
+                          ::notes
+                          ::intensity])
          no-identity-keys?))
 
 (defn validate-update

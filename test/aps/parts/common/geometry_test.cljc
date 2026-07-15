@@ -1,11 +1,13 @@
 (ns aps.parts.common.geometry-test
   (:require
+   #?(:clj  [clojure.test :refer [deftest is testing]]
+      :cljs [cljs.test :refer-macros [deftest is testing]])
    [aps.parts.common.geometry :as g]
-   [cljs.test :refer-macros [deftest is testing]]))
+   [clojure.string :as str]))
 
 (defn- approx=
   ([a b] (approx= a b 0.001))
-  ([a b epsilon] (< (Math/abs (- a b)) epsilon)))
+  ([a b epsilon] (< (Math/abs (double (- a b))) epsilon)))
 
 (deftest shape-for-test
   (testing "known part types resolve to the expected shape"
@@ -137,8 +139,12 @@
   (testing "a bowed edge's visual midpoint sits half the offset off the
             chord; the pair's opposite chord directions land the two
             midpoints on OPPOSITE sides — badges never stack"
-    (is (= {:x 50 :y 20} (g/curve-midpoint {:sx 0 :sy 0 :tx 100 :ty 0} 40)))
-    (is (= {:x 50 :y -20} (g/curve-midpoint {:sx 100 :sy 0 :tx 0 :ty 0} 40))))
+    (let [a (g/curve-midpoint {:sx 0 :sy 0 :tx 100 :ty 0} 40)
+          b (g/curve-midpoint {:sx 100 :sy 0 :tx 0 :ty 0} 40)]
+      (is (approx= 50 (:x a)))
+      (is (approx= 20 (:y a)))
+      (is (approx= 50 (:x b)))
+      (is (approx= -20 (:y b)))))
 
   (testing "degenerate zero-length chord stays at the point"
     (is (= {:x 5 :y 5} (g/curve-midpoint {:sx 5 :sy 5 :tx 5 :ty 5} 40)))))
@@ -148,3 +154,88 @@
     (is (= {:x 10 :y 20 :width 30 :height 40}
            (g/corners->rect {:x 40 :y 60} {:x 10 :y 20})
            (g/corners->rect {:x 10 :y 20} {:x 40 :y 60})))))
+
+(defn- parse-num [s]
+  #?(:clj (Double/parseDouble s) :cljs (js/parseFloat s)))
+
+(defn- path-points
+  "Every x,y pair in a `d` string, in order, as doubles."
+  [d]
+  (mapv (fn [pair]
+          (mapv parse-num (str/split pair #",")))
+        (re-seq #"-?[\d.]+,-?[\d.]+" d)))
+
+;; A flat horizontal chord: the smooth cubic (controls on the axis) and
+;; the bow-less curve both sit exactly on y=0, so any |y| in a sampled
+;; point is pure jag amplitude.
+(def ^:private flat-endpoints
+  {:sx 0.0 :sy 0.0 :tx 300.0 :ty 0.0 :s-side :right :t-side :left})
+
+(deftest edge-path-smooth-test
+  (testing "intensity 0 (or absent) is exactly the classic smooth path"
+    (is (= (g/cubic-path flat-endpoints)
+           (g/edge-path flat-endpoints {})
+           (g/edge-path flat-endpoints {:intensity 0})))
+    (is (= (g/quadratic-path flat-endpoints g/bow-offset-px)
+           (g/edge-path flat-endpoints {:bow? true}))))
+
+  (testing "the shared cubic starts at the source and ends at the target"
+    (let [pts (path-points (g/cubic-path flat-endpoints))]
+      (is (= 4 (count pts)) "M + two controls + endpoint")
+      (is (approx= 0.0 (ffirst pts)))
+      (is (approx= 300.0 (first (peek pts)))))))
+
+(deftest edge-path-jagged-test
+  (let [pts-of  (fn [opts] (path-points (g/edge-path flat-endpoints opts)))
+        d100    (g/edge-path flat-endpoints {:intensity 100})
+        d30     (g/edge-path flat-endpoints {:intensity 30})
+        pts100  (path-points d100)
+        pts30   (path-points d30)
+        max-dev (fn [pts] (apply max (map (fn [[_ y]] (Math/abs y)) pts)))]
+    (testing "intensity 100 is a pure sawtooth — hard corners, no curves"
+      (is (not (str/includes? d100 "C")))
+      (is (not (str/includes? d100 "Q")))
+      (is (str/includes? d100 "L")))
+
+    (testing "lower intensities round the peaks into a wave (quadratic
+              corners), sharpening as intensity rises"
+      (is (str/includes? d30 "Q"))
+      (is (not (str/includes? d30 "C")))
+      (is (> (g/jag-sharpness 30) (g/jag-sharpness 80))
+          "corner rounding shrinks as intensity rises")
+      (is (zero? (g/jag-sharpness 100)) "sawtooth at the top"))
+
+    (testing "endpoints are exact regardless of intensity — the taper
+              zeroes the jag where the curve meets the Parts"
+      (is (approx= 0.0 (ffirst pts100)))
+      (is (approx= 0.0 (second (first pts100))))
+      (is (approx= 300.0 (first (peek pts100))))
+      (is (approx= 0.0 (second (peek pts100)))))
+
+    (testing "amplitude scales with intensity; 100 caps at the max"
+      (is (pos? (max-dev pts30)))
+      (is (> (max-dev pts100) (max-dev pts30)))
+      (is (<= (max-dev pts100) g/jag-max-amplitude-px)))
+
+    (testing "fixed wavelength: point count tracks curve length, not
+              intensity (compared within one corner form — rounded
+              corners emit extra on-curve points)"
+      (is (= (count pts30) (count (pts-of {:intensity 60}))))
+      (is (> (count (path-points
+                     (g/edge-path (assoc flat-endpoints :tx 600.0)
+                                  {:intensity 100})))
+             (count pts100))))
+
+    (testing "the first interior point deviates less than the peak —
+              the endpoint taper at work"
+      (is (< (Math/abs (second (nth pts100 1)))
+             (max-dev pts100))))))
+
+(deftest edge-path-jagged-bow-test
+  (testing "a bowed pair's jag rides the bow — the midpoint sits near
+            the bow apex (half the control offset), jag excursion aside"
+    (let [pts  (path-points (g/edge-path flat-endpoints
+                                         {:bow? true :intensity 100}))
+          mid  (nth pts (quot (count pts) 2))
+          apex (/ g/bow-offset-px 2)]
+      (is (> (second mid) (- apex g/jag-max-amplitude-px 1))))))

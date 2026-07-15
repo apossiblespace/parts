@@ -1,9 +1,9 @@
 (ns aps.parts.render.document.edges
-  "Edge rendering for the document SVG. Singular Relationships draw as
-   cubic Beziers with per-side tangents (a Clojure port of ReactFlow's
-   `getBezierPath`); bidirectional pairs draw as a quadratic bow so the
-   two opposing edges don't overlap. Edges always start/end on the
-   visible shape outline via `aps.parts.common.geometry`.
+  "Edge rendering for the document SVG. The curves themselves — cubic
+   bezier, bidirectional bow, Intensity jaggedness — come from
+   `geometry/edge-path`, the same source the canvas draws from. Edges
+   always start/end on the visible shape outline via
+   `aps.parts.common.geometry`.
 
    Each Relationship's stroke colour comes from
    `aps.parts.common.constants/relationship-colors`. A `<marker>` per
@@ -15,42 +15,6 @@
    [aps.parts.common.geometry :as geometry]))
 
 (def ^:private edge-stroke-width 1.5)
-
-(def ^:private bezier-curvature
-  "Default curvature constant in ReactFlow's `getBezierPath`. Scales
-   the negative-distance fallback in `control-offset`."
-  0.25)
-
-(defn- control-offset
-  "Port of ReactFlow's `calculateControlOffset`. When the target lies
-   in the direction this face exits, the control sits half the distance
-   away (strong forward curve); otherwise a smaller distance based on
-   `√|distance|` (a gentler loop reaching around).
-
-   Stays local to the document renderer: the canvas uses ReactFlow's
-   JS `getBezierPath` directly, so lifting the port to
-   `common.geometry` wouldn't deduplicate anything until/unless the
-   canvas also stops calling ReactFlow's built-in."
-  [distance]
-  (if (>= distance 0)
-    (* 0.5 distance)
-    (* bezier-curvature 25 (Math/sqrt (- distance)))))
-
-(defn- control-point
-  [side x y ox oy]
-  (case side
-    :left   [(- x (control-offset (- x ox))) y]
-    :right  [(+ x (control-offset (- ox x))) y]
-    :top    [x (- y (control-offset (- y oy)))]
-    :bottom [x (+ y (control-offset (- oy y)))]))
-
-(defn- bezier-d
-  "Cubic-Bezier `d` attribute from (sx,sy) to (tx,ty)."
-  [sx sy s-side tx ty t-side]
-  (let [[sc-x sc-y] (control-point s-side sx sy tx ty)
-        [tc-x tc-y] (control-point t-side tx ty sx sy)]
-    (str "M" sx "," sy
-         " C" sc-x "," sc-y " " tc-x "," tc-y " " tx "," ty)))
 
 (defn- edge-endpoints
   "Visible-shape intersection points and edge sides for an edge from
@@ -75,18 +39,18 @@
    depending on whether its mirror exists. Returns nil when either
    endpoint Part is missing — protects against a stale Relationship row
    pointing at a since-deleted Part."
-  [parts-by-id bidi-pairs {:keys [source_id target_id type] :as rel}]
+  [parts-by-id bidi-pairs {:keys [source_id target_id type intensity] :as rel}]
   (let [source (parts-by-id source_id)
         target (parts-by-id target_id)]
-    (when-let [{:keys [sx sy s-side tx ty t-side] :as endpoints}
-               (and source target (edge-endpoints source target))]
+    (when-let [endpoints (and source target (edge-endpoints source target))]
       (let [type-kw (keyword type)
             type'   (if (contains? c/relationship-colors type-kw)
                       type "unknown")
             colour  (c/relationship-colors (keyword type'))
-            d       (if (geometry/bidirectional? bidi-pairs rel)
-                      (geometry/quadratic-path endpoints geometry/bow-offset-px)
-                      (bezier-d sx sy s-side tx ty t-side))]
+            d       (geometry/edge-path
+                     endpoints
+                     {:bow?      (geometry/bidirectional? bidi-pairs rel)
+                      :intensity intensity})]
         [:path {:d            d
                 :fill         "none"
                 :stroke       colour

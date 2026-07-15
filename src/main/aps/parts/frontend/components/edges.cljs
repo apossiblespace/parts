@@ -1,7 +1,6 @@
 (ns aps.parts.frontend.components.edges
   (:require
-   ["@xyflow/react" :refer [BaseEdge EdgeLabelRenderer Position
-                            getBezierPath useInternalNode]]
+   ["@xyflow/react" :refer [BaseEdge EdgeLabelRenderer useInternalNode]]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
    [uix.core :refer [$ as-react defui]]
@@ -32,39 +31,26 @@
                                      i-w i-h o-cx o-cy)))
 
 (defn- edge-side
-  "Map the intersection point on `node`'s outline to a ReactFlow Position
-   enum (Top/Right/Bottom/Left) so getBezierPath can pick a tangent."
+  "Which side of `node`'s outline the intersection point sits on —
+   the tangent hint for `geometry`'s cubic."
   [^js node intersection]
   (let [pos (.. node -internals -positionAbsolute)
         cx  (+ (.-x pos) (/ (.. node -measured -width) 2))
         cy  (+ (.-y pos) (/ (.. node -measured -height) 2))]
-    (case (geometry/classify-side intersection cx cy)
-      :top    (.-Top Position)
-      :right  (.-Right Position)
-      :bottom (.-Bottom Position)
-      :left   (.-Left Position))))
+    (geometry/classify-side intersection cx cy)))
 
 (defn- floating-edge-params
-  "Compute floating endpoint coordinates and side-positions for an edge
-   between two measured React Flow nodes."
+  "Compute floating endpoint coordinates and sides for an edge between
+   two measured React Flow nodes — `geometry/edge-path`'s input shape."
   [^js source-node ^js target-node]
   (let [s (node-intersection source-node target-node)
         t (node-intersection target-node source-node)]
-    {:sx         (:x s)
-     :sy         (:y s)
-     :tx         (:x t)
-     :ty         (:y t)
-     :source-pos (edge-side source-node s)
-     :target-pos (edge-side target-node t)}))
-
-(defn- bezier-path
-  [{:keys [sx sy tx ty source-pos target-pos]}]
-  (first (getBezierPath #js {:sourceX        sx
-                             :sourceY        sy
-                             :targetX        tx
-                             :targetY        ty
-                             :sourcePosition source-pos
-                             :targetPosition target-pos})))
+    {:sx     (:x s)
+     :sy     (:y s)
+     :tx     (:x t)
+     :ty     (:y t)
+     :s-side (edge-side source-node s)
+     :t-side (edge-side target-node t)}))
 
 (defui parts-edge [{:keys [id data source-id target-id marker-end]}]
   (let [source-node (useInternalNode source-id)
@@ -75,9 +61,9 @@
                (.-measured source-node) (.-measured target-node))
       (let [params     (floating-edge-params source-node target-node)
             class-name (str "edge edge-" rel-type)
-            path       (if bidir?
-                         (geometry/quadratic-path params geometry/bow-offset-px)
-                         (bezier-path params))]
+            path       (geometry/edge-path params
+                                           {:bow?      bidir?
+                                            :intensity (:intensity data)})]
         ($ :<>
            ($ BaseEdge {:path      path
                         :className class-name
@@ -118,13 +104,8 @@
 ;; the relationship type selected in the toolbar — so the preview previews
 ;; what will land.
 
-(defn- opposite-position [pos]
-  (condp = pos
-    (.-Top Position)    (.-Bottom Position)
-    (.-Bottom Position) (.-Top Position)
-    (.-Left Position)   (.-Right Position)
-    (.-Right Position)  (.-Left Position)
-    (.-Bottom Position)))
+(def ^:private opposite-side
+  {:top :bottom, :bottom :top, :left :right, :right :left})
 
 (defui parts-connection-line [{:keys [from-node to-node to-x to-y]}]
   (let [rel-type (uix.rf/use-subscribe [:ui/relationship-type])
@@ -138,17 +119,17 @@
                       (not= (.-id to-node) (.-id from-node)))]
     (when (and from-node (.-measured from-node))
       (let [path (if target?
-                   (bezier-path (floating-edge-params from-node to-node))
+                   (geometry/cubic-path (floating-edge-params from-node to-node))
                    (let [cursor-node #js {:internals #js {:positionAbsolute #js {:x to-x :y to-y}}
                                           :measured  #js {:width 0 :height 0}}
                          from-point  (node-intersection from-node cursor-node)
-                         source-pos  (edge-side from-node from-point)]
-                     (bezier-path {:sx         (:x from-point)
-                                   :sy         (:y from-point)
-                                   :tx         to-x
-                                   :ty         to-y
-                                   :source-pos source-pos
-                                   :target-pos (opposite-position source-pos)})))]
+                         s-side      (edge-side from-node from-point)]
+                     (geometry/cubic-path {:sx     (:x from-point)
+                                           :sy     (:y from-point)
+                                           :tx     to-x
+                                           :ty     to-y
+                                           :s-side s-side
+                                           :t-side (opposite-side s-side)})))]
         ($ :path {:d         path
                   :className "react-flow__connection-path"
                   :style     #js {:stroke      (constants/relationship-colors rel-type)

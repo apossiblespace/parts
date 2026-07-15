@@ -153,6 +153,11 @@
    (time-travel/has-history? (get-in db [:map :sessions]))))
 
 (rf/reg-sub
+ :ui/intensity-preview
+ (fn [db _]
+   (get-in db [:ui :intensity-preview])))
+
+(rf/reg-sub
  :ui/selected-node-ids
  (fn [db _]
    (get-in db [:ui :selected-node-ids] [])))

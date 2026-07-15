@@ -528,23 +528,35 @@
         [marquee-overlay
          set-marquee-overlay] (use-state nil)
 
-        ;; Session-switch glide: tween the Parts that persist across the
-        ;; switch (`time-travel/interpolate-parts`). Local React state,
-        ;; not re-frame — per-frame updates stay out of app-db (same
+        ;; Session-switch glide: tween the Parts (positions, sizes) and
+        ;; Relationships (intensity) that persist across the switch
+        ;; (`time-travel/interpolate-*`). Local React state, not
+        ;; re-frame — per-frame updates stay out of app-db (same
         ;; reasoning as the marquee overlay); the ref is the synchronous
         ;; read for a tween starting mid-flight. Editing mode bypasses
         ;; this state entirely: drag frames must not tween, nor pay a
         ;; second render.
-        [glide-parts
-         set-glide-parts]     (use-state nil)
-        glide-parts-ref       (use-ref nil)
+        [glide-content
+         set-glide-content]   (use-state nil)
+        glide-content-ref     (use-ref nil)
         glide-raf             (use-ref nil)
         fitted-map-id         (use-ref nil)
         ;; Two-key Part chord: true between P and its second key.
         pending-chord         (use-ref false)
-        shown-parts           (if (and time-travelling? glide-parts)
-                                glide-parts
-                                parts)
+        gliding?              (boolean (and time-travelling? glide-content))
+        intensity-preview     (uix.rf/use-subscribe [:ui/intensity-preview])
+        shown-parts           (if gliding? (:parts glide-content) parts)
+        shown-relationships   (cond->> (if gliding?
+                                         (:relationships glide-content)
+                                         relationships)
+                                intensity-preview
+                                (mapv (fn [rel]
+                                        (if (= (:id rel)
+                                               (:id intensity-preview))
+                                          (assoc rel :intensity
+                                                 (:intensity
+                                                  intensity-preview))
+                                          rel))))
 
         nodes                 (adapter/parts->nodes
                                shown-parts
@@ -562,7 +574,7 @@
                                                      viewed-session)
                                 :activation-trigger (:trigger viewed-session)})
         edges                 (adapter/relationships->edges
-                               relationships selected-edge-ids
+                               shown-relationships selected-edge-ids
                                {:session-badges? session-badges?
                                 :viewed-ordinal  viewed-ordinal})
         rf-instance           (useReactFlow)
@@ -782,23 +794,25 @@
     (use-effect
      (fn []
        (if-not time-travelling?
-         ;; Track the live positions silently (ref only, no re-render):
+         ;; Track the live content silently (ref only, no re-render):
          ;; entering the mode tweens FROM whatever was last on screen.
-         (do (reset! glide-parts-ref parts)
-             (set-glide-parts nil))
-         (let [from  @glide-parts-ref
+         (do (reset! glide-content-ref {:parts         parts
+                                        :relationships relationships})
+             (set-glide-content nil))
+         (let [from  @glide-content-ref
+               to    {:parts parts :relationships relationships}
                start (js/performance.now)
                step  (fn step [now]
                        (let [t     (min 1 (/ (- now start) session-glide-ms))
-                             frame (time-travel/interpolate-parts
-                                    from parts (ease-out-cubic t))]
-                         (reset! glide-parts-ref frame)
-                         (set-glide-parts frame)
+                             frame (time-travel/interpolate-content
+                                    from to (ease-out-cubic t))]
+                         (reset! glide-content-ref frame)
+                         (set-glide-content frame)
                          (when (< t 1)
                            (reset! glide-raf (js/requestAnimationFrame step)))))]
            (reset! glide-raf (js/requestAnimationFrame step))))
        (fn [] (js/cancelAnimationFrame @glide-raf)))
-     [parts time-travelling?])
+     [parts relationships time-travelling?])
 
     (use-effect
      (fn []

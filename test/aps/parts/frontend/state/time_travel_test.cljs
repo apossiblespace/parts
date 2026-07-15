@@ -176,6 +176,35 @@
   (testing "nil when no Sessions are loaded (demo Maps)"
     (is (nil? (tt/viewed-session {:map {:id "m"}})))))
 
+(deftest interpolate-relationships-test
+  (let [from [{:id "r1" :intensity 90 :type "protects"}
+              {:id "r2" :intensity 40}]
+        to   [{:id "r1" :intensity 0 :type "activates"}
+              {:id "r2" :intensity 40}
+              {:id "r3" :intensity 60}]]
+    (testing "intensity eases between eras; everything else is already
+              the target's (type/notes switch, only intensity is
+              continuous)"
+      (let [half (tt/interpolate-relationships from to 0.5)]
+        (is (= 45.0 (:intensity (first half))))
+        (is (= "activates" (:type (first half))))))
+
+    (testing "an unchanged intensity leaves the row untouched, and a
+              Relationship new to the target arrives at full value"
+      (let [half (tt/interpolate-relationships from to 0.5)]
+        (is (= {:id "r2" :intensity 40} (nth half 1)))
+        (is (= {:id "r3" :intensity 60} (nth half 2)))))
+
+    (testing "t=1 is exactly the target"
+      (is (= to (tt/interpolate-relationships from to 1))))
+
+    (testing "nil intensity means calm — glides from/to 0"
+      (is (= 30.0 (:intensity
+                   (first (tt/interpolate-relationships
+                           [{:id "r" :intensity 60}]
+                           [{:id "r"}]
+                           0.5))))))))
+
 (deftest interpolate-parts-test
   (let [from [{:id "a" :position_x 0 :position_y 0 :label "old label"}
               {:id "gone" :position_x 5 :position_y 5}]

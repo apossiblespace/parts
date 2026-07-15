@@ -300,8 +300,26 @@
  :map/relationship-update
  [require-editable]
  (fn [{:keys [db]} [_ relationship-id attrs]]
-   {:db              (merge-relationship db relationship-id attrs)
+   {:db              (-> db
+                         (merge-relationship relationship-id attrs)
+                         (update :ui dissoc :intensity-preview))
     :queue/add-event (ce/relationship-update relationship-id attrs)}))
+
+(rf/reg-event-db
+ :map/relationship-preview
+ [require-editable]
+ ;; An EPHEMERAL overlay under [:ui :intensity-preview] — never the
+ ;; entity store, which must keep meaning "committed truth + queued
+ ;; events" (save-status reads it as such). The slider dispatches per
+ ;; drag tick; the real commit (`:map/relationship-update`) clears it.
+ (fn [db [_ relationship-id {:keys [intensity]}]]
+   (assoc-in db [:ui :intensity-preview]
+             {:id relationship-id :intensity intensity})))
+
+(rf/reg-event-db
+ :map/relationship-preview-clear
+ (fn [db _]
+   (update db :ui dissoc :intensity-preview)))
 
 (rf/reg-event-fx
  :map/relationship-remove

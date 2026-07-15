@@ -30,7 +30,8 @@
       (is (= "unknown" (:type result)))
       (is (= source-id (:source_id result)))
       (is (= target-id (:target_id result)))
-      (is (nil? (:notes result)))))
+      (is (nil? (:notes result)))
+      (is (= 0 (:intensity result)) "intensity defaults to calm")))
 
   (testing "Creates a relationship with provided attributes"
     (let [attrs  {:id        "custom-id"
@@ -38,9 +39,19 @@
                   :type      "protects"
                   :source_id "source-123"
                   :target_id "target-456"
-                  :notes     "Test notes"}
+                  :notes     "Test notes"
+                  :intensity 62}
           result (relationship/make-relationship attrs)]
       (is (= attrs result))))
+
+  (testing "Throws for an out-of-range intensity"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (relationship/make-relationship {:map_id    "test"
+                                          :source_id "source"
+                                          :target_id "target"
+                                          :intensity 101}))))
 
   (testing "Throws exception for invalid relationship type"
     (is (thrown-with-msg?

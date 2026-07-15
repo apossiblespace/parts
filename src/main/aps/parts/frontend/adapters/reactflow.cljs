@@ -104,7 +104,8 @@
    `:data` so the edge component can pick its curve shape without doing
    its own O(N) reverse-sibling scan per render."
   ([relationship] (relationship->edge relationship nil false nil))
-  ([{:keys [id source_id target_id notes type first_appeared_ordinal]}
+  ([{:keys [id source_id target_id notes type intensity
+            first_appeared_ordinal]}
     selected-id-set bidir? {:keys [session-badges? viewed-ordinal]}]
    (let [type-name (name type)]
      #js {:id           id
@@ -115,6 +116,7 @@
           :selected     (when selected-id-set (contains? selected-id-set id))
           :data         #js {:relationship  type-name
                              :notes         notes
+                             :intensity     intensity
                              :bidir         bidir?
                              :firstAppeared (when session-badges?
                                               first_appeared_ordinal)
