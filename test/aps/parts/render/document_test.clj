@@ -198,7 +198,8 @@
                                  :position_x 300  :position_y 0       :width 100 :height 100}]
                 :relationships [{:id "r1" :source_id "p1" :target_id "p2" :type "protects"}
                                 {:id "r2" :source_id "p2" :target_id "p1" :type "protects"}]})]
-      (is (= 6 (count (re-seq #"<marker " svg))))
+      (is (= (count constants/relationship-colors)
+             (count (re-seq #"<marker " svg))))
       (is (= 2 (count (re-seq #"marker-end=\"url\(#edge-arrow-protects\)\"" svg)))))))
 
 (deftest render-no-ratios-in-path-d-test

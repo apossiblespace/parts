@@ -27,7 +27,8 @@
 (def relationship-type-order
   "Relationship types in canonical display order. Menus render from this
    vector rather than relying on map ordering."
-  [:unknown :protects :polarizes-with :works-with :activates :carries-burden])
+  [:unknown :protects :polarizes-with :works-with :activates :carries-burden
+   :fearful-of :suppresses])
 
 (def relationship-labels
   "Keyword → UI label for Relationship types. Keywords use US spelling,
@@ -37,7 +38,9 @@
    :polarizes-with {:label "Polarises with"}
    :works-with     {:label "Works with"}
    :activates      {:label "Activates"}
-   :carries-burden {:label "Carries burden"}})
+   :carries-burden {:label "Carries burden"}
+   :fearful-of     {:label "Fearful of"}
+   :suppresses     {:label "Suppresses"}})
 
 (def relationship-types
   (set (map name relationship-type-order)))
@@ -55,7 +58,9 @@
    :polarizes-with "#f44336"
    :works-with     "#2196f3"
    :activates      "#9c27b0"
-   :carries-burden "#ff9800"})
+   :carries-burden "#ff9800"
+   :fearful-of     "#009688"
+   :suppresses     "#795548"})
 
 (def brand-suffix
   "The suffix appearing after the page title in the <title> element"

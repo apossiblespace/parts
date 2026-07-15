@@ -6,9 +6,9 @@
    [aps.parts.common.models.relationship :as relationship]))
 
 (deftest relationship-vocabulary-test
-  (testing "The vocabulary is pinned — exactly these six types, nothing else"
+  (testing "The vocabulary is pinned — exactly these eight types, nothing else"
     (is (= #{"unknown" "protects" "polarizes-with" "works-with"
-             "activates" "carries-burden"}
+             "activates" "carries-burden" "fearful-of" "suppresses"}
            constants/relationship-types)))
 
   (testing "Display order, labels, and colours cover exactly the vocabulary"

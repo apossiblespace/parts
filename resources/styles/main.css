@@ -64,6 +64,8 @@
     --edge-color-works-with: #2196f3;
     --edge-color-activates: #9c27b0;
     --edge-color-carries-burden: #ff9800;
+    --edge-color-fearful-of: #009688;
+    --edge-color-suppresses: #795548;
 
     scroll-behavior: smooth;
 }
@@ -489,6 +491,12 @@ a.btn {
         }
         .edge-carries-burden {
             stroke: var(--edge-color-carries-burden);
+        }
+        .edge-fearful-of {
+            stroke: var(--edge-color-fearful-of);
+        }
+        .edge-suppresses {
+            stroke: var(--edge-color-suppresses);
         }
 
         /* No padding/margin on .node-wrapper: ReactFlow measures this element
