@@ -202,6 +202,28 @@
              (count (re-seq #"<marker " svg))))
       (is (= 2 (count (re-seq #"marker-end=\"url\(#edge-arrow-protects\)\"" svg)))))))
 
+(deftest render-edge-type-labels-test
+  (let [render-one (fn [type]
+                     (document/render
+                      {:parts         [{:id         "p1" :type       "manager"
+                                        :position_x 0    :position_y 0
+                                        :width      100  :height     100}
+                                       {:id         "p2" :type       "exile"
+                                        :position_x 300  :position_y 0
+                                        :width      100  :height     100}]
+                       :relationships [{:id        "r1" :source_id "p1"
+                                        :target_id "p2" :type      type}]}))]
+    (testing "a typed edge carries its rotated type label"
+      (let [svg (render-one "fearful-of")]
+        (is (str/includes? svg ">Fearful of</text>"))
+        (is (re-find #"<text[^>]*transform=\"rotate" svg))))
+
+    (testing "unknown edges carry no label — a grey line already says
+              as much"
+      (is (= (count (re-seq #"<text" (render-one "unknown")))
+             (- (count (re-seq #"<text" (render-one "protects"))) 2))
+          "the unknown render has two fewer <text> (label + halo underlay)"))))
+
 (deftest render-no-ratios-in-path-d-test
   (testing "edges between unknown-type Parts produce only decimal numbers in
             `d` attributes — Clojure Ratios (e.g. `10123/41`) are not valid

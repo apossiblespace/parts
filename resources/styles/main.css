@@ -449,6 +449,36 @@ a.btn {
             left: 0;
         }
 
+        /* Relationship type label: quiet enough to ignore once the
+           colours are learned, present enough to teach them. The solid
+           8-direction halo is an outline, not a glow: a high-Intensity
+           zigzag swings right through the label's band (the label
+           deliberately holds still while the jag animates), and only a
+           hard knockout keeps the glyphs readable across a stroke.
+           Positioned via inline transform (same EdgeLabelRenderer
+           pattern as the recency badge). */
+        .edge-type-label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 10px;
+            line-height: 1;
+            white-space: nowrap;
+            pointer-events: none;
+            color: color-mix(in oklab,
+                             var(--color-base-content) 50%,
+                             transparent);
+            text-shadow:
+                -1px -1px 0 var(--color-base-100),
+                1px -1px 0 var(--color-base-100),
+                -1px 1px 0 var(--color-base-100),
+                1px 1px 0 var(--color-base-100),
+                -1px 0 0 var(--color-base-100),
+                1px 0 0 var(--color-base-100),
+                0 -1px 0 var(--color-base-100),
+                0 1px 0 var(--color-base-100);
+        }
+
         /* Activation marker (ADR-0014): the Part the viewed Session
            activated. Opposite corner from the recency badge so the
            two never collide. */

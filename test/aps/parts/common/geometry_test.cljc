@@ -239,3 +239,42 @@
           mid  (nth pts (quot (count pts) 2))
           apex (/ g/bow-offset-px 2)]
       (is (> (second mid) (- apex g/jag-max-amplitude-px 1))))))
+
+(deftest edge-label-anchor-test
+  (testing "flat left-to-right cubic: anchor at the chord midpoint,
+            unrotated"
+    (let [{:keys [x y angle]} (g/edge-label-anchor flat-endpoints false)]
+      (is (approx= 150.0 x))
+      (is (approx= 0.0 y))
+      (is (approx= 0.0 angle))))
+
+  (testing "right-to-left folds upright — text is never upside down"
+    (let [{:keys [angle]} (g/edge-label-anchor
+                           {:sx     300.0 :sy     0.0    :tx 0.0 :ty 0.0
+                            :s-side :left :t-side :right} false)]
+      (is (approx= 0.0 angle))))
+
+  (testing "vertical edge reads at 90°"
+    (let [{:keys [angle]} (g/edge-label-anchor
+                           {:sx     0.0     :sy     0.0  :tx 0.0 :ty 300.0
+                            :s-side :bottom :t-side :top} false)]
+      (is (approx= 90.0 angle))))
+
+  (testing "a diagonal stays within the upright range"
+    (let [{:keys [angle]} (g/edge-label-anchor
+                           {:sx     0.0    :sy     0.0   :tx 300.0 :ty 300.0
+                            :s-side :right :t-side :left} false)]
+      (is (< 0.0 angle 90.0))))
+
+  (testing "a bow anchors at the apex (half the control offset) and
+            stays chord-parallel — a quadratic's t=0.5 tangent is the
+            chord direction"
+    (let [{:keys [x y angle]} (g/edge-label-anchor flat-endpoints true)]
+      (is (approx= 150.0 x))
+      (is (approx= (/ g/bow-offset-px 2.0) y))
+      (is (approx= 0.0 angle))))
+
+  (testing "degenerate zero-length chord: nil"
+    (is (nil? (g/edge-label-anchor {:sx     5.0    :sy     5.0   :tx 5.0 :ty 5.0
+                                    :s-side :right :t-side :left}
+                                   false)))))

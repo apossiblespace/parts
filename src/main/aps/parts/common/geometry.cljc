@@ -315,6 +315,36 @@
       (let [[[c1x c1y] [c2x c2y]] (cubic-controls endpoints)]
         (jagged-d #(cubic-point sx sy c1x c1y c2x c2y tx ty %) len i)))))
 
+(defn edge-label-anchor
+  "Where an edge's type label sits and how it tilts: the SMOOTH drawn
+   curve's t=0.5 point, plus the tangent angle there in degrees folded
+   into (-90, 90] so a label rotated by it never renders upside down.
+   Intensity is deliberately not an input — the label holds still
+   while the zigzag animates around the same underlying curve. Nil for
+   a degenerate zero-length chord."
+  [{:keys [sx sy tx ty] :as endpoints} bow?]
+  (let [dx (- tx sx)
+        dy (- ty sy)]
+    (when-not (and (zero? dx) (zero? dy))
+      (let [[[px py] [tdx tdy]]
+            (if bow?
+              ;; A quadratic's t=0.5 point is the control at half
+              ;; offset — the same point `curve-midpoint` returns, so
+              ;; badge and label agree on bows — and its tangent there
+              ;; is exactly the chord.
+              [(bow-control endpoints (/ bow-offset-px 2.0)) [dx dy]]
+              (let [[[c1x c1y] [c2x c2y]] (cubic-controls endpoints)]
+                [(cubic-point sx sy c1x c1y c2x c2y tx ty 0.5)
+                 ;; Cubic derivative at t=0.5, up to a constant factor.
+                 [(+ (- c1x sx) (* 2.0 (- c2x c1x)) (- tx c2x))
+                  (+ (- c1y sy) (* 2.0 (- c2y c1y)) (- ty c2y))]]))
+            deg                 (* (Math/atan2 tdy tdx) (/ 180.0 Math/PI))]
+        {:x     px
+         :y     py
+         :angle (cond (> deg 90.0)   (- deg 180.0)
+                      (<= deg -90.0) (+ deg 180.0)
+                      :else          deg)}))))
+
 (defn- ray-segment-intersection
   "Where does the ray from (cx,cy) in direction (dx,dy) cross segment
    (ax,ay) → (bx,by)? Returns the ray parameter t ≥ 0 of the hit, or nil

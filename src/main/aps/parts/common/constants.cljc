@@ -45,6 +45,16 @@
 (def relationship-types
   (set (map name relationship-type-order)))
 
+(defn relationship-edge-label
+  "The label drawn along an edge of `type` (string or keyword), or nil
+   for unknown — a grey line already reads as unknown, so labelling it
+   is noise. Menus and forms that legitimately want the word
+   \"Unknown\" read `relationship-labels` directly."
+  [type]
+  (let [k (keyword type)]
+    (when-not (= k :unknown)
+      (get-in relationship-labels [k :label]))))
+
 (def relationship-colors
   "Per-Relationship-type stroke colour. Mirrors the `--edge-color-*` CSS
    custom properties in `resources/styles/main.css` — an SVG generated

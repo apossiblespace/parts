@@ -12,9 +12,13 @@
    Apache FOP / Batik."
   (:require
    [aps.parts.common.constants :as c]
-   [aps.parts.common.geometry :as geometry]))
+   [aps.parts.common.geometry :as geometry]
+   [aps.parts.render.fonts :as fonts]))
 
 (def ^:private edge-stroke-width 1.5)
+
+(def ^:private label-font-size 8)
+(def ^:private label-fill "#8a8a8a")
 
 (defn- edge-endpoints
   "Visible-shape intersection points and edge sides for an edge from
@@ -34,11 +38,40 @@
 (defn- arrow-marker-id [type]
   (str "edge-arrow-" type))
 
+(defn- type-label
+  "The rotated type label at the smooth curve's midpoint — the same
+   reading aid the canvas draws, for hand-out readers who know the
+   colour coding least of all. Nil for unknown and degenerate chords.
+   `dy` lifts the text off the stroke within its rotated frame (visual
+   twin of the canvas's -1.2em lift in frontend edges.cljs); the
+   white-stroked underlay copy is the canvas halo's Batik-safe
+   equivalent (`paint-order` is SVG 2), keeping the glyphs readable
+   where a high-Intensity zigzag swings through them."
+  [endpoints bow? type']
+  (when-let [label (c/relationship-edge-label type')]
+    (when-let [{:keys [x y angle]} (geometry/edge-label-anchor endpoints bow?)]
+      (let [attrs {:x           x
+                   :y           y
+                   :dy          -4
+                   :transform   (str "rotate(" angle " " x " " y ")")
+                   :text-anchor "middle"
+                   :font-family fonts/font-family
+                   :font-size   label-font-size
+                   :fill        label-fill}]
+        [:g
+         [:text (assoc attrs
+                       :fill "#ffffff"
+                       :stroke "#ffffff"
+                       :stroke-width 2)
+          label]
+         [:text attrs label]]))))
+
 (defn relationship-path
-  "A `<path>` element for one Relationship, bezier or bowed quadratic
-   depending on whether its mirror exists. Returns nil when either
-   endpoint Part is missing — protects against a stale Relationship row
-   pointing at a since-deleted Part."
+  "The drawn form of one Relationship: its `<path>` (bezier or bowed
+   quadratic, depending on whether its mirror exists) plus the type
+   label when one applies. Returns nil when either endpoint Part is
+   missing — protects against a stale Relationship row pointing at a
+   since-deleted Part."
   [parts-by-id bidi-pairs {:keys [source_id target_id type intensity] :as rel}]
   (let [source (parts-by-id source_id)
         target (parts-by-id target_id)]
@@ -47,15 +80,16 @@
             type'   (if (contains? c/relationship-colors type-kw)
                       type "unknown")
             colour  (c/relationship-colors (keyword type'))
-            d       (geometry/edge-path
-                     endpoints
-                     {:bow?      (geometry/bidirectional? bidi-pairs rel)
-                      :intensity intensity})]
-        [:path {:d            d
-                :fill         "none"
-                :stroke       colour
-                :stroke-width edge-stroke-width
-                :marker-end   (str "url(#" (arrow-marker-id type') ")")}]))))
+            bow?    (geometry/bidirectional? bidi-pairs rel)
+            d       (geometry/edge-path endpoints {:bow?      bow?
+                                                   :intensity intensity})]
+        [:g
+         [:path {:d            d
+                 :fill         "none"
+                 :stroke       colour
+                 :stroke-width edge-stroke-width
+                 :marker-end   (str "url(#" (arrow-marker-id type') ")")}]
+         (type-label endpoints bow? type')]))))
 
 (defn- arrow-marker
   "A `<marker>` element with its arrowhead colour baked in. Two

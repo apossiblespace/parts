@@ -70,7 +70,21 @@
                         :id        id
                         :markerEnd marker-end})
            ;; EdgeLabelRenderer is ReactFlow's HTML overlay for edge
-           ;; decorations — SVG <text> can't carry the badge styling.
+           ;; decorations (SVG <text> can't carry this styling); the
+           ;; -1.2em lift floats the label off the stroke in its
+           ;; rotated frame (visual twin of the PDF's dy -4 in
+           ;; render/document/edges.clj).
+           (when-let [label (constants/relationship-edge-label rel-type)]
+             (when-let [{:keys [x y angle]}
+                        (geometry/edge-label-anchor params bidir?)]
+               ($ EdgeLabelRenderer
+                  ($ :span {:class "edge-type-label"
+                            :style #js {:transform
+                                        (str "translate(-50%, -50%) "
+                                             "translate(" x "px," y "px) "
+                                             "rotate(" angle "deg) "
+                                             "translate(0, -1.2em)")}}
+                     label))))
            (when-let [ordinal (:firstAppeared data)]
              (let [{:keys [x y]} (geometry/curve-midpoint
                                   params

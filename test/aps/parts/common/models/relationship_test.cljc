@@ -14,7 +14,13 @@
   (testing "Display order, labels, and colours cover exactly the vocabulary"
     (is (= (set constants/relationship-type-order)
            (set (keys constants/relationship-labels))
-           (set (keys constants/relationship-colors))))))
+           (set (keys constants/relationship-colors)))))
+
+  (testing "The edge label is the type's label — except unknown, which
+            draws none"
+    (is (= "Protects" (constants/relationship-edge-label "protects")))
+    (is (= "Fearful of" (constants/relationship-edge-label :fearful-of)))
+    (is (nil? (constants/relationship-edge-label "unknown")))))
 
 (deftest make-relationship-test
   (testing "Creates a valid relationship with minimal attributes"
