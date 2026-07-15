@@ -725,11 +725,14 @@ a.btn {
             display: none;
         }
 
-        /* While its menu is open, the dropdown trigger stays highlighted —
-           the macOS convention (menu-bar titles, toolbar dropdowns), in
-           the same bg the armed part tools use. The caret itself doesn't
-           flip: that's a web disclosure idiom, not a menu one. */
-        .toolbar .dropdown:focus-within > [role="button"] {
+        /* While its menu is open, a button-styled dropdown trigger stays
+           highlighted — the macOS menu convention, in the same bg the
+           armed part tools use. The `.btn` scope covers the Connect
+           split's type menu and the Map actions menu while leaving
+           non-button triggers (the sidebar's select-styled one) alone.
+           The caret itself doesn't flip: that's a web disclosure idiom,
+           not a menu one. */
+        .dropdown:focus-within > [role="button"].btn {
             background-color: var(--color-base-300);
         }
     }
