@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "postgres-mcp",
+        "--access-mode=restricted"
+      ],
+      "env": {
+        "DATABASE_URI": "postgresql://localhost:5432/parts_dev"
+      }
+    }
+  }
+}

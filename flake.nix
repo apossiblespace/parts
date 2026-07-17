@@ -60,6 +60,7 @@
             git
             ripgrep
             fd
+            uv # runs postgres-mcp (see .mcp.json)
 
             # Optional but useful
             jq
