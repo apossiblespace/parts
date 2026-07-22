@@ -15,8 +15,10 @@
    Props:
    - relationship: The relationship data to edit
    - on-save: Callback function (id, form-data) on each commit
+   - on-delete: Callback function (id) — asks for the relationship's
+     deletion (confirmation included, same flow as the Delete key)
    - collapsed: Whether the form should start collapsed"
-  [{:keys [relationship on-save collapsed]}]
+  [{:keys [relationship on-save on-delete collapsed]}]
   (let [{:keys [id type notes intensity source_id target_id]} relationship
         pending-preview                                       (use-ref nil)
         preview-raf                                           (use-ref nil)
@@ -45,11 +47,13 @@
 
     ($ :div {:class "fieldset edge-form p-2 border-b border-b-1 border-base-300"}
        ($ form/collapsible-header
-          {:title      (get-in relationship-labels
-                               [(keyword (:type values)) :label]
-                               "Relationship")
-           :collapsed? collapsed?
-           :on-toggle  toggle-collapsed})
+          {:title        (get-in relationship-labels
+                                 [(keyword (:type values)) :label]
+                                 "Relationship")
+           :collapsed?   collapsed?
+           :on-toggle    toggle-collapsed
+           :on-delete    (when on-delete #(on-delete id))
+           :delete-label "Delete relationship"})
        (when-not collapsed?
          ($ :div
             ($ :label {:class "fieldset-label"} "Relationship type:")

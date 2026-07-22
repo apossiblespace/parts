@@ -13,8 +13,10 @@
    Props:
    - part: The part model to edit
    - on-save: Callback function (id, form-data) on each commit
+   - on-delete: Callback function (id) — asks for the part's deletion
+     (confirmation included, same flow as the Delete key)
    - collapsed: Whether the form should start collapsed"
-  [{:keys [part on-save collapsed]}]
+  [{:keys [part on-save on-delete collapsed]}]
   (let [{:keys [id type label notes body_location]} part
         {:keys [values collapsed? update-field toggle-collapsed
                 commit-field! text-blur text-keys]}
@@ -35,9 +37,11 @@
      [id])
 
     ($ :div {:class "fieldset node-form p-2 border-b border-b-1 border-base-300"}
-       ($ form/collapsible-header {:title      (:label values)
-                                   :collapsed? collapsed?
-                                   :on-toggle  toggle-collapsed})
+       ($ form/collapsible-header {:title        (:label values)
+                                   :collapsed?   collapsed?
+                                   :on-toggle    toggle-collapsed
+                                   :on-delete    (when on-delete #(on-delete id))
+                                   :delete-label "Delete part"})
        (when-not collapsed?
          ($ :div
             ($ :label {:class "fieldset-label"} "Type:")

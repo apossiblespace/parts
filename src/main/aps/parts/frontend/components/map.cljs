@@ -108,7 +108,7 @@
       {:title         "Delete selection?"
        :body          (str part-count " " (plural part-count "part" "parts")
                            " and "
-                           rel-count " " (plural rel-count "connection" "connections")
+                           rel-count " " (plural rel-count "relationship" "relationships")
                            " will be removed from the map.")
        :confirm-label "Delete"}
 
@@ -117,18 +117,18 @@
                         "Delete this part?"
                         (str "Delete " part-count " parts?"))
        :body          (plural part-count
-                              "It will be removed from the map, along with any connections to it."
-                              "They will be removed from the map, along with any connections to them.")
+                              "It will be removed from the map, along with any relationships to it."
+                              "They will be removed from the map, along with any relationships to them.")
        :confirm-label (plural part-count "Delete part" "Delete parts")}
 
       :else
       {:title         (if (= 1 rel-count)
-                        "Delete this connection?"
-                        (str "Delete " rel-count " connections?"))
+                        "Delete this relationship?"
+                        (str "Delete " rel-count " relationships?"))
        :body          (plural rel-count
-                              "The link between these parts will be removed from the map."
-                              "These links will be removed from the map.")
-       :confirm-label (plural rel-count "Delete connection" "Delete connections")})))
+                              "The relationship between these parts will be removed from the map."
+                              "These relationships will be removed from the map.")
+       :confirm-label (plural rel-count "Delete relationship" "Delete relationships")})))
 
 (defui relationship-type-control
   "The right half of the Connect split button: a colour dot showing the
@@ -612,6 +612,11 @@
         cancel-delete         (use-callback
                                (fn [] (set-pending-deletes nil))
                                [])
+
+        ;; The sidebar forms' delete buttons — same pending-deletes flow
+        ;; (and so the same confirmation modal) as the Delete key.
+        sidebar-props         {:on-delete-part         (fn [id] (queue-delete :parts id))
+                               :on-delete-relationship (fn [id] (queue-delete :relationships id))}
 
         confirm-delete        (use-callback
                                (fn []
@@ -1102,7 +1107,7 @@
                                 :class    "toolbar shadow-xs"}
                          palette)
                       ($ Panel {:position "top-right" :className "sidebar-container"}
-                         ($ sidebar)))
+                         ($ sidebar sidebar-props)))
                    ;; Authenticated view: two full-width chrome ROWS —
                    ;; flex items cannot overlap, and the Map name absorbs
                    ;; the squeeze by truncating (see map-name-widgets).
@@ -1112,7 +1117,7 @@
                             ($ map-name-widgets)
                             ($ :div {:class "flex-1"})
                             ($ :div {:class "w-50 shrink-0 chrome-item"}
-                               ($ sidebar))))
+                               ($ sidebar sidebar-props))))
                       ($ Panel {:position "bottom-left" :className "bottom-chrome"}
                          ($ :div {:class "flex items-center"}
                             ;; Equal-flex spacers keep the palette viewport-

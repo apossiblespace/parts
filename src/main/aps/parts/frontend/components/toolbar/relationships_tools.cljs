@@ -7,8 +7,10 @@
    [uix.re-frame :as uix.rf]))
 
 (defui relationships-tools
-  "Renders a tool palette that displays the selected relationships for editing"
-  []
+  "Renders a tool palette that displays the selected relationships for
+   editing. `on-delete` (fn [id]) forwards to each form's delete button
+   (see the sidebar docstring for why it travels as a prop)."
+  [{:keys [on-delete]}]
   (let [selected-relationships (uix.rf/use-subscribe [:map/selected-relationships])
         editable?              (uix.rf/use-subscribe [:canvas/editable?])
         ;; See parts-tools: reload → epoch bump → forms remount.
@@ -26,5 +28,6 @@
                                         :relationship relationship
                                         :collapsed    multiple-relationships
                                         :on-save      (fn [id updated-attrs]
-                                                        (rf/dispatch [:map/relationship-update id updated-attrs]))}))
+                                                        (rf/dispatch [:map/relationship-update id updated-attrs]))
+                                        :on-delete    on-delete}))
                 selected-relationships)))))))

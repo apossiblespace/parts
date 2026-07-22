@@ -12,8 +12,13 @@
   "Map-canvas sidebar: Part / Relationship tool palettes, plus the
    demo-mode sign-up / log-in CTAs for unauthenticated playground
    visitors. Auth status (logged-in user + log-out action) is no longer
-   rendered here — it moved to the Maps-list page header."
-  []
+   rendered here — it moved to the Maps-list page header.
+
+   `on-delete-part` / `on-delete-relationship` (each fn [id]) forward to
+   the forms' delete buttons — props, not re-frame, because the delete
+   confirmation state lives in the map canvas alongside the Delete-key
+   flow it shares."
+  [{:keys [on-delete-part on-delete-relationship]}]
   (let [demo                                          (uix.rf/use-subscribe [:demo])
         minimal                                       (uix.rf/use-subscribe [:minimal-demo])
         launched                                      (uix.rf/use-subscribe [:launched])
@@ -50,8 +55,8 @@
                    "Log in"))))
          ($ :div {:class "overflow-auto"}
             ($ session-card)
-            ($ parts-tools)
-            ($ relationships-tools))
+            ($ parts-tools {:on-delete on-delete-part})
+            ($ relationships-tools {:on-delete on-delete-relationship}))
          ($ waitlist-modal
             {:show     show-waitlist-modal
              :on-close #(do

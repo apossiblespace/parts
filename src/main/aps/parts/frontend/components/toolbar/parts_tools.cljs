@@ -7,8 +7,10 @@
    [uix.re-frame :as uix.rf]))
 
 (defui parts-tools
-  "Renders a tool palette that displays the selected Parts for editing"
-  []
+  "Renders a tool palette that displays the selected Parts for editing.
+   `on-delete` (fn [id]) forwards to each form's delete button (see the
+   sidebar docstring for why it travels as a prop)."
+  [{:keys [on-delete]}]
   (let [selected-parts (uix.rf/use-subscribe [:map/selected-parts])
         editable?      (uix.rf/use-subscribe [:canvas/editable?])
         ;; In the form keys: reload → epoch bump → open forms remount
@@ -30,5 +32,6 @@
                                 :part      part
                                 :collapsed multiple-parts
                                 :on-save   (fn [id updated-attrs]
-                                             (rf/dispatch [:map/part-update id updated-attrs]))}))
+                                             (rf/dispatch [:map/part-update id updated-attrs]))
+                                :on-delete on-delete}))
                 selected-parts)))))))

@@ -5,6 +5,7 @@
    reverting the field, and discrete controls commit on change. One
    implementation so the two forms cannot drift."
   (:require
+   ["lucide-react" :refer [Trash2]]
    [aps.parts.frontend.components.inline-edit :as inline-edit]
    [clojure.string :as str]
    [uix.core :refer [$ defui use-effect use-ref use-state]]))
@@ -120,10 +121,19 @@
 
 (defui collapsible-header
   "The entity form's title row: a chevron + title, clicking toggles the
-   form body."
-  [{:keys [title collapsed? on-toggle]}]
-  ($ :div {:class "flex justify-between"}
-     ($ :h3 {:class    "text-xs/4 mr-2 font-bold cursor-pointer w-full pl-3 relative"
+   form body. When `on-delete` is given, a small delete button sits in its
+   own flex column so a long title wraps beside it instead of underneath;
+   `delete-label` is its accessible name."
+  [{:keys [title collapsed? on-toggle on-delete delete-label]}]
+  ($ :div {:class "flex items-start gap-1"}
+     ($ :h3 {:class    "text-xs/4 font-bold cursor-pointer flex-1 min-w-0 pl-3 relative"
              :on-click on-toggle}
         (if collapsed? chevron-right chevron-down)
-        ($ :span title))))
+        ($ :span title))
+     (when on-delete
+       ($ :button {:type       "button"
+                   :class      "btn btn-xs btn-square text-gray-500"
+                   :aria-label delete-label
+                   :title      delete-label
+                   :on-click   on-delete}
+          ($ Trash2 {:size 14})))))
