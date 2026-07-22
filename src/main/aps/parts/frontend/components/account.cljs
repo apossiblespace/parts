@@ -7,9 +7,10 @@
    [aps.parts.common.constants :as c]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
+   [aps.parts.frontend.components.inline-edit :as inline-edit]
    [clojure.string :as str]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-effect]]
+   [uix.core :refer [$ defui use-effect use-state]]
    [uix.re-frame :as uix.rf]))
 
 (def ^:private month-names
@@ -50,8 +51,19 @@
       nil)))
 
 (defui account []
-  (let [user     (uix.rf/use-subscribe [:auth/user])
-        standing (:standing user)]
+  (let [user               (uix.rf/use-subscribe [:auth/user])
+        standing           (:standing user)
+        display-name       (:display_name user)
+        update-error       (uix.rf/use-subscribe [:account/update-error])
+        [draft set-draft!] (use-state (or display-name ""))
+        commit             (inline-edit/commit-value draft display-name
+                                                     (complement str/blank?))]
+    ;; Seed the draft once the async user record lands — keyed on identity,
+    ;; not the name, so a save echo or background auth refresh can't clobber
+    ;; an uncommitted draft (the hazard use-autosave-form documents).
+    (use-effect
+     (fn [] (set-draft! (or display-name "")))
+     ^:lint/disable [(:id user)])
     ;; Refresh the user — and its server-computed `:standing` — on mount.
     ;; The login response carries no standing, so a user who lands here
     ;; straight after signing in (no page reload) would otherwise miss it.
@@ -83,6 +95,33 @@
                 ($ :a {:href (str "mailto:" c/support-email)}
                    c/support-email)
                 "."))
+
+          ($ :div {:class "bg-white border border-base-300 rounded-lg shadow-sm p-4 mb-4"}
+             ($ :h2 {:class "text-sm font-semibold text-gray-500 mb-1"} "Profile")
+             (if user
+               ($ :form {:class     "fieldset"
+                         :on-submit (fn [^js e]
+                                      (.preventDefault e)
+                                      (when commit
+                                        (rf/dispatch [:account/update
+                                                      {:display_name commit}])))}
+                  ($ :label {:class "fieldset-label" :for "display-name"}
+                     "Display name:")
+                  ($ :div {:class "flex gap-2"}
+                     ($ :input {:id       "display-name"
+                                :class    "input input-sm w-64"
+                                :type     "text"
+                                :value    draft
+                                :onChange #(set-draft! (.. % -target -value))})
+                     ($ :button {:type     "submit"
+                                 :class    "btn btn-sm"
+                                 :disabled (nil? commit)}
+                        "Save"))
+                  (when update-error
+                    ($ :p {:class "text-sm text-error mt-1"} update-error))
+                  ($ :p {:class "text-sm text-gray-400 mt-1"}
+                     "Signed in as " (:email user) "."))
+               ($ :p {:class "text-base text-gray-400"} "Checking…")))
 
           ($ :div {:class "bg-white border border-base-300 rounded-lg shadow-sm p-4 mb-4"}
              ($ :h2 {:class "text-sm font-semibold text-gray-500 mb-1"} "Billing")

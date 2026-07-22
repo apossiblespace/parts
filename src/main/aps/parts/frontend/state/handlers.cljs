@@ -597,6 +597,25 @@
  (fn [db [_ user]]
    (assoc-in db [:auth :user] user)))
 
+(rf/reg-event-fx
+ :account/update
+ (fn [{:keys [db]} [_ attrs]]
+   {:db                (assoc-in db [:account :update-error] nil)
+    :account/update-fx {:attrs attrs}}))
+
+(rf/reg-event-db
+ :account/update-success
+ (fn [db [_ user]]
+   ;; Merge, don't replace: the PATCH response carries the bare user
+   ;; record, and a replace would drop the server-computed :standing the
+   ;; Account page is also showing.
+   (update-in db [:auth :user] merge user)))
+
+(rf/reg-event-db
+ :account/update-failure
+ (fn [db [_ message]]
+   (assoc-in db [:account :update-error] message)))
+
 (rf/reg-event-db
  :auth/set-loading
  (fn [db [_ loading]]

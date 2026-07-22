@@ -201,6 +201,11 @@
    (get-in db [:auth :user])))
 
 (rf/reg-sub
+ :account/update-error
+ (fn [db _]
+   (get-in db [:account :update-error])))
+
+(rf/reg-sub
  :auth/loading
  (fn [db _]
    (get-in db [:auth :loading])))

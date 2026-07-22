@@ -72,16 +72,27 @@
        (when (= 200 (:status resp))
          (rf/dispatch [:auth/set-user (:body resp)]))))))
 
+(defn- error-message
+  "The server's own message from an error response body, or a fallback.
+   Server refusals (e.g. deleting a non-empty Session, an invalid account
+   update) carry the precise reason under :error — the UI relays it
+   verbatim."
+  [resp fallback]
+  (or (get-in resp [:body :error]) fallback))
+
+(rf/reg-fx
+ :account/update-fx
+ (fn [{:keys [attrs]}]
+   (go
+     (let [resp (<! (api/update-account attrs))]
+       (if (= 200 (:status resp))
+         (rf/dispatch [:account/update-success (:body resp)])
+         (rf/dispatch [:account/update-failure
+                       (error-message resp "Could not update your details")]))))))
+
 ;; -- Sessions (ADR-0014) ----------------------------------------------------
 ;; HTTP-only: Sessions exist for authenticated Maps; demo Maps are exempt
 ;; from the Session model, so these effects never fire in the playground.
-
-(defn- error-message
-  "The server's own message from an error response body, or a fallback.
-   Session refusals (e.g. deleting a non-empty Session) carry the precise
-   reason under :error — the UI relays it verbatim."
-  [resp fallback]
-  (or (get-in resp [:body :error]) fallback))
 
 (rf/reg-fx
  :sessions/fetch-fx

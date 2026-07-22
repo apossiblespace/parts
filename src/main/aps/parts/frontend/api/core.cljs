@@ -75,6 +75,12 @@
   (http/DELETE (str "/maps/" map-id "/sessions/" session-id "/activation")))
 
 ;; Account-related functions
+(defn update-account
+  "Update own account fields — e.g. {:display_name \"…\"}. The server
+   allowlists what may change (entity.user/allowed-update-fields)."
+  [attrs]
+  (http/PATCH "/account" attrs))
+
 (defn get-current-user
   "Retrieve the information about the currently signed in user:
 
