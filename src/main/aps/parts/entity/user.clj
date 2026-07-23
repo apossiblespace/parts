@@ -29,6 +29,17 @@
   (cond-> attrs
     (:email attrs) (update :email normalize-email)))
 
+(defn- validate-password-confirmation
+  "Check that a supplied password matches its confirmation. `:password_confirmation`
+  is a transient input field — never a column — so this runs on the raw attrs,
+  before `sanitize-attrs` drops it. (Doing it inside `validate-attrs` would
+  compare against an already-stripped confirmation and reject every update.)"
+  [attrs]
+  (let [{:keys [password password_confirmation]} attrs]
+    (when (and password (not= password password_confirmation))
+      (throw (ex-info "Password and confirmation do not match" {:type :validation}))))
+  attrs)
+
 (defn- validate-attrs
   "Perform validations to ensure the user attributes are ready to be persisted"
   [attrs]
@@ -37,17 +48,14 @@
   (when-let [role (:role attrs)]
     (when-not (contains? valid-roles role)
       (throw (ex-info "Invalid role" {:type :validation}))))
-  (let [{:keys [password password_confirmation]} attrs]
-    (when password
-      (when-not (s/valid? ::model/password password)
-        (throw (ex-info (str "Password must be between "
-                             model/password-min-length
-                             " and "
-                             model/password-max-length
-                             " characters")
-                        {:type :validation})))
-      (when (not= password password_confirmation)
-        (throw (ex-info "Password and confirmation do not match" {:type :validation})))))
+  (when-let [password (:password attrs)]
+    (when-not (s/valid? ::model/password password)
+      (throw (ex-info (str "Password must be between "
+                           model/password-min-length
+                           " and "
+                           model/password-max-length
+                           " characters")
+                      {:type :validation}))))
   attrs)
 
 (defn- sanitize-attrs
@@ -92,6 +100,7 @@
   [id attrs]
   (when (not id) (throw (ex-info "Missing User ID" {:type :validation})))
   (let [sanitized-attrs (-> attrs
+                            validate-password-confirmation
                             sanitize-attrs
                             normalize-attrs
                             validate-attrs
@@ -105,6 +114,7 @@
   ([attrs] (create! attrs db/datasource))
   ([attrs tx]
    (let [validated-attrs (-> attrs
+                             validate-password-confirmation
                              (select-keys creatable-fields)
                              normalize-attrs
                              validate-attrs

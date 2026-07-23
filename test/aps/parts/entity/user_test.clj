@@ -1,5 +1,6 @@
 (ns aps.parts.entity.user-test
   (:require
+   [aps.parts.auth :as auth]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
@@ -41,6 +42,22 @@
     (let [db-user (create-test-user!)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (user/update! (:id db-user) {:role "therapist"})))))
+
+  (testing "updates the password when password and confirmation match"
+    (let [db-user (create-test-user!)
+          new-pw  "brand-new-password-99"
+          result  (user/update! (:id db-user)
+                                {:password              new-pw
+                                 :password_confirmation new-pw})
+          stored  (db/query-one
+                   (db/sql-format {:select [:password_hash]
+                                   :from   [:users]
+                                   :where  [:= :id (db/->uuid (:id db-user))]}))]
+      (is (= (:id db-user) (:id result)))
+      (is (not (contains? result :password_hash))
+          "must not echo the password hash back to the caller")
+      (is (auth/check-password new-pw (:password_hash stored))
+          "the new password must verify against the freshly stored hash")))
 
   (testing "throws when a password is passed without confirmation"
     (let [db-user (create-test-user!)]
