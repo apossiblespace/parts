@@ -17,9 +17,11 @@
      (ops/set-paid-through! \"jane@example.com\")
      (ops/print-invitation-links!)
      (ops/send-invitation-email! (ops/generate-invitation! \"jane@example.com\"))
+     (ops/invite-pending-waitlist!)
 
-   `send-invitation-email!` is the one var that doesn't forward — a
-   short-lived concierge helper defined below, see its section comment."
+   `send-invitation-email!` and `invite-pending-waitlist!` are the vars
+   that don't forward — concierge helpers defined below, see their
+   section comment."
   (:require
    [aps.parts.billing :as billing]
    [aps.parts.config :as conf]
@@ -137,3 +139,31 @@ https://gosha.net")
       (mulog/log ::invitation-email-sent :email (:email invite))
       (println (str "Sent invite to " (:email invite)))
       invite)))
+
+(defn invite-pending-waitlist!
+  "Invite everyone `pending-waitlist!` reports: mint each email's
+   invitation and send it its magic link. Keeps going when a send fails —
+   a minted invitation removes its email from the pending list, so
+   aborting midway would leave minted-but-unsent invitations invisible to
+   a re-run. Prints a summary and returns {:sent [emails] :failed
+   [emails]}; retry a failure with
+
+     (send-invitation-email! (generate-invitation! email))
+
+   which re-sends the same magic link (`generate-invitation!` is
+   idempotent)."
+  []
+  (let [{:keys [sent failed] :as summary}
+        (reduce (fn [acc {:keys [email]}]
+                  (try
+                    (send-invitation-email! (generate-invitation! email))
+                    (update acc :sent conj email)
+                    (catch Exception e
+                      (println (str "FAILED " email " — " (ex-message e)))
+                      (update acc :failed conj email))))
+                {:sent [] :failed []}
+                (pending-waitlist!))]
+    (println (str "Invited " (count sent) " of " (+ (count sent) (count failed))
+                  (when (seq failed)
+                    (str "; failed: " (cstr/join ", " failed)))))
+    summary))

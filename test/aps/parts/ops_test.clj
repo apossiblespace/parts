@@ -51,6 +51,33 @@
       (is (cstr/includes? (:body msg) "https://parts.ifs.tools/invite/tok"))
       (is (not (cstr/includes? (:body msg) "[LINK]"))))))
 
+(deftest test-invite-pending-waitlist
+  (let [invite-for (fn [email] {:email      email
+                                :token      "tok"
+                                :magic-link (str "https://parts.ifs.tools/invite/" email)})]
+    (testing "mints an invitation for every pending email and sends each"
+      (let [sent (atom [])]
+        (with-redefs [invitations/pending-waitlist!    (fn [] [{:email "a@example.com"}
+                                                               {:email "b@example.com"}])
+                      invitations/generate-invitation! invite-for
+                      ops/send-invitation-email!       (fn [invite]
+                                                         (swap! sent conj (:email invite))
+                                                         invite)]
+          (is (= {:sent ["a@example.com" "b@example.com"] :failed []}
+                 (ops/invite-pending-waitlist!)))
+          (is (= ["a@example.com" "b@example.com"] @sent)))))
+    (testing "a failed send doesn't abort the batch — the rest still go out,
+              and the failure is reported for retry"
+      (with-redefs [invitations/pending-waitlist!    (fn [] [{:email "a@example.com"}
+                                                             {:email "b@example.com"}])
+                    invitations/generate-invitation! invite-for
+                    ops/send-invitation-email!       (fn [invite]
+                                                       (if (= "a@example.com" (:email invite))
+                                                         (throw (ex-info "boom" {:type :smtp-error}))
+                                                         invite))]
+        (is (= {:sent ["b@example.com"] :failed ["a@example.com"]}
+               (ops/invite-pending-waitlist!)))))))
+
 (deftest test-send-invitation-email
   (testing "nil invite (already redeemed) is a no-op, so the
             generate-invitation! composition is safe"
