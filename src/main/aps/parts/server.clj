@@ -18,6 +18,9 @@
    [org.httpkit.server :as server]
    [reitit.ring :as ring]
    [ring.middleware.head :as head])
+  (:import
+   [java.nio.file Files Path]
+   [java.nio.file.attribute PosixFilePermissions])
   (:gen-class))
 
 (defn app
@@ -59,7 +62,7 @@
    non-prod environments where another mechanism (e.g. the dev tap publisher
    in src/dev/mulog_events.clj) handles publishing."
   []
-  (when conf/prod?
+  (when (conf/prod?)
     (mulog/start-publisher! {:type      :console-json
                              :pretty?   false
                              :transform observe/mulog-transform})))
@@ -82,30 +85,54 @@
                    :reason "SMTP not configured (PARTS__SMTP__*)")
         nil)))
 
+(defn- owner-only!
+  "Restrict `path` to rw for its owner (0600). nREPL creates the socket with
+   the process umask, which typically leaves it group/world-connectable."
+  [path]
+  (Files/setPosixFilePermissions
+   (Path/of path (into-array String []))
+   (PosixFilePermissions/fromString "rw-------")))
+
+(defn- preload-ops!
+  "Preload the operator console so a connected REPL has it at hand."
+  []
+  (try
+    (require 'aps.parts.ops)
+    (catch Exception e
+      (mulog/log ::ops-preload-failed :error (.getMessage e)))))
+
 (defn start-nrepl
-  "Starts an nREPL server if enabled via environment configuration.
+  "Starts the production nREPL on a unix domain socket (:repl/socket),
+   permissioned 0600 — nREPL has no authentication, so \"may connect\" must
+   mean filesystem access as the app user, not merely \"is local\"
+   (a TCP loopback port is connectable by ANY local process). A loopback
+   TCP REPL remains available as an explicit operator escape hatch via
+   PARTS__REPL__PORT, which prod.edn deliberately does not set.
    Returns the server instance or nil if disabled."
   []
-  (when conf/prod?
-    (when-let [repl-port (l-config/get conf/config :repl/port)]
-      (try
-        (let [port         (Integer/parseInt repl-port)
-              bind-address (or (l-config/get conf/config :repl/host) "127.0.0.1")
-              server       (nrepl/start-server :bind bind-address :port port)]
-          (mulog/log ::nrepl-started :port port :bind bind-address)
-          (println (format "nREPL server started on %s:%d" bind-address port))
-          ;; Preload the operator console
-          (try
-            (require 'aps.parts.ops)
-            (catch Exception e
-              (mulog/log ::ops-preload-failed :error (.getMessage e))))
+  (when (conf/prod?)
+    (try
+      (if-let [socket-path (l-config/get conf/config :repl/socket)]
+        (let [server (nrepl/start-server :socket socket-path)]
+          (owner-only! socket-path)
+          (mulog/log ::nrepl-started :socket socket-path)
+          (println (format "nREPL server started on unix socket %s" socket-path))
+          (preload-ops!)
           server)
-        (catch Exception e
-          (mulog/log ::nrepl-start-error
-                     :error (.getMessage e)
-                     :error_type (.getName (class e)))
-          (println "Failed to start nREPL server:" (.getMessage e))
-          nil)))))
+        (when-let [repl-port (l-config/get conf/config :repl/port)]
+          (let [port         (Integer/parseInt repl-port)
+                bind-address (or (l-config/get conf/config :repl/host) "127.0.0.1")
+                server       (nrepl/start-server :bind bind-address :port port)]
+            (mulog/log ::nrepl-started :port port :bind bind-address)
+            (println (format "nREPL server started on %s:%d" bind-address port))
+            (preload-ops!)
+            server)))
+      (catch Exception e
+        (mulog/log ::nrepl-start-error
+                   :error (.getMessage e)
+                   :error_type (.getName (class e)))
+        (println "Failed to start nREPL server:" (.getMessage e))
+        nil))))
 
 (defn start-server
   "Starts the web server with the configured application handler.

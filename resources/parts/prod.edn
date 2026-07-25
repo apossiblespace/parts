@@ -13,7 +13,8 @@
  ;; then — the loader falls back to the bundled resources/legal/*.example.md.
  :legal/content-dir "/var/lib/parts/legal"
 
- :repl/port 7888
- :repl/host "127.0.0.1"
+ ;; Operator REPL over a unix socket, 0600 — filesystem-gated, never TCP by
+ ;; default (nREPL has no auth). /run/parts is systemd's RuntimeDirectory.
+ :repl/socket "/run/parts/nrepl.sock"
 
  :launch/launched? false}

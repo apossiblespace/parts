@@ -140,7 +140,9 @@ JAVA_OPTS=-server -Xms512m -Xmx512m
 #PARTS__ALERT__FROM=<optional; defaults to the SMTP user>
 
 # --- Optional overrides (prod.edn already sets prod defaults) ---
-#PARTS__REPL__PORT=7888   # prod nREPL bind port (loopback only)
+#PARTS__REPL__SOCKET=/run/parts/nrepl.sock  # unix-socket nREPL (0600; default)
+#PARTS__REPL__PORT=7888   # loopback TCP nREPL escape hatch — any local
+#                         # process can connect; prefer the socket
 #PARTS__HTTP__PORT=3000
 EOF
     chown root:root /etc/$APP_NAME.env
@@ -185,6 +187,9 @@ After=network.target postgresql.service
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=/etc/$APP_NAME.env
+# /run/$APP_NAME for the 0600 unix-socket nREPL (prod.edn :repl/socket)
+RuntimeDirectory=$APP_NAME
+RuntimeDirectoryMode=0750
 ExecStart=/usr/bin/java \$JAVA_OPTS -jar $APP_DIR/current
 Restart=on-failure
 RestartSec=5
