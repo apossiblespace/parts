@@ -77,6 +77,17 @@
         (is (re-find (re-pattern (str "\\.edge-" (name type) "\\s*\\{")) css)
             (str "main.css lacks an .edge-" (name type) " selector"))))))
 
+(deftest raw-sql-is-banned
+  (testing
+   "HoneySQL [:raw ...] splices strings straight into SQL, bypassing
+    parameter binding — one request-tainted argument away from injection.
+    Bind values instead (e.g. [:cast x :interval] for interval arithmetic)"
+    (let [patterns  [#"\[:raw\b"]
+          offenders (offending-files patterns [])]
+      (is (empty? offenders)
+          (str "These files use [:raw ...]; bind parameters instead:\n  "
+               (str/join "\n  " offenders))))))
+
 (def ^:private delete-quarantine
   "Which namespaces may hard-delete rows from which tables. Every delete
    spelling — raw SQL, `db/delete!`, a hand-built `:delete-from` map — is
