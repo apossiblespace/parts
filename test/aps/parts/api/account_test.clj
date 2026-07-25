@@ -37,10 +37,13 @@
 
 (deftest test-update-account
   (testing "correctly updates the user data"
-    (let [user           (create-test-user!)
+    (let [pw             "correct horse battery"
+          user           (create-test-user! {:password              pw
+                                             :password_confirmation pw})
           mock-request   {:identity    {:sub (:id user)}
-                          :body-params {:email        (str "added" (:email user))
-                                        :display_name "Updated"}}
+                          :body-params {:email            (str "added" (:email user))
+                                        :display_name     "Updated"
+                                        :current_password pw}}
           response       (account/update-account mock-request)
           updated-fields (select-keys (:body response) [:email :display_name])]
       (is (= 200 (:status response)))
@@ -55,6 +58,60 @@
                         :body-params {:role "therapist"}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (account/update-account mock-request))))))
+
+(deftest test-update-account-credential-reauth
+  (let [pw      "correct horse battery"
+        mk-user #(create-test-user! {:password pw :password_confirmation pw})
+        req     (fn [user body] {:identity {:sub (:id user)} :body-params body})]
+
+    (testing "password change without the current password is rejected"
+      (let [user (mk-user)]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Current password is incorrect"
+                              (account/update-account
+                               (req user {:password              "new-password-1"
+                                          :password_confirmation "new-password-1"}))))))
+
+    (testing "password change with a wrong current password is rejected"
+      (let [user (mk-user)]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Current password is incorrect"
+                              (account/update-account
+                               (req user {:password              "new-password-1"
+                                          :password_confirmation "new-password-1"
+                                          :current_password      "not the password"}))))))
+
+    (testing "password change with the correct current password rotates the credential"
+      (let [user     (mk-user)
+            new-pw   "brand new password 9"
+            response (account/update-account
+                      (req user {:password              new-pw
+                                 :password_confirmation new-pw
+                                 :current_password      pw}))]
+        (is (= 200 (:status response)))
+        (is (some? (auth/authenticate {:email (:email user) :password new-pw}))
+            "the new password authenticates")
+        (is (nil? (auth/authenticate {:email (:email user) :password pw}))
+            "the old password no longer authenticates")))
+
+    (testing "email change without the current password is rejected"
+      (let [user (mk-user)]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Current password is incorrect"
+                              (account/update-account
+                               (req user {:email "new@example.com"}))))))
+
+    (testing "email change with the correct current password succeeds"
+      (let [user     (mk-user)
+            response (account/update-account
+                      (req user {:email            (str "changed" (:email user))
+                                 :current_password pw}))]
+        (is (= 200 (:status response)))
+        (is (= (str "changed" (:email user)) (:email (:body response))))))
+
+    (testing "display-name-only change needs no current password"
+      (let [user     (mk-user)
+            response (account/update-account
+                      (req user {:display_name "Just A Rename"}))]
+        (is (= 200 (:status response)))
+        (is (= "Just A Rename" (:display_name (:body response))))))))
 
 (deftest test-delete-account
   (testing "does not delete without a confirmation param"

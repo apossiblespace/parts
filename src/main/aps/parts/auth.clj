@@ -15,6 +15,7 @@
    [aps.parts.db :as db]
    [buddy.auth.backends :as backends]
    [buddy.hashers :as hashers]
+   [clojure.string :as str]
    [ring.middleware.session.cookie :refer [cookie-store]]))
 
 ;; -- credentials ----------------------------------------------------------
@@ -39,6 +40,20 @@
                                      :where  [:= :email normalized-email]}))]
       (when (check-password password (:password_hash user))
         (dissoc user :password_hash)))))
+
+(defn current-password-valid?
+  "True when `password` matches the stored hash for `user-id`; blank or
+   missing input is never valid. Step-up re-auth for credential changes —
+   holding the session must not suffice to rotate the login credentials.
+   Queries the hash directly because `user/fetch` strips it."
+  [user-id password]
+  (boolean
+   (and (not (str/blank? password))
+        (when-let [user (db/query-one
+                         (db/sql-format {:select [:password_hash]
+                                         :from   [:users]
+                                         :where  [:= :id (db/->uuid user-id)]}))]
+          (check-password password (:password_hash user))))))
 
 ;; -- the auth session -----------------------------------------------------
 
