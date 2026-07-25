@@ -56,14 +56,12 @@ journalctl -u parts --since today -o cat | grep -c unhandled-exception
 
 ## Raise a test error — verify the pipeline
 
-To confirm errors actually reach you, emit one through the live pipeline. The
-production nREPL binds to loopback only (`127.0.0.1:7888`, see
-`resources/parts/prod.edn`), so reach it over an SSH tunnel rather than exposing
-the port:
+To confirm errors actually reach you, emit one through the live pipeline via
+the production REPL (see "Production REPL access" below):
 
 ```sh
-# from your laptop — forward local 7888 to the server's loopback nREPL
-ssh -L 7888:localhost:7888 parts
+# from your laptop — forward a local TCP port to the server's REPL socket
+ssh -L 7888:/run/parts/nrepl.sock parts
 # then, in another terminal, connect your nREPL client to localhost:7888
 ```
 
@@ -480,6 +478,30 @@ sudo systemctl restart parts && journalctl -u parts -f
 
 Confirm the data is all present (`\dt`, key row counts against the old box), log
 in to smoke-test — then, only once verified, retire the old box.
+
+## Production REPL access
+
+The prod app runs an nREPL on a **unix domain socket**,
+`/run/parts/nrepl.sock` (`prod.edn :repl/socket`), permissioned `0600` and
+owned by the `parts` user. nREPL has **no authentication** — a connected
+client has arbitrary code execution as the app user, including its DB
+credentials and environment. The socket gate means "may connect" requires
+filesystem access as `parts` (or root), not merely "runs on the box": a
+loopback **TCP** REPL would be connectable by *any* local process (the
+oauth2-proxy sidecar, a compromised dependency, an SSRF-to-localhost gadget).
+
+Connect from a laptop by forwarding a local port to the socket:
+
+```sh
+ssh -L 7888:/run/parts/nrepl.sock parts
+# connect your nREPL client to localhost:7888
+```
+
+Residual risk, deliberately accepted: code already running *as* `parts` (an
+app RCE) can use the socket, but it can already do everything the REPL
+offers. `PARTS__REPL__PORT` re-enables a loopback TCP REPL as an explicit
+escape hatch — leave it unset. The production artifact ships plain nREPL
+only (no cider middleware, no test runner; those are dev aliases).
 
 ## Rate limiting & the trusted client IP (`X-Real-IP`)
 
