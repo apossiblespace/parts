@@ -23,15 +23,26 @@
                                   :standing (billing/account-standing user-record)))
         (response/status 200))))
 
+(defn- credential-change?
+  "True when the update touches a login credential (:email or :password)."
+  [body]
+  (boolean (some #{:email :password} (keys body))))
+
 (defn update-account
-  "Update own account info"
+  "Update own account info. Changing a login credential additionally requires
+   the caller's current password, so a captured session alone cannot take
+   over the account. `:current_password` is a transient input — it is not in
+   `user/allowed-update-fields`, so it never reaches the database."
   [request]
-  (let [user-id      (auth/current-user-id request)
-        body         (:body-params request)
-        updated-user (user/update! user-id body)]
-    (mulog/log ::update-account-success :user-id user-id)
-    (-> (response/response updated-user)
-        (response/status 200))))
+  (let [user-id (auth/current-user-id request)
+        body    (:body-params request)]
+    (when (and (credential-change? body)
+               (not (auth/current-password-valid? user-id (:current_password body))))
+      (throw (ex-info "Current password is incorrect" {:type :validation})))
+    (let [updated-user (user/update! user-id (dissoc body :current_password))]
+      (mulog/log ::update-account-success :user-id user-id)
+      (-> (response/response updated-user)
+          (response/status 200)))))
 
 (defn- populate-initial-map!
   "Populates a new map with demo parts and relationships.
