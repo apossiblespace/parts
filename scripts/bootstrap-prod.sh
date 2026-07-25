@@ -105,7 +105,11 @@ else
     # force-syncs the two. The database is created only if absent, never dropped.
     role_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$APP_NAME'")
     [[ "$role_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE $APP_NAME"
-    printf "ALTER ROLE %s WITH LOGIN CREATEROLE PASSWORD '%s';\n" "$APP_NAME" "$DB_PASSWORD" \
+    # NOCREATEROLE: add-instance.sh does all role creation as the postgres
+    # superuser, so the app role never needs it — and an app-level SQLi must
+    # not be able to CREATE ROLE for persistence. Re-running this on an
+    # existing box strips a previously granted CREATEROLE.
+    printf "ALTER ROLE %s WITH LOGIN NOCREATEROLE PASSWORD '%s';\n" "$APP_NAME" "$DB_PASSWORD" \
         | sudo -u postgres psql
     db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${APP_NAME}_prod'")
     [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE ${APP_NAME}_prod OWNER $APP_NAME"
