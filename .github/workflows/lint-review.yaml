@@ -15,20 +15,26 @@ jobs:
       - run: echo "🐧 Job running on ${{ runner.os }} server"
       - run: echo "🐙 Using ${{ github.ref }} branch from ${{ github.repository }} repository"
 
-      # Git Checkout
+      # Git Checkout. persist-credentials: false keeps the token out of the
+      # workspace git config — no later step pushes, and third-party action
+      # code (SHA-pinned below) must not be able to read it.
       - name: Checkout Code
         uses: actions/checkout@v5
         with:
           token: "${{ secrets.PAT || secrets.GITHUB_TOKEN }}"
+          persist-credentials: false
       - run: echo "🐙 ${{ github.repository }} repository was cloned to the runner."
 
+      # Third-party actions are pinned to commit SHAs: a moving tag/branch
+      # can be force-pushed to run arbitrary code in CI.
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
 
       - name: Setup Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
         with:
-          use-flakehub: false
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
 
       - name: Run clj-kondo
         run: |
