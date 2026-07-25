@@ -1,8 +1,9 @@
 (ns aps.parts.ratelimit
-  "In-process per-IP rate limiting for the unauthenticated, abuse-prone
-   endpoints (login, register, invite redemption).
+  "In-process rate limiting: per client IP on the unauthenticated,
+   abuse-prone endpoints (login, register, invite redemption), per user id
+   on the authenticated write endpoints (map creation, change batches).
 
-   A token bucket per [route-key, client-ip]: `capacity` is the burst a single
+   A token bucket per [route-key, identity]: `capacity` is the burst a single
    client may make back-to-back, then requests are allowed at `refill-per-ms`.
    State lives in a module-level atom on purpose — the reitit router is rebuilt
    per request (see aps.parts.server), so state held in a middleware instance
@@ -46,25 +47,41 @@
    :headers {"Content-Type" "text/plain" "Retry-After" "60"}
    :body    "Too many requests. Please slow down and try again shortly."})
 
+(defn- limit-by
+  "Token-bucket middleware keyed by [route-key (identity-fn request)]. opts:
+     :capacity      burst size (default 10)
+     :refill-per-ms tokens added per millisecond (default 10/60000 = 10/min)
+     :now-ms        clock thunk (default System/currentTimeMillis; for tests)
+     :store         buckets atom (default the shared module atom; for tests)"
+  [route-key identity-fn {:keys [capacity refill-per-ms now-ms store]
+                          :or   {capacity      10
+                                 refill-per-ms (/ 10.0 60000)
+                                 now-ms        #(System/currentTimeMillis)
+                                 store         buckets}}]
+  (fn [handler]
+    (fn [request]
+      (let [k [route-key (identity-fn request)]
+            b (-> (swap! store update k step (now-ms) capacity refill-per-ms)
+                  (get k))]
+        (if (:allowed? b)
+          (handler request)
+          too-many-response)))))
+
 (defn limiter
   "Reitit middleware that token-buckets requests per client IP under
-   `route-key`. opts:
-     :capacity         burst size (default 10)
-     :refill-per-ms    tokens added per millisecond (default 10/60000 = 10/min)
-     :now-ms           clock thunk (default System/currentTimeMillis; for tests)
-     :store            buckets atom (default the shared module atom; for tests)
+   `route-key`. opts: see `limit-by`, plus
      :client-ip-header trusted client-IP header (default conf/client-ip-header)"
-  [route-key {:keys [capacity refill-per-ms now-ms store client-ip-header]
-              :or   {capacity      10
-                     refill-per-ms (/ 10.0 60000)
-                     now-ms        #(System/currentTimeMillis)
-                     store         buckets}}]
+  [route-key {:keys [client-ip-header] :as opts}]
   (let [header (or client-ip-header (conf/client-ip-header))]
-    (fn [handler]
-      (fn [request]
-        (let [k [route-key (client-ip request header)]
-              b (-> (swap! store update k step (now-ms) capacity refill-per-ms)
-                    (get k))]
-          (if (:allowed? b)
-            (handler request)
-            too-many-response))))))
+    (limit-by route-key #(client-ip % header) opts)))
+
+(defn user-limiter
+  "Reitit middleware that token-buckets requests per authenticated user id —
+   for session-authenticated write routes, where identity (not a possibly
+   NAT-shared client IP) is the right key. Sits inside require-auth so
+   :identity is present; if it ever isn't, all such requests share one
+   bucket — over-throttling, never a bypass. opts: see `limit-by`."
+  [route-key opts]
+  (limit-by route-key
+            (fn [request] (or (get-in request [:identity :sub]) "anonymous"))
+            opts))

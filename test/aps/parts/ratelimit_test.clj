@@ -61,6 +61,34 @@
           req     {:remote-addr "10.0.0.5"}]
       (is (= [200 200 429] (map :status (repeatedly 3 #(handler req))))))))
 
+(defn- mk-user [route-key store now]
+  ((rl/user-limiter route-key {:capacity 2 :refill-per-ms 0.0 :now-ms (constantly now) :store store})
+   ok-handler))
+
+(deftest user-limiter-test
+  (testing "sustained rapid writes from one user are throttled"
+    (let [store   (atom {})
+          handler (mk-user :changes store 0)
+          req     {:identity {:sub "user-a"}}]
+      (is (= [200 200 429] (map :status (repeatedly 3 #(handler req)))))))
+
+  (testing "independent users do not share a bucket"
+    (let [store   (atom {})
+          handler (mk-user :changes store 0)
+          a       {:identity {:sub "user-a"}}
+          b       {:identity {:sub "user-b"}}]
+      (dotimes [_ 3] (handler a))
+      (is (= 200 (:status (handler b))) "B is unaffected by A's flood")))
+
+  (testing "keys on user identity, not client IP"
+    (let [store   (atom {})
+          handler (mk-user :changes store 0)
+          req     (fn [n] {:identity {:sub "user-a"}
+                           :headers  {"x-real-ip" (str "198.51.100." n)}})
+          rs      (mapv #(handler (req %)) (range 3))]
+      (is (= [200 200 429] (mapv :status rs))
+          "rotating IPs does not grant the same user fresh buckets"))))
+
 (deftest spoofed-header-test
   (testing "rotating X-Forwarded-For never grants a fresh bucket (TASK-088 bypass)"
     (let [store   (atom {})

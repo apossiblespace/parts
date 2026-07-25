@@ -187,8 +187,14 @@
           :delete     {:handler api.account/delete-account}}]]
 
     ["/maps" {:middleware [auth-mw/require-auth]}
+     ;; Write limits are per-user (session identity), far above any real
+     ;; editing pace: 20 burst + 1/min for map creation, 120 burst + 1/s
+     ;; sustained for change batches (the SPA debounces at 2s).
      ["" {:get  {:handler api.maps/list-maps}
-          :post {:handler api.maps/create-map}}]
+          :post {:middleware [(ratelimit/user-limiter
+                               :create-map
+                               {:capacity 20 :refill-per-ms (/ 1.0 60000)})]
+                 :handler    api.maps/create-map}}]
 
      ;; This uses coercion for the `parameters`, see the note at the top of this
      ;; namespace.
@@ -202,7 +208,10 @@
       ["/render.pdf"  {:get {:parameters {:query {(ds/opt :at) string?}}
                              :handler    api.maps/render-pdf}}]
       ["/export.json" {:get {:handler api.maps/export-json}}]
-      ["/changes" {:post {:handler api.maps/process-changes}}]
+      ["/changes" {:post {:middleware [(ratelimit/user-limiter
+                                        :changes
+                                        {:capacity 120 :refill-per-ms (/ 1.0 1000)})]
+                          :handler    api.maps/process-changes}}]
       ["/sessions"
        ["" {:get  {:handler api.sessions/list-sessions}
             :post {:handler api.sessions/create-session}}]
