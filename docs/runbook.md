@@ -132,7 +132,7 @@ PARTS__SMTP__PORT=587                 # use 587 (STARTTLS) on Hetzner — see no
 PARTS__SMTP__USER=<scaleway-project-id>
 PARTS__SMTP__PASSWORD=<scaleway-api-secret-key>
 PARTS__ALERT__TO=<where alerts go>
-PARTS__ALERT__FROM=<optional; defaults to the SMTP user>
+PARTS__ALERT__FROM=<optional; defaults to PARTS__MAIL__FROM, then the SMTP user>
 ```
 
 > **Hetzner outbound-mail block.** Hetzner filters outbound SMTP: on the prod

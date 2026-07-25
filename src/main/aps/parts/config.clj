@@ -99,30 +99,59 @@
   (l-config/get config :render/font-dir))
 
 (defn smtp-config
-  "Operator error-alert SMTP settings, read entirely from the environment
-   (`PARTS__SMTP__*` / `PARTS__ALERT__*`). Nothing here is committed: this repo
-   is public, and the mail host and operator address are operational details.
+  "The shared SMTP relay credentials (`PARTS__SMTP__*`) — host, port, user,
+   password. Nothing here is committed: this repo is public, and the relay is
+   an operational detail (Scaleway TEM in production, ADR-0016).
 
-   Returns nil unless host, user, password and recipient are all present — so
-   alerting stays off until deliberately configured, on any host. `:from`
-   defaults to the SMTP user; `:port` defaults to 465.
+   Returns nil unless host, user and password are all present, so everything
+   that sends mail stays off until deliberately configured, on any host.
+   `:port` defaults to 465.
 
-   These are operator facts only. The postal transport flag (implicit SSL vs
-   STARTTLS, which depends on the port) is derived by the alerting layer
-   (`aps.parts.alerts`), which owns the SMTP client — config never speaks
-   postal's vocabulary."
+   Credentials only — who mail goes to and from is the consumers' business
+   (`alert-config`, `mail-from`). The postal transport flag (implicit SSL vs
+   STARTTLS, which depends on the port) is likewise derived by the layers
+   that own an SMTP client — config never speaks postal's vocabulary."
   []
   (let [host (l-config/get config :smtp/host)
         user (l-config/get config :smtp/user)
-        pass (l-config/get config :smtp/password)
-        to   (l-config/get config :alert/to)]
-    (when (and host user pass to)
+        pass (l-config/get config :smtp/password)]
+    (when (and host user pass)
       {:host host
        :port (parse-port (or (l-config/get config :smtp/port) 465))
        :user user
-       :pass pass
-       :to   to
-       :from (or (l-config/get config :alert/from) user)})))
+       :pass pass})))
+
+(defn alert-config
+  "Operator error-alert settings: the relay credentials plus the alert
+   recipient (`PARTS__ALERT__TO`) and sender (`PARTS__ALERT__FROM`, defaulting
+   to `PARTS__MAIL__FROM`, then the SMTP user). The last fallback only suits
+   relays whose user is an address — on Scaleway TEM it is a bare project id,
+   which the relay rejects as a sender. Returns nil unless the relay is
+   configured *and* a recipient is set — creds alone must not switch alerting
+   on."
+  []
+  (when-let [smtp (smtp-config)]
+    (when-let [to (l-config/get config :alert/to)]
+      (assoc smtp
+             :to to
+             :from (or (l-config/get config :alert/from)
+                       (l-config/get config :mail/from)
+                       (:user smtp))))))
+
+(defn mail-from
+  "The From for transactional mail (`PARTS__MAIL__FROM`), e.g.
+   `Gosha <gosha@ifs.tools>` — an address on the TEM-verified sending domain
+   (ADR-0016). Nil when unset; `aps.parts.mail` refuses to send without it."
+  []
+  (l-config/get config :mail/from))
+
+(defn mail-reply-to
+  "Reply-To for transactional mail that should reach a human
+   (`PARTS__MAIL__REPLY_TO`) — the operator's personal address, keeping the
+   concierge reply promise while sending from the verified domain. Nil when
+   unset; consumers omit the header then."
+  []
+  (l-config/get config :mail/reply-to))
 
 (def ^:private dev-session-key
   "The session key shipped in config.edn for local development. Production

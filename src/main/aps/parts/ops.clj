@@ -26,10 +26,10 @@
    [aps.parts.billing :as billing]
    [aps.parts.config :as conf]
    [aps.parts.invitations :as invitations]
+   [aps.parts.mail :as mail]
    [aps.parts.stats :as stats]
    [clojure.string :as cstr]
-   [com.brunobonacci.mulog :as mulog]
-   [postal.core :as postal]))
+   [com.brunobonacci.mulog :as mulog]))
 
 (defmacro ^:private re-export
   "Define a local var named like `target` (a qualified symbol) that forwards
@@ -59,15 +59,12 @@
 (re-export invitations/print-invitation-links!)
 
 ;; =============================================================================
-;; Invitation email — a short-lived concierge helper for the Founding Circle
-;; rollout, and deliberately self-contained: the operator's personal address is
-;; hard-coded because replies must land with a human, and the SMTP connection
-;; rule is a knowing duplicate of the private one in `aps.parts.alerts`, which
-;; must stay a closed alert sink rather than become a shared mailer (the real
-;; transactional mailer is TASK-014). Nothing records that an email was sent;
+;; Invitation email — the operator-facing compose-and-send for invite magic
+;; links, delegating the actual send to `aps.parts.mail` (TASK-014, ADR-0016).
+;; The From is the mail layer's configured sender on the verified domain;
+;; Reply-To is the operator's personal address (`:mail/reply-to`) because
+;; replies must land with a human. Nothing records that an email was sent;
 ;; the mulog `::invitation-email-sent` event is the send trail.
-
-(def ^:private invite-from "gosha@gosha.net")
 
 (def ^:private invite-subject
   "Your invite to Parts, the mapping tool for IFS practitioners")
@@ -88,7 +85,7 @@ Before you dive in, you may want to watch this video walkthrough of Parts that w
 
 This should help you understand the basic functionality of Parts and start building the maps for your clients.
 
-If you have questions, thoughts, ideas, feature requests, bug reports, or anything else, just hit reply -- I’m sending this from my personal email address, so I will definitely see your message and get back to you quickly.
+If you have questions, thoughts, ideas, feature requests, bug reports, or anything else, just hit reply -- replies come straight to my personal inbox, so I will definitely see your message and get back to you quickly.
 
 Please give Parts a try, and let me know how you get on, and how I can help you help your clients.
 
@@ -111,45 +108,32 @@ https://gosha.net")
 (defn invite-message
   "The postal message map for an invite — the pure, testable core of
    `send-invitation-email!`. Plain text; the invite's magic link fills the
-   [LINK] placeholder in the body."
+   [LINK] placeholder in the body. Carries no :from — the sender identity
+   belongs to the mail layer — and a Reply-To only when one is configured."
   [{:keys [email magic-link]}]
   (when-not (valid-recipient? email)
     (throw (ex-info "Invalid invite recipient address" {:type :validation})))
-  {:from    invite-from
-   :to      email
-   :subject invite-subject
-   :body    (cstr/replace invite-body-template "[LINK]" magic-link)})
-
-(defn- postal-connection
-  "The postal connection map for an SMTP config: 587 is STARTTLS (`:tls`),
-   465 (and anything else) is implicit SSL (`:ssl`)."
-  [{:keys [host port user pass]}]
-  (assoc {:host host :port port :user user :pass pass}
-         (if (= 587 port) :tls :ssl) true))
+  (cond-> {:to      email
+           :subject invite-subject
+           :body    (cstr/replace invite-body-template "[LINK]" magic-link)}
+    (conf/mail-reply-to) (assoc :reply-to (conf/mail-reply-to))))
 
 (defn send-invitation-email!
   "Email `invite` — the map returned by `generate-invitation!` — its magic
-   link, from the operator's personal address over the operator SMTP
-   (`config/smtp-config`). Nil-safe: a nil invite (email already redeemed)
-   returns nil without sending, so this composes:
+   link, via the transactional mailer (`aps.parts.mail`). Nil-safe: a nil
+   invite (email already redeemed) returns nil without sending, so this
+   composes:
 
      (send-invitation-email! (generate-invitation! \"jane@example.com\"))
 
-   Throws if SMTP is unconfigured or the send fails — the operator at the
+   Throws if mail is unconfigured or the send fails — the operator at the
    REPL must see a failed send. Returns the invite on success."
   [invite]
   (when invite
-    (let [smtp   (or (conf/smtp-config)
-                     (throw (ex-info "SMTP is not configured (PARTS__SMTP__* / PARTS__ALERT__*)"
-                                     {:type :config-error})))
-          result (postal/send-message (postal-connection smtp)
-                                      (invite-message invite))]
-      (when-not (= :SUCCESS (:error result))
-        (throw (ex-info "Invite email send failed"
-                        {:type :smtp-error :result result :email (:email invite)})))
-      (mulog/log ::invitation-email-sent :email (:email invite))
-      (println (str "Sent invite to " (:email invite)))
-      invite)))
+    (mail/send! (invite-message invite))
+    (mulog/log ::invitation-email-sent :email (:email invite))
+    (println (str "Sent invite to " (:email invite)))
+    invite))
 
 (defn invite-pending-waitlist!
   "Invite everyone `pending-waitlist!` reports: mint each email's

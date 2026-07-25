@@ -69,13 +69,13 @@
                              :transform observe/mulog-transform})))
 
 (defn start-alert-publisher
-  "Starts the operator error-alert publisher when SMTP is configured. Gated on
-   creds-present, not environment, so a staging-shaped box can alert too (and
-   dev, with nothing set, simply no-ops). Returns a 0-arity stop function, or
-   nil when SMTP is unconfigured — in which case alerting is off and a
-   `::alerting-disabled` event records why."
+  "Starts the operator error-alert publisher when the SMTP relay and an alert
+   recipient are configured. Gated on config-present, not environment, so a
+   staging-shaped box can alert too (and dev, with nothing set, simply
+   no-ops). Returns a 0-arity stop function, or nil when unconfigured — in
+   which case alerting is off and a `::alerting-disabled` event records why."
   []
-  (if-let [smtp (conf/smtp-config)]
+  (if-let [smtp (conf/alert-config)]
     (mulog/start-publisher!
      {:type         :custom
       :fqn-function "aps.parts.alerts/publisher"
@@ -83,7 +83,7 @@
       :domain       (conf/app-domain)
       :cooldown-ms  alerts/default-cooldown-ms})
     (do (mulog/log ::alerting-disabled
-                   :reason "SMTP not configured (PARTS__SMTP__*)")
+                   :reason "alerting not configured (PARTS__SMTP__* / PARTS__ALERT__TO)")
         nil)))
 
 (defn- owner-only!
