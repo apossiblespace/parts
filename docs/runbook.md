@@ -502,6 +502,35 @@ sudo systemctl restart parts && journalctl -u parts -f
 Confirm the data is all present (`\dt`, key row counts against the old box), log
 in to smoke-test — then, only once verified, retire the old box.
 
+## Erasure least-privilege (`deletion_role`)
+
+Normal operation never hard-DELETEs from the temporal tables (`users`,
+`maps`, `map_metadata`, `parts`, `relationships`) — only the erasure purge
+does. That invariant is enforced in three layers:
+
+1. **Provisioning** (`bootstrap-prod.sh` / `add-instance.sh`, as the
+   postgres superuser): creates `deletion_role` (NOLOGIN) and grants the app
+   role membership. Must pre-exist before first boot — the app role holds
+   `NOCREATEROLE`.
+2. **Migration `20260726000000`** (as the app role): grants `deletion_role`
+   everything the purge touches and `REVOKE DELETE ... FROM CURRENT_USER` on
+   the temporal tables.
+3. **The purge** (`db/erasure.clj`): `SET LOCAL ROLE deletion_role` for the
+   purge transaction only.
+
+The revoke is a **speed bump, not a wall**: the app role owns the tables and
+an owner can re-grant itself DELETE. It still stops every accidental or
+injected DELETE in normal query paths (the threat it targets); ownership
+separation was considered and deliberately not taken (migration comment has
+the full rationale).
+
+**Verify on a running box** (expect *permission denied*, then *DELETE 0*):
+
+```sh
+sudo -u postgres psql -d parts_prod -c "SET ROLE parts; DELETE FROM parts WHERE false;"
+sudo -u postgres psql -d parts_prod -c "SET ROLE parts; SET ROLE deletion_role; DELETE FROM parts WHERE false;"
+```
+
 ## Production REPL access
 
 The prod app runs an nREPL on a **unix domain socket**,

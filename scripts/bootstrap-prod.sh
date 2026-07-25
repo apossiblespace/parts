@@ -114,6 +114,14 @@ else
     db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${APP_NAME}_prod'")
     [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE ${APP_NAME}_prod OWNER $APP_NAME"
 
+    # Erasure least-privilege (migration 20260726000000 + runbook): the role
+    # must pre-exist before first boot — the app role has NOCREATEROLE, so
+    # the deletion-role migration's CREATE would otherwise fail — and only a
+    # superuser may grant membership. Idempotent.
+    dr_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='deletion_role'")
+    [[ "$dr_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE deletion_role NOLOGIN"
+    sudo -u postgres psql -c "GRANT deletion_role TO $APP_NAME"
+
     cat >/etc/$APP_NAME.env <<EOF
 PARTS__ENV=prod
 

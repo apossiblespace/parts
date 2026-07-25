@@ -113,6 +113,12 @@
                       {:type :forbidden :user-id user-id})))
     (mulog/log ::purge-account-start :user-id user-id)
     (jdbc/with-transaction [tx ds]
+      ;; Assume the erasure-only role for the whole transaction (SET LOCAL
+      ;; resets at commit/rollback, so the pooled connection comes back
+      ;; unchanged). The everyday app role holds no DELETE on the temporal
+      ;; tables (migration 20260726000000) — this is the one deliberate
+      ;; path that does.
+      (jdbc/execute! tx ["SET LOCAL ROLE deletion_role"])
       (bt/set-actor! tx tombstone-id)
       ;; audit_log identifies entities by UUID in row_pk, so ids alone pin
       ;; down the rows to scrub — immune to table renames in table_name.
