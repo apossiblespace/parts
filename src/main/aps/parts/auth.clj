@@ -10,13 +10,13 @@
    `require-auth`, `wrap-map-access`) lives separately and depends on this
    namespace."
   (:require
+   [aps.parts.auth.session-store :as session-store]
    [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [buddy.auth.backends :as backends]
    [buddy.hashers :as hashers]
-   [clojure.string :as str]
-   [ring.middleware.session.cookie :refer [cookie-store]]))
+   [clojure.string :as str]))
 
 ;; -- credentials ----------------------------------------------------------
 
@@ -64,19 +64,20 @@
   (backends/session))
 
 (def ^:private session-max-age
-  "Absolute auth-session lifetime — 14 days, in seconds (ADR-0007). With the
-   encrypted cookie store there is no server-side revocation, so this is the
-   one browser-enforced bound on a compromised cookie."
+  "Absolute auth-session lifetime — 14 days, in seconds (ADR-0007). The
+   DB-backed store enforces it server-side (`expires_at`); the cookie
+   Max-Age merely mirrors it for the browser."
   (* 14 24 60 60))
 
 (defn session-config
   "Ring session config for the one auth session shared by the HTML routes
-   and /api: an encrypted (AES) cookie store, httpOnly, SameSite=Lax, Secure
-   in production only (dev is plain HTTP). The 16-byte key comes from config
-   and must be stable in prod — rotating it invalidates every session. See
-   ADR-0007."
+   and /api: a DB-backed store (`aps.parts.auth.session-store` — opaque id
+   in the cookie, data + server-side revocation in postgres), httpOnly,
+   SameSite=Lax, Secure in production only (dev is plain HTTP). Supersedes
+   ADR-0007's encrypted cookie store; the rest of that design (buddy
+   session backend, cookie attributes, anti-forgery) is unchanged."
   []
-  {:store        (cookie-store {:key (.getBytes ^String (conf/session-key) "UTF-8")})
+  {:store        (session-store/db-store db/datasource session-max-age)
    :cookie-name  "parts-session"
    :cookie-attrs {:http-only true
                   :same-site :lax

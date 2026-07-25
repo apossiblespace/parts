@@ -8,6 +8,7 @@
    [aps.parts.db :as db]
    [aps.parts.errors :as errors]
    [aps.parts.jobs.deletion-purge :as deletion-purge]
+   [aps.parts.jobs.session-cleanup :as session-cleanup]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
    [aps.parts.version :as version]
@@ -161,16 +162,13 @@
     ;; Initialize database
     (db/init-db)
 
-    ;; Fail fast on a missing/misconfigured session key — never run on a
-    ;; guessable secret (ADR-0007).
-    (conf/session-key)
-
     ;; Start nREPL server if configured
     (let [stop-alert-pub   (start-alert-publisher)
           nrepl-server     (start-nrepl)
           ;; Start server and background processes
           stop-fn          (start-server port)
-          deletion-stop-ch (deletion-purge/schedule!)]
+          deletion-stop-ch (deletion-purge/schedule!)
+          sessions-stop-ch (session-cleanup/schedule!)]
       (println "Parts: Server started on port" port)
 
       ;; Print configuration on startup
@@ -181,6 +179,7 @@
       (fn []
         (stop-fn)
         (async/close! deletion-stop-ch)
+        (async/close! sessions-stop-ch)
         (when nrepl-server
           (nrepl/stop-server nrepl-server)
           (println "nREPL server stopped"))

@@ -175,7 +175,9 @@
      ["/login" {:middleware [(ratelimit/limiter :login {})]
                 :post       {:handler api.auth/login}}]
      ["/logout" {:post {:middleware [auth-mw/require-auth]
-                        :handler    api.auth/logout}}]]
+                        :handler    api.auth/logout}}]
+     ["/logout-everywhere" {:post {:middleware [auth-mw/require-auth]
+                                   :handler    api.auth/logout-everywhere}}]]
 
     ["/account"
      ["/register" {:middleware [(ratelimit/limiter :register {})
