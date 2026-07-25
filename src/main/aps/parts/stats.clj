@@ -168,7 +168,7 @@
         {:select [[[:count [:distinct :actor_id]] :c]]
          :from   [:audit_log]
          :where  [:and
-                  [:>= :occurred_at [:- [:now] [:raw (str "interval '" interval "'")]]]
+                  [:>= :occurred_at [:- [:now] [:cast interval :interval]]]
                   (erasure/exclude-tombstone :actor_id)]}))
       :c))
 

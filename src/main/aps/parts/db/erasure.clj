@@ -69,7 +69,7 @@
                    [:not= :deletion_requested_at nil]
                    [:= :deletion_completed_at nil]
                    [:< :deletion_requested_at
-                    [:- [:now] [:raw (str "interval '" grace-period-days " days'")]]]
+                    [:- [:now] [:cast (str grace-period-days " days") :interval]]]
                    (exclude-tombstone :id)]})
         {:builder-fn rs/as-unqualified-maps})
        (map :id)))
