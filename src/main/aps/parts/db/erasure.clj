@@ -80,14 +80,25 @@
    Inside one transaction:
      1. Set the session actor to the tombstone so audit triggers on the
         DELETEs below write rows that don't FK-reference the dying user.
-     2. Hard-DELETE the user's email-keyed rows in invitations and
+     2. Capture the ids of every entity about to be deleted (for step 5's
+        audit scrub, while the rows still exist).
+     3. Hard-DELETE the user's email-keyed rows in invitations and
         waitlist_signups (resolving the email before the users row goes).
-     3. Hard-DELETE relationships / parts / sessions (with their
+     4. Hard-DELETE relationships / parts / sessions (with their
         activation links) / maps owned by the user.
-     4. Pseudonymize any historical `audit_log` rows still attributing
+     5. Scrub `before_row`/`after_row` from every audit_log row describing
+        those entities. The DELETEs in step 4 each fire the audit trigger,
+        writing a fresh full snapshot of the just-erased content, and older
+        rows hold its entire edit history — GDPR Art. 17 erasure of
+        special-category health data must remove both. The rows themselves
+        survive (who/when/what-table) for operational accountability;
+        scrubbing after the fact covers historical and purge-generated
+        rows in one statement, which is why capture isn't suppressed
+        instead.
+     6. Pseudonymize any historical `audit_log` rows still attributing
         pre-deletion activity to this user — they survive but are anonymous.
-     5. Mark `deletion_completed_at` (sentinel for log correlation).
-     6. Hard-DELETE the user row.
+     7. Mark `deletion_completed_at` (sentinel for log correlation).
+     8. Hard-DELETE the user row.
 
    For the v1 owner-only model, every part/relationship in a user's map
    was authored by that same user, so the pseudonymization in step 3 makes
@@ -103,6 +114,24 @@
     (mulog/log ::purge-account-start :user-id user-id)
     (jdbc/with-transaction [tx ds]
       (bt/set-actor! tx tombstone-id)
+      ;; audit_log identifies entities by UUID in row_pk, so ids alone pin
+      ;; down the rows to scrub — immune to table renames in table_name.
+      (jdbc/execute! tx
+                     ["CREATE TEMP TABLE purge_audit_targets ON COMMIT DROP AS
+                       SELECT id::text AS row_id FROM maps WHERE owner_id = ?
+                       UNION
+                       SELECT id::text FROM map_metadata
+                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)
+                       UNION
+                       SELECT id::text FROM parts
+                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)
+                       UNION
+                       SELECT id::text FROM relationships
+                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)
+                       UNION
+                       SELECT id::text FROM sessions
+                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
+                      user-uuid user-uuid user-uuid user-uuid user-uuid])
       ;; Resolve the email before the users row is deleted: invitations and
       ;; waitlist_signups are keyed by email, not user-id.
       (let [email (:email (jdbc/execute-one!
@@ -136,6 +165,13 @@
                       user-uuid])
       (jdbc/execute! tx
                      ["DELETE FROM maps WHERE owner_id = ?" user-uuid])
+      (jdbc/execute! tx
+                     ["UPDATE audit_log a
+                       SET before_row = NULL, after_row = NULL
+                       FROM purge_audit_targets t
+                       WHERE a.row_pk->>'id' = t.row_id
+                         AND (a.before_row IS NOT NULL
+                              OR a.after_row IS NOT NULL)"])
       (db/update! :audit_log
                   {:actor_id [:cast (str tombstone-id) :uuid]}
                   [:= :actor_id user-uuid]

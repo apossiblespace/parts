@@ -208,6 +208,55 @@
       (testing "the audit trail survives, reassigned to the tombstone"
         (is (pos? (:c tombstone-rows)))))))
 
+(deftest test-purge-scrubs-audit-snapshots
+  ;; GDPR Art. 17: the audit trail may keep who/when/what-table, but not the
+  ;; clinical row snapshots — including the fresh before_row copies written
+  ;; by the purge's own DELETEs firing the audit trigger.
+  (let [canary  "ERASURE-CANARY-7f3a"
+        user    (create-test-user!)
+        the-map (create-test-map! (:id user) (str "Map " canary))
+        actor   {:actor-id (:id user)}
+        part-id (random-uuid)]
+    (bt/insert! db/datasource :parts
+                {:id         part-id
+                 :map_id     (:id the-map)
+                 :type       "manager"
+                 :label      (str "Part " canary)
+                 :notes      (str "Notes about " canary)
+                 :position_x 0                           :position_y 0}
+                actor)
+    ;; An UPDATE too, so history rows (not only the DELETE snapshot) carry it.
+    (bt/update! db/datasource :parts part-id
+                {:notes (str "Edited notes " canary)}
+                actor)
+    ;; Session trigger text goes through audit/record!, not the trigger.
+    (session/update-trigger! (:id (session/create! (:id the-map) (:id user)))
+                             (:id the-map)
+                             (str "Session trigger " canary)
+                             (:id user))
+
+    (let [snapshot-hits (fn []
+                          (:c (jdbc/execute-one!
+                               db/datasource
+                               ["SELECT count(*) AS c FROM audit_log
+                                 WHERE before_row::text LIKE ?
+                                    OR after_row::text LIKE ?"
+                                (str "%" canary "%") (str "%" canary "%")]
+                               {:builder-fn rs/as-unqualified-maps})))]
+      (is (pos? (snapshot-hits)) "seeding wrote clinical content into audit snapshots")
+
+      (erasure/purge-account! db/datasource (:id user))
+
+      (testing "no audit snapshot retains the erased user's content"
+        (is (zero? (snapshot-hits))))
+      (testing "the scrubbed audit rows themselves survive"
+        (is (pos? (:c (jdbc/execute-one!
+                       db/datasource
+                       ["SELECT count(*) AS c FROM audit_log
+                         WHERE row_pk->>'id' = ?"
+                        (str part-id)]
+                       {:builder-fn rs/as-unqualified-maps}))))))))
+
 (deftest test-purge-refuses-to-delete-the-tombstone
   (testing "guard prevents accidentally wiping the schema's anchor user"
     (is (thrown-with-msg?
