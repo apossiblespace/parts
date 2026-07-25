@@ -5,7 +5,9 @@
    An invitation is an operator-minted, single-use bearer credential: the
    `token` in a magic link (`/invite/<token>`) authorises creating one
    account. Lifecycle: issued -> redeemed | revoked (soft, via
-   `revoked_at`). No expiry. See CONTEXT.md (Invitation, Founding Circle).
+   `revoked_at`) | expired (30 days, `expires_at` — a bearer credential
+   must not stay live forever). See CONTEXT.md (Invitation, Founding
+   Circle).
 
    Operator workflow (production REPL, Path beta — links are BCC'd from the
    operator's own mail client):
@@ -42,9 +44,12 @@
 
 (def ^:private active-clause
   "HoneySQL `where` fragment for an invitation that is still live — neither
-   redeemed nor revoked. HoneySQL flattens nested `:and`, so it composes
-   inside a larger `[:and ...]`."
-  [:and [:is :redeemed_at nil] [:is :revoked_at nil]])
+   redeemed, revoked, nor expired. HoneySQL flattens nested `:and`, so it
+   composes inside a larger `[:and ...]`."
+  [:and
+   [:is :redeemed_at nil]
+   [:is :revoked_at nil]
+   [:> :expires_at [:now]]])
 
 (defn find-active
   "The active (un-redeemed, un-revoked) invitation row for `token`, or nil.

@@ -57,8 +57,11 @@
  (fn [_]
    (go
      ;; Await the logout POST so the session-clearing cookie is processed
-     ;; before navigating away.
+     ;; before navigating away. Playground content lives in localStorage —
+     ;; clinical-shaped data that must not outlive the session on a shared
+     ;; machine.
      (<! (api/logout))
+     (utils/clear-playground-data)
      (.replace (.-location js/window) "/"))))
 
 (rf/reg-fx
