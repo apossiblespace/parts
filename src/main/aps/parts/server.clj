@@ -112,7 +112,10 @@
    Returns a function that can be called to stop the server."
   [port]
   (mulog/log ::starting-server :port port)
-  (server/run-server (app) {:port port}))
+  ;; Explicit request-size ceiling: a full change-batch (max-change-batch
+  ;; changes with max-text-length notes) is ~5 MB of transit; 8 MB leaves
+  ;; headroom without letting one request buffer arbitrary bytes.
+  (server/run-server (app) {:port port :max-body (* 8 1024 1024)}))
 
 (defn -main
   "Entry point into the application via clojure.main -M.

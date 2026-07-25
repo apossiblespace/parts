@@ -24,6 +24,24 @@
    the DB default for legacy rows."
   100)
 
+(def max-label-length
+  "Longest allowed short text (a Part's label). Bounded at the spec gate so
+   an oversized value is rejected wherever the model validates, in both
+   runtimes."
+  200)
+
+(def max-text-length
+  "Longest allowed free-text field (notes, description). Generous for
+   clinical writing, but bounded — unbounded text lets one request persist
+   multi-megabyte values that drag every later fetch/render/export."
+  10000)
+
+(def max-change-batch
+  "Most change events accepted in one /changes request. A real editing
+   session syncs tens of changes; thousands in one transaction is abuse
+   (lock contention, memory) — reject before any DB work."
+  500)
+
 (def relationship-type-order
   "Relationship types in canonical display order. Menus render from this
    vector rather than relying on map ordering."
