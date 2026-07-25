@@ -8,21 +8,24 @@
    per request (see aps.parts.server), so state held in a middleware instance
    would reset every request and limit nothing.
 
-   Single-server, in-memory, no external store. Behind Caddy the client IP is
-   read from X-Forwarded-For; the app binds to localhost, so only the proxy
-   reaches it and that header is trustworthy."
+   Single-server, in-memory, no external store. The client identity is a
+   single proxy-set header (default X-Real-IP) that the edge proxy overwrites
+   on every request — never X-Forwarded-For, which is client-appendable and
+   whose chain length differs per route, so no fixed position in it is
+   reliably the client. See docs/runbook.md, 'Rate limiting & the trusted
+   client IP'."
   (:require
+   [aps.parts.config :as conf]
    [clojure.string :as str]))
 
 (defonce ^:private buckets (atom {}))
 
 (defn- client-ip
-  [request]
-  (or (some-> (get-in request [:headers "x-forwarded-for"])
-              (str/split #",")
-              first
-              str/trim
-              not-empty)
+  "The bucketing identity: the proxy-vouched header, else :remote-addr. The
+   fallback collapses all clients into one bucket — over-throttling, never a
+   bypass — the safe failure mode if the proxy stops setting the header."
+  [request header]
+  (or (some-> (get-in request [:headers header]) str/trim not-empty)
       (:remote-addr request)))
 
 (defn step
@@ -46,20 +49,22 @@
 (defn limiter
   "Reitit middleware that token-buckets requests per client IP under
    `route-key`. opts:
-     :capacity       burst size (default 10)
-     :refill-per-ms  tokens added per millisecond (default 10/60000 = 10/min)
-     :now-ms         clock thunk (default System/currentTimeMillis; for tests)
-     :store          buckets atom (default the shared module atom; for tests)"
-  [route-key {:keys [capacity refill-per-ms now-ms store]
+     :capacity         burst size (default 10)
+     :refill-per-ms    tokens added per millisecond (default 10/60000 = 10/min)
+     :now-ms           clock thunk (default System/currentTimeMillis; for tests)
+     :store            buckets atom (default the shared module atom; for tests)
+     :client-ip-header trusted client-IP header (default conf/client-ip-header)"
+  [route-key {:keys [capacity refill-per-ms now-ms store client-ip-header]
               :or   {capacity      10
                      refill-per-ms (/ 10.0 60000)
                      now-ms        #(System/currentTimeMillis)
                      store         buckets}}]
-  (fn [handler]
-    (fn [request]
-      (let [k [route-key (client-ip request)]
-            b (-> (swap! store update k step (now-ms) capacity refill-per-ms)
-                  (get k))]
-        (if (:allowed? b)
-          (handler request)
-          too-many-response)))))
+  (let [header (or client-ip-header (conf/client-ip-header))]
+    (fn [handler]
+      (fn [request]
+        (let [k [route-key (client-ip request header)]
+              b (-> (swap! store update k step (now-ms) capacity refill-per-ms)
+                    (get k))]
+          (if (:allowed? b)
+            (handler request)
+            too-many-response))))))

@@ -34,7 +34,7 @@
   (testing "denies with 429 after the burst is exhausted (AC#1/#2)"
     (let [store   (atom {})
           handler (mk :login store 0)
-          req     {:headers {"x-forwarded-for" "203.0.113.7"}}
+          req     {:headers {"x-real-ip" "203.0.113.7"}}
           rs      (repeatedly 3 #(handler req))]
       (is (= [200 200 429] (map :status rs)))
       (is (= "60" (get-in (last rs) [:headers "Retry-After"])))))
@@ -42,8 +42,8 @@
   (testing "buckets are independent per client IP (AC#3 — one user can't lock out another)"
     (let [store   (atom {})
           handler (mk :login store 0)
-          a       {:headers {"x-forwarded-for" "198.51.100.1"}}
-          b       {:headers {"x-forwarded-for" "198.51.100.2"}}]
+          a       {:headers {"x-real-ip" "198.51.100.1"}}
+          b       {:headers {"x-real-ip" "198.51.100.2"}}]
       (dotimes [_ 3] (handler a))               ; exhaust A
       (is (= 200 (:status (handler b))) "B is unaffected by A's flood")))
 
@@ -51,12 +51,31 @@
     (let [store (atom {})
           login (mk :login store 0)
           reg   (mk :register store 0)
-          req   {:headers {"x-forwarded-for" "203.0.113.9"}}]
+          req   {:headers {"x-real-ip" "203.0.113.9"}}]
       (dotimes [_ 3] (login req))               ; exhaust login
       (is (= 200 (:status (reg req))) "register has its own bucket")))
 
-  (testing "falls back to remote-addr when X-Forwarded-For is absent"
+  (testing "falls back to remote-addr when the trusted header is absent"
     (let [store   (atom {})
           handler (mk :login store 0)
           req     {:remote-addr "10.0.0.5"}]
       (is (= [200 200 429] (map :status (repeatedly 3 #(handler req))))))))
+
+(deftest spoofed-header-test
+  (testing "rotating X-Forwarded-For never grants a fresh bucket (TASK-088 bypass)"
+    (let [store   (atom {})
+          handler (mk :login store 0)
+          req     (fn [n] {:headers {"x-real-ip"       "203.0.113.7"
+                                     "x-forwarded-for" (str "198.51.100." n)}})
+          rs      (mapv #(handler (req %)) (range 5))]
+      (is (= [200 200 429 429 429] (mapv :status rs))
+          "the limiter keys on the proxy-set header, ignoring the spoofable one")))
+
+  (testing "with no trusted header, rotating X-Forwarded-For collapses to one shared bucket"
+    (let [store   (atom {})
+          handler (mk :login store 0)
+          req     (fn [n] {:headers     {"x-forwarded-for" (str "198.51.100." n)}
+                           :remote-addr "127.0.0.1"})
+          rs      (mapv #(handler (req %)) (range 5))]
+      (is (= [200 200 429 429 429] (mapv :status rs))
+          "misconfiguration over-throttles; it never opens a bypass"))))

@@ -167,6 +167,15 @@
    :password (l-config/get config :db/password)
    :ssl      (l-config/get config :db/ssl)})
 
+(defn client-ip-header
+  "The header carrying the proxy-vouched client IP, lower-cased for Ring
+   lookup. :ratelimit/client-ip-header (PARTS__RATELIMIT__CLIENT_IP_HEADER),
+   default \"x-real-ip\" as set by the generated Caddyfiles. Override only if
+   the trusted edge changes (e.g. a CDN in front of Caddy)."
+  []
+  (-> (or (l-config/get config :ratelimit/client-ip-header) "x-real-ip")
+      cstr/lower-case))
+
 (def ^:private secret-key-substrings
   #{"password" "secret" "token" "key"})
 
