@@ -211,6 +211,13 @@ to Scaleway object storage (`scaleway:parts-prod-backup`):
 pg_dump --format=custom | age --recipients-file … | rclone rcat …/parts_prod-<ts>.dump.age
 ```
 
+The job runs as the dedicated **`parts-backup`** system user, not the app
+user: the Scaleway credentials live in `/home/parts-backup/.config/rclone/`
+(home `0700`), unreadable by `parts` — an app compromise can't reach the
+bucket at all. Its DB access is a read-only postgres role (`pg_read_all_data`,
+peer-authenticated). Run any manual rclone command against the bucket as that
+user: `sudo -u parts-backup rclone lsf scaleway:parts-prod-backup/`.
+
 The age **private** key never lives on the server — only the public recipient
 (`/etc/parts/backup-recipient.age`) does. The private identity stays on your
 laptop (`~/.config/parts-backup/identity.txt`), so a server compromise cannot
@@ -224,6 +231,22 @@ scripts/restore-from-backup.sh ~/Downloads/parts_prod-<ts>.dump.age parts_restor
 + `s3:PutObject` only — **no Delete**. A compromised server can add backups but
 cannot wipe, overwrite, or encrypt them (ransomware / tamper resistance). Keep
 it that way: never grant the box's key delete rights.
+
+**Standing check — verify the key really can't delete** (that property lives
+in the Scaleway console, not this repo, so re-verify at setup, after any key
+rotation, and alongside the retention check). Upload a canary and try to
+delete it; the delete MUST fail:
+
+```sh
+TS=$(date -u +%Y-%m-%dT%H%M%SZ)
+sudo -u parts-backup rclone touch "scaleway:parts-prod-backup/canary-${TS}.txt"
+sudo -u parts-backup rclone deletefile "scaleway:parts-prod-backup/canary-${TS}.txt" \
+  && echo "✗ key CAN delete — rotate to a PutObject-only key NOW" \
+  || echo "✓ delete denied (append-only holds)"
+```
+
+The canary can't be removed by the box (that's the point); the 30-day
+lifecycle rule sweeps it like any other object.
 
 **30-day retention (a published promise).** The Privacy Policy and DPA state
 that erasure propagates through backups within 30 days. Because the box can't

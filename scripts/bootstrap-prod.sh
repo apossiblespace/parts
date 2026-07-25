@@ -207,6 +207,21 @@ systemctl enable $APP_NAME
 # 7. encrypted backup to Scaleway
 apt-get install -y age rclone
 
+# Dedicated backup user: the JVM is the box's largest attack surface, so the
+# offsite-storage credentials must not be readable by the app user — an app
+# compromise must not be able to touch the bucket. Dumps are age-encrypted
+# with only the public key on the box.
+BACKUP_USER=$APP_NAME-backup
+id -u $BACKUP_USER >/dev/null 2>&1 || \
+    useradd --system --create-home --home-dir /home/$BACKUP_USER \
+            --shell /usr/sbin/nologin $BACKUP_USER
+chmod 700 /home/$BACKUP_USER
+
+# Read-only postgres role, peer-authenticated as the backup unix user.
+backup_role_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$BACKUP_USER'")
+[[ "$backup_role_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE \"$BACKUP_USER\" LOGIN"
+sudo -u postgres psql -c "GRANT pg_read_all_data TO \"$BACKUP_USER\""
+
 # Age recipient (public key) — placeholder; operator must replace with real key
 mkdir -p /etc/$APP_NAME
 if [[ ! -f /etc/$APP_NAME/backup-recipient.age ]]; then
@@ -219,11 +234,18 @@ EOF
     echo "⚠️  Created /etc/$APP_NAME/backup-recipient.age placeholder — replace with your age public key"
 fi
 
-# rclone config for Scaleway — placeholder; operator must fill in API keys
-RCLONE_DIR=/home/$APP_USER/.config/rclone
-sudo -u $APP_USER mkdir -p "$RCLONE_DIR"
+# rclone config for Scaleway, owned by the backup user. A pre-existing
+# operator-filled config under the app user is migrated (moved, not copied —
+# it must leave the app user's reach).
+RCLONE_DIR=/home/$BACKUP_USER/.config/rclone
+OLD_RCLONE=/home/$APP_USER/.config/rclone/rclone.conf
+mkdir -p "$RCLONE_DIR"
+if [[ ! -f "$RCLONE_DIR/rclone.conf" && -f "$OLD_RCLONE" ]]; then
+    mv "$OLD_RCLONE" "$RCLONE_DIR/rclone.conf"
+    echo "Migrated rclone.conf from $APP_USER to $BACKUP_USER"
+fi
 if [[ ! -f "$RCLONE_DIR/rclone.conf" ]]; then
-    sudo -u $APP_USER tee "$RCLONE_DIR/rclone.conf" >/dev/null <<'EOF'
+    cat >"$RCLONE_DIR/rclone.conf" <<'EOF'
 [scaleway]
 type = s3
 provider = Scaleway
@@ -233,9 +255,10 @@ endpoint = s3.fr-par.scw.cloud
 region = fr-par
 acl = private
 EOF
-    sudo -u $APP_USER chmod 600 "$RCLONE_DIR/rclone.conf"
     echo "⚠️  Created $RCLONE_DIR/rclone.conf placeholder — fill in Scaleway API keys"
 fi
+chown -R $BACKUP_USER:$BACKUP_USER /home/$BACKUP_USER/.config
+chmod 600 "$RCLONE_DIR/rclone.conf"
 
 # Backup script
 cat >/usr/local/bin/$APP_NAME-backup <<EOF
@@ -264,8 +287,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=$APP_USER
-Group=$APP_USER
+User=$BACKUP_USER
+Group=$BACKUP_USER
 ExecStart=/usr/local/bin/$APP_NAME-backup
 StandardOutput=journal
 StandardError=journal
