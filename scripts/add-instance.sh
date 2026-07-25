@@ -139,6 +139,13 @@ if [[ "$FIRST_RUN" == true ]]; then
     [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER"
 fi
 
+# Erasure least-privilege (see bootstrap-prod.sh): role must pre-exist
+# before first boot; only a superuser may grant membership. Idempotent,
+# so it runs on every provision, not only FIRST_RUN.
+dr_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='deletion_role'")
+[[ "$dr_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE deletion_role NOLOGIN"
+sudo -u postgres psql -c "GRANT deletion_role TO $DB_USER"
+
 # Ownership force-sync (see bootstrap-prod.sh): a restored database can
 # leave the DB / `public` schema owned by the restoring role, and since
 # PostgreSQL 15 that denies the app role CREATE in `public` — later
