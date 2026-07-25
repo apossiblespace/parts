@@ -15,6 +15,7 @@
    `:success false` never appears — failures throw instead."
   (:require
    [aps.parts.common.change-event :as change-event]
+   [aps.parts.common.constants :as constants]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [next.jdbc :as jdbc]))
@@ -74,6 +75,12 @@
    time or process-time, propagates as a `:batch-failure` `ex-info` carrying
    `:failing-change`, and the transaction rolls back."
   [ds {:keys [map-id actor-id changes]}]
+  (when (and (sequential? changes)
+             (> (count changes) constants/max-change-batch))
+    (throw (ex-info (str "Change batch exceeds the maximum of "
+                         constants/max-change-batch " changes")
+                    {:type  :validation
+                     :count (count changes)})))
   (let [parsed (try
                  (change-event/parse changes)
                  (catch Throwable t

@@ -1,6 +1,6 @@
 (ns aps.parts.common.models.relationship
   (:require
-   [aps.parts.common.constants :refer [relationship-types]]
+   [aps.parts.common.constants :refer [max-text-length relationship-types]]
    [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [validate-spec]]
    [clojure.spec.alpha :as s]))
@@ -10,7 +10,7 @@
 (s/def ::type #(contains? relationship-types %))
 (s/def ::source_id (s/or :string string? :uuid uuid?))
 (s/def ::target_id (s/or :string string? :uuid uuid?))
-(s/def ::notes (s/nilable string?))
+(s/def ::notes (s/nilable (s/and string? #(<= (count %) max-text-length))))
 (s/def ::intensity (s/and number? #(<= 0 % 100)))
 
 (s/def ::relationship

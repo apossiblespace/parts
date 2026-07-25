@@ -2,6 +2,7 @@
   (:require
    [aps.parts.api.maps :as api]
    [aps.parts.api.maps-events :as events]
+   [aps.parts.common.constants :as constants]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
@@ -190,6 +191,56 @@
             (is (= bad (:failing-change data))))))
       (testing "the valid earlier change was never applied"
         (is (= "Original" (:label (part/fetch part-id))))))))
+
+(deftest test-batch-size-and-text-length-bounds
+  (testing "a batch over max-change-batch is rejected before any DB work"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Bounds Test" :owner_id (:id user)} (:id user))
+          batch   (vec (repeat (inc constants/max-change-batch)
+                               {:entity "part"        :type "update"
+                                :id     (random-uuid) :data {:label "x"}}))]
+      (try
+        (events/apply-changes! db/datasource
+                               {:map-id   (:id the-map)
+                                :actor-id (:id user)
+                                :changes  batch})
+        (is false "expected apply-changes! to throw")
+        (catch clojure.lang.ExceptionInfo e
+          (is (= :validation (:type (ex-data e))))
+          (is (= (inc constants/max-change-batch) (:count (ex-data e))))))))
+
+  (testing "an over-length text field is rejected at the spec gate"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Long Text" :owner_id (:id user)} (:id user))
+          batch   [{:entity "part"                                                                :type "create"
+                    :id     (random-uuid)
+                    :data   {:type       "manager"
+                             :label      "Ok"
+                             :notes      (apply str (repeat (inc constants/max-text-length) "a"))
+                             :position_x 0
+                             :position_y 0}}]]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (events/apply-changes! db/datasource
+                                          {:map-id   (:id the-map)
+                                           :actor-id (:id user)
+                                           :changes  batch})))))
+
+  (testing "a normal-sized batch with normal text still succeeds"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Normal" :owner_id (:id user)} (:id user))
+          results (events/apply-changes!
+                   db/datasource
+                   {:map-id   (:id the-map)
+                    :actor-id (:id user)
+                    :changes  [{:entity "part"                        :type "create"
+                                :id     (random-uuid)
+                                :data   {:type       "manager"
+                                         :label      "Reasonable"
+                                         :notes      "A normal note."
+                                         :position_x 0
+                                         :position_y 0}}]})]
+      (is (= 1 (count results)))
+      (is (every? :success results)))))
 
 (deftest test-batch-accepts-repeated-updates-to-one-entity
   ;; Regression for the live 422: the 2s debounce queue legitimately batches
