@@ -284,12 +284,21 @@ $DOMAIN {
         X-Robots-Tag "noindex, nofollow"
     }
 
+    # The app's rate limiter trusts X-Real-IP alone; overwrite any
+    # client-supplied value with the real peer on both handles
+    # (oauth2-proxy forwards it to the app unmodified).
     handle /api/* {
-        reverse_proxy 127.0.0.1:$PORT
+        reverse_proxy 127.0.0.1:$PORT {
+            header_up -X-Real-IP
+            header_up X-Real-IP {http.request.remote.host}
+        }
     }
 
     handle {
-        reverse_proxy 127.0.0.1:$OAUTH2_PORT
+        reverse_proxy 127.0.0.1:$OAUTH2_PORT {
+            header_up -X-Real-IP
+            header_up X-Real-IP {http.request.remote.host}
+        }
     }
 }
 EOF

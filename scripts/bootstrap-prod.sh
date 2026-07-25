@@ -286,7 +286,12 @@ mkdir -p /etc/caddy/sites
 echo 'import /etc/caddy/sites/*.caddy' >/etc/caddy/Caddyfile
 cat >/etc/caddy/sites/parts.caddy <<EOF
 $DOMAIN {
-    reverse_proxy 127.0.0.1:3000
+    # The app's rate limiter trusts X-Real-IP alone; overwrite any
+    # client-supplied value with the real peer (runbook: "Rate limiting").
+    reverse_proxy 127.0.0.1:3000 {
+        header_up -X-Real-IP
+        header_up X-Real-IP {http.request.remote.host}
+    }
     encode gzip
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
