@@ -294,10 +294,14 @@
               :required true}]
      [:span {:class "text-sm text-left"}
       "I have read and agree to the "
+      ;; noreferrer: this form renders on the invite page, whose URL carries
+      ;; the invite token — the legal pages load analytics, and a default
+      ;; same-origin Referer would hand them the token.
       (interpose ", "
                  (for [{:keys [slug label]} c/legal-documents]
                    [:a {:href   (str "/" slug)
-                        :target "_blank"}
+                        :target "_blank"
+                        :rel    "noreferrer noopener"}
                     label]))
       "."]]
     [:button {:class "btn btn-primary w-full" :type "submit"}

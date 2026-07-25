@@ -118,11 +118,12 @@
      PSQLException
      postgres-constraint-violation-handler
 
-     ;; Default
+     ;; Default. Logs class only, like the PSQL/batch handlers: an
+     ;; exception message can interpolate input values, and this event
+     ;; feeds the operator alert email.
      ::exception/default
      (fn [^Exception e _request]
        (mulog/log ::unhandled-exception
-                  :error       (.getMessage e)
                   :error-class (.getName (class e)))
        {:status 500
         :body   {:error "Internal server error"}})})))

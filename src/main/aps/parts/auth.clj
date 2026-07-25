@@ -28,18 +28,27 @@
   [password hash]
   (:valid (hashers/verify password hash)))
 
+(def ^:private timing-decoy-hash
+  "A throwaway bcrypt hash verified on the absent-user path, so a login
+   attempt takes the same time whether or not the email exists — response
+   timing must not enumerate accounts."
+  (delay (hash-password "timing-equalization-decoy")))
+
 (defn authenticate
   "Verify EMAIL + PASSWORD against the stored user. Returns the user map
    (without `password_hash`) on success, nil on a missing user or a wrong
    password. The caller establishes the auth session from the returned id."
   [{:keys [email password]}]
-  (let [normalized-email (normalize-email email)]
-    (when-let [user (db/query-one
-                     (db/sql-format {:select [:*]
-                                     :from   [:users]
-                                     :where  [:= :email normalized-email]}))]
+  (let [normalized-email (normalize-email email)
+        user             (db/query-one
+                          (db/sql-format {:select [:*]
+                                          :from   [:users]
+                                          :where  [:= :email normalized-email]}))]
+    (if user
       (when (check-password password (:password_hash user))
-        (dissoc user :password_hash)))))
+        (dissoc user :password_hash))
+      (do (check-password (or password "") @timing-decoy-hash)
+          nil))))
 
 (defn current-password-valid?
   "True when `password` matches the stored hash for `user-id`; blank or
