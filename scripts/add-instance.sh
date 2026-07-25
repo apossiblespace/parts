@@ -123,8 +123,8 @@ if [[ "$INSTALLED_VERSION" != "$OAUTH2_PROXY_VERSION" ]]; then
 fi
 
 # 2. postgres — a separate database AND role, so a leaked dev-instance
-# password can't authenticate against the prod database. The parts role's
-# CREATEROLE grant (from bootstrap-prod.sh) is what lets this run.
+# password can't authenticate against the prod database. Everything here
+# runs as the postgres superuser; the app role holds no CREATEROLE.
 if [[ "$FIRST_RUN" == true ]]; then
     # Create the role only if absent, but ALWAYS (re)set its password to the
     # value written into the env file below — a CREATE USER that hits an existing
@@ -133,7 +133,7 @@ if [[ "$FIRST_RUN" == true ]]; then
     # if absent.
     role_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'")
     [[ "$role_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE $DB_USER"
-    printf "ALTER ROLE %s WITH LOGIN PASSWORD '%s';\n" "$DB_USER" "$DB_PASSWORD" \
+    printf "ALTER ROLE %s WITH LOGIN NOCREATEROLE PASSWORD '%s';\n" "$DB_USER" "$DB_PASSWORD" \
         | sudo -u postgres psql
     db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")
     [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER"

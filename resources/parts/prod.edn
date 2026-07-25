@@ -1,6 +1,8 @@
 {:db/host "localhost"
  :db/name "parts_prod"
  :db/user "parts"
+ ;; Loopback-only topology; config.clj fails fast if the host goes remote
+ ;; while TLS stays off (assert-db-topology!).
  :db/ssl  false
 
  :http/protocol "https"

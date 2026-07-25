@@ -156,16 +156,32 @@
        ":"
        (http-port)))
 
+(defn assert-db-topology!
+  "Fail fast on the one combination that silently ships credentials and PII
+   in cleartext: production, TLS off, and a non-loopback DB host. Loopback
+   without TLS is the deliberate deployment shape (postgres shares the app's
+   box); the moment :db/host points elsewhere, PARTS__DB__SSL must be true."
+  [{:keys [host ssl prod?]}]
+  (when (and prod?
+             (not ssl)
+             (not (contains? #{nil "localhost" "127.0.0.1" "::1"} host)))
+    (throw (ex-info "Refusing cleartext postgres connection to a remote host in prod; set PARTS__DB__SSL=true"
+                    {:type :config :db/host host})))
+  true)
+
 (defn database-config
   "Get complete database configuration map suitable for next.jdbc."
   []
-  {:dbtype   "postgresql"
-   :host     (l-config/get config :db/host)
-   :port     (l-config/get config :db/port)
-   :dbname   (l-config/get config :db/name)
-   :user     (l-config/get config :db/user)
-   :password (l-config/get config :db/password)
-   :ssl      (l-config/get config :db/ssl)})
+  (let [host (l-config/get config :db/host)
+        ssl  (parse-bool (l-config/get config :db/ssl))]
+    (assert-db-topology! {:host host :ssl ssl :prod? (prod?)})
+    {:dbtype   "postgresql"
+     :host     host
+     :port     (l-config/get config :db/port)
+     :dbname   (l-config/get config :db/name)
+     :user     (l-config/get config :db/user)
+     :password (l-config/get config :db/password)
+     :ssl      ssl}))
 
 (defn client-ip-header
   "The header carrying the proxy-vouched client IP, lower-cased for Ring
