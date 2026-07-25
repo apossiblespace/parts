@@ -61,6 +61,42 @@
       (testing "sessions section is present (empty here)"
         (is (= [] (:sessions result)))))))
 
+(deftest test-export-projects-by-allowlist
+  ;; Pins the exported key sets exactly. Projection is select-keys over an
+  ;; explicit allowlist, so a future column can never auto-export; if that
+  ;; ever regresses to a dissoc denylist, the new key surfaces here.
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        part    (assoc (part-row (:id the-map))
+                       :description "desc"
+                       :notes "note"
+                       :width 100
+                       :height 100
+                       :body_location {:view "front" :x 0.5 :y 0.5})
+        _       (bt/insert! db/datasource :parts part {:actor-id (:id user)})
+        rel     {:id        (random-uuid)
+                 :map_id    (db/->uuid (:id the-map))
+                 :type      "protects"
+                 :source_id (:id part)
+                 :target_id (:id part)
+                 :notes     "rel note"
+                 :intensity 40}
+        _       (bt/insert! db/datasource :relationships rel {:actor-id (:id user)})
+        s1      (session/create! (:id the-map) (:id user))
+        _       (session/update-trigger! (:id s1) (:id the-map) "t" (:id user))
+        _       (session/set-activation! (:id s1) (:id the-map) (:id part) (:id user))
+        result  (export/export-map db/datasource (:id the-map))]
+    (is (= #{:type :label :description :notes :position_x :position_y
+             :width :height :body_location :valid_from :valid_to}
+           (set (keys (first (:versions (first (:parts result))))))))
+    (is (= #{:type :source_id :target_id :notes :intensity
+             :valid_from :valid_to}
+           (set (keys (first (:versions (first (:relationships result))))))))
+    (is (= #{:title :valid_from :valid_to}
+           (set (keys (first (:title_history (:map result)))))))
+    (is (= #{:id :ordinal :trigger :anchor_valid_at :activated_part_id}
+           (set (keys (first (:sessions result))))))))
+
 (deftest test-export-includes-sessions
   (testing "the export carries Sessions — ordinal, trigger, anchor — and
             their activated Part links (GDPR Art. 15/20, ADR-0014)"

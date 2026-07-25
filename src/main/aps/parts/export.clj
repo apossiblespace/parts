@@ -20,15 +20,32 @@
    detect the format (ADR-0010)."
   "1")
 
+(def ^:private exported-columns
+  "Per-entity allowlists of exported keys (ADR-0010 data minimization). A
+   column added to one of these tables is NOT exported until deliberately
+   named here — so controller metadata and any future internal/sensitive
+   field stay out by default, rather than leaking on the day the column
+   lands. The export's REQUIRED clinical fields (notes, body_location,
+   trigger) are all present."
+  {:parts         [:type :label :description :notes :position_x :position_y
+                   :width :height :body_location :valid_from :valid_to]
+   :relationships [:type :source_id :target_id :notes :intensity
+                   :valid_from :valid_to]
+   :map-metadata  [:title :valid_from :valid_to]
+   :sessions      [:id :ordinal :trigger :anchor_valid_at :activated_part_id]})
+
+(defn- project
+  [entity row]
+  (select-keys row (exported-columns entity)))
+
 (defn- by-entity
   "Group history versions by entity id into `[{:id … :versions […]}]`, earliest
-   entity first. Drops the now-redundant `:id` (the group key) and `:map_id`
-   (the whole export is scoped to one Map) from each version."
-  [versions]
+   entity first. Each version is projected through `exported-columns`."
+  [entity versions]
   (->> versions
        (group-by :id)
        (map (fn [[id vs]]
-              {:id id :versions (mapv #(dissoc % :id :map_id) vs)}))
+              {:id id :versions (mapv #(project entity %) vs)}))
        (sort-by (comp :valid_from first :versions))
        vec))
 
@@ -51,11 +68,11 @@
      :exported_at    (OffsetDateTime/now)
      :map            (assoc (map-identity ds mid)
                             :title_history
-                            (mapv #(dissoc % :id :map_id)
+                            (mapv #(project :map-metadata %)
                                   (bt/history ds :map_metadata [:= :map_id mid])))
-     :parts          (by-entity (bt/history ds :parts [:= :map_id mid]))
-     :relationships  (by-entity (bt/history ds :relationships [:= :map_id mid]))
+     :parts          (by-entity :parts (bt/history ds :parts [:= :map_id mid]))
+     :relationships  (by-entity :relationships
+                                (bt/history ds :relationships [:= :map_id mid]))
      ;; Sessions are non-temporal (ADR-0014): each exports once,
-     ;; unversioned — the anchor instant is its valid-time place. Full
-     ;; rows, so a future Session column exports by default.
-     :sessions       (mapv #(dissoc % :map_id) (session/index ds mid))}))
+     ;; unversioned — the anchor instant is its valid-time place.
+     :sessions       (mapv #(project :sessions %) (session/index ds mid))}))
