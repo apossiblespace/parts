@@ -368,10 +368,13 @@
         at-tip  (api/render-pdf (make-request user :params {:id map-id}))
         length  #(Long/parseLong (get-in % [:headers "Content-Length"]))]
 
-    (testing "?at=<session-id> renders the Map as of that Session — less
-              content than the tip, so a smaller PDF"
+    ;; Content is asserted on the SVG the PDF transcodes (below): compressed
+    ;; PDF sizes are not monotonic in content — the embedded render date
+    ;; alone shifts them a few bytes either way.
+    (testing "?at=<session-id> renders the Map as of that Session"
       (is (= 200 (:status at-s1)))
-      (is (< (length at-s1) (length at-tip))))
+      (is (pos? (length at-s1)))
+      (is (pos? (length at-tip))))
 
     (testing "the filename names the Session, so exporting several
               Sessions doesn't overwrite one file"
@@ -380,26 +383,26 @@
       (is (str/includes? (get-in at-tip [:headers "Content-Disposition"])
                          "Time travel.pdf")))
 
-    (testing "?at at the latest Session is the live view — more content
-              than S1 (the header differs from the tip render by design:
-              Session subtitle + the Session's date)"
+    (testing "?at at the latest Session is the live view (the header differs
+              from the tip render by design: Session subtitle + date)"
       (let [at-s2 (api/render-pdf (make-request user
                                                 :params {:id map-id}
                                                 :query {:at (str (:id s2))}))]
         (is (= 200 (:status at-s2)))
-        (is (> (length at-s2) (length at-s1)))
         (is (str/includes? (get-in at-s2 [:headers "Content-Disposition"])
                            "Time travel - Session 2.pdf"))))
 
     (testing "the rendered document is structure-only: as-of content
               excludes later Parts, and no Session data — trigger text,
               badge ordinals — can reach it (AC #6)"
-      (let [svg (document/render
-                 (parts-map/fetch map-id
-                                  (session/as-of-instant map-id (str (:id s1)))))]
+      (let [svg     (document/render
+                     (parts-map/fetch map-id
+                                      (session/as-of-instant map-id (str (:id s1)))))
+            svg-tip (document/render (parts-map/fetch map-id))]
         (is (str/includes? svg "In S1"))
         (is (not (str/includes? svg "In S2")))
-        (is (not (str/includes? svg "SENSITIVE-TRIGGER")))))
+        (is (not (str/includes? svg "SENSITIVE-TRIGGER")))
+        (is (str/includes? svg-tip "In S2") "the tip render has the later Part")))
 
     (testing "the Maps-list thumbnail always renders the tip — the
               preview route takes no ?at by design"
