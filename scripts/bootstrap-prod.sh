@@ -114,14 +114,6 @@ else
     db_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${APP_NAME}_prod'")
     [[ "$db_exists" == 1 ]] || sudo -u postgres psql -c "CREATE DATABASE ${APP_NAME}_prod OWNER $APP_NAME"
 
-    # Erasure least-privilege (migration 20260726000000 + runbook): the role
-    # must pre-exist before first boot — the app role has NOCREATEROLE, so
-    # the deletion-role migration's CREATE would otherwise fail — and only a
-    # superuser may grant membership. Idempotent.
-    dr_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='deletion_role'")
-    [[ "$dr_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE deletion_role NOLOGIN"
-    sudo -u postgres psql -c "GRANT deletion_role TO $APP_NAME"
-
     cat >/etc/$APP_NAME.env <<EOF
 PARTS__ENV=prod
 
@@ -167,6 +159,25 @@ if ! grep -q '^PARTS__RENDER__FONT_DIR=' /etc/$APP_NAME.env; then
     printf '\n# PDF document fonts (Noto Sans CJK TC; see ADR-0008 and the runbook).\nPARTS__RENDER__FONT_DIR=%s\n' "$FONT_DIR" >>/etc/$APP_NAME.env
     echo "✓ Appended PARTS__RENDER__FONT_DIR to /etc/$APP_NAME.env"
 fi
+
+# Boxes provisioned before the slf4j default was set: append the flag to the
+# existing JAVA_OPTS line once (chatty libs' INFO can embed query fragments).
+if ! grep -q 'simpleLogger.defaultLogLevel' /etc/$APP_NAME.env; then
+    sed -i 's/^JAVA_OPTS=.*/& -Dorg.slf4j.simpleLogger.defaultLogLevel=warn/' /etc/$APP_NAME.env
+    echo "✓ Appended slf4j defaultLogLevel=warn to JAVA_OPTS"
+fi
+
+# DB-role hardening — OUTSIDE the first-run guard so existing boxes pick it
+# up on re-provision, with no password touched. Idempotent:
+#   - the app role must not CREATE ROLE (SQLi persistence);
+#   - deletion_role must pre-exist before migrations run (the app role's
+#     NOCREATEROLE means the old migration's CREATE would fail), and only a
+#     superuser may grant the app role membership (erasure least-privilege,
+#     migration 20260726000000 + runbook).
+sudo -u postgres psql -c "ALTER ROLE $APP_NAME NOCREATEROLE"
+dr_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='deletion_role'")
+[[ "$dr_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE deletion_role NOLOGIN"
+sudo -u postgres psql -c "GRANT deletion_role TO $APP_NAME"
 
 # Ownership force-sync — same reasoning as the ALTER ROLE above: a
 # database that arrived by restore (box migration) can leave the DB and
