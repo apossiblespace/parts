@@ -181,6 +181,12 @@ if ! grep -q '^PARTS__RENDER__FONT_DIR=' "$ENV_FILE"; then
     echo "✓ Appended PARTS__RENDER__FONT_DIR to $ENV_FILE"
 fi
 
+# Instances provisioned before the slf4j default: append the flag once.
+if ! grep -q 'simpleLogger.defaultLogLevel' "$ENV_FILE"; then
+    sed -i 's/^JAVA_OPTS=.*/& -Dorg.slf4j.simpleLogger.defaultLogLevel=warn/' "$ENV_FILE"
+    echo "✓ Appended slf4j defaultLogLevel=warn to JAVA_OPTS"
+fi
+
 # 4. app systemd unit — mirrors parts.service but with its own env file,
 # release symlink ($APP_DIR/current-$INSTANCE) and journal identifier.
 # The unit hardcodes nothing tunable: JAVA_OPTS (JVM flags), PARTS__ENV and
