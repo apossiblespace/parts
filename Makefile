@@ -133,16 +133,16 @@ deploy-dev: upload ## Deploy to the staging instance
 		sudo ln -nfs releases/$(JAR_BASENAME) current-dev; \
 		sudo systemctl restart parts-dev'
 
-rollback:
-	ssh $(HOST) 'set -e; \
+rollback: ## Point current back at the previous release
+	ssh -t $(HOST) 'set -e; \
 		cd $(REMOTE); \
 		prev=$$(readlink previous || true); \
 		if [ -z "$$prev" ]; then \
 			echo "No previous release to roll back to!" >&2; \
 			exit 1; \
 		fi; \
-		ln -nfs "$$prev" current; \
-		systemctl restart parts'
+		sudo ln -nfs "$$prev" current; \
+		sudo systemctl restart parts'
 
 clean: ## Clean build files
 	rm -rf 	./.cpcache \

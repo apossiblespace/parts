@@ -16,6 +16,6 @@
     "postcss-nesting": "^13.0.2",
     "shadow-cljs": "^2.28.23",
     "tailwindcss": "^4.2.4",
-    "ws": "^7.5.10"
+    "ws": "^8.18.0"
   }
 }
