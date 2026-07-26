@@ -40,11 +40,16 @@
     (for [href (or styles [])]
       [:link {:rel "stylesheet" :href href}])
     (when analytics?
+      ;; No inline script: the plausible queue bootstrap and the
+      ;; data-attribute event wiring live in marketing.js, so these pages
+      ;; hold a CSP without 'unsafe-inline' (TASK-069).
       (list
        [:script {:defer       true
                  :data-domain (conf/app-domain)
                  :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
-       [:script "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }"]))]))
+       ;; Not under /js/ — that whole directory is shadow-cljs build
+       ;; output (gitignored); this file is a tracked static asset.
+       [:script {:src "/marketing.js" :defer true}]))]))
 
 (defn header-signup
   "Post-launch site header: Log in + Create an account buttons."
@@ -66,9 +71,10 @@
         :href  "/app/login"}
        "Log in"]
       [:a
-       {:class   "btn btn-primary"
-        :href    "/app/signup"
-        :onclick "plausible('Create Account Click', {props: {source: 'homepage-header'}}); return true;"}
+       {:class                 "btn btn-primary"
+        :href                  "/app/signup"
+        :data-analytics        "Create Account Click"
+        :data-analytics-source "homepage-header"}
        "Create an account"]]]]])
 
 (defn header-waitlist
@@ -88,14 +94,16 @@
              :src   "/images/parts-logo-horizontal.svg"}]]
      [:div {:class "flex items-center space-x-4"}
       [:a
-       {:href    "#signup",
-        :class   "text-ifs-green font-semibold hover:underline"
-        :onclick "plausible('Join Founding Circle Click', {props: {source: 'homepage'}}); return true;"}
+       {:href                  "#signup",
+        :class                 "text-ifs-green font-semibold hover:underline"
+        :data-analytics        "Join Founding Circle Click"
+        :data-analytics-source "homepage"}
        "Join Founding Circle"]
       [:a
-       {:href    "/app/login"
-        :class   "btn btn-soft"
-        :onclick "plausible('Login Click', {props: {source: 'homepage'}}); return true;"}
+       {:href                  "/app/login"
+        :class                 "btn btn-soft"
+        :data-analytics        "Login Click"
+        :data-analytics-source "homepage"}
        "Log in"]]]]])
 
 (defn header
@@ -201,18 +209,22 @@
   [{:keys [message value]}]
   [:div#signup-form
    [:form
-    {:hx-post      "/waitlist-signup"
-     :hx-target    "#signup-form"
-     :hx-swap      "outerHTML"
-     :hx-on:submit "plausible('Waitlist Signup', {props: {source: 'homepage'}}); return true;"}
+    {:hx-post               "/waitlist-signup"
+     :hx-target             "#signup-form"
+     :hx-swap               "outerHTML"
+     :data-analytics        "Waitlist Signup"
+     :data-analytics-on     "submit"
+     :data-analytics-source "homepage"}
     [:div.join.rounded-xl
      [:input.join-item.input.input-xl.text-gray-800
-      {:type        "email"
-       :id          "email"
-       :name        "email"
-       :placeholder "self@you.com"
-       :value       value
-       :hx-on:focus "plausible('Email Field Focus', {props: {source: 'homepage'}}); return true;"}]
+      {:type                  "email"
+       :id                    "email"
+       :name                  "email"
+       :placeholder           "self@you.com"
+       :value                 value
+       :data-analytics        "Email Field Focus"
+       :data-analytics-on     "focus"
+       :data-analytics-source "homepage"}]
      [:input {:type  "hidden"
               :id    "__anti-forgery-token"
               :name  "__anti-forgery-token"

@@ -110,6 +110,24 @@
     (fn [request]
       (assoc-in (handler request) [:headers "Content-Security-Policy"] policy))))
 
+(defn- public-content-security-policy
+  "CSP for the public pages (marketing, legal, playground): 'self' plus the
+   Plausible collector — no inline script; handlers are wired through data
+   attributes in /js/marketing.js. Lower stakes than the authed surfaces
+   (no auth cookie, no /api mutation) — this is defense-in-depth against
+   reflected/stored XSS."
+  [prod?]
+  (str "script-src 'self' https://plausible.io"
+       (when-not prod? " 'unsafe-eval'")
+       "; frame-ancestors 'none'"))
+
+(defn wrap-public-csp
+  "Set the public-page Content-Security-Policy on the wrapped routes."
+  [handler]
+  (let [policy (public-content-security-policy (conf/prod?))]
+    (fn [request]
+      (assoc-in (handler request) [:headers "Content-Security-Policy"] policy))))
+
 (defn wrap-core-middlewares
   "Apply essential Ring middleware for the entire application.
   - `wrap-resource`: Serves static files from resources/public
