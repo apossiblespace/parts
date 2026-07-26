@@ -144,7 +144,8 @@ fi
 # so it runs on every provision, not only FIRST_RUN.
 dr_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='deletion_role'")
 [[ "$dr_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE deletion_role NOLOGIN"
-sudo -u postgres psql -c "GRANT deletion_role TO $DB_USER"
+# INHERIT FALSE is load-bearing — see bootstrap-prod.sh.
+sudo -u postgres psql -c "GRANT deletion_role TO $DB_USER WITH INHERIT FALSE"
 
 # Ownership force-sync (see bootstrap-prod.sh): a restored database can
 # leave the DB / `public` schema owned by the restoring role, and since

@@ -177,7 +177,11 @@ fi
 sudo -u postgres psql -c "ALTER ROLE $APP_NAME NOCREATEROLE"
 dr_exists=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='deletion_role'")
 [[ "$dr_exists" == 1 ]] || sudo -u postgres psql -c "CREATE ROLE deletion_role NOLOGIN"
-sudo -u postgres psql -c "GRANT deletion_role TO $APP_NAME"
+# INHERIT FALSE is load-bearing: a default (inheriting) membership hands the
+# app role every deletion_role privilege passively, silently undoing the
+# DELETE revoke. With it, the privileges arrive only via explicit SET ROLE
+# in the purge. Re-granting updates the option on an existing membership.
+sudo -u postgres psql -c "GRANT deletion_role TO $APP_NAME WITH INHERIT FALSE"
 
 # Ownership force-sync — same reasoning as the ALTER ROLE above: a
 # database that arrived by restore (box migration) can leave the DB and
