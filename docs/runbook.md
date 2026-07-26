@@ -256,21 +256,23 @@ systemd-run --unit=alert-selftest --property=OnFailure=parts-alert@%n.service /b
 If nothing arrives, check `journalctl -u parts-alert@*` — with SMTP unset the
 mailer exits 0 with "SMTP not configured", by the same rule as the app.
 
-**Standing check — verify the key really can't delete** (that property lives
+**Standing check — verify the key really can't delete.** That property lives
 in the Scaleway console, not this repo, so re-verify at setup, after any key
-rotation, and alongside the retention check). Upload a canary and try to
-delete it; the delete MUST fail:
+rotation, and alongside the retention check. Read the bucket policy:
+**Object Storage → parts-prod-backup → Bucket settings → Bucket policy**. The
+app principal's statement must list exactly:
 
-```sh
-TS=$(date -u +%Y-%m-%dT%H%M%SZ)
-sudo -u parts-backup rclone touch "scaleway:parts-prod-backup/canary-${TS}.txt"
-sudo -u parts-backup rclone deletefile "scaleway:parts-prod-backup/canary-${TS}.txt" \
-  && echo "✗ key CAN delete — rotate to a PutObject-only key NOW" \
-  || echo "✓ delete denied (append-only holds)"
+```json
+"Action": [ "s3:ListBucket", "s3:PutObject" ]
 ```
 
-The canary can't be removed by the box (that's the point); the 30-day
-lifecycle rule sweeps it like any other object.
+No `s3:DeleteObject` (can't destroy), no `s3:GetObject` (can't read back —
+this is also why the upload must not stat, see above). The separate
+`user_id:` statement with `"Action": "*"` is the owner's own access and is
+expected; that principal is you in the console, not the box.
+
+Prefer reading the policy over probing with a write: `rclone deletefile`
+needs a stat first, so a denial there proves nothing about delete rights.
 
 **30-day retention (a published promise).** The Privacy Policy and DPA state
 that erasure propagates through backups within 30 days. Because the box can't
