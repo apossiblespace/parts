@@ -26,11 +26,20 @@
           (is (some? v) path)
           (is (str/includes? v "script-src 'self'") path)
           (is (str/includes? v "frame-ancestors 'none'") path))))
-    (testing "marketing pages are deliberately excluded (they load Plausible)"
-      (is (nil? (csp app "/")) "no CSP on the marketing home"))))
+    (testing "public pages carry the Plausible-allowlisting CSP, no inline
+              script (analytics is wired via /js/marketing.js data
+              attributes)"
+      (doseq [path ["/" "/playground" "/privacy" "/terms" "/dpa"]]
+        (let [v (csp app path)]
+          (is (some? v) path)
+          (is (str/includes? v "script-src 'self' https://plausible.io") path)
+          (is (not (str/includes? v "unsafe-inline")) path)
+          (is (str/includes? v "frame-ancestors 'none'") path))))))
 
 (deftest content-security-policy-prod-is-strict-test
   (testing "prod permits no eval; non-prod allows it for shadow-cljs dev loading"
     (is (= "script-src 'self'; frame-ancestors 'none'"
            (#'middleware/content-security-policy true)))
-    (is (str/includes? (#'middleware/content-security-policy false) "'unsafe-eval'"))))
+    (is (str/includes? (#'middleware/content-security-policy false) "'unsafe-eval'"))
+    (is (= "script-src 'self' https://plausible.io; frame-ancestors 'none'"
+           (#'middleware/public-content-security-policy true)))))

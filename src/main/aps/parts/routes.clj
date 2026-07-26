@@ -91,12 +91,14 @@
    ;; - Proper HTML content-type and string conversion
 
    ;; A form is present on the homepage, so we apply CSRF protection
-   ["/" {:middleware [middleware/wrap-html-defaults
+   ["/" {:middleware [middleware/wrap-public-csp
+                      middleware/wrap-html-defaults
                       auth-mw/wrap-session-auth
                       middleware/wrap-html-response]
          :get        {:handler pages/home-page}}]
 
-   ["/playground" {:middleware [middleware/wrap-html-defaults
+   ["/playground" {:middleware [middleware/wrap-public-csp
+                                middleware/wrap-html-defaults
                                 middleware/wrap-html-response]
                    :get        {:handler pages/playground}}]
 
@@ -144,15 +146,18 @@
    ;; Legal documents — Privacy Policy, Terms of Service, DPA. Server-rendered
    ;; and public (no auth, no launch gate). Content is operator-supplied at
    ;; runtime (see aps.parts.legal); the repo ships only example templates.
-   ["/privacy" {:middleware [middleware/wrap-html-defaults
+   ["/privacy" {:middleware [middleware/wrap-public-csp
+                             middleware/wrap-html-defaults
                              middleware/wrap-html-response]}
     ["" {:get {:handler (legal/page "privacy")}}]
     ["/download" {:get {:handler (legal/download "privacy")}}]]
-   ["/terms" {:middleware [middleware/wrap-html-defaults
+   ["/terms" {:middleware [middleware/wrap-public-csp
+                           middleware/wrap-html-defaults
                            middleware/wrap-html-response]}
     ["" {:get {:handler (legal/page "terms")}}]
     ["/download" {:get {:handler (legal/download "terms")}}]]
-   ["/dpa" {:middleware [middleware/wrap-html-defaults
+   ["/dpa" {:middleware [middleware/wrap-public-csp
+                         middleware/wrap-html-defaults
                          middleware/wrap-html-response]}
     ["" {:get {:handler (legal/page "dpa")}}]
     ["/download" {:get {:handler (legal/download "dpa")}}]]

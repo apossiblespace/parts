@@ -105,9 +105,10 @@
         {:waitlist-count waitlist-count
          :cta            (list
                           [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
-                           {:role    "button"
-                            :href    "/app/signup"
-                            :onclick "plausible('Create Account Click', {props: {source: 'homepage-hero'}}); return true;"}
+                           {:role                  "button"
+                            :href                  "/app/signup"
+                            :data-analytics        "Create Account Click"
+                            :data-analytics-source "homepage-hero"}
                            "Create an account"]
                           [:a.btn.btn-lg {:role "button"
                                           :href "/playground"}

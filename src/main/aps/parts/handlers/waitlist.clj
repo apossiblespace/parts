@@ -5,7 +5,6 @@
    [aps.parts.views.partials :as partials]
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
-   [hiccup.util :refer [raw-string]]
    [hiccup2.core :refer [html]]
    [ring.util.response :as response]))
 
@@ -42,14 +41,12 @@
       (try
         (db/insert! :waitlist_signups {:email email})
         (mulog/log ::waitlist_signup :email email)
+        ;; No inline script (CSP): marketing.js sees the swapped-in
+        ;; data-counter-increment and bumps the visible counter.
         (-> (response/response
-             (html [:div.success
+             (html [:div.success {:data-counter-increment "true"}
                     [:div {:class "text-6xl mb-2"} "🎉"]
-                    [:p "Thank you for your interest in Parts! We'll be in touch soon."]
-                    [:script (raw-string
-                              "const element = document.getElementById('counter');
-                            const currentValue = parseInt(element.textContent) || 0;
-                            element.textContent = currentValue + 1;")]]))
+                    [:p "Thank you for your interest in Parts! We'll be in touch soon."]]))
             (response/status 201))
         (catch Exception _e
           (-> (response/response
