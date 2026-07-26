@@ -167,7 +167,7 @@ PARTS__DB__USER=$DB_USER
 PARTS__DB__PASSWORD=$DB_PASSWORD
 PARTS__SESSION__KEY=$SESSION_KEY
 PARTS__RENDER__FONT_DIR=$FONT_DIR
-JAVA_OPTS=-server -Xms256m -Xmx256m
+JAVA_OPTS=-server -Xms256m -Xmx256m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn
 EOF
     chown root:root "$ENV_FILE"
     chmod 600 "$ENV_FILE"

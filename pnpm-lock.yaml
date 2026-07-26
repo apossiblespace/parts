@@ -52,8 +52,8 @@ importers:
         specifier: ^4.2.4
         version: 4.2.4
       ws:
-        specifier: ^7.5.10
-        version: 7.5.10
+        specifier: ^8.18.0
+        version: 8.21.1
 
 packages:
 
@@ -1313,6 +1313,18 @@ packages:
     peerDependencies:
       bufferutil: ^4.0.1
       utf-8-validate: ^5.0.2
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.21.1:
+    resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
     peerDependenciesMeta:
       bufferutil:
         optional: true
@@ -2700,6 +2712,8 @@ snapshots:
       strip-ansi: 6.0.1
 
   ws@7.5.10: {}
+
+  ws@8.21.1: {}
 
   xtend@4.0.2: {}
 

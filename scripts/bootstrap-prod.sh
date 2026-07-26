@@ -57,7 +57,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 # Empty until content is pushed — until then the app serves the bundled examples.
 mkdir -p /var/lib/parts/legal
 chown "$ADMIN_USER:$APP_USER" /var/lib/parts/legal
-chmod 755 /var/lib/parts/legal
+chmod 750 /var/lib/parts/legal
 
 # PDF document fonts — the renderer requires Noto Sans CJK TC (see
 # ADR-0008): FOP renders glyphs missing from its font as a literal `#`,
@@ -136,7 +136,9 @@ PARTS__SESSION__KEY=$SESSION_KEY
 # PDF document fonts (Noto Sans CJK TC; see ADR-0008 and the runbook).
 PARTS__RENDER__FONT_DIR=/var/lib/parts/fonts
 
-JAVA_OPTS=-server -Xms512m -Xmx512m
+# slf4j at warn: it is the catch-all sink for chatty libs (JDBC, FOP) whose
+# INFO lines can embed query fragments; structured logging goes via mulog.
+JAVA_OPTS=-server -Xms512m -Xmx512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn
 
 # --- Optional: operator error-alert emails (stays off until all four are set;
 #     see docs/runbook.md "Error alerts"). On Hetzner use port 587 (25/465 blocked).
