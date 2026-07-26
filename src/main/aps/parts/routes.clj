@@ -114,8 +114,14 @@
                    :get        {:handler pages/app-shell}}]
 
    ;; Legacy map URLs now live under /app. Redirect existing bookmarks.
+   ;; The param is validated before it reaches the Location header — no
+   ;; unvetted client input in a response header.
    ["/maps/:id" {:get {:handler (fn [{{:keys [id]} :path-params}]
-                                  (response/redirect (str "/app/maps/" id)))}}]
+                                  (if (parse-uuid id)
+                                    (response/redirect (str "/app/maps/" id))
+                                    {:status  400
+                                     :headers {"Content-Type" "text/plain"}
+                                     :body    "Invalid map id"}))}}]
 
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 

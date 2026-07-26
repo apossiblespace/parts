@@ -60,8 +60,15 @@
             (recur (rest words) "" (conj lines word))
             (recur words "" (conj lines current))))))))
 
+(defn- drop-last-code-point
+  "`s` without its final Unicode code point — never splits a surrogate
+   pair, which would emit invalid XML and fail the user's own PDF export
+   on supplementary-plane characters (emoji, rare CJK)."
+  [^String s]
+  (subs s 0 (.offsetByCodePoints s (count s) -1)))
+
 (defn- truncate-with-ellipsis
-  "Shrink `text` one character at a time from the right until
+  "Shrink `text` one code point at a time from the right until
    `text + ellipsis` fits within `max-px`."
   [font text max-px]
   (loop [s text]
@@ -73,7 +80,7 @@
       (str s label-ellipsis)
 
       :else
-      (recur (subs s 0 (dec (count s)))))))
+      (recur (drop-last-code-point s)))))
 
 (defn wrap-capped
   "Greedy word-wrap `text` in `font` into at most `max-lines` lines of

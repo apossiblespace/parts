@@ -73,7 +73,7 @@
   (create-map [_this map-data]
     "Creates map by making POST request to /maps endpoint."
     (go
-      (o/debug "http-backend.create-map" "creating map" map-data)
+      (o/debug "http-backend.create-map" "creating map")
       (let [response (<! (http/POST "/maps" map-data))]
         (case (:status response)
           201 (:body response)
@@ -98,7 +98,9 @@
   (process-batched-changes [_this map-id batch]
     "Processes batched changes by making POST request to /maps/:id/changes endpoint."
     (go
-      (o/debug "http-backend.process-batch" "processing batch for map" map-id "changes:" batch)
+      ;; Count only — the batch carries labels/notes (clinical content).
+      (o/debug "http-backend.process-batch" "processing batch for map" map-id
+               "changes:" (count batch))
       (let [response (<! (http/POST (str "/maps/" map-id "/changes") batch))]
         (if (= 200 (:status response))
           (:body response)

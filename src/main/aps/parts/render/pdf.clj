@@ -18,7 +18,8 @@
    [com.brunobonacci.mulog :as mulog])
   (:import
    (java.io ByteArrayInputStream ByteArrayOutputStream StringReader)
-   (org.apache.batik.transcoder TranscoderInput TranscoderOutput)
+   (org.apache.batik.transcoder SVGAbstractTranscoder TranscoderInput
+                                TranscoderOutput)
    (org.apache.fop.configuration DefaultConfigurationBuilder)
    (org.apache.fop.svg PDFTranscoder)))
 
@@ -56,7 +57,12 @@
    ever makes it matter, the escape hatch is subclassing PDFTranscoder
    to retain a FontManager across calls."
   (doto (PDFTranscoder.)
-    (.configure (fop-configuration))))
+    (.configure (fop-configuration))
+    ;; Batik denies external resources by default; pin it explicitly so a
+    ;; library upgrade can't quietly start fetching URLs referenced from
+    ;; the (user-shaped) SVG.
+    (.addTranscodingHint SVGAbstractTranscoder/KEY_ALLOW_EXTERNAL_RESOURCES
+                         Boolean/FALSE)))
 
 (defn svg->pdf
   "Transcode an SVG document string to PDF bytes. Returns a `byte[]`.

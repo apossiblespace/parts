@@ -192,26 +192,32 @@
   (-> (or (l-config/get config :ratelimit/client-ip-header) "x-real-ip")
       cstr/lower-case))
 
-(def ^:private secret-key-substrings
-  #{"password" "secret" "token" "key"})
-
-(defn- secret-key?
-  "True if the key's name suggests it holds a secret value that should not
-   appear in logs (e.g. :db/password, :session/key)."
-  [k]
-  (when-let [n (some-> k name cstr/lower-case)]
-    (boolean (some #(cstr/includes? n %) secret-key-substrings))))
+(def ^:private printable-config-keys
+  "Config keys whose values may appear in the startup table. Everything
+   else prints <redacted>: a new key is treated as secret until deliberately
+   named here, instead of leaking until its name happens to match a
+   substring heuristic."
+  #{:env
+    :db/type :db/host :db/port :db/name :db/user :db/ssl
+    :http/host :http/port :http/protocol
+    :app/base-url
+    :legal/content-dir :render/font-dir
+    :repl/socket :repl/port :repl/host
+    :ratelimit/client-ip-header
+    :launch/launched?
+    :smtp/host :smtp/port
+    :alert/to :alert/from})
 
 (defn print-config-table
   "Print all accessed configuration keys, values, and sources as a table.
-   Values for keys matching `secret-key?` are redacted."
+   Values are redacted unless the key is in `printable-config-keys`."
   []
   (let [cached @(:values config)
         rows   (for [[k v] (sort-by key cached)]
                  {:key    k
-                  :value  (if (secret-key? k)
-                            "<redacted>"
-                            (pr-str (:val v)))
+                  :value  (if (contains? printable-config-keys k)
+                            (pr-str (:val v))
+                            "<redacted>")
                   :source (-> (:source v)
                               str
                               (cstr/replace #"^file:" "")

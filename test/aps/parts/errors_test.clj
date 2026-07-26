@@ -41,7 +41,9 @@
           request   (mock/request :get "/test")
           response  (app request)]
       (is (= 409 (:status response)))
-      (is (= {:error "A resource with this unique identifier already exists"} (:body response)))))
+      ;; Opaque on purpose: naming the cause would let client-chosen ids
+      ;; probe for existence.
+      (is (= {:error "The change conflicts with existing data"} (:body response)))))
 
   (testing "handles PostgreSQL check constraint violation (23514)"
     (let [exception (PSQLException. "check constraint failed" PSQLState/CHECK_VIOLATION)

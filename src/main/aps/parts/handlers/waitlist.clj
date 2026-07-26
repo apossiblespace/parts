@@ -1,5 +1,6 @@
 (ns aps.parts.handlers.waitlist
   (:require
+   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.db :as db]
    [aps.parts.views.partials :as partials]
    [clojure.string :as str]
@@ -9,14 +10,18 @@
    [ring.util.response :as response]))
 
 (defn- valid-email?
-  "Check if the email is valid"
+  "Shape check on a normalized address: bounded length (254 per RFC 5321),
+   no whitespace or control characters (which also excludes header-injection
+   newlines), one @ with a dotted domain. Full RFC validation is
+   deliberately not attempted."
   [email]
-  (re-matches #".+@.+\..+" email))
+  (and (<= (count email) 254)
+       (re-matches #"[^@\s\p{Cntrl}]+@[^@\s\p{Cntrl}]+\.[^@\s\p{Cntrl}]+" email)))
 
 (defn signup
   "Register email address in private beta waitlist"
   [request]
-  (let [email (get-in request [:form-params "email"])]
+  (let [email (some-> (get-in request [:form-params "email"]) normalize-email)]
     (cond
       (or (nil? email) (str/blank? email))
       (-> (response/response

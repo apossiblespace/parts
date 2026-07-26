@@ -99,11 +99,22 @@ Gosha
 -- 
 https://gosha.net")
 
+(defn- valid-recipient?
+  "One well-formed address, bounded, with no whitespace/control characters —
+   validated here so the message core is safe regardless of which caller
+   supplies the address."
+  [email]
+  (and (string? email)
+       (<= (count email) 254)
+       (some? (re-matches #"[^@\s\p{Cntrl}]+@[^@\s\p{Cntrl}]+\.[^@\s\p{Cntrl}]+" email))))
+
 (defn invite-message
   "The postal message map for an invite — the pure, testable core of
    `send-invitation-email!`. Plain text; the invite's magic link fills the
    [LINK] placeholder in the body."
   [{:keys [email magic-link]}]
+  (when-not (valid-recipient? email)
+    (throw (ex-info "Invalid invite recipient address" {:type :validation})))
   {:from    invite-from
    :to      email
    :subject invite-subject
