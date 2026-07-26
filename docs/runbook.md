@@ -228,9 +228,33 @@ scripts/restore-from-backup.sh ~/Downloads/parts_prod-<ts>.dump.age parts_restor
 ```
 
 **Append-only by design.** The backup credential on the box has `s3:ListBucket`
-+ `s3:PutObject` only — **no Delete**. A compromised server can add backups but
-cannot wipe, overwrite, or encrypt them (ransomware / tamper resistance). Keep
-it that way: never grant the box's key delete rights.
++ `s3:PutObject` only — **no Delete** (and no `GetObject`). A compromised server
+can add backups but cannot wipe, overwrite, read, or encrypt them (ransomware /
+tamper resistance). Keep it that way: never grant the box's key delete rights.
+
+**The key cannot read, so the upload must never read.** Because a `HEAD` is
+authorized as `GetObject`, any rclone operation that stats an object 403s.
+The backup therefore spools the encrypted dump to a temp file and uploads it
+with `rclone copyto --s3-no-check-bucket --s3-no-head --no-check-dest` — one
+known-size `PutObject`, no reads. Do **not** use `rclone rcat`: streaming with
+unknown length becomes a multipart upload whose metadata read-back fails, which
+is what made backups report failure nightly from 2026-07-22 (the objects landed
+and restored fine; only the exit code lied). Same reason `rclone touch` and a
+bare `copyto` fail: both stat first.
+
+**Failure alerting.** `parts-backup.service` (and `parts.service`) carry
+`OnFailure=parts-alert@%n.service`, a templated unit that mails the failing
+unit's last 40 journal lines via `/usr/local/bin/parts-alert` — which reuses
+the app's SMTP settings from `/etc/parts.env`, so alerting is configured in
+one place. Test it end to end with a unit that is guaranteed to fail:
+
+```sh
+systemd-run --unit=alert-selftest --property=OnFailure=parts-alert@%n.service /bin/false
+# an email titled "[parts] unit FAILED on <host>: alert-selftest.service" should arrive
+```
+
+If nothing arrives, check `journalctl -u parts-alert@*` — with SMTP unset the
+mailer exits 0 with "SMTP not configured", by the same rule as the app.
 
 **Standing check — verify the key really can't delete** (that property lives
 in the Scaleway console, not this repo, so re-verify at setup, after any key

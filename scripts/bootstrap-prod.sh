@@ -207,6 +207,9 @@ cat >/etc/systemd/system/$APP_NAME.service <<EOF
 [Unit]
 Description=$APP_NAME clojure app
 After=network.target postgresql.service
+# The app's own alerting can't report a boot failure (a crash-looping or
+# non-starting service never gets far enough to send mail).
+OnFailure=$APP_NAME-alert@%n.service
 
 [Service]
 User=$APP_USER
@@ -285,6 +288,64 @@ fi
 chown -R $BACKUP_USER:$BACKUP_USER /home/$BACKUP_USER/.config
 chmod 600 "$RCLONE_DIR/rclone.conf"
 
+# Operator alert mailer — reuses the app's SMTP credentials so there is one
+# place to configure alerting. Root-only (0700): it reads the env file's
+# SMTP password. Body on stdin, subject as \$1.
+cat >/usr/local/bin/$APP_NAME-alert <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+SUBJECT="\${1:?usage: $APP_NAME-alert <subject> (body on stdin)}"
+ENV_FILE=/etc/$APP_NAME.env
+
+# Read values individually rather than sourcing: the env file holds
+# unquoted values with spaces (JAVA_OPTS), which sourcing would execute.
+val() { grep -m1 "^\$1=" "\$ENV_FILE" 2>/dev/null | cut -d= -f2- || true; }
+
+HOST=\$(val PARTS__SMTP__HOST)
+USER=\$(val PARTS__SMTP__USER)
+PASS=\$(val PARTS__SMTP__PASSWORD)
+TO=\$(val PARTS__ALERT__TO)
+FROM=\$(val PARTS__ALERT__FROM)
+PORT=\$(val PARTS__SMTP__PORT)
+
+# Same rule as the app: alerting stays off until deliberately configured.
+if [[ -z "\$HOST" || -z "\$USER" || -z "\$PASS" || -z "\$TO" ]]; then
+    echo "SMTP not configured in \$ENV_FILE — no alert sent" >&2
+    exit 0
+fi
+
+FROM=\${FROM:-\$USER}
+PORT=\${PORT:-465}
+if [[ "\$PORT" == 587 ]]; then
+    URL="smtp://\$HOST:587"
+    TLS=(--ssl-reqd)          # STARTTLS
+else
+    URL="smtps://\$HOST:\$PORT"
+    TLS=()                    # implicit SSL
+fi
+
+{
+    printf 'From: %s\nTo: %s\nSubject: %s\n\n' "\$FROM" "\$TO" "\$SUBJECT"
+    cat
+} | curl --silent --show-error --url "\$URL" "\${TLS[@]}" \\
+      --user "\$USER:\$PASS" --mail-from "\$FROM" --mail-rcpt "\$TO" \\
+      --upload-file -
+EOF
+chmod 700 /usr/local/bin/$APP_NAME-alert
+
+# Templated failure notifier: any unit can opt in with
+# OnFailure=$APP_NAME-alert@%n.service — %n passes the failing unit's name,
+# whose recent journal lines become the mail body.
+cat >/etc/systemd/system/$APP_NAME-alert@.service <<EOF
+[Unit]
+Description=Email alert for failed unit %i
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'journalctl -u %i -n 40 --no-pager | /usr/local/bin/$APP_NAME-alert "[$APP_NAME] unit FAILED on \$(hostname -s): %i"'
+EOF
+
 # Backup script
 cat >/usr/local/bin/$APP_NAME-backup <<EOF
 #!/usr/bin/env bash
@@ -295,9 +356,19 @@ RECIPIENT_FILE="/etc/$APP_NAME/backup-recipient.age"
 TIMESTAMP="\$(date -u +%Y-%m-%dT%H%M%SZ)"
 FILENAME="${APP_NAME}_prod-\${TIMESTAMP}.dump.age"
 
+# Spool the encrypted dump, then upload it as one known-size PutObject.
+# The bucket key is write-only (ListBucket + PutObject, no GetObject), so
+# ANY read counts as a failure: rcat streams with unknown length, which
+# becomes a multipart upload whose metadata read-back 403s, and copyto
+# stats the destination first unless --no-check-dest. Only the plaintext
+# never touches disk — the spool file is already age-encrypted, 0600.
+TMP=\$(mktemp /tmp/$APP_NAME-backup.XXXXXX.age)
+trap 'rm -f "\$TMP"' EXIT
+
 pg_dump --format=custom --no-owner --no-privileges ${APP_NAME}_prod \\
-  | age --recipients-file "\$RECIPIENT_FILE" \\
-  | rclone rcat --s3-no-check-bucket --s3-no-head "\${BUCKET}/\${FILENAME}"
+  | age --recipients-file "\$RECIPIENT_FILE" >"\$TMP"
+rclone copyto --s3-no-check-bucket --s3-no-head --no-check-dest \\
+  "\$TMP" "\${BUCKET}/\${FILENAME}"
 
 echo "Uploaded \${BUCKET}/\${FILENAME}"
 EOF
@@ -309,6 +380,9 @@ cat >/etc/systemd/system/$APP_NAME-backup.service <<EOF
 Description=Daily encrypted postgres backup to Scaleway
 After=network-online.target postgresql.service
 Wants=network-online.target
+# A backup that fails silently is worse than no backup: five nights went
+# unnoticed before this existed.
+OnFailure=$APP_NAME-alert@%n.service
 
 [Service]
 Type=oneshot
