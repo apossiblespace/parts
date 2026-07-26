@@ -53,6 +53,36 @@
                                                      'USAGE') AS ok"]
                      {:builder-fn rs/as-unqualified-maps}))))))
 
+(deftest test-membership-confers-nothing-without-set-role
+  ;; Caught live on staging: a default (INHERIT TRUE) membership hands the
+  ;; member every deletion_role privilege passively, silently undoing the
+  ;; DELETE revoke. Provisioning grants WITH INHERIT FALSE; this probe
+  ;; mirrors that grant and pins both halves of the wanted semantics.
+  (jdbc/execute! db/datasource
+                 ["DO $$ BEGIN
+                     IF NOT EXISTS (SELECT 1 FROM pg_roles
+                                    WHERE rolname = 'app_shaped_probe') THEN
+                       CREATE ROLE app_shaped_probe NOLOGIN;
+                     END IF;
+                   END $$"])
+  (jdbc/execute! db/datasource
+                 ["GRANT deletion_role TO app_shaped_probe WITH INHERIT FALSE"])
+  (testing "membership alone does not confer DELETE"
+    (is (thrown-with-msg?
+         org.postgresql.util.PSQLException #"permission denied"
+         (jdbc/with-transaction [tx db/datasource]
+           (jdbc/execute! tx ["SET LOCAL ROLE app_shaped_probe"])
+           (jdbc/execute! tx ["DELETE FROM parts WHERE false"])))))
+  (testing "explicitly assuming deletion_role does — the purge's one path
+            (membership admitting SET ROLE for a non-superuser session is a
+            server-side property; verified on a live box, not provable from
+            this superuser test connection)"
+    (jdbc/with-transaction [tx db/datasource]
+      (jdbc/execute! tx ["SET LOCAL ROLE deletion_role"])
+      (is (zero? (::jdbc/update-count
+                  (jdbc/execute-one! tx ["DELETE FROM parts WHERE false"])))
+          "deletion_role's own grants carry the purge"))))
+
 (deftest test-delete-is-denied-without-the-role
   ;; A role holding no grants stands in for the post-revoke app role (the
   ;; test connection itself is a superuser and can't be denied anything).
