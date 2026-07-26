@@ -167,6 +167,9 @@ PARTS__DB__USER=$DB_USER
 PARTS__DB__PASSWORD=$DB_PASSWORD
 PARTS__SESSION__KEY=$SESSION_KEY
 PARTS__RENDER__FONT_DIR=$FONT_DIR
+# Per-instance nREPL socket — prod.edn's default path belongs to the prod
+# service; two instances must not race for one socket.
+PARTS__REPL__SOCKET=/run/$SERVICE/nrepl.sock
 JAVA_OPTS=-server -Xms256m -Xmx256m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn
 EOF
     chown root:root "$ENV_FILE"
@@ -187,6 +190,13 @@ if ! grep -q 'simpleLogger.defaultLogLevel' "$ENV_FILE"; then
     echo "✓ Appended slf4j defaultLogLevel=warn to JAVA_OPTS"
 fi
 
+# Instances provisioned before the unix-socket nREPL: give each its own
+# socket path once (prod.edn's default path belongs to the prod service).
+if ! grep -q '^PARTS__REPL__SOCKET=' "$ENV_FILE"; then
+    printf 'PARTS__REPL__SOCKET=/run/%s/nrepl.sock\n' "$SERVICE" >>"$ENV_FILE"
+    echo "✓ Appended PARTS__REPL__SOCKET to $ENV_FILE"
+fi
+
 # 4. app systemd unit — mirrors parts.service but with its own env file,
 # release symlink ($APP_DIR/current-$INSTANCE) and journal identifier.
 # The unit hardcodes nothing tunable: JAVA_OPTS (JVM flags), PARTS__ENV and
@@ -201,6 +211,9 @@ After=network.target postgresql.service
 User=$APP_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=$ENV_FILE
+# /run/$SERVICE for this instance's 0600 unix-socket nREPL
+RuntimeDirectory=$SERVICE
+RuntimeDirectoryMode=0750
 ExecStart=/usr/bin/java \$JAVA_OPTS -jar $APP_DIR/current-$INSTANCE
 Restart=on-failure
 RestartSec=5
