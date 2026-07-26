@@ -32,6 +32,13 @@
   (mulog/log ::initializing-database)
   (migratus/migrate migration-config))
 
+(defn migrate!
+  "`clojure -X:migrate` entry point. Lives here (not in the dev `repl`
+   namespace) so migrating needs no dev/test dependencies on the classpath
+   — CI runs it with production deps only."
+  [_opts]
+  (init-db))
+
 (defn ->uuid
   "Converts a string UUID to a java.util.UUID object if needed.
    If already a UUID object, returns it unchanged.

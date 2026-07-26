@@ -82,6 +82,10 @@
     cider/cider-nrepl             {:mvn/version "0.58.0"
                                    :exclusions  [org.clojure/clojuredocs]}
     ;;
+    ;; Test runner for the dev REPL's `repl` ns helpers (kaocha.repl/watch);
+    ;; the :test aliases carry their own copy
+    lambdaisland/kaocha           {:mvn/version "1.91.1392"}
+    ;;
     ;; Editor refactoring tools
     refactor-nrepl/refactor-nrepl {:mvn/version "3.11.0"}
     ;;
@@ -135,6 +139,7 @@
   {:deps      {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
    :main-opts ["-m" "antq.core"]}
 
-  ;; Run database migrations
+  ;; Run database migrations — production deps only (CI depends on this;
+  ;; the dev `repl` ns requires kaocha, which is a dev/test dependency)
   :migrate
-  {:exec-fn repl/db-migrate}}}
+  {:exec-fn aps.parts.db/migrate!}}}
