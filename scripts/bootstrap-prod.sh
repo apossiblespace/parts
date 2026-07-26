@@ -334,6 +334,19 @@ fi
 EOF
 chmod 700 /usr/local/bin/$APP_NAME-alert
 
+# Body of the failure notifier. A separate script because systemd does its
+# own quote parsing: an inline `bash -c '... "..." ...'` in ExecStart is
+# rejected as unbalanced quoting.
+cat >/usr/local/bin/$APP_NAME-alert-unit <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+UNIT="\${1:?usage: $APP_NAME-alert-unit <unit-name>}"
+journalctl -u "\$UNIT" -n 40 --no-pager \\
+  | /usr/local/bin/$APP_NAME-alert "[$APP_NAME] unit FAILED on \$(hostname -s): \$UNIT"
+EOF
+chmod 700 /usr/local/bin/$APP_NAME-alert-unit
+
 # Templated failure notifier: any unit can opt in with
 # OnFailure=$APP_NAME-alert@%n.service — %n passes the failing unit's name,
 # whose recent journal lines become the mail body.
@@ -343,7 +356,7 @@ Description=Email alert for failed unit %i
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'journalctl -u %i -n 40 --no-pager | /usr/local/bin/$APP_NAME-alert "[$APP_NAME] unit FAILED on \$(hostname -s): %i"'
+ExecStart=/usr/local/bin/$APP_NAME-alert-unit %i
 EOF
 
 # Backup script
