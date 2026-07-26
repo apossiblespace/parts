@@ -85,6 +85,33 @@ if [[ -n "$stale" ]]; then
 else
     echo "✓ no artifact older than ${MAX_AGE_DAYS} days (cutoff ${cutoff})"
 fi
+
+# 1b. FRESHNESS — the newest artifact must be recent. The age check above
+# only catches artifacts that LINGER; a job that stops uploading leaves a
+# bucket that quietly ages out to empty while passing every check. (Note
+# this would not have caught the 2026-07-22 incident, where uploads kept
+# landing and only the exit code was wrong — that one is the unit's
+# OnFailure alert's job. The two checks cover different failures.)
+MAX_STALENESS_HOURS=48
+if [[ "$count" -gt 0 ]]; then
+    newest="$(printf '%s\n' "$all" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z' | sort | tail -1 || true)"
+    if [[ -z "$newest" ]]; then
+        echo "⚠ could not read a timestamp from any filename — freshness unverified" >&2
+    else
+        if date --version >/dev/null 2>&1; then
+            fresh_cutoff="$(date -u -d "${MAX_STALENESS_HOURS} hours ago" +%Y-%m-%dT%H%M%SZ)"
+        else
+            fresh_cutoff="$(date -u -v-"${MAX_STALENESS_HOURS}"H +%Y-%m-%dT%H%M%SZ)"
+        fi
+        if (( 10#$(printf '%s' "$newest" | tr -dc 0-9) < 10#$(printf '%s' "$fresh_cutoff" | tr -dc 0-9) )); then
+            echo "✗ FAIL: newest backup is ${newest}, older than ${MAX_STALENESS_HOURS}h — backups have STOPPED" >&2
+            echo "  check: systemctl status parts-backup.service parts-backup.timer" >&2
+            fail=1
+        else
+            echo "✓ newest backup ${newest} is within ${MAX_STALENESS_HOURS}h"
+        fi
+    fi
+fi
 [[ -n "$unknown" ]] && { echo "⚠ files whose age couldn't be read from the name:" >&2; printf '%s' "$unknown" >&2; }
 
 # 2. Versioning must be off (best-effort: needs GetBucketVersioning permission /
