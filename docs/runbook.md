@@ -510,7 +510,10 @@ does. That invariant is enforced in three layers:
 
 1. **Provisioning** (`bootstrap-prod.sh` / `add-instance.sh`, as the
    postgres superuser): creates `deletion_role` (NOLOGIN) and grants the app
-   role membership. Must pre-exist before first boot — the app role holds
+   role membership **`WITH INHERIT FALSE`** — an inheriting membership hands
+   the app role every deletion_role privilege passively, silently undoing
+   the revoke (found live on staging; a re-grant updates the option in
+   place). Must pre-exist before first boot — the app role holds
    `NOCREATEROLE`.
 2. **Migration `20260726000000`** (as the app role): grants `deletion_role`
    everything the purge touches and `REVOKE DELETE ... FROM CURRENT_USER` on
