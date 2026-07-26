@@ -22,7 +22,9 @@
 
 (def postgres-sql-state-errors
   "A map of PostgreSQL SQL state codes to user-friendly error messages."
-  {"23505" "A resource with this unique identifier already exists" ; unique violation
+  ;; Deliberately vague on unique violations: naming the cause ("this id
+  ;; already exists") would let client-chosen ids probe for existence.
+  {"23505" "The change conflicts with existing data" ; unique violation
    "23514" "The provided data does not meet the required constraints" ; check constraint
    "23502" "A required field was missing" ; not null violation
    "23503" "The referenced resource does not exist"}) ; foreign key violation
@@ -87,6 +89,10 @@
 
      :not-found
      (exception-handler "Resource not found" 404)
+
+     ;; db/->uuid on a malformed id — client input, not a server fault.
+     :invalid-uuid
+     (exception-handler "Invalid identifier" 400)
 
      ;; Optimistic-lock failure in the bitemporal write path: the entity was
      ;; superseded by a concurrent change between read and write.

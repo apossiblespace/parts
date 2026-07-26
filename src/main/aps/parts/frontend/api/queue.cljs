@@ -59,7 +59,11 @@
       (when-let [backend (storage-registry/get-backend)]
         (rf/dispatch [:save-status/flush-started])
         (let [response (<! (process-batched-changes backend map-id batch))]
-          (o/debug "queue.batch-response" "batch update response" response)
+          ;; Ids/counts only: the response echoes entity content, which must
+          ;; not reach the console even at debug level.
+          (o/debug "queue.batch-response" "batch done"
+                   {:success (:success response)
+                    :results (count (:results response))})
           (rf/dispatch [:save-status/request-done])
           ;; A failed batch was rolled back server-side, so the canvas no
           ;; longer matches what's stored — that must never be silent.

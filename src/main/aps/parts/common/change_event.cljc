@@ -36,38 +36,47 @@
 ;; `:create` requires the entity's mandatory attributes; `:update` is any
 ;; non-empty subset; `:remove` carries nothing.
 
-(def ^:private forbidden-data-keys
-  "Keys that belong to the envelope (`:id`) or the batch (`:map_id`) and
-   must never appear in `:data`."
-  #{:id :map_id})
+(def ^:private part-attr-keys
+  "The complete client-writable attribute surface per entity. `s/keys` is
+   open — without this closure a future column (or a server-owned
+   audit/temporal one) would ride through `:data` into the update path as
+   a mass-assignable column. Anything outside the set is rejected."
+  #{:type :label :position_x :position_y :description :width :height
+    :notes :body_location})
 
-(defn- attribute-map?
-  "True when `m` carries only entity attributes — no envelope/batch keys."
-  [m]
-  (not-any? forbidden-data-keys (keys m)))
+(def ^:private relationship-attr-keys
+  #{:type :source_id :target_id :notes :intensity})
+
+(defn- attrs-only
+  "Predicate: `m`'s keys all belong to `allowed` — closing the otherwise
+   open `s/keys` specs (which also excludes the envelope's `:id`, the
+   batch's `:map_id`, and every server-owned column)."
+  [allowed]
+  (fn [m] (every? allowed (keys m))))
 
 (s/def ::part-create-data
   (s/and (s/keys :req-un [::part/type ::part/label ::part/position_x ::part/position_y]
                  :opt-un [::part/description ::part/width ::part/height
                           ::part/notes ::part/body_location])
-         attribute-map?))
+         (attrs-only part-attr-keys)))
 
 (s/def ::part-update-data
   (s/and (s/keys :opt-un [::part/type ::part/label ::part/position_x ::part/position_y
                           ::part/description ::part/width ::part/height
                           ::part/notes ::part/body_location])
-         attribute-map?
+         (attrs-only part-attr-keys)
          seq))
 
 (s/def ::relationship-create-data
   (s/and (s/keys :req-un [::relationship/type ::relationship/source_id ::relationship/target_id]
-                 :opt-un [::relationship/notes])
-         attribute-map?))
+                 :opt-un [::relationship/notes ::relationship/intensity])
+         (attrs-only relationship-attr-keys)))
 
 (s/def ::relationship-update-data
   (s/and (s/keys :opt-un [::relationship/type ::relationship/source_id
-                          ::relationship/target_id ::relationship/notes])
-         attribute-map?
+                          ::relationship/target_id ::relationship/notes
+                          ::relationship/intensity])
+         (attrs-only relationship-attr-keys)
          seq))
 
 (s/def ::remove-data (s/and map? empty?))

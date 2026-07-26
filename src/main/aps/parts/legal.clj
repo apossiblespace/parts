@@ -60,11 +60,14 @@
 (defn pdf-file
   "java.io.File for the operator's `<slug>.pdf` in the content dir if present,
    else nil. PDFs are operator artifacts only — there is no bundled-example
-   fallback, so a fresh self-host has no PDF and the download link is hidden."
+   fallback, so a fresh self-host has no PDF and the download link is hidden.
+   The slug is checked against the document allowlist here, not only at the
+   call sites, so no future caller can turn it into a path probe."
   [slug]
-  (let [dir  (conf/legal-content-dir)
-        file (when dir (io/file dir (str slug ".pdf")))]
-    (when (and file (.exists ^File file)) file)))
+  (when (contains? documents slug)
+    (let [dir  (conf/legal-content-dir)
+          file (when dir (io/file dir (str slug ".pdf")))]
+      (when (and file (.exists ^File file)) file))))
 
 (defn document
   "The loaded legal document for `slug`, or nil if the slug is unknown or no

@@ -98,7 +98,11 @@
     (case route-name
       ::router/maps-list ($ maps-list-route)
       ::router/account   ($ account-route)
-      ::router/map       ($ map-route {:map-id (:id path-params)})
+      ;; The :id is URL input — validate before it feeds API URLs; a
+      ;; malformed one falls back to the list rather than a broken route.
+      ::router/map       (if (parse-uuid (:id path-params))
+                           ($ map-route {:map-id (:id path-params)})
+                           ($ maps-list-route))
       ;; No match yet (initial render before the router fires) — show
       ;; nothing rather than flashing wrong content.
       nil)))
