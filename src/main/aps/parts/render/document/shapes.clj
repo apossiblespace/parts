@@ -9,6 +9,7 @@
    100×100 box without transform math."
   (:require
    [aps.parts.common.constants :as c]
+   [aps.parts.common.geometry :as geometry]
    [clojure.java.io :as io]
    [clojure.string :as str]))
 
@@ -54,10 +55,11 @@
   [parts]
   (if (empty? parts)
     default-viewbox
-    (let [xs    (map :position_x parts)
-          ys    (map :position_y parts)
-          rxs   (map #(+ (:position_x %) (or (:width  %) 100)) parts)
-          rys   (map #(+ (:position_y %) (or (:height %) 100)) parts)
+    (let [rects (map geometry/part-rect parts)
+          xs    (map :x rects)
+          ys    (map :y rects)
+          rxs   (map #(+ (:x %) (:width %)) rects)
+          rys   (map #(+ (:y %) (:height %)) rects)
           min-x (- (apply min xs)  viewbox-padding)
           min-y (- (apply min ys)  viewbox-padding)
           max-x (+ (apply max rxs) viewbox-padding)
@@ -69,9 +71,10 @@
    rectangle. Uses `xlink:href` (SVG 1.1) — Apache FOP / Batik don't
    resolve the SVG-2 `href` form, and browsers still accept the
    prefixed one."
-  [{:keys [type position_x position_y width height]}]
-  [:use {xlink-href (str "#part-" type)
-         :x         position_x
-         :y         position_y
-         :width     (or width  100)
-         :height    (or height 100)}])
+  [{:keys [type] :as part}]
+  (let [{:keys [x y width height]} (geometry/part-rect part)]
+    [:use {xlink-href (str "#part-" type)
+           :x         x
+           :y         y
+           :width     width
+           :height    height}]))

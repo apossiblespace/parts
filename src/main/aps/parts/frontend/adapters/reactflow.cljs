@@ -29,35 +29,35 @@
      `:session-badges?` — a single-Session Map can have an activation."
   ([part] (part->node part nil nil))
   ([part selected-ids] (part->node part selected-ids nil))
-  ([{:keys [id type label notes position_x position_y width height
-            first_appeared_ordinal]}
+  ([{:keys [id type label notes first_appeared_ordinal] :as part}
     selected-ids {:keys [resizable? session-badges? viewed-ordinal
                          activated-part-id activation-trigger]}]
-   #js {:id       id
-        :position #js {:x position_x :y position_y}
-        :selected (when selected-ids (contains? selected-ids id))
-        :width    (or width 100)
-        :height   (or height 100)
-        ;; `adoptUserNodes` re-seeds internals.measured from the user
-        ;; node on EVERY nodes-prop change; without this the node reads
-        ;; as unmeasured for a beat each time, unmounting every floating
-        ;; edge during the Time-travel glide's per-frame updates.
-        :measured #js {:width  (or width 100)
-                       :height (or height 100)}
-        :data     (let [activated? (= id activated-part-id)]
-                    #js {:label             label
-                         :type              (name type)
-                         :notes             notes
-                         :resizable         (boolean resizable?)
-                         :firstAppeared     (when session-badges?
-                                              first_appeared_ordinal)
-                         :recent            (boolean
-                                             (and session-badges?
-                                                  (recent? first_appeared_ordinal
-                                                           viewed-ordinal)))
-                         :activated         activated?
-                         :activationTrigger (when activated?
-                                              activation-trigger)})}))
+   (let [{:keys [x y width height]} (geometry/part-rect part)]
+     #js {:id       id
+          :position #js {:x x :y y}
+          :selected (when selected-ids (contains? selected-ids id))
+          :width    width
+          :height   height
+          ;; `adoptUserNodes` re-seeds internals.measured from the user
+          ;; node on EVERY nodes-prop change; without this the node reads
+          ;; as unmeasured for a beat each time, unmounting every floating
+          ;; edge during the Time-travel glide's per-frame updates.
+          :measured #js {:width  width
+                         :height height}
+          :data     (let [activated? (= id activated-part-id)]
+                      #js {:label             label
+                           :type              (name type)
+                           :notes             notes
+                           :resizable         (boolean resizable?)
+                           :firstAppeared     (when session-badges?
+                                                first_appeared_ordinal)
+                           :recent            (boolean
+                                               (and session-badges?
+                                                    (recent? first_appeared_ordinal
+                                                             viewed-ordinal)))
+                           :activated         activated?
+                           :activationTrigger (when activated?
+                                                activation-trigger)})})))
 
 (defn parts->nodes
   "Convert a sequence of Parts to an Array of ReactFlow nodes.

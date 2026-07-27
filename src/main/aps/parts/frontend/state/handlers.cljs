@@ -105,6 +105,17 @@
                       (conj current-ids edge-id))
                     (filterv #(not= edge-id %) current-ids)))))))
 
+;; Replace semantics in one dispatch, for gestures that compute a whole
+;; selection at once (the touch marquee commit). The toggles above stay
+;; for incremental paths — clicks and the desktop marquee's buffered
+;; per-element emissions.
+(rf/reg-event-db
+ :selection/set
+ (fn [db [_ {:keys [node-ids edge-ids]}]]
+   (-> db
+       (assoc-in [:ui :selected-node-ids] (vec node-ids))
+       (assoc-in [:ui :selected-edge-ids] (vec edge-ids)))))
+
 (rf/reg-event-db
  :ui/tool-mode-set
  (fn [db [_ mode]]

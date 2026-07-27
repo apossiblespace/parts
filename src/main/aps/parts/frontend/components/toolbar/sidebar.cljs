@@ -32,7 +32,10 @@
         has-session-card                              (some? the-sessions)
         [show-waitlist-modal set-show-waitlist-modal] (use-state false)]
     (when (or has-demo-cta has-selection has-session-card)
-      ($ :div {:class "sidebar max-h-[calc(100vh-200px)] flex flex-col rounded-sm border-base-300 border bg-base-100 shadow-sm"}
+      ;; dvh, not vh: on iOS Safari 100vh overshoots the visible viewport
+      ;; (see .map-view in main.css), which would let the sidebar run
+      ;; behind the browser chrome.
+      ($ :div {:class "sidebar max-h-[calc(100dvh-200px)] flex flex-col rounded-sm border-base-300 border bg-base-100 shadow-sm"}
          (when has-demo-cta
            ($ :div {:class "p-2 space-y-2"}
               (if launched

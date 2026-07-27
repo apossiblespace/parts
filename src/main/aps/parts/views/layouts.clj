@@ -13,7 +13,7 @@
   (let [options (merge default-options options)]
     (html
      (raw "<!DOCTYPE html>")
-     [:html {:lang "en"}
+     [:html {:lang "en" :class (:html-class options)}
       (partials/head options)
       [:body.font-sans.bg-gray-50.text-gray-900
        content
@@ -38,6 +38,11 @@
         (partials/document-footer)))
 
 (defn fullscreen
-  "Full-screen layout with no chrome (the SPA shell, invite pages)."
+  "Full-screen layout with no chrome (the SPA shell, invite pages).
+   Tags the html element as the app shell so app-only adaptations
+   (touch-device scaling, tooltip suppression, edge-to-edge viewport)
+   can target it without leaking into other layouts. Callers that are
+   content pages rather than the canvas app — the invite pages — pass
+   `:html-class nil` to opt out."
   [options & content]
-  (page options content))
+  (page (merge {:html-class "app"} options) content))

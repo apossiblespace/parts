@@ -7,6 +7,7 @@
                            Plus Spline Undo2]]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
+   [aps.parts.common.models.relationship :as relationship]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
@@ -45,8 +46,12 @@
 ;;   relationship-type control — a persistent type selector: always
 ;;   exactly one type selected; every drawn edge gets that type.
 (def ^:private mode-tools
-  [{:mode :select :label "Select" :shortcut "V" :icon MousePointer2}
-   {:mode :hand :label "Hand" :shortcut "H" :icon Hand}])
+  ;; Filtered by the toolbar's palette policy: on touch-primary devices
+  ;; this is empty — no persistent-tool buttons at all (see
+  ;; `toolbar/persistent-tools`).
+  (filterv (comp (set (toolbar/persistent-tools)) :mode)
+           [{:mode :select :label "Select" :shortcut "V" :icon MousePointer2}
+            {:mode :hand :label "Hand" :shortcut "H" :icon Hand}]))
 
 (defn- indefinite-article [word]
   (if (re-find #"(?i)^[aeiou]" word) "an" "a"))
@@ -88,13 +93,17 @@
 
 (defn- plural [n one many] (if (= 1 n) one many))
 
+(defn- point->flow-position
+  "A client-coordinate `{:x :y}` point in Map (flow) coordinates."
+  [^js rf-instance {:keys [x y]}]
+  (let [p (.screenToFlowPosition rf-instance #js {:x x :y y})]
+    {:x (.-x p) :y (.-y p)}))
+
 (defn- event->flow-position
   "The pointer event's position in Map (flow) coordinates."
   [^js rf-instance ^js event]
-  (let [p (.screenToFlowPosition rf-instance
-                                 #js {:x (.-clientX event)
-                                      :y (.-clientY event)})]
-    {:x (.-x p) :y (.-y p)}))
+  (point->flow-position rf-instance
+                        {:x (.-clientX event) :y (.-clientY event)}))
 
 (defn- delete-prompt
   "Given a non-nil pending-deletes map of `{:parts #{ids} :relationships #{ids}}`,
@@ -521,12 +530,33 @@
         ;; load and one is active; demo Maps are always true.
         editable?             (uix.rf/use-subscribe [:canvas/editable?])
 
+        ;; What a drag means under the active tool (ADR-0015) — feeds the
+        ;; ReactFlow interaction props and the touch-marquee gate below.
+        interaction           (toolbar/tool-interaction tool-mode editable?)
+
         ;; Render-only mirror of the marquee buffer below: nil when no
         ;; marquee is active. React state (not re-frame) so each update
         ;; flushes before the next mousemove — the live highlight stays
         ;; in lockstep with ReactFlow's select emissions.
         [marquee-overlay
          set-marquee-overlay] (use-state nil)
+
+        ;; Touch long-press marquee (task-013.03): render mirror of the
+        ;; touch-hold ref below — `{:origin :rect :part-ids :dragging?}`
+        ;; in client coords while a marquee is active, nil otherwise.
+        ;; Declared up here because the node building reads :part-ids
+        ;; for the live selection preview.
+        touch-hold            (use-ref nil)
+        touch-hold-timer      (use-ref nil)
+        touch-view-origin     (use-ref nil)
+        map-view-ref          (use-ref nil)
+        ;; A stationary armed hold synthesizes a click on lift (iOS) —
+        ;; without this flag that click would reach on-pane-click and,
+        ;; with a creation tool armed, mint an unintended permanent
+        ;; Part on top of the marquee commit.
+        suppress-pane-click   (use-ref false)
+        [touch-marquee
+         set-touch-marquee]   (use-state nil)
 
         ;; Session-switch glide: tween the Parts (positions, sizes) and
         ;; Relationships (intensity) that persist across the switch
@@ -563,10 +593,19 @@
 
         nodes                 (adapter/parts->nodes
                                shown-parts
-                               (if marquee-overlay
+                               (cond
+                                 marquee-overlay
                                  (toolbar/marquee-preview-ids
                                   selected-node-ids (:parts marquee-overlay))
-                                 selected-node-ids)
+
+                                 ;; Touch marquee mid-drag: preview the
+                                 ;; replace-selection it will commit, so
+                                 ;; Parts light up as the rect reaches
+                                 ;; them — desktop parity.
+                                 touch-marquee
+                                 (:part-ids touch-marquee)
+
+                                 :else selected-node-ids)
                                {:resizable?         (toolbar/resize-armed?
                                                      tool-mode
                                                      (count selected-node-ids)
@@ -740,6 +779,127 @@
         ;; bust that memo — it reads through this ref instead.
         map-content           (use-ref nil)
 
+        ;; -- Touch long-press marquee (task-013.03) -------------------
+        ;; The pure machine lives in state.toolbar (marquee-hold-*);
+        ;; this component owns the timer, the pointer events, the d3-pan
+        ;; freeze, and the selection commit. Points are client
+        ;; coordinates; the overlay subtracts the canvas origin, and
+        ;; hit-testing converts to flow coordinates.
+        ;;
+        ;; touch-hit is the synchronous copy of the per-move hit-test
+        ;; (`{:flow-rect :part-ids}`): the commit reads it back instead
+        ;; of re-deriving, so preview and commit cannot diverge.
+        touch-hit             (use-ref nil)
+
+        touch-hold-reset!     (use-callback
+                               (fn []
+                                 (some-> ^js @touch-hold-timer js/clearTimeout)
+                                 (reset! touch-hold-timer nil)
+                                 (reset! touch-hold nil)
+                                 (reset! touch-hit nil)
+                                 (set-touch-marquee nil))
+                               [])
+
+        touch-hold-mirror!    (use-callback
+                               (fn [state]
+                                 (reset! touch-hold state)
+                                 (let [rect (toolbar/marquee-hold-rect state)
+                                       hit  (when rect
+                                              (let [flow-rect (geometry/corners->rect
+                                                               (point->flow-position rf-instance (:origin state))
+                                                               (point->flow-position rf-instance (:current state)))
+                                                    part-ids  (geometry/marquee-hit-part-ids
+                                                               (:parts @map-content) flow-rect)
+                                                    prev      (:part-ids @touch-hit)]
+                                                {:flow-rect flow-rect
+                                                 ;; Keep the previous set's identity when the
+                                                 ;; hits haven't changed — downstream equality
+                                                 ;; checks stay cheap.
+                                                 :part-ids  (if (= part-ids prev) prev part-ids)}))]
+                                   (reset! touch-hit hit)
+                                   (set-touch-marquee
+                                    (when rect
+                                      ;; Edges are deliberately not previewed —
+                                      ;; they wait for the commit, same as the
+                                      ;; desktop marquee.
+                                      {:origin    (:origin state)
+                                       :rect      rect
+                                       :dragging? (toolbar/marquee-hold-dragging? state)
+                                       :part-ids  (:part-ids hit)}))))
+                               [rf-instance])
+
+        on-canvas-pointer-down
+        (fn [^js e]
+          ;; Any new pointer begins a new click cycle: a suppression
+          ;; left by a gesture that never synthesized its click must
+          ;; not swallow this one.
+          (reset! suppress-pane-click false)
+          (when (and (:long-press-marquee interaction)
+                     (= "touch" (.-pointerType e))
+                     (.-isPrimary e)
+                     (.contains (.. e -target -classList) "react-flow__pane"))
+            (let [r (.getBoundingClientRect (.-currentTarget e))]
+              (reset! touch-view-origin {:left (.-left r) :top (.-top r)}))
+            (touch-hold-mirror!
+             (toolbar/marquee-hold-begin {:x (.-clientX e) :y (.-clientY e)}
+                                         (.-pointerId e)))
+            (reset! touch-hold-timer
+                    (js/setTimeout
+                     #(some-> (toolbar/marquee-hold-arm @touch-hold)
+                              touch-hold-mirror!)
+                     toolbar/marquee-hold-ms))))
+
+        on-canvas-pointer-move
+        (fn [^js e]
+          (when (toolbar/marquee-hold-owns? @touch-hold (.-pointerId e))
+            (if-let [state' (toolbar/marquee-hold-move
+                             @touch-hold
+                             {:x (.-clientX e) :y (.-clientY e)})]
+              (touch-hold-mirror! state')
+              ;; Moved past the slop: that drag is the pan, which has
+              ;; been running underneath all along — just stand down.
+              (touch-hold-reset!))))
+
+        on-canvas-pointer-up
+        (fn [^js e]
+          (let [state @touch-hold]
+            (when (toolbar/marquee-hold-owns? state (.-pointerId e))
+              (when (= :active (:phase state))
+                ;; Replace, not extend — the outcome a desktop marquee
+                ;; commits, so both input worlds agree on what a marquee
+                ;; means. The edge test runs at gesture end like the
+                ;; desktop one; dispatch-sync for the same no-blink
+                ;; reason as on-selection-end below.
+                (let [{:keys [flow-rect part-ids]}  @touch-hit
+                      {:keys [parts relationships]} @map-content]
+                  (rf/dispatch-sync
+                   [:selection/set
+                    {:node-ids part-ids
+                     :edge-ids (geometry/marquee-hit-relationship-ids
+                                parts relationships flow-rect)}])
+                  (reset! suppress-pane-click true)))
+              (touch-hold-reset!))))
+
+        on-canvas-pointer-cancel
+        (fn [^js e]
+          (when (toolbar/marquee-hold-owns? @touch-hold (.-pointerId e))
+            (touch-hold-reset!)))
+
+        ;; ReactFlow previews and snaps to any handle unless told
+        ;; otherwise — including the source Part's own ring, which the
+        ;; model then rejects (`can-connect?` blocks self-loops and
+        ;; duplicates). Feeding it the real rule keeps the preview from
+        ;; promising a connection the commit will silently drop.
+        is-valid-connection   (use-callback
+                               (fn [^js connection]
+                                 (let [{:keys [source_id target_id]}
+                                       (adapter/translate-connect connection)]
+                                   (relationship/can-connect?
+                                    (:relationships @map-content)
+                                    source_id
+                                    target_id)))
+                               [])
+
         on-selection-start    (use-callback
                                ;; The rect's start corner is tracked in the
                                ;; buffer because ReactFlow nulls its own
@@ -780,17 +940,21 @@
 
         on-pane-click         (use-callback
                                (fn [^js event]
-                                 (when-let [part-type (add-mode->part-type tool-mode)]
-                                   (let [{:keys [x y]} (event->flow-position
-                                                        rf-instance event)]
-                                     (o/track "Part created" {:type part-type :demo demo})
-                                     (rf/dispatch [:map/part-create
-                                                   {:type       part-type
-                                                    :position_x x
-                                                    :position_y y}])
-                                     (set-tool-mode
-                                      (toolbar/tool-mode-after-create
-                                       tool-mode (.-shiftKey event))))))
+                                 (if @suppress-pane-click
+                                   ;; The click a stationary armed hold
+                                   ;; synthesized on lift — consume it.
+                                   (reset! suppress-pane-click false)
+                                   (when-let [part-type (add-mode->part-type tool-mode)]
+                                     (let [{:keys [x y]} (event->flow-position
+                                                          rf-instance event)]
+                                       (o/track "Part created" {:type part-type :demo demo})
+                                       (rf/dispatch [:map/part-create
+                                                     {:type       part-type
+                                                      :position_x x
+                                                      :position_y y}])
+                                       (set-tool-mode
+                                        (toolbar/tool-mode-after-create
+                                         tool-mode (.-shiftKey event)))))))
                                [tool-mode rf-instance demo set-tool-mode])]
 
     (use-effect
@@ -798,6 +962,50 @@
        (reset! map-content {:parts parts :relationships relationships})
        js/undefined)
      [parts relationships])
+
+    ;; While the touch marquee is active the viewport must hold still,
+    ;; and d3-zoom pans on TOUCH events. Touch and pointer events are
+    ;; separate streams: a capture-phase listener on the map-view
+    ;; (ancestor of d3's pane) starves d3's pan without disturbing the
+    ;; pointer events the marquee rides on. Scoped twice on purpose —
+    ;; to the canvas element rather than the document, and to targets
+    ;; inside the pane — so a second finger on the sidebar or a modal
+    ;; keeps its normal touch behaviour. passive false so
+    ;; preventDefault also silences native fallback gestures.
+    (use-effect
+     (fn []
+       (let [el    ^js @map-view-ref
+             block (fn [^js e]
+                     (when (and (= :active (:phase @touch-hold))
+                                (some-> (.-target e)
+                                        (.closest ".react-flow__pane")))
+                       (.stopPropagation e)
+                       (.preventDefault e)))]
+         (.addEventListener el "touchmove" block
+                            #js {:capture true :passive false})
+         (fn []
+           (.removeEventListener el "touchmove" block
+                                 #js {:capture true}))))
+     [])
+
+    ;; A pending hold timer must not outlive the component: unmounting
+    ;; mid-hold would otherwise fire a state update on a dead component.
+    ;; The reset callback is identity-stable, so it IS the cleanup fn.
+    (use-effect
+     (fn [] touch-hold-reset!)
+     [touch-hold-reset!])
+
+    ;; A tool change revokes an in-flight hold. Only pointer-down checks
+    ;; the :long-press-marquee grant; without this, a hold begun under
+    ;; Select would keep running after the tool flipped (palette tap
+    ;; with a second finger, or a hardware-keyboard C) and commit a
+    ;; selection under a tool whose drag means something else.
+    (use-effect
+     (fn []
+       (when (and @touch-hold (not (:long-press-marquee interaction)))
+         (touch-hold-reset!))
+       js/undefined)
+     [interaction touch-hold-reset!])
 
     (use-effect
      (fn []
@@ -960,89 +1168,102 @@
                          :orient       "auto-start-reverse"}
                 ($ :path {:d    "M 0 0 L 10 5 L 0 10 z"
                           :fill "context-stroke"}))))
-       ($ :div {:class (str "map-view"
-                            (when minimal " minimal")
-                            (when time-travelling? " time-travelling")
-                            " mode-" (name tool-mode))}
+       ($ :div {:ref               map-view-ref
+                :class             (str "map-view"
+                                        (when minimal " minimal")
+                                        (when time-travelling? " time-travelling")
+                                        " mode-" (name tool-mode))
+                ;; The touch long-press marquee listens here, above
+                ;; ReactFlow, so the pane stays untouched; the handlers
+                ;; no-op unless the active tool grants :long-press-marquee.
+                :on-pointer-down   on-canvas-pointer-down
+                :on-pointer-move   on-canvas-pointer-move
+                :on-pointer-up     on-canvas-pointer-up
+                :on-pointer-cancel on-canvas-pointer-cancel}
           ;; ⌘/Ctrl-scroll zoom rides on a ReactFlow default not visible
           ;; below (`zoomActivationKeyCode`, converting `panOnScroll`).
           ;; Space-drag is NOT ReactFlow's: `panActivationKeyCode` is
           ;; disabled in favour of the spring-loaded Hand hold (keydown
           ;; effect above), so holding Space is the real Hand tool —
           ;; cursor, palette light, nothing draggable — not a pan filter.
-          (let [interaction (toolbar/tool-interaction tool-mode editable?)]
-            ($ ReactFlow {:nodes                   nodes
-                          :edges                   edges
-                          :onNodesChange           on-nodes-change
-                          :onEdgesChange           on-edges-change
-                          :onConnect               on-connect
-                          :onConnectEnd            on-connect-end
-                          ;; Connecting is drag-only; RF's click-connect
-                          ;; can't render a preview line and reads as
-                          ;; dead clicks.
-                          :connectOnClick          false
-                          ;; A connection only starts after this much
-                          ;; pointer travel, so a plain click on a Part
-                          ;; can't mint a (permanent, bitemporal)
-                          ;; self-loop; deliberate out-and-back self-loop
-                          ;; drags exceed it on the way out.
-                          :connectionDragThreshold 8
-                          ;; Parts stay selectable read-only, so the
-                          ;; delete key must go too — else Backspace
-                          ;; opens a confirm modal for a delete the
-                          ;; state layer then drops.
-                          :deleteKeyCode           (if editable?
-                                                     js/undefined
-                                                     nil)
-                          :onPaneClick             on-pane-click
-                          :onSelectionStart        on-selection-start
-                          :onSelectionEnd          on-selection-end
-                          :nodeTypes               node-types
-                          :edgeTypes               edge-types
-                          :connectionLineComponent PartsConnectionLine
-                          :panOnDrag               (if (true? (:pan-on-drag interaction))
-                                                     true
-                                                     middle-mouse-pan-buttons)
-                          :selectionOnDrag         (:selection-on-drag interaction)
-                          :nodesDraggable          (:nodes-draggable interaction)
-                          :elementsSelectable      (:elements-selectable interaction)
-                          :nodesConnectable        (:nodes-connectable interaction)
-                          ;; A marquee only has to touch a Part to take it —
-                          ;; full containment punishes loose lassos around
-                          ;; big shapes.
-                          :selectionMode           "partial"
-                          :multiSelectionKeyCode   multi-selection-key-codes
-                          :panActivationKeyCode    nil
-                          :panOnScroll             (not minimal)
-                          ;; Default 0.5 felt sluggish on a trackpad;
-                          ;; +20% per hands-on testing.
-                          :panOnScrollSpeed        0.6
-                          :zoomOnScroll            false
-                          :preventScrolling        (not minimal)
-                          ;; Marketing hero (lg only): the demo is a full-bleed
-                          ;; background with the headline overlaid on the left, so
-                          ;; nudge the initial view right to keep it clear of the
-                          ;; text. (Hidden below lg, so this only ever shows there.)
-                          :defaultViewport         (if minimal
-                                                     #js {:x 620 :y 90 :zoom 1}
-                                                     js/undefined)}
-               (when-not minimal
-                 ($ Controls))
-               (let [palette
+          ($ ReactFlow {:nodes                   nodes
+                        :edges                   edges
+                        :onNodesChange           on-nodes-change
+                        :onEdgesChange           on-edges-change
+                        :onConnect               on-connect
+                        :onConnectEnd            on-connect-end
+                        ;; Connecting is drag-only; RF's click-connect
+                        ;; can't render a preview line and reads as
+                        ;; dead clicks.
+                        :connectOnClick          false
+                        ;; A tap on a Part in Connect mode stays a tap
+                        ;; — sizing rationale on the toolbar fn.
+                        :connectionDragThreshold (toolbar/connection-drag-threshold)
+                        ;; Preview validity = the model's creation rule
+                        ;; (see is-valid-connection above).
+                        :isValidConnection       is-valid-connection
+                        ;; Parts stay selectable read-only, so the
+                        ;; delete key must go too — else Backspace
+                        ;; opens a confirm modal for a delete the
+                        ;; state layer then drops.
+                        :deleteKeyCode           (if editable?
+                                                   js/undefined
+                                                   nil)
+                        :onPaneClick             on-pane-click
+                        :onSelectionStart        on-selection-start
+                        :onSelectionEnd          on-selection-end
+                        :nodeTypes               node-types
+                        :edgeTypes               edge-types
+                        :connectionLineComponent PartsConnectionLine
+                        :panOnDrag               (if (true? (:pan-on-drag interaction))
+                                                   true
+                                                   middle-mouse-pan-buttons)
+                        :selectionOnDrag         (:selection-on-drag interaction)
+                        :nodesDraggable          (:nodes-draggable interaction)
+                        :elementsSelectable      (:elements-selectable interaction)
+                        :nodesConnectable        (:nodes-connectable interaction)
+                        ;; A marquee only has to touch a Part to take it —
+                        ;; full containment punishes loose lassos around
+                        ;; big shapes.
+                        :selectionMode           "partial"
+                        :multiSelectionKeyCode   multi-selection-key-codes
+                        :panActivationKeyCode    nil
+                        :panOnScroll             (not minimal)
+                        ;; Default 0.5 felt sluggish on a trackpad;
+                        ;; +20% per hands-on testing.
+                        :panOnScrollSpeed        0.6
+                        :zoomOnScroll            false
+                        :preventScrolling        (not minimal)
+                        ;; Marketing hero (lg only): the demo is a full-bleed
+                        ;; background with the headline overlaid on the left, so
+                        ;; nudge the initial view right to keep it clear of the
+                        ;; text. (Hidden below lg, so this only ever shows there.)
+                        :defaultViewport         (if minimal
+                                                   #js {:x 620 :y 90 :zoom 1}
+                                                   js/undefined)}
+             (when-not minimal
+               ($ Controls))
+             (let [palette
+                   ;; Nil when there is nothing to offer — on touch the
+                   ;; persistent tools are gone (ADR-0015 amendment), so
+                   ;; Time-travel (creation tools hidden too) would
+                   ;; otherwise render an empty pill.
+                   (when (or (seq mode-tools) (not time-travelling?))
                      ($ :div {:class "flex items-center gap-2"}
-                        ($ :div {:class "join"}
-                           (map (fn [{:keys [mode label shortcut icon]}]
-                                  ;; Persistent tools: clicking one switches to
-                                  ;; it — there is no "off", Select is the
-                                  ;; resting state.
-                                  ($ button {:key        (name mode)
-                                             :icon       ($ icon {:size 16})
-                                             :tooltip    label
-                                             :shortcut   shortcut
-                                             :aria-label (str label " tool")
-                                             :on-click   #(set-tool-mode mode)
-                                             :active?    (= tool-mode mode)}))
-                                mode-tools))
+                        (when (seq mode-tools)
+                          ($ :div {:class "join"}
+                             (map (fn [{:keys [mode label shortcut icon]}]
+                                    ;; Persistent tools: clicking one switches to
+                                    ;; it — there is no "off", Select is the
+                                    ;; resting state.
+                                    ($ button {:key        (name mode)
+                                               :icon       ($ icon {:size 16})
+                                               :tooltip    label
+                                               :shortcut   shortcut
+                                               :aria-label (str label " tool")
+                                               :on-click   #(set-tool-mode mode)
+                                               :active?    (= tool-mode mode)}))
+                                  mode-tools)))
                         ;; Time-travel keeps only the two persistent tools —
                         ;; Select and Hand still mean something read-only;
                         ;; the creation tools vanish with the mode.
@@ -1084,66 +1305,89 @@
                                            :on-click    #(toggle-tool :connect)
                                            :active?     (= tool-mode :connect)
                                            :disabled?   (not editable?)})
-                                ($ relationship-type-control)))))]
-                 (if demo
-                   ;; Playground / marketing hero: the original absolutely
-                   ;; positioned panels — the hero's overlay CSS depends on
-                   ;; them, and neither context has Sessions or Time-travel.
-                   ($ :<>
-                      (when-not minimal
-                        ;; Playground: mini logo linking back to the marketing site.
-                        ($ Panel {:position "top-left" :class "logo"}
-                           ($ :a {:href     "/"
-                                  :on-click #(o/track "Playground logo click" {:demo demo})}
-                              ($ :svg
-                                 {:aria-label "Previous",
-                                  :class      "fill-current size-4",
-                                  :slot       "previous",
-                                  :xmlns      "http://www.w3.org/2000/svg",
-                                  :viewBox    "0 0 24 24"}
-                                 ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
-                              ($ :img {:src "/images/parts-logo-mini.svg"}))))
+                                ($ relationship-type-control))))))]
+               (if demo
+                 ;; Playground / marketing hero: the original absolutely
+                 ;; positioned panels — the hero's overlay CSS depends on
+                 ;; them, and neither context has Sessions or Time-travel.
+                 ($ :<>
+                    (when-not minimal
+                      ;; Playground: mini logo linking back to the marketing site.
+                      ($ Panel {:position "top-left" :class "logo"}
+                         ($ :a {:href     "/"
+                                :on-click #(o/track "Playground logo click" {:demo demo})}
+                            ($ :svg
+                               {:aria-label "Previous",
+                                :class      "fill-current size-4",
+                                :slot       "previous",
+                                :xmlns      "http://www.w3.org/2000/svg",
+                                :viewBox    "0 0 24 24"}
+                               ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
+                            ($ :img {:src "/images/parts-logo-mini.svg"}))))
+                    (when palette
                       ($ Panel {:position "bottom-center"
                                 :class    "toolbar shadow-xs"}
-                         palette)
-                      ($ Panel {:position "top-right" :className "sidebar-container"}
-                         ($ sidebar sidebar-props)))
-                   ;; Authenticated view: two full-width chrome ROWS —
-                   ;; flex items cannot overlap, and the Map name absorbs
-                   ;; the squeeze by truncating (see map-name-widgets).
-                   ($ :<>
-                      ($ Panel {:position "top-left" :className "top-chrome"}
-                         ($ :div {:class "flex items-start gap-2"}
-                            ($ map-name-widgets)
-                            ($ :div {:class "flex-1"})
-                            ($ :div {:class "w-50 shrink-0 chrome-item"}
-                               ($ sidebar sidebar-props))))
-                      ($ Panel {:position "bottom-left" :className "bottom-chrome"}
-                         ($ :div {:class "flex items-center"}
-                            ;; Equal-flex spacers keep the palette viewport-
-                            ;; centred while space allows; their min-widths
-                            ;; reserve the zoom controls and minimap, so
-                            ;; under pressure the palette slides LEFT —
-                            ;; labels intact — before any label stage fires.
-                            ($ :div {:class "flex-1 min-w-9"})
+                         palette))
+                    ($ Panel {:position "top-right" :className "sidebar-container"}
+                       ($ sidebar sidebar-props)))
+                 ;; Authenticated view: two full-width chrome ROWS —
+                 ;; flex items cannot overlap, and the Map name absorbs
+                 ;; the squeeze by truncating (see map-name-widgets).
+                 ($ :<>
+                    ($ Panel {:position "top-left" :className "top-chrome"}
+                       ($ :div {:class "flex items-start gap-2"}
+                          ($ map-name-widgets)
+                          ($ :div {:class "flex-1"})
+                          ($ :div {:class "w-50 shrink-0 chrome-item"}
+                             ($ sidebar sidebar-props))))
+                    ($ Panel {:position "bottom-left" :className "bottom-chrome"}
+                       ($ :div {:class "flex items-center"}
+                          ;; Equal-flex spacers keep the palette viewport-
+                          ;; centred while space allows; their min-widths
+                          ;; reserve the zoom controls and minimap, so
+                          ;; under pressure the palette slides LEFT —
+                          ;; labels intact — before any label stage fires.
+                          ($ :div {:class "flex-1 min-w-9"})
+                          (when palette
                             ($ :div {:class "toolbar shadow-xs shrink-0 chrome-item"}
-                               palette)
-                            ($ :div {:class minimap-reserve-class}))))))
-               (when-not minimal
-                 ($ MiniMap {:className   (str "tools parts-minimap shadow-sm "
-                                               minimap-hidden-class)
-                             :position    "bottom-right"
-                             :ariaLabel   "Minimap"
-                             :pannable    true
-                             :zoomable    true
-                             :offsetScale 5}))
-               ($ Background {:variant "dots"
-                              :gap     12
-                              :size    1})
-               ;; ReactFlow's wrapper is position:relative — the same
-               ;; anchor every other overlay uses.
-               (when (and (not demo) editable? (empty? parts))
-                 ($ canvas-empty-state)))))
+                               palette))
+                          ($ :div {:class minimap-reserve-class}))))))
+             (when-not minimal
+               ($ MiniMap {:className   (str "tools parts-minimap shadow-sm "
+                                             minimap-hidden-class)
+                           :position    "bottom-right"
+                           :ariaLabel   "Minimap"
+                           :pannable    true
+                           :zoomable    true
+                           :offsetScale 5}))
+             ($ Background {:variant "dots"
+                            :gap     12
+                            :size    1})
+             ;; ReactFlow's wrapper is position:relative — the same
+             ;; anchor every other overlay uses.
+             (when (and (not demo) editable? (empty? parts))
+               ($ canvas-empty-state)))
+          ;; Touch long-press marquee overlay: outside ReactFlow (the
+          ;; library owns nothing about this gesture), anchored to the
+          ;; map-view. Each phase gets exactly one indicator: the ring
+          ;; announces the armed hold the instant the timer fires — the
+          ;; cue a haptic would give in a native app — then fades once
+          ;; the rect is demonstrably being dragged, from where the rect
+          ;; and the live Part highlight carry the signal. Client coords
+          ;; minus the canvas origin.
+          (when touch-marquee
+            (let [{:keys [left top]}              @touch-view-origin
+                  {:keys [origin rect dragging?]} touch-marquee]
+              ($ :<>
+                 ($ :div {:class (str "touch-marquee-ring"
+                                      (when dragging? " dragging"))
+                          :style #js {:left (- (:x origin) left)
+                                      :top  (- (:y origin) top)}})
+                 ($ :div {:class "touch-marquee"
+                          :style #js {:left   (- (:x rect) left)
+                                      :top    (- (:y rect) top)
+                                      :width  (:width rect)
+                                      :height (:height rect)}})))))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal

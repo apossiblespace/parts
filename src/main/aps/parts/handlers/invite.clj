@@ -24,13 +24,19 @@
   "Full HTML document for the invite signup form. `opts` is passed straight
    to `partials/invite-signup-content` (:token, :email, :error, :values)."
   [opts]
-  (html (layouts/fullscreen {:title "Join the Founding Circle" :styles page-styles}
+  ;; :html-class nil — content pages, not the canvas app: they must not
+  ;; inherit the app shell's touch-device scaling (see layouts/fullscreen).
+  (html (layouts/fullscreen {:title      "Join the Founding Circle"
+                             :styles     page-styles
+                             :html-class nil}
                             (partials/invite-signup-content opts))))
 
 (defn- unavailable-page
   "Full HTML document for the calm 'invite unavailable' error page."
   []
-  (html (layouts/fullscreen {:title "Invite unavailable" :styles page-styles}
+  (html (layouts/fullscreen {:title      "Invite unavailable"
+                             :styles     page-styles
+                             :html-class nil}
                             (partials/invite-unavailable-content))))
 
 (defn show

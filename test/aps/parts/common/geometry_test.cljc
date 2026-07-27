@@ -132,6 +132,31 @@
                   [{:id "r2" :source_id "p1" :target_id "ghost" :type "unknown"}]
                   {:x 0 :y 150 :width 200 :height 50}))))))
 
+(deftest marquee-hit-part-ids-test
+  (let [parts [{:id    "p1" :type   "unknown" :position_x 0 :position_y 0
+                :width 100  :height 100}
+               {:id    "p2" :type   "unknown" :position_x 300 :position_y 300
+                :width 100  :height 100}
+               ;; no width/height — falls back to the DB default (100)
+               {:id "p3" :type "exile" :position_x 600 :position_y 0}]]
+    (testing "partial overlap selects — same semantics as the desktop
+              marquee (ReactFlow selectionMode \"partial\")"
+      (is (= #{"p1"} (g/marquee-hit-part-ids
+                      parts {:x 50 :y 50 :width 100 :height 100}))))
+    (testing "a rect spanning several Parts takes them all"
+      (is (= #{"p1" "p2"} (g/marquee-hit-part-ids
+                           parts {:x 50 :y 50 :width 300 :height 300}))))
+    (testing "defaulted dimensions still hit"
+      (is (= #{"p3"} (g/marquee-hit-part-ids
+                      parts {:x 650 :y 50 :width 10 :height 10}))))
+    (testing "a rect touching nothing selects nothing"
+      (is (= #{} (g/marquee-hit-part-ids
+                  parts {:x 150 :y 0 :width 100 :height 100}))))
+    (testing "edge-adjacent rects that merely graze the border count —
+              inclusive bounds, matching point-in-rect elsewhere"
+      (is (= #{"p1"} (g/marquee-hit-part-ids
+                      parts {:x 100 :y 100 :width 50 :height 50}))))))
+
 (deftest curve-midpoint-test
   (testing "zero offset: the chord midpoint (plain bezier edges)"
     (is (= {:x 50 :y 0} (g/curve-midpoint {:sx 0 :sy 0 :tx 100 :ty 0} 0))))

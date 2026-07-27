@@ -39,8 +39,11 @@ region or modifier:
   then-click-target variant was built first and dropped: without a
   rubber-band line the armed state was illegible, and the natural
   drag-from-body attempt did nothing — hands-on testing found it
-  confusing.) A near-still press is guarded so a plain click can't mint a
-  self-loop; deliberate out-and-back self-loop drags still work. The new
+  confusing.) A near-still press is guarded by a drag threshold so a
+  plain click stays a click; self-loops are rejected outright by the
+  model (`relationship/can-connect?`, which also blocks duplicate
+  ordered pairs), and the connection preview enforces the same rule so
+  it never snaps to a target the commit would drop. The new
   Relationship's type is the persistent Relationship-type selector — the
   "current ink" idea kept from ADR-0011. Connect is a **one-shot armed
   tool**, exactly like the Part-placement tools: it draws one Relationship
@@ -126,3 +129,37 @@ adopted): spring-loaded / hold-to-connect temporary modes, a stronger active-too
 indicator, or making Select even harder to leave accidentally. Only the cheap
 insurance is committed up front: a distinct per-tool cursor and a clearly-lit
 active tool in the palette.
+
+## Amendment — touch-primary devices (2026-07-27)
+
+iPad testing (task-013) forced the tool set to diverge per pointer class.
+On devices whose primary pointer is coarse (`pointer: coarse` — an iPad
+finger; an iPad with a trackpad attached reports fine and keeps the
+desktop model):
+
+- **Drag-on-empty pans, in every tool.** The underlying canvas library
+  cannot pair a touch marquee with pinch-zoom (its pan filter only
+  consults the pan-button array for mouse events), and one-finger-drag
+  pan is the universal tablet convention anyway.
+- **Group selection is a long-press marquee** (hold ~500ms on empty
+  canvas, then drag — the Freeform pattern), implemented outside the
+  library: an armed-ring affordance, live selection preview, and a
+  frozen viewport for the gesture's duration.
+- **There are no persistent-tool buttons at all.** Hand exists to give
+  *desktop* panning a visible, cross-platform affordance; on touch,
+  drag-empty already pans in every tool, so a dedicated pan mode would
+  only be a mode to get stranded in. And with Hand gone, Select is the
+  only persistent mode — a button for a mode you can never leave is an
+  indicator that controls nothing, and the armed creation buttons
+  already indicate their own state. The palette is therefore just the
+  stamps: the Part types and the Connect split. Armed tools disarm by
+  tapping again or by completing the action; the H / Space-hold
+  shortcuts are inert (a Smart-Keyboard iPad must not arm a tool that
+  has no palette button to leave).
+
+Consequently "Select and Hand are the only persistent modes" holds on
+desktop only; on touch the sole persistent mode is Select, and it is
+implicit — the resting state rather than a palette choice. The staging
+pass/fail criteria apply per pointer class: on touch, (c) "pan the
+canvas" is satisfied by the drag-empty convention, and (b) "select a
+group" by the long-press marquee.

@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.nodes
   (:require
-   ["@xyflow/react" :refer [Handle NodeResizer Position useConnection]]
+   ["@xyflow/react" :refer [Handle NodeResizer Position]]
    ["lucide-react" :refer [Zap]]
    [aps.parts.common.constants :as constants]
    [aps.parts.frontend.adapters.reactflow :as adapter]
@@ -11,19 +11,19 @@
 
 (defui parts-node [{:keys [id data selected]}]
   ;; Easy-connect pattern (https://reactflow.dev/examples/nodes/easy-connect),
-  ;; adapted to the direct-manipulation model (ADR-0011): the source handle
-  ;; is clipped to a boundary ring (drag from the ring starts a connection;
-  ;; the interior stays draggable-to-move), and unmounts during a drag so
-  ;; the target handle underneath — the whole node, a forgiving drop zone —
-  ;; gets the drop. The `connecting` wrapper class is what switches the
-  ;; target handle's pointer-events on. Distinct ids matter: ReactFlow's
-  ;; connectionLookup keys connections by source/target node+handle strings,
-  ;; and identical handle ids on both ends collide for bidirectional pairs
-  ;; (then drag-select misses one edge).
-  (let [connecting?             (useConnection (fn [^js c] (.-inProgress c)))
-        editable?               (uix.rf/use-subscribe [:canvas/editable?])
+  ;; adapted to the modal canvas: the source handle is the drag source;
+  ;; while a connection is in flight the CSS turns it inert and switches
+  ;; the target handle — the whole node, a forgiving drop zone — on. Both
+  ;; handles stay mounted through the whole gesture, and the in-flight
+  ;; state is detected in pure CSS, so the node needs no connection
+  ;; subscription (see the connect-handle rules in main.css for both
+  ;; whys). Distinct ids matter: ReactFlow's connectionLookup keys
+  ;; connections by source/target node+handle strings, and identical
+  ;; handle ids on both ends collide for bidirectional pairs (then
+  ;; drag-select misses one edge).
+  (let [editable?               (uix.rf/use-subscribe [:canvas/editable?])
         [editing? set-editing!] (use-state false)]
-    ($ :div {:class (str "node-wrapper" (when connecting? " connecting"))}
+    ($ :div {:class "node-wrapper"}
        ;; Resize affordance: corner handles, aspect-locked, bounded
        ;; (TASK-032). :resizable arrives via node data (the canvas's
        ;; resize-armed decision — see toolbar/resize-armed?), so no
@@ -50,11 +50,10 @@
                      :id                 adapter/target-handle-id
                      :className          "connect-handle"
                      :isConnectableStart false})
-          (when-not connecting?
-            ($ Handle {:type      "source"
-                       :position  (.-Top Position)
-                       :id        adapter/source-handle-id
-                       :className "connect-handle"}))
+          ($ Handle {:type      "source"
+                     :position  (.-Top Position)
+                     :id        adapter/source-handle-id
+                     :className "connect-handle"})
           ;; The label is an inline-text-field, controlled on `editing?` and
           ;; opened by the shape's double-click (`:edit-on :none` — the node
           ;; owns the gesture). The <input> carries ReactFlow's `nodrag nopan`

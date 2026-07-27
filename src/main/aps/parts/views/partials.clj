@@ -23,10 +23,18 @@
                   never the signed-in app or invite pages, where the URL would
                   carry a Map id or invite token."
   ([] (head {}))
-  ([{:keys [title description styles analytics?]}]
+  ([{:keys [title description styles analytics? html-class]}]
    [:head
     [:meta {:charset "utf-8"}]
-    [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+    ;; App shell only: viewport-fit=cover makes env(safe-area-inset-*)
+    ;; report real values in home-screen standalone mode, and only the
+    ;; canvas compensates with safe-area padding (the
+    ;; .react-flow__panel.bottom rule in main.css). Other layouts keep
+    ;; the browser's automatic safe-area letterboxing — cover without
+    ;; compensation would push their edge content under a notch.
+    [:meta {:name    "viewport"
+            :content (str "width=device-width, initial-scale=1"
+                          (when (= html-class "app") ", viewport-fit=cover"))}]
     [:meta {:name "description" :content description}]
     [:meta {:name "theme-color" :content "#62a294"}]
     [:meta {:name "csrf-token" :content *anti-forgery-token*}]

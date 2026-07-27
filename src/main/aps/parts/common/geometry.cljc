@@ -66,17 +66,28 @@
   [type-name]
   (get shape-polygons type-name unit-square))
 
+(defn part-rect
+  "A Part's world-coordinate bounding box `{:x :y :width :height}`, with
+   missing `width`/`height` defaulted to the DB default for legacy rows.
+   The one home for that defaulting rule — every consumer of a Part's
+   bounds (centres, edge chords, marquee hit-tests) reads through here."
+  [{:keys [position_x position_y width height]}]
+  {:x      position_x
+   :y      position_y
+   :width  (or width constants/part-default-size)
+   :height (or height constants/part-default-size)})
+
 (defn part-center
   "Centre point `[cx cy]` of a Part's measured rectangle, in world
-   coordinates. Defaults missing `width`/`height` to 100 (the DB default
-   for legacy rows). Used by both renderers and by edge intersection.
+   coordinates. Used by both renderers and by edge intersection.
 
    Always returns doubles: an odd width over integer division would
    produce a Ratio, and a Ratio `str`ed into SVG markup is an invalid
    number — see `unit-square`'s docstring."
-  [{:keys [position_x position_y width height]}]
-  [(+ position_x (/ (or width  constants/part-default-size) 2.0))
-   (+ position_y (/ (or height constants/part-default-size) 2.0))])
+  [part]
+  (let [{:keys [x y width height]} (part-rect part)]
+    [(+ x (/ width 2.0))
+     (+ y (/ height 2.0))]))
 
 ;; ---- Relationship-edge math ---------------------------------------------
 ;;
@@ -477,19 +488,40 @@
    drawn edge follows, endpoints on each Part's visible shape. Nil when the
    intersection math finds no boundary crossing. Consumed by the marquee
    hit-test below and the document renderer's edge endpoints."
-  [{sx :position_x sy :position_y sw :width sh :height stype :type :as source}
-   {tx :position_x ty :position_y tw :width th :height ttype :type :as target}]
+  [{stype :type :as source} {ttype :type :as target}]
   (let [[scx scy] (part-center source)
         [tcx tcy] (part-center target)
-        default   constants/part-default-size
+        s-rect    (part-rect source)
+        t-rect    (part-rect target)
         s-pt      (intersection-for-shape (shape-for (name stype))
-                                          sx sy (or sw default) (or sh default)
+                                          (:x s-rect) (:y s-rect)
+                                          (:width s-rect) (:height s-rect)
                                           tcx tcy)
         t-pt      (intersection-for-shape (shape-for (name ttype))
-                                          tx ty (or tw default) (or th default)
+                                          (:x t-rect) (:y t-rect)
+                                          (:width t-rect) (:height t-rect)
                                           scx scy)]
     (when (and s-pt t-pt)
       [[(:x s-pt) (:y s-pt)] [(:x t-pt) (:y t-pt)]])))
+
+(defn marquee-hit-part-ids
+  "Ids of the Parts whose bounding box the marquee rect overlaps —
+   partial-overlap semantics, the same rule ReactFlow's own marquee
+   applies with selectionMode \"partial\". Exists because the touch
+   marquee cannot ride ReactFlow's pointer-driven selection. Bounds are
+   inclusive: a graze counts, as everywhere else in this namespace."
+  [parts {:keys [x y width height]}]
+  (let [xr (+ x width)
+        yb (+ y height)]
+    (into #{}
+          (keep (fn [{:keys [id] :as part}]
+                  (let [{px :x py :y pw :width ph :height} (part-rect part)]
+                    (when (and (<= px xr)
+                               (<= x (+ px pw))
+                               (<= py yb)
+                               (<= y (+ py ph)))
+                      id))))
+          parts)))
 
 (defn marquee-hit-relationship-ids
   "Ids of the Relationships whose drawn line the marquee rect touches —

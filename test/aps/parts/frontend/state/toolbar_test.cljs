@@ -211,6 +211,159 @@
     (is (identical? (toolbar/tool-interaction :select)
                     (toolbar/tool-interaction :select true)))))
 
+(deftest tool-interaction-touch-test
+  (testing "touch-primary Select: one-finger drag on empty canvas pans —
+            xyflow can't pair marquee with pinch-zoom on touch, so the
+            marquee is desktop-only until the long-press gesture lands.
+            Parts still drag and tap-select as usual"
+    (let [props (toolbar/tool-interaction :select true true)]
+      (is (true? (:pan-on-drag props)))
+      (is (false? (:selection-on-drag props)))
+      (is (true? (:nodes-draggable props)) "dragging a Part still moves it")
+      (is (true? (:elements-selectable props)) "tap still selects")
+      (is (true? (:nodes-connectable props)))
+      (is (true? (:long-press-marquee props))
+          "the long-press marquee gesture is gated on this key")))
+
+  (testing "touch Connect: a Part's body is still the drag source;
+            empty-canvas drag pans instead of dead-ending; no marquee —
+            a drag from empty canvas must never grow a selection while
+            the tool means connect"
+    (let [props (toolbar/tool-interaction :connect true true)]
+      (is (true? (:pan-on-drag props)))
+      (is (false? (:selection-on-drag props)))
+      (is (true? (:nodes-connectable props)))
+      (is (not (:long-press-marquee props)))))
+
+  (testing "touch read-only: tap-to-read stays, drag pans, and long-press
+            marquee selects for reading"
+    (let [props (toolbar/tool-interaction :select false true)]
+      (is (true? (:pan-on-drag props)))
+      (is (false? (:selection-on-drag props)))
+      (is (true? (:elements-selectable props)))
+      (is (true? (:long-press-marquee props)))))
+
+  (testing "Hand never marquees — dragging only ever pans"
+    (is (not (:long-press-marquee (toolbar/tool-interaction :hand true true)))))
+
+  (testing "Hand is Hand on every input device"
+    (is (identical? (toolbar/tool-interaction :hand true false)
+                    (toolbar/tool-interaction :hand true true))))
+
+  (testing "touch values are identity-stable — ReactFlow memoization"
+    (is (identical? (toolbar/tool-interaction :select true true)
+                    (toolbar/tool-interaction :add-exile true true))))
+
+  (testing "the 2-arity defaults from the environment: in this Node test
+            runtime there is no matchMedia, so it must equal desktop"
+    (is (identical? (toolbar/tool-interaction :select true)
+                    (toolbar/tool-interaction :select true false)))))
+
+(deftest touch-drops-hand-tool-test
+  (testing "touch-primary devices offer NO persistent-tool buttons: no
+            Hand (one-finger drag already pans in every tool), and with
+            Hand gone Select is the only persistent mode — a button for
+            a mode you can never leave controls nothing. Armed creation
+            tools disarm by tapping again (ADR-0015 amendment)"
+    (is (= [:select :hand] (toolbar/persistent-tools false)))
+    (is (= [] (toolbar/persistent-tools true))))
+
+  (testing "the H shortcut is inert on touch — a Smart-Keyboard iPad
+            must not arm a tool that has no palette button to leave;
+            the other shortcuts still work"
+    (is (= :hand (toolbar/shortcut-tool "h" false)))
+    (is (nil? (toolbar/shortcut-tool "h" true)))
+    (is (= :select (toolbar/shortcut-tool "v" true)))
+    (is (= :connect (toolbar/shortcut-tool "c" true)))
+    (is (= :select (toolbar/shortcut-tool "Escape" true))))
+
+  (testing "Space spring-loads Hand only where Hand exists"
+    (is (= :hand (toolbar/spring-tool " " false)))
+    (is (nil? (toolbar/spring-tool " " true))))
+
+  (testing "Connect drag threshold gets fingertip-jitter headroom on
+            touch — an honest tap wanders ~10px and must not start a
+            phantom connection drag"
+    (is (= 8 (toolbar/connection-drag-threshold false)))
+    (is (= 16 (toolbar/connection-drag-threshold true)))))
+
+(deftest marquee-hold-test
+  (testing "pointer down begins a hold at the touch point, bound to the
+            pointer that started it"
+    (is (= {:phase :holding :origin {:x 10 :y 20} :pointer-id 7}
+           (toolbar/marquee-hold-begin {:x 10 :y 20} 7))))
+
+  (testing "small movement (finger tremor) keeps the hold alive"
+    (let [held (toolbar/marquee-hold-begin {:x 10 :y 20} 7)]
+      (is (= held (toolbar/marquee-hold-move held {:x 14 :y 22})))))
+
+  (testing "movement past the slop radius cancels — the drag is a pan"
+    (let [held (toolbar/marquee-hold-begin {:x 10 :y 20} 7)]
+      (is (nil? (toolbar/marquee-hold-move held {:x 40 :y 20})))))
+
+  (testing "the timer arms a still hold into an active marquee anchored
+            at the origin, still bound to its pointer"
+    (is (= {:phase      :active
+            :origin     {:x 10 :y 20}
+            :current    {:x 10 :y 20}
+            :pointer-id 7}
+           (-> (toolbar/marquee-hold-begin {:x 10 :y 20} 7)
+               (toolbar/marquee-hold-arm)))))
+
+  (testing "arming is a no-op on anything but a live hold"
+    (is (nil? (toolbar/marquee-hold-arm nil)))
+    (is (nil? (-> (toolbar/marquee-hold-begin {:x 0 :y 0} 7)
+                  (toolbar/marquee-hold-move {:x 99 :y 99})
+                  (toolbar/marquee-hold-arm)))))
+
+  (testing "once active, movement drags the marquee corner — no more slop"
+    (is (= {:x 300 :y 400}
+           (-> (toolbar/marquee-hold-begin {:x 10 :y 20} 7)
+               (toolbar/marquee-hold-arm)
+               (toolbar/marquee-hold-move {:x 300 :y 400})
+               :current))))
+
+  (testing "the gesture belongs to one pointer: only events from the
+            pointer that began the hold may drive or end it — a second
+            finger landing mid-gesture must not yank the rect or commit
+            the selection"
+    (let [held (toolbar/marquee-hold-begin {:x 10 :y 20} 7)]
+      (is (true? (toolbar/marquee-hold-owns? held 7)))
+      (is (false? (toolbar/marquee-hold-owns? held 8)))
+      (is (false? (toolbar/marquee-hold-owns? nil 7)))))
+
+  (testing "the rect spans origin and current whichever way the drag ran;
+            nil until the hold arms"
+    (is (= {:x 10 :y 20 :width 40 :height 30}
+           (-> (toolbar/marquee-hold-begin {:x 50 :y 50} 7)
+               (toolbar/marquee-hold-arm)
+               (toolbar/marquee-hold-move {:x 10 :y 20})
+               (toolbar/marquee-hold-rect))))
+    (is (nil? (toolbar/marquee-hold-rect
+               (toolbar/marquee-hold-begin {:x 0 :y 0} 7))))
+    (is (nil? (toolbar/marquee-hold-rect nil))))
+
+  (testing "dragging? — has the armed marquee demonstrably been dragged
+            (drives the armed-ring fade): false at arm, false within the
+            slop, true past it, false for un-armed states"
+    (let [armed (-> (toolbar/marquee-hold-begin {:x 50 :y 50} 7)
+                    (toolbar/marquee-hold-arm))]
+      (is (false? (toolbar/marquee-hold-dragging? armed)))
+      (is (false? (toolbar/marquee-hold-dragging?
+                   (toolbar/marquee-hold-move armed {:x 55 :y 55}))))
+      (is (true? (toolbar/marquee-hold-dragging?
+                  (toolbar/marquee-hold-move armed {:x 100 :y 50}))))
+      (is (false? (toolbar/marquee-hold-dragging?
+                   (toolbar/marquee-hold-begin {:x 0 :y 0} 7))))
+      (is (false? (toolbar/marquee-hold-dragging? nil)))
+
+      (is (true? (toolbar/marquee-hold-dragging?
+                  (-> armed
+                      (toolbar/marquee-hold-move {:x 100 :y 50})
+                      (toolbar/marquee-hold-move {:x 52 :y 51}))))
+          "latched: dragging the corner back near the origin must not
+           un-drag — the ring stays faded for the rest of the gesture"))))
+
 (deftest marquee-buffer-add-test
   (testing "Part selects accumulate — the latest selected? per id wins;
             the gesture's origin rides along untouched"

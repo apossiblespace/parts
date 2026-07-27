@@ -6,6 +6,7 @@
    The font itself — one operator-installed family covering every
    script a label can hold — lives in `aps.parts.render.fonts`."
   (:require
+   [aps.parts.common.geometry :as geometry]
    [aps.parts.render.fonts :as fonts]
    [clojure.string :as str])
   (:import
@@ -105,15 +106,16 @@
 (defn part-label
   "A `<text>` element holding wrapped label lines for one Part, centred
    on the Part's box. Returns nil when the label is nil or blank."
-  [{:keys [label position_x position_y width height]}]
+  [{:keys [label] :as part}]
   (when-let [text (some-> label str/trim not-empty)]
-    (let [w        (or width  100)
-          h        (or height 100)
-          cx       (+ position_x (/ w 2))
-          cy       (+ position_y (/ h 2))
-          lines    (wrap-label text w)
-          n-lines  (count lines)
-          first-cy (- cy (* (/ (dec n-lines) 2.0) label-line-height))]
+    (let [{:keys [x y]
+           w     :width
+           h     :height} (geometry/part-rect part)
+          cx              (+ x (/ w 2))
+          cy              (+ y (/ h 2))
+          lines           (wrap-label text w)
+          n-lines         (count lines)
+          first-cy        (- cy (* (/ (dec n-lines) 2.0) label-line-height))]
       [:text {:x                 cx
               :y                 first-cy
               :text-anchor       "middle"

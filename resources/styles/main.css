@@ -338,8 +338,25 @@ a.btn {
     }
 
     .map-view {
-        height: 100vh;
+        /* dvh, not vh: iOS Safari's 100vh is the largest viewport (as if
+           the browser chrome were hidden), which pushes the bottom toolbar
+           behind the chrome on iPad. dvh tracks the visible height. No vh
+           fallback — daisyUI already requires dvh support, and cssnano
+           strips overridden duplicate declarations anyway. */
+        height: 100dvh;
         flex: 1;
+        /* Anchors the touch-marquee overlay (which lives outside the
+           ReactFlow container on purpose). */
+        position: relative;
+
+        /* One source of truth for the marquee colours: React Flow's own
+           themable selection variables, declared here — an ancestor of
+           both the library's desktop rect and the touch overlay — so
+           the two marquees read as one feature and cannot drift.
+           --marquee-stroke also strokes the touch armed-ring. */
+        --marquee-stroke: rgba(0, 89, 220, 0.8);
+        --xy-selection-background-color: rgba(0, 89, 220, 0.08);
+        --xy-selection-border: 1px dotted var(--marquee-stroke);
         &.minimal {
             /* Marketing hero: the demo is a full-bleed background, so it fills
                the section (#root is absolutely positioned to inset-0) rather
@@ -565,9 +582,12 @@ a.btn {
              Aspect-locked resize keeps width = height, so the
              percentage resolves the same on both axes.
            - the target handle is the whole node, a forgiving drop zone,
-             but only takes events while a connection is in progress
-             (the .connecting class) so it never steals the interior's
-             move-drag. */
+             but only takes events while a connection is in progress so
+             it never steals the interior's move-drag. "In progress" is
+             detected in pure CSS: the library mounts
+             .react-flow__connectionline exactly while a connection is
+             being dragged, so :has() on it costs no per-node React
+             subscription. */
         .connect-handle.react-flow__handle {
             position: absolute;
             inset: 0;
@@ -599,17 +619,29 @@ a.btn {
             opacity: 1;
         }
 
-        .node-wrapper.connecting .connect-handle.react-flow__handle.target {
+        .react-flow:has(.react-flow__connectionline) .node-wrapper .connect-handle.react-flow__handle.target {
             pointer-events: auto;
+        }
+
+        /* While a connection is in flight every source handle goes
+           inert — invisible, pointer-transparent — so drops fall
+           through to the target handle beneath. Inert rather than
+           unmounted: iOS locks a touch to its touchstart element, and
+           removing that element from the DOM silently ends event
+           delivery for the rest of the gesture (the connection freezes
+           as a stub at the press point). */
+        .react-flow:has(.react-flow__connectionline) .node-wrapper .connect-handle.react-flow__handle.source {
+            pointer-events: none;
+            opacity: 0;
         }
 
         /* While a connection is being dragged, hovering a prospective
            target shows its ring too — visual-only (the source handles
-           are unmounted mid-drag, and clipping the target handle would
+           are inert mid-drag, and clipping the target handle would
            shrink the whole-node drop zone to the ring). The same ring is
            the hover affordance on every Part while the Connect tool is
            active: the whole body is a draggable connection source. */
-        .node-wrapper.connecting:hover::after,
+        .react-flow:has(.react-flow__connectionline) .node-wrapper:hover::after,
         &.mode-connect .node-wrapper:hover::after {
             content: "";
             position: absolute;
@@ -784,7 +816,9 @@ a.btn {
     }
 
     .sidebar-container {
-        width: 200px;
+        /* rem, not px, so the touch-device root-font scaling above
+           widens the panel along with the text inside it. */
+        width: 12.5rem;
     }
 }
 
@@ -810,6 +844,121 @@ a.btn {
    (React Flow panels all share z-index 5). */
 .react-flow__panel.bottom-chrome {
     z-index: 6;
+}
+
+/* In a home-screen web app there is no browser chrome, but the home
+   indicator overlays the bottom edge — lift every bottom-anchored panel
+   (toolbar row, zoom controls, minimap) clear of it. env() is 0 in a
+   regular browser, so this is inert outside standalone mode. */
+.map-view .react-flow__panel.bottom {
+    bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* A long-press on empty canvas must arm the touch marquee, not iOS's
+   text-selection loupe and callout. Scoped to the pane: the sidebar and
+   other panels keep normal long-press text selection (notes are for
+   copying out of). */
+.react-flow__pane {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* Connection drags are the one xyflow gesture that cannot stop native
+   scrolling itself: XYHandle listens with document-level touch events
+   (passive by default, no preventDefault), unlike pan/drag which go
+   through d3's element-level preventDefault. Without this, iOS may
+   claim the drag as a scroll mid-gesture. touch-action stops the
+   scroll from ever starting; nodes get it too as the same insurance
+   for their drags. */
+.react-flow__handle,
+.react-flow__node {
+    touch-action: none;
+}
+
+/* No rubber-band chaining anywhere in the app shell: the canvas is a
+   fixed-viewport surface, and an elastic body bounce mid-gesture both
+   looks broken and invalidates cached client-rect origins. */
+html.app,
+html.app body {
+    overscroll-behavior: none;
+}
+
+/* The touch long-press marquee. Colours come from the selection
+   variables declared on .map-view, shared with ReactFlow's own desktop
+   rect — the gesture reads as the same feature by construction. */
+.touch-marquee,
+.touch-marquee-ring {
+    position: absolute;
+    z-index: 7;
+    pointer-events: none;
+}
+
+.touch-marquee {
+    background: var(--xy-selection-background-color);
+    border: var(--xy-selection-border);
+}
+
+.touch-marquee-ring {
+    /* Bigger than a fingertip's ~45px contact patch on purpose: the
+       ring must read as a halo AROUND the pressing finger — at finger
+       size it hides underneath it. */
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 3px solid var(--marquee-stroke);
+    transform: translate(-50%, -50%);
+    animation: touch-marquee-ring-in 150ms ease-out;
+    transition: opacity 200ms ease-out;
+}
+
+/* Once the rect is demonstrably being dragged the ring's job is done —
+   the rect and the live selection highlight carry the signal from
+   there; a lingering ring reads as an unexplained ornament. */
+.touch-marquee-ring.dragging {
+    opacity: 0;
+}
+
+@keyframes touch-marquee-ring-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6);
+    }
+}
+
+/* Tooltips are hover UI; on devices without hover they can only
+   misfire (iOS Safari pins :hover styles after a tap, leaving tooltips
+   stuck open). Visible labels and aria-labels carry the information;
+   iPadOS flips this media query — restoring tooltips — the moment a
+   trackpad connects. Scoped to the app shell: marketing pages have
+   tooltips whose sticky-hover tap is their only delivery on touch
+   (e.g. the footer's "Coming soon!" quick-links). */
+@media (hover: none) {
+    html.app .tooltip::before,
+    html.app .tooltip::after,
+    html.app .tooltip .tooltip-content {
+        display: none;
+    }
+}
+
+/* Touch-first devices: controls sized for a cursor miss the HIG's 44pt
+   minimum tap target. Scaling the root font scales every rem-based size
+   — daisyUI chrome, tool palette, sidebar, modals — in one move; 137.5%
+   turns btn-sm's 2rem into exactly 44px. Scoped to html.app (the SPA
+   shell layout) so marketing and legal pages keep their tuned type
+   scale. Canvas node labels scale with it; node boxes (px sizes from
+   the database) deliberately do not — pinch-zoom owns canvas scale. */
+@media (pointer: coarse) {
+    html.app {
+        font-size: 137.5%;
+    }
+
+    /* React Flow's zoom controls are a fixed 26px in flow.css — rem
+       them up to the same 44px target. */
+    html.app .react-flow__controls-button {
+        width: 2rem;
+        height: 2rem;
+    }
 }
 
 /* Same for the sidebar's hosts (authenticated top-chrome row, demo
