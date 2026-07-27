@@ -100,7 +100,9 @@ else
     # to boot. 16 alphanumeric chars = 16 bytes ≈ 95 bits of entropy. (Do NOT
     # use `openssl rand -hex 8`: that is 16 chars but only 64 bits of real
     # entropy — the AES cookie store would rest on a brute-forceable secret.)
-    SESSION_KEY=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
+    # Bounded read: `tr </dev/urandom | head` dies of SIGPIPE under pipefail
+    # once head exits; 512 bytes always yield well over 16 alphanumerics.
+    SESSION_KEY=$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c 16)
 
     # Create the role only if absent, but ALWAYS (re)set its password to the
     # value written into the env file below. A bare CREATE USER that hits an
@@ -127,7 +129,7 @@ PARTS__DB__PASSWORD=$DB_PASSWORD
 
 # 16-byte key encrypting the auth-session cookie (ADR-0007). Exactly 16 bytes,
 # or the app refuses to boot. Regenerate with:
-#   LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
+#   head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c 16
 PARTS__SESSION__KEY=$SESSION_KEY
 
 # PDF document fonts (Noto Sans CJK TC; see ADR-0008 and the runbook).
@@ -204,7 +206,7 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-# 6. systemd unit — every runtime parameter comes from the EnvironmentFile;
+# 5. systemd unit — every runtime parameter comes from the EnvironmentFile;
 # the unit hardcodes nothing tunable. systemd expands $JAVA_OPTS and splits
 # it on whitespace into separate java args. The environment (prod/etc.) is
 # read from PARTS__ENV in the env file, so no -Dparts.env flag is needed.
@@ -237,7 +239,7 @@ EOF
 systemctl daemon-reload
 systemctl enable $APP_NAME
 
-# 7. encrypted backup to Scaleway
+# 6. encrypted backup to Scaleway
 apt-get install -y age rclone
 
 # Dedicated backup user: the JVM is the box's largest attack surface, so the
@@ -305,6 +307,7 @@ ENV_FILE=/etc/$APP_NAME.env
 
 # Read values individually rather than sourcing: the env file holds
 # unquoted values with spaces (JAVA_OPTS), which sourcing would execute.
+# Credentials go to curl via --config on a private fd, never argv (ps-visible).
 val() { grep -m1 "^\$1=" "\$ENV_FILE" 2>/dev/null | cut -d= -f2- || true; }
 
 HOST=\$(val PARTS__SMTP__HOST)
@@ -334,7 +337,8 @@ fi
     printf 'From: %s\nTo: %s\nSubject: %s\n\n' "\$FROM" "\$TO" "\$SUBJECT"
     cat
 } | curl --silent --show-error --url "\$URL" "\${TLS[@]}" \\
-      --user "\$USER:\$PASS" --mail-from "\$FROM" --mail-rcpt "\$TO" \\
+      --config <(printf 'user = "%s:%s"\n' "\$USER" "\$PASS") \\
+      --mail-from "\$FROM" --mail-rcpt "\$TO" \\
       --upload-file -
 EOF
 chmod 700 /usr/local/bin/$APP_NAME-alert
@@ -427,7 +431,7 @@ EOF
 systemctl daemon-reload
 systemctl enable $APP_NAME-backup.timer
 
-# 8. caddy — the prod site lives in sites/ alongside any add-instance sites, and
+# 7. caddy — the prod site lives in sites/ alongside any add-instance sites, and
 # the main Caddyfile is just the import. So a re-run rewrites only prod's file and
 # can't drop the import or clobber an instance's site (add-instance appends the
 # same import line; with it already here, that append is a harmless no-op).
@@ -457,9 +461,9 @@ if [[ "$DOMAIN" == parts.example.com ]]; then
 fi
 
 caddy validate --config /etc/caddy/Caddyfile
-systemctl reload caddy
+systemctl reload-or-restart caddy
 
-# 9. logs
+# 8. logs
 # mulog emits one JSON object per line to stdout, which systemd captures in journald.
 # Common viewing commands:
 #   journalctl -u $APP_NAME -f                 # live tail
@@ -505,7 +509,7 @@ echo "✓ Logs:        journalctl -u $APP_NAME -f"
 echo "✓ Backup logs: journalctl -u $APP_NAME-backup --since '1 day ago'"
 echo "✓ lnav:        journalctl -u $APP_NAME -o cat -f | lnav"
 
-# 10. SSH hardening
+# 9. SSH hardening
 # Write the hardening config now, but DON'T reload sshd — sshd only reads this
 # file on reload/restart, so it sits inert until the operator activates it
 # after verifying admin login works (see banner below). This keeps the

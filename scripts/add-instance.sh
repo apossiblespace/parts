@@ -38,6 +38,24 @@ INSTANCE=$1
 DOMAIN=$2
 PORT=$3
 
+# The instance name is spliced unquoted into SQL identifiers, unit names
+# and file paths — and "prod" would collide with the bootstrap-provisioned
+# parts_prod database: the ownership force-sync below would hand the prod
+# DB and its public schema to this instance's role, breaking prod
+# migrations at the next boot.
+if [[ ! "$INSTANCE" =~ ^[a-z0-9_]+$ ]]; then
+    echo "instance must match [a-z0-9_]+ (got: $INSTANCE)" >&2
+    exit 1
+fi
+if [[ "$INSTANCE" == prod ]]; then
+    echo "instance name 'prod' is reserved for bootstrap-prod.sh" >&2
+    exit 1
+fi
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 64535 )); then
+    echo "port must be 1024-64535 — the oauth2-proxy sidecar binds port+1000" >&2
+    exit 1
+fi
+
 APP_NAME=parts
 APP_USER=parts
 APP_DIR=/opt/$APP_NAME
@@ -60,24 +78,26 @@ OAUTH2_PROXY_VERSION=v7.15.3
 # https://github.com/orgs/apossiblespace/people to grant/revoke staging access.
 OAUTH_ORG=apossiblespace
 
+command -v openssl >/dev/null || { echo "openssl not found" >&2; exit 1; }
+
 # Secrets are generated once, on the first run for this instance. A re-run
 # must NOT regenerate them: the DB password would drift from the postgres
-# role, a rotated PARTS__SESSION__KEY would invalidate everyone's session
-# cookie, and a rotated COOKIE_SECRET would log every staging user out.
+# role, and a rotated PARTS__SESSION__KEY would invalidate everyone's
+# session cookie. (The oauth2-proxy COOKIE_SECRET lives with its env file
+# below, gated on that file's own existence.)
 # Existence of $ENV_FILE is the "already provisioned" signal.
 if [[ -f "$ENV_FILE" ]]; then
     FIRST_RUN=false
     echo "✓ $ENV_FILE exists — leaving its secrets and the postgres role untouched"
 else
     FIRST_RUN=true
-    command -v openssl >/dev/null || { echo "openssl not found" >&2; exit 1; }
     DB_PASSWORD=$(openssl rand -hex 24)
     # PARTS__SESSION__KEY must be EXACTLY 16 bytes (ADR-0007) or the app refuses
     # to boot. 16 alphanumeric chars = 16 bytes ≈ 95 bits of entropy. (Do NOT use
     # `openssl rand -hex 8`: 16 chars but only 64 bits — a brute-forceable key.)
-    SESSION_KEY=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
-    # oauth2-proxy COOKIE_SECRET must be exactly 16, 24, or 32 bytes.
-    COOKIE_SECRET=$(openssl rand -base64 32 | head -c 32)
+    # Bounded read: `tr </dev/urandom | head` dies of SIGPIPE under pipefail
+    # once head exits; 512 bytes always yield well over 16 alphanumerics.
+    SESSION_KEY=$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | head -c 16)
 fi
 
 # 1. Install oauth2-proxy from GitHub release (idempotent — skips when
@@ -172,6 +192,15 @@ PARTS__RENDER__FONT_DIR=$FONT_DIR
 # service; two instances must not race for one socket.
 PARTS__REPL__SOCKET=/run/$SERVICE/nrepl.sock
 JAVA_OPTS=-server -Xms256m -Xmx256m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn
+
+# --- Optional: operator error-alert emails (stays off until all four are set;
+#     see docs/runbook.md "Error alerts"). On Hetzner use port 587 (25/465 blocked).
+#PARTS__SMTP__HOST=smtp.fastmail.com
+#PARTS__SMTP__PORT=587
+#PARTS__SMTP__USER=<smtp-login>
+#PARTS__SMTP__PASSWORD=<fastmail-app-password>
+#PARTS__ALERT__TO=<where alerts go>
+#PARTS__ALERT__FROM=<optional; defaults to the SMTP user>
 EOF
     chown root:root "$ENV_FILE"
     chmod 600 "$ENV_FILE"
@@ -207,6 +236,9 @@ cat >"/etc/systemd/system/$SERVICE.service" <<EOF
 [Unit]
 Description=$APP_NAME app instance: $INSTANCE
 After=network.target postgresql.service
+# Mails via the bootstrap-installed alert template; the alert subject
+# carries the failing unit's name, so staging isn't mistaken for prod.
+OnFailure=$APP_NAME-alert@%n.service
 
 [Service]
 User=$APP_USER
@@ -228,9 +260,17 @@ EOF
 
 # 5. oauth2-proxy env file — one per instance. CLIENT_ID/SECRET come from
 # the operator's environment when set; otherwise placeholders that the
-# next-steps banner explains how to fill in. Like $ENV_FILE, this is
-# generated once and preserved on re-runs.
-if [[ "$FIRST_RUN" == true ]]; then
+# next-steps banner explains how to fill in. Generated once, gated on its
+# OWN existence — not FIRST_RUN: a run that died between writing $ENV_FILE
+# and this file must still create it on re-run, and removing it to force a
+# credential regeneration (the banner's advice) must work. Regenerating
+# rotates COOKIE_SECRET, which logs staging users out — fine when done
+# deliberately.
+if [[ -f "$OAUTH2_PROXY_ENV_FILE" ]]; then
+    echo "✓ $OAUTH2_PROXY_ENV_FILE exists — leaving it untouched"
+else
+    # oauth2-proxy COOKIE_SECRET must be exactly 16, 24, or 32 bytes.
+    COOKIE_SECRET=$(openssl rand -base64 32 | head -c 32)
     OAUTH_CLIENT_ID_VALUE=${OAUTH_CLIENT_ID:-REPLACE_WITH_GITHUB_OAUTH_APP_CLIENT_ID}
     OAUTH_CLIENT_SECRET_VALUE=${OAUTH_CLIENT_SECRET:-REPLACE_WITH_GITHUB_OAUTH_APP_CLIENT_SECRET}
 
@@ -266,6 +306,7 @@ cat >"/etc/systemd/system/$OAUTH2_PROXY_SERVICE.service" <<EOF
 [Unit]
 Description=oauth2-proxy for $SERVICE
 After=network.target
+OnFailure=$APP_NAME-alert@%n.service
 
 [Service]
 Type=simple
@@ -304,6 +345,7 @@ $DOMAIN {
     encode gzip
 
     header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Referrer-Policy "strict-origin-when-cross-origin"
@@ -331,7 +373,7 @@ $DOMAIN {
 EOF
 
 caddy validate --config /etc/caddy/Caddyfile
-systemctl reload caddy
+systemctl reload-or-restart caddy
 
 # 8. next steps
 CALLBACK_URL=https://$DOMAIN/oauth2/callback
