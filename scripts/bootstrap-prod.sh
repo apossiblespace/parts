@@ -47,6 +47,11 @@ fi
 # nothing ever needs to interactively be this user.
 id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin "$APP_USER"
 
+# NOTE: the admin user is deliberately NOT added to this group. The nREPL
+# socket is 0600, and group membership would turn a stolen SSH key into
+# passwordless code execution as the app user; REPL access goes through a
+# sudo-gated ACL instead (see docs/runbook.md, "Production REPL access").
+
 mkdir -p "$APP_DIR/releases"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 

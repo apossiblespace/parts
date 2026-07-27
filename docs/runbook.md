@@ -563,20 +563,42 @@ sudo -u postgres psql -d parts_prod -c "SET ROLE parts; SET ROLE deletion_role; 
 ## Production REPL access
 
 The prod app runs an nREPL on a **unix domain socket**,
-`/run/parts/nrepl.sock` (`prod.edn :repl/socket`), permissioned `0600` and
-owned by the `parts` user. nREPL has **no authentication** — a connected
-client has arbitrary code execution as the app user, including its DB
-credentials and environment. The socket gate means "may connect" requires
-filesystem access as `parts` (or root), not merely "runs on the box": a
+`/run/parts/nrepl.sock` (`prod.edn :repl/socket`), permissioned `0600`,
+owned `parts:parts`. nREPL has **no authentication** — a connected client
+has arbitrary code execution as the app user, including its DB credentials
+and every Map's clinical content. The socket gate means "may connect"
+requires filesystem access as `parts`, not merely "runs on the box": a
 loopback **TCP** REPL would be connectable by *any* local process (the
 oauth2-proxy sidecar, a compromised dependency, an SSRF-to-localhost gadget).
 
-Connect from a laptop by forwarding a local port to the socket:
+**Access is sudo-gated, on purpose.** Root SSH is disabled, so the operator
+opens the SSH forward as their own account — which cannot read a `0600`
+socket owned by `parts`. Grant yourself a temporary ACL first:
 
 ```sh
-ssh -L 7888:/run/parts/nrepl.sock parts
-# connect your nREPL client to localhost:7888
+# on the box — both lines need sudo, which is the point
+sudo setfacl -m u:$USER:x  /run/parts            # traverse the 0750 dir
+sudo setfacl -m u:$USER:rw /run/parts/nrepl.sock
 ```
+
+Then from the laptop:
+
+```sh
+ssh -L 7888:/run/parts/nrepl.sock <admin>@parts-prod
+# then: M-x cider-connect-clj → localhost 7888
+#   (staging: /run/parts-dev, /run/parts-dev/nrepl.sock)
+```
+
+The grant dies with the socket when the service restarts — re-run it after
+each deploy. Do **not** shortcut this by adding the admin account to the
+`parts` group: that would make REPL access (and therefore the whole
+database) reachable with a stolen SSH key alone, with no sudo password.
+Keeping the password in front of it is what makes the gate worth having.
+
+CIDER connects in a **degraded mode**: the production artifact deliberately
+ships without `cider-nrepl`, so evaluation and `aps.parts.ops` work but
+completion, the inspector, and the debugger do not. That is the trade for a
+minimal in-process RCE surface — do not add the middleware back to prod.
 
 Residual risk, deliberately accepted: code already running *as* `parts` (an
 app RCE) can use the socket, but it can already do everything the REPL

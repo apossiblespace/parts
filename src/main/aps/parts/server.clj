@@ -88,7 +88,14 @@
 
 (defn- owner-only!
   "Restrict `path` to rw for its owner (0600). nREPL creates the socket with
-   the process umask, which typically leaves it group/world-connectable."
+   the process umask, which typically leaves it group/world-connectable.
+
+   Deliberately NOT group-accessible: connecting is unauthenticated code
+   execution as the app user, so it must cost an attacker more than a
+   stolen SSH key. Putting the operator's account in the app group would
+   make that step passwordless; instead the operator grants themselves a
+   temporary ACL via sudo (see docs/runbook.md), keeping the sudo password
+   in front of REPL access. The ACL dies with the socket on restart."
   [path]
   (Files/setPosixFilePermissions
    (Path/of path (into-array String []))
