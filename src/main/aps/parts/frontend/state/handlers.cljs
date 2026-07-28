@@ -30,6 +30,24 @@
                            (get-in context [:coeffects :event 0]))
                    (assoc context :queue []))))))
 
+(def ^:private require-not-phone
+  "The phone's backstop (TASK-105) for the events `require-editable`
+   does not cover — Session lifecycle, Map metadata, Map creation. All
+   their UI is hidden on a phone; this guarantees a path the hiding
+   misses still can't mutate. Separate from `require-not-viewing-past`
+   because the sets differ: e.g. trigger edits are legal while viewing
+   the past, but nothing mutates from a phone."
+  (rf/->interceptor
+   :id :require-not-phone
+   :before (fn [context]
+             (if (= :phone (sessions/read-only-reason
+                            (get-in context [:coeffects :db])))
+               (do (o/info "handlers.require-not-phone"
+                           "dropped mutation on phone view-only canvas"
+                           (get-in context [:coeffects :event 0]))
+                   (assoc context :queue []))
+               context))))
+
 (def ^:private require-not-viewing-past
   "Time-travel's backstop for Session-lifecycle and Map-metadata events
    (rename, start, undo): the menu disables them in the mode, but a
@@ -349,6 +367,7 @@
 
 (rf/reg-event-fx
  :map/create
+ [require-not-phone]
  (fn [{:keys [db]} _]
    {:db                 (assoc-in db [:maps :loading] true)
     :storage/create-map {:title map-model/default-title}}))
@@ -464,7 +483,7 @@
 
 (rf/reg-event-fx
  :session/start
- [require-not-viewing-past]
+ [require-not-phone require-not-viewing-past]
  (fn [{:keys [db]} _]
    {:session/create-fx {:map-id (get-in db [:map :id])}}))
 
@@ -485,6 +504,7 @@
 
 (rf/reg-event-fx
  :session/set-trigger
+ [require-not-phone]
  (fn [{:keys [db]} [_ session-id trigger]]
    {:db                        (sessions/set-trigger db session-id trigger)
     :session/update-trigger-fx {:map-id     (get-in db [:map :id])
@@ -501,6 +521,7 @@
 
 (rf/reg-event-fx
  :session/set-activation
+ [require-not-phone]
  (fn [{:keys [db]} [_ session-id part-id]]
    {:db                           (sessions/set-activation db session-id part-id)
     :session/update-activation-fx {:map-id     (get-in db [:map :id])
@@ -509,7 +530,7 @@
 
 (rf/reg-event-fx
  :session/delete
- [require-not-viewing-past]
+ [require-not-phone require-not-viewing-past]
  (fn [{:keys [db]} [_ session-id]]
    {:session/delete-fx {:map-id     (get-in db [:map :id])
                         :session-id session-id}}))
@@ -584,7 +605,7 @@
 
 (rf/reg-event-fx
  :map/rename
- [require-not-viewing-past]
+ [require-not-phone require-not-viewing-past]
  (fn [{:keys [db]} [_ new-title]]
    (map-updates/rename-map db new-title)))
 

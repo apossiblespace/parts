@@ -46,6 +46,27 @@
     (is (nil? (sessions/read-only-reason {:map {:id "m" :sessions [s1]}})))
     (is (nil? (sessions/read-only-reason {:demo-mode true :map {:id "m"}})))))
 
+(deftest phone-read-only-test
+  (testing "a phone is read-only regardless of everything else — an
+            active Session doesn't help"
+    (is (= :phone (sessions/read-only-reason
+                   {:phone? true :map {:id "m" :sessions [s1]}})))
+    (is (false? (sessions/editable?
+                 {:phone? true :map {:id "m" :sessions [s1]}}))))
+
+  (testing "phone beats the demo exemption — the landing-page demo is
+            view-only on a phone too"
+    (is (= :phone (sessions/read-only-reason
+                   {:phone? true :demo-mode true :map {:id "m"}})))
+    (is (false? (sessions/editable?
+                 {:phone? true :demo-mode :minimal :map {:id "m"}}))))
+
+  (testing "not on a phone — the existing reasons are untouched"
+    (is (= :no-session (sessions/read-only-reason
+                        {:phone? false :map {:id "m" :sessions []}})))
+    (is (nil? (sessions/read-only-reason
+               {:phone? false :map {:id "m" :sessions [s1]}})))))
+
 (deftest add-session-test
   (testing "a started Session appends and becomes the active one"
     (let [db (sessions/add-session {:map {:id "m" :sessions [s1]}} s2)]

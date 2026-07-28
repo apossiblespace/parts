@@ -7,6 +7,7 @@
    [aps.parts.frontend.components.auth-screen :refer [auth-screen]]
    [aps.parts.frontend.components.map :refer [map-view]]
    [aps.parts.frontend.components.maps-list :refer [maps-list]]
+   [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
    [aps.parts.frontend.state.fx]
    [aps.parts.frontend.state.handlers]
@@ -20,6 +21,10 @@
 (def initial-db
   {:demo-mode false
    :launched  false
+   ;; Seeded into app-db so `sessions/read-only-reason` (pure, takes db)
+   ;; can gate on it — the interceptors' guard of record for the phone's
+   ;; view-only canvas (TASK-105).
+   :phone?    device/phone-primary?
    :map       {}
    :maps      {:list    []
                :loading false}})

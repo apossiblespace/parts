@@ -45,6 +45,10 @@
    cannot drift apart."
   [db]
   (cond
+    ;; Phones view, never edit (TASK-105) — and deliberately ahead of
+    ;; the demo exemption: the landing-page demo is view-only on a
+    ;; phone too. `app` seeds the flag from `device/phone-primary?`.
+    (:phone? db)                        :phone
     (:demo-mode db)                     nil
     ;; A key access, not a require: `state/time-travel` depends on this
     ;; namespace, so the gate reads its subtree directly.

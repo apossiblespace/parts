@@ -19,6 +19,7 @@
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.dates :as dates]
+   [aps.parts.frontend.device :as device]
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]
@@ -477,6 +478,43 @@
        (when time-travelling?
          ($ session-steppers {:viewing viewing})))))
 
+(defui ^:private phone-name-widgets
+  "The phone's whole top chrome (TASK-105): the back-to-list chevron and
+   the Map's name as static text. No rename, no session chip, no actions
+   dropdown, no Time-travel — the phone views, it never edits."
+  []
+  (let [title (uix.rf/use-subscribe [:map/title])]
+    ($ :div {:class "flex gap-2 min-w-0 chrome-item"}
+       ($ :div {:class "shadow-xs shrink-0"}
+          ($ :a {:href       "/app"
+                 :class      "btn btn-sm join-item bg-base-100"
+                 :aria-label "Back to maps"}
+             ($ ChevronLeft {:size 16})))
+       ($ :div {:class (str "btn btn-sm bg-base-100 shadow-xs "
+                            "pointer-events-none "
+                            map-name-width-classes)}
+          ($ :span {:class map-name-text-class} title)))))
+
+(defui ^:private phone-banner
+  "Explains the reduced phone UI (TASK-105) — same overlay slot as
+   save-error-banner, which can't collide with it: a view-only canvas
+   produces no saves. Dismissal is plain component state, so the banner
+   returns on the next page load."
+  []
+  (let [[dismissed? set-dismissed!] (use-state false)]
+    (when-not dismissed?
+      ($ :div {:class (str "absolute top-4 left-1/2 -translate-x-1/2 z-50 "
+                           "alert alert-info shadow-lg "
+                           "flex w-max max-w-[calc(100%-2rem)] "
+                           "items-center gap-3 px-4 py-2")
+               :role  "alert"}
+         ($ :span {:class "text-sm"}
+            "Parts is designed for use on a tablet or computer.")
+         ($ :button {:class      "btn btn-sm btn-ghost btn-square shrink-0"
+                     :aria-label "Dismiss"
+                     :on-click   #(set-dismissed! true)}
+            "✕")))))
+
 (defui save-error-banner
   "Persistent warning shown when a change batch failed and was rolled back
    server-side: the canvas no longer matches the stored Map. Stays up until
@@ -532,7 +570,11 @@
 
         ;; What a drag means under the active tool (ADR-0015) — feeds the
         ;; ReactFlow interaction props and the touch-marquee gate below.
-        interaction           (toolbar/tool-interaction tool-mode editable?)
+        ;; A phone ignores the tool entirely: its canvas is view-only
+        ;; (TASK-105), so every drag pans and nothing selects.
+        interaction           (if device/phone-primary?
+                                toolbar/phone-interaction
+                                (toolbar/tool-interaction tool-mode editable?))
 
         ;; Render-only mirror of the marquee buffer below: nil when no
         ;; marquee is active. React state (not re-frame) so each update
@@ -1150,6 +1192,11 @@
 
     ($ :div {:class "map-container"}
        ($ save-error-banner)
+       ;; Not in the minimal hero demo — that background canvas is
+       ;; hidden on small screens anyway, and the headline sits where
+       ;; the banner would.
+       (when (and device/phone-primary? (not minimal))
+         ($ phone-banner))
        ;; Single SVG marker definition for every edge arrowhead.
        ;; fill="context-stroke" makes the marker fill inherit the
        ;; referencing path's stroke colour — so the .edge-<type> CSS
@@ -1241,7 +1288,9 @@
                         :defaultViewport         (if minimal
                                                    #js {:x 620 :y 90 :zoom 1}
                                                    js/undefined)}
-             (when-not minimal
+             ;; No zoom buttons on a phone — pinch-zoom is native there,
+             ;; and the chrome is pared down to name + back (TASK-105).
+             (when-not (or minimal device/phone-primary?)
                ($ Controls))
              (let [palette
                    ;; Nil when there is nothing to offer — on touch the
@@ -1324,35 +1373,46 @@
                                 :viewBox    "0 0 24 24"}
                                ($ :path {:fill "currentColor", :d "M15.75 19.5 8.25 12l7.5-7.5"}))
                             ($ :img {:src "/images/parts-logo-mini.svg"}))))
-                    (when palette
+                    ;; A phone playground is view-only (TASK-105):
+                    ;; no tools to offer, no sidebar to select into.
+                    (when (and palette (not device/phone-primary?))
                       ($ Panel {:position "bottom-center"
                                 :class    "toolbar shadow-xs"}
                          palette))
-                    ($ Panel {:position "top-right" :className "sidebar-container"}
-                       ($ sidebar sidebar-props)))
-                 ;; Authenticated view: two full-width chrome ROWS —
-                 ;; flex items cannot overlap, and the Map name absorbs
-                 ;; the squeeze by truncating (see map-name-widgets).
-                 ($ :<>
-                    ($ Panel {:position "top-left" :className "top-chrome"}
-                       ($ :div {:class "flex items-start gap-2"}
-                          ($ map-name-widgets)
-                          ($ :div {:class "flex-1"})
-                          ($ :div {:class "w-50 shrink-0 chrome-item"}
-                             ($ sidebar sidebar-props))))
-                    ($ Panel {:position "bottom-left" :className "bottom-chrome"}
-                       ($ :div {:class "flex items-center"}
-                          ;; Equal-flex spacers keep the palette viewport-
-                          ;; centred while space allows; their min-widths
-                          ;; reserve the zoom controls and minimap, so
-                          ;; under pressure the palette slides LEFT —
-                          ;; labels intact — before any label stage fires.
-                          ($ :div {:class "flex-1 min-w-9"})
-                          (when palette
-                            ($ :div {:class "toolbar shadow-xs shrink-0 chrome-item"}
-                               palette))
-                          ($ :div {:class minimap-reserve-class}))))))
-             (when-not minimal
+                    (when-not device/phone-primary?
+                      ($ Panel {:position "top-right" :className "sidebar-container"}
+                         ($ sidebar sidebar-props))))
+                 (if device/phone-primary?
+                   ;; Phone (TASK-105): name + back is the entire
+                   ;; chrome — no sidebar, no bottom row.
+                   ($ Panel {:position "top-left" :className "top-chrome"}
+                      ($ phone-name-widgets))
+                   ;; Authenticated view: two full-width chrome ROWS —
+                   ;; flex items cannot overlap, and the Map name absorbs
+                   ;; the squeeze by truncating (see map-name-widgets).
+                   ($ :<>
+                      ($ Panel {:position "top-left" :className "top-chrome"}
+                         ($ :div {:class "flex items-start gap-2"}
+                            ($ map-name-widgets)
+                            ($ :div {:class "flex-1"})
+                            ($ :div {:class "w-50 shrink-0 chrome-item"}
+                               ($ sidebar sidebar-props))))
+                      ($ Panel {:position "bottom-left" :className "bottom-chrome"}
+                         ($ :div {:class "flex items-center"}
+                            ;; Equal-flex spacers keep the palette viewport-
+                            ;; centred while space allows; their min-widths
+                            ;; reserve the zoom controls and minimap, so
+                            ;; under pressure the palette slides LEFT —
+                            ;; labels intact — before any label stage fires.
+                            ($ :div {:class "flex-1 min-w-9"})
+                            (when palette
+                              ($ :div {:class "toolbar shadow-xs shrink-0 chrome-item"}
+                                 palette))
+                            ($ :div {:class minimap-reserve-class})))))))
+             ;; The width stage already hides the minimap in phone
+             ;; portrait; this keeps a landscape phone (844px wide)
+             ;; consistent with the pared-down chrome.
+             (when-not (or minimal device/phone-primary?)
                ($ MiniMap {:className   (str "tools parts-minimap shadow-sm "
                                              minimap-hidden-class)
                            :position    "bottom-right"

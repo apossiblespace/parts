@@ -259,6 +259,21 @@
     (is (identical? (toolbar/tool-interaction :select true)
                     (toolbar/tool-interaction :select true false)))))
 
+(deftest phone-interaction-test
+  (testing "the phone canvas is view-only (TASK-105): drag pans, pinch
+            zooms, and nothing can be selected, moved, or connected —
+            unlike read-only-interaction, which keeps selection because
+            a desktop-sized screen has a sidebar to read notes in"
+    (is (true? (:pan-on-drag toolbar/phone-interaction)))
+    (is (false? (:selection-on-drag toolbar/phone-interaction)))
+    (is (false? (:nodes-draggable toolbar/phone-interaction)))
+    (is (false? (:elements-selectable toolbar/phone-interaction)))
+    (is (false? (:nodes-connectable toolbar/phone-interaction))))
+
+  (testing "no :long-press-marquee grant — the touch marquee handlers
+            self-gate on that key, so its absence disables the gesture"
+    (is (not (contains? toolbar/phone-interaction :long-press-marquee)))))
+
 (deftest touch-drops-hand-tool-test
   (testing "touch-primary devices offer NO persistent-tool buttons: no
             Hand (one-finger drag already pans in every tool), and with

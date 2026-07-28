@@ -8,6 +8,7 @@
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.dates :as dates]
+   [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-layout-effect use-ref use-state]]
@@ -115,10 +116,18 @@
           ($ :div {:class "flex items-center justify-between gap-3 mb-4"}
              ($ :h1 {:class "text-lg font-bold"} "Your Maps")
              ($ :div {:class "flex items-center gap-2"}
-                ($ :button
-                   {:class    "btn btn-sm btn-primary"
-                    :on-click handle-create}
-                   "Create a new Map")
+                ;; Phones view, never edit (TASK-105) — creating a Map
+                ;; here would only open a canvas with nothing to do on
+                ;; it, so the hint replaces the button. Especially for
+                ;; a zero-Maps account, which must not read as a dead
+                ;; end with no explanation.
+                (if device/phone-primary?
+                  ($ :p {:class "text-xs text-gray-500 text-right"}
+                     "To create and edit Maps, use a tablet or computer.")
+                  ($ :button
+                     {:class    "btn btn-sm btn-primary"
+                      :on-click handle-create}
+                     "Create a new Map"))
                 ;; Hide the search until there's a list to filter — pointless
                 ;; chrome on an empty account. Stays put during a background
                 ;; refresh (we have maps), so it doesn't flicker.

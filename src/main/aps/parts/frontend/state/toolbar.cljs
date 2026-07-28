@@ -193,6 +193,19 @@
    :elements-selectable true
    :nodes-connectable   false})
 
+(def phone-interaction
+  ;; The phone canvas is view-only (TASK-105): drag pans, pinch zooms,
+  ;; nothing selects. Distinct from read-only-interaction, which keeps
+  ;; selection because a desktop-sized screen has a sidebar to read a
+  ;; Part's notes in — the phone hides that sidebar, so a selection
+  ;; would light up and open nothing. No :long-press-marquee either;
+  ;; the touch marquee handlers self-gate on that key.
+  {:pan-on-drag         true
+   :selection-on-drag   false
+   :nodes-draggable     false
+   :elements-selectable false
+   :nodes-connectable   false})
+
 ;; -- Touch variants --------------------------------------------------------
 ;; xyflow cannot give a touch device both the marquee and pinch-zoom: its
 ;; pan filter only checks the pan-button array against mousedown, so any

@@ -163,3 +163,40 @@ implicit — the resting state rather than a palette choice. The staging
 pass/fail criteria apply per pointer class: on touch, (c) "pan the
 canvas" is satisfied by the drag-empty convention, and (b) "select a
 group" by the long-press marquee.
+
+## Amendment — phones are view-only (2026-07-28)
+
+The device-support stance (the decision task-013 asked for): **tablets
+get the full editing canvas; phones view, never edit.** Rather than
+half-support editing on a screen the toolbar was never designed for, a
+phone gets a deliberate view-only Map — glanceable between sessions,
+edited from a tablet or computer.
+
+A phone is a coarse-pointer device whose smallest viewport side is
+under 600px (`device/phone-primary?`), classified once at page load:
+an iPhone in either orientation, never an iPad (768px shortest side),
+never a narrow desktop window (fine pointer). Rotating cannot
+reclassify — the smallest side doesn't change.
+
+On a phone:
+
+- The canvas is inert: drag pans, pinch zooms, nothing selects, drags,
+  or connects (`toolbar/phone-interaction` — no tool applies). Unlike
+  the Session-model's read-only canvas, selection goes too: the
+  sidebar a selection would open is hidden, so a selection would light
+  up and open nothing. Consequence, accepted: Part and Relationship
+  notes are unreadable on phones.
+- Chrome is the Map's name (static) and the back-to-list button —
+  nothing else. A dismissible banner explains: "Parts is designed for
+  use on a tablet or computer."
+- The landing-page playground demo is view-only too — the phone rule
+  outranks the demo-mode exemption in `sessions/read-only-reason`, so
+  a first impression is a clean viewer, not a cramped editor.
+- The Maps list swaps "Create a new Map" for the same guidance — a
+  fresh account on a phone must not read as a dead end.
+
+Enforcement is state-level, not just hidden chrome: `:phone` is a
+`read-only-reason`, so the `require-editable` interceptor drops every
+content mutation, and `require-not-phone` covers the lifecycle events
+(rename, Session start/undo/trigger/activation, Map create) that are
+legal without an active Session.
