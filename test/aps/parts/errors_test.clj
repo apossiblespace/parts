@@ -35,6 +35,18 @@
       (is (= 404 (:status response)))
       (is (= {:error "User not found"} (:body response)))))
 
+  (testing "handles Stripe failures with the fixed wording, never the raw message"
+    (let [app      (create-app (fn [_] (throw (ex-info "Stripe API error"
+                                                       {:type :stripe-api :status 403}))))
+          response (app (mock/request :get "/test"))]
+      (is (= 502 (:status response)))
+      (is (= {:error "The payment provider rejected the request"} (:body response))))
+    (let [app      (create-app (fn [_] (throw (ex-info "Stripe request failed"
+                                                       {:type :stripe-transport}))))
+          response (app (mock/request :get "/test"))]
+      (is (= 502 (:status response)))
+      (is (= {:error "The payment provider could not be reached"} (:body response)))))
+
   (testing "handles PostgreSQL unique violation (23505)"
     (let [exception (PSQLException. "duplicate key value" PSQLState/UNIQUE_VIOLATION)
           app       (create-app (fn [_] (throw exception)))

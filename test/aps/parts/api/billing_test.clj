@@ -3,8 +3,9 @@
    [aps.parts.api.billing :as billing-api]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
-   [aps.parts.helpers.utils :refer [create-test-user! stripe-sig-header
-                                    stripe-test-config with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! stripe-api-error
+                                    stripe-sig-header stripe-test-config
+                                    with-test-db]]
    [aps.parts.server :as server]
    [aps.parts.stripe :as stripe]
    [clojure.test :refer [deftest is testing use-fixtures]]
@@ -129,7 +130,7 @@
     (let [user (create-test-user! {:email "flaky@example.com"})]
       (is (= 500 (:status (post-webhook
                            (webhook-request (checkout-json user))
-                           (fn [_ _] (throw (ex-info "boom" {:type :stripe-api})))))))
+                           (fn [_ _] (throw (stripe-api-error 500)))))))
       (is (nil? (paid-through "flaky@example.com")))))
 
   (testing "ignores a session without a recognised plan (not a self-serve checkout)"
@@ -139,8 +140,26 @@
       (is (nil? (:stripe_customer_id (billing-row "other-checkout@example.com"))))
       (is (nil? (paid-through "other-checkout@example.com")))))
 
-  (testing "ignores an unknown or malformed client reference"
-    (doseq [reference [(str (random-uuid)) "not-a-uuid" nil]]
+  (testing "releases the customer of a session whose account was deleted
+            mid-checkout — no charge may outlive the account"
+    (let [captured (atom nil)]
+      (with-redefs [conf/stripe-config      (constantly stripe-config)
+                    stripe/delete-customer! (fn [_cfg customer]
+                                              (reset! captured customer)
+                                              {:id customer :deleted true})]
+        (is (= 200 (:status
+                    (billing-api/webhook
+                     (webhook-request
+                      (event-json "checkout.session.completed"
+                                  {:id                  "cs_orphan"
+                                   :customer            "cus_orphan"
+                                   :subscription        "sub_orphan"
+                                   :client_reference_id (str (random-uuid))
+                                   :metadata            {:plan "monthly"}})))))))
+      (is (= "cus_orphan" @captured))))
+
+  (testing "ignores a malformed or missing client reference"
+    (doseq [reference ["not-a-uuid" nil]]
       (let [payload (event-json "checkout.session.completed"
                                 {:id                  "cs_5"
                                  :customer            "cus_ghost"

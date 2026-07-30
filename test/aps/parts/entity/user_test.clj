@@ -1,11 +1,14 @@
 (ns aps.parts.entity.user-test
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
-   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! stripe-api-error
+                                    with-test-db]]
+   [aps.parts.stripe :as stripe]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]])
   (:import
@@ -160,4 +163,27 @@
   (testing "returns {:id id :deleted false} for a non-existent user (does not throw)"
     (let [bogus-id "deadbeef-dead-beef-dead-beefdeadbeef"
           result   (user/delete! bogus-id)]
-      (is (= {:id bogus-id :deleted false} result)))))
+      (is (= {:id bogus-id :deleted false} result))))
+
+  (testing "releases the linked Stripe customer before the purge (TASK-108)"
+    (let [user     (create-test-user!)
+          captured (atom nil)]
+      (db/update! :users {:stripe_customer_id "cus_delete_me"} [:= :id (:id user)])
+      (with-redefs [conf/stripe-secret-key  (constantly "rk_test_key")
+                    stripe/delete-customer! (fn [_cfg customer]
+                                              (reset! captured customer)
+                                              {:id customer :deleted true})]
+        (user/delete! (:id user)))
+      (is (= "cus_delete_me" @captured))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"User not found"
+                            (user/fetch (:id user))))))
+
+  (testing "a Stripe failure aborts the deletion — no half-completed erasure"
+    (let [user (create-test-user!)]
+      (db/update! :users {:stripe_customer_id "cus_survives"} [:= :id (:id user)])
+      (with-redefs [conf/stripe-secret-key  (constantly "rk_test_key")
+                    stripe/delete-customer! (fn [_ _] (throw (stripe-api-error 500)))]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Stripe API error"
+                              (user/delete! (:id user)))))
+      (is (some? (user/fetch (:id user)))
+          "the account must survive when its Stripe link could not be released"))))

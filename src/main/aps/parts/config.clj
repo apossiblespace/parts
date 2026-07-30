@@ -138,18 +138,28 @@
                        (l-config/get config :mail/from)
                        (:user smtp))))))
 
+(defn stripe-secret-key
+  "Just the Stripe API secret (`PARTS__STRIPE__SECRET_KEY`), independent
+   of the full self-serve set below: erasure must release a linked
+   customer even when the rest of the Stripe env (webhook secret, price
+   ids) is absent or mid-rotation. Nil when unset."
+  []
+  (l-config/get config :stripe/secret-key))
+
 (defn stripe-config
-  "Self-serve billing settings (`PARTS__STRIPE__*`): the API secret — use a
-   restricted key (rk_) scoped to Checkout Sessions and Billing Portal, not
-   a full secret key — the webhook signing secret, and the two subscription
-   price ids (one Product, two Prices: monthly and yearly).
+  "Self-serve billing settings (`PARTS__STRIPE__*`): the API secret — use
+   a restricted key (rk_), not a full secret key, scoped to Checkout
+   Sessions: Write, Billing Portal: Write, and Customers: Write (erasure
+   deletes the linked Customer; without that scope every deletion of a
+   subscriber fails) — the webhook signing secret, and the two
+   subscription price ids (one Product, two Prices: monthly and yearly).
 
    Returns nil unless all four are present, so self-serve billing stays off
    until deliberately configured — the concierge flow keeps working
    unchanged on hosts with no Stripe env. Nothing here is committed: this
    repo is public."
   []
-  (let [secret-key     (l-config/get config :stripe/secret-key)
+  (let [secret-key     (stripe-secret-key)
         webhook-secret (l-config/get config :stripe/webhook-secret)
         price-monthly  (l-config/get config :stripe/price-monthly)
         price-yearly   (l-config/get config :stripe/price-yearly)]

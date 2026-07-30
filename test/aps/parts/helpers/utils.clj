@@ -1,6 +1,7 @@
 (ns aps.parts.helpers.utils
   (:require
    [aps.parts.config :as conf]
+   [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.user :as user]
@@ -121,3 +122,20 @@
                  (map #(format "%02x" %))
                  (apply str))]
     (str "t=" now ",v1=" hex)))
+
+(defn stripe-api-error
+  "The ex-info `aps.parts.stripe/request!` throws on an error status."
+  [status]
+  (ex-info "Stripe API error" {:type :stripe-api :status status}))
+
+(defn expire-deletion-grace!
+  "Request deletion for the account and backdate the request past the
+   grace window, so `erasure/pending-deletions` picks it up on the next
+   run. Tracks `erasure/grace-period-days` rather than hardcoding it."
+  [user-id]
+  (erasure/request-deletion! db/datasource user-id)
+  (jdbc/execute!
+   db/datasource
+   [(str "UPDATE users SET deletion_requested_at = now() - interval '"
+         (inc erasure/grace-period-days) " days' WHERE id = ?::uuid")
+    (str user-id)]))

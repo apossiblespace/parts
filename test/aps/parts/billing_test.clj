@@ -1,14 +1,23 @@
 (ns aps.parts.billing-test
   (:require
    [aps.parts.billing :as billing]
+   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
-   [aps.parts.helpers.utils :refer [create-test-user! silently with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! silently
+                                    stripe-api-error with-test-db]]
+   [aps.parts.stripe :as stripe]
    [clojure.test :refer [deftest is testing use-fixtures]])
   (:import
    (java.time LocalDate)))
 
 (use-fixtures :once with-test-db)
+
+(defn- stripe-link [email]
+  (:stripe_customer_id
+   (db/query-one (db/sql-format {:select [:stripe_customer_id]
+                                 :from   [:users]
+                                 :where  [:= :email email]}))))
 
 (defn- paid-through-date [email]
   (:paid_through_date
@@ -81,6 +90,58 @@
 
   (testing "returns nil when no account has that id"
     (is (nil? (billing/extend-paid-through! (random-uuid) "2027-01-01")))))
+
+(deftest release-stripe-customer!-test
+  (testing "deletes the linked Stripe customer before erasure"
+    (let [user     (create-test-user! {:email "release@example.com"})
+          captured (atom nil)]
+      (db/update! :users {:stripe_customer_id "cus_release"} [:= :id (:id user)])
+      (with-redefs [conf/stripe-secret-key  (constantly "rk_test_key")
+                    stripe/delete-customer! (fn [_cfg customer]
+                                              (reset! captured customer)
+                                              {:id customer :deleted true})]
+        (billing/release-stripe-customer! (:id user)))
+      (is (= "cus_release" @captured))
+      (is (nil? (stripe-link "release@example.com"))
+          "release must clear the link, arming the purge guard")))
+
+  (testing "no-ops for an account with no Stripe link"
+    (let [user     (create-test-user! {:email "unlinked-release@example.com"})
+          captured (atom nil)]
+      (with-redefs [conf/stripe-secret-key  (constantly "rk_test_key")
+                    stripe/delete-customer! (fn [_ customer] (reset! captured customer))]
+        (billing/release-stripe-customer! (:id user)))
+      (is (nil? @captured))))
+
+  (testing "a customer already gone on Stripe's side (404) counts as released"
+    (let [user (create-test-user! {:email "gone-release@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_gone"} [:= :id (:id user)])
+      (with-redefs [conf/stripe-secret-key  (constantly "rk_test_key")
+                    stripe/delete-customer! (fn [_ _] (throw (stripe-api-error 404)))]
+        (is (nil? (billing/release-stripe-customer! (:id user)))))
+      (is (nil? (stripe-link "gone-release@example.com")))))
+
+  (testing "any other Stripe failure propagates so the purge aborts and retries"
+    (let [user (create-test-user! {:email "flaky-release@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_flaky"} [:= :id (:id user)])
+      (with-redefs [conf/stripe-secret-key  (constantly "rk_test_key")
+                    stripe/delete-customer! (fn [_ _] (throw (stripe-api-error 500)))]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Stripe API error"
+                              (billing/release-stripe-customer! (:id user)))))
+      (is (= "cus_flaky" (stripe-link "flaky-release@example.com"))
+          "an aborted release must keep the link on record for the retry")))
+
+  (testing "a linked account on a host without Stripe config does not block
+            erasure — the stranded link is the operator's work item"
+    (let [user     (create-test-user! {:email "unconfigured-release@example.com"})
+          captured (atom nil)]
+      (db/update! :users {:stripe_customer_id "cus_unconf"} [:= :id (:id user)])
+      (with-redefs [conf/stripe-secret-key  (constantly nil)
+                    stripe/delete-customer! (fn [_ customer] (reset! captured customer))]
+        (billing/release-stripe-customer! (:id user)))
+      (is (nil? @captured))
+      (is (nil? (stripe-link "unconfigured-release@example.com"))
+          "the logged work item is the pointer; erasure proceeds unlinked"))))
 
 (deftest clear-paid-through!-test
   (testing "clears a recorded date back to NULL"

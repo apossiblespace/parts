@@ -20,6 +20,23 @@
       {:status status
        :body   {:error (or error-message message)}})))
 
+(defn- stripe-exception-handler
+  "Handler for a Stripe failure escaping to the client (`:stripe-api` /
+   `:stripe-transport`). Unlike `exception-handler` it ignores the
+   exception's own message — clients get the fixed wording, not
+   \"Stripe API error\" — and it logs `::stripe-failure` (allowlisted in
+   `aps.parts.alerts`): a Stripe failure on the interactive deletion path
+   must reach the operator exactly like the purge job's `::purge-error`."
+  [message]
+  (fn [^Exception e _request]
+    (let [{:keys [type status path]} (ex-data e)]
+      (mulog/log ::stripe-failure
+                 :error-type type
+                 :status status
+                 :path path)
+      {:status 502
+       :body   {:error message}})))
+
 (def postgres-sql-state-errors
   "A map of PostgreSQL SQL state codes to user-friendly error messages."
   ;; Deliberately vague on unique violations: naming the cause ("this id
@@ -98,6 +115,15 @@
      ;; superseded by a concurrent change between read and write.
      :conflict
      (exception-handler "Entity was modified by a concurrent change" 409)
+
+     ;; Stripe refused or was unreachable — account deletion's link
+     ;; release, or a billing session-create. 502: our upstream is at
+     ;; fault, not the client; safe to retry.
+     :stripe-api
+     (stripe-exception-handler "The payment provider rejected the request")
+
+     :stripe-transport
+     (stripe-exception-handler "The payment provider could not be reached")
 
      ;; A change in a batch threw; the whole batch was rolled back. The
      ;; ex-data carries `:failing-change` so the client can highlight it.

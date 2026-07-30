@@ -10,7 +10,8 @@
    [aps.parts.db.bitemporal :as bt]
    [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.session :as session]
-   [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-map! create-test-user!
+                                    expire-deletion-grace! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]))
@@ -23,14 +24,6 @@
    ["SELECT deletion_requested_at, deletion_completed_at FROM users WHERE id = ?::uuid"
     (str user-id)]
    {:builder-fn rs/as-unqualified-maps}))
-
-(defn- backdate-request! [user-id days]
-  ;; Push deletion_requested_at into the past so pending-deletions picks it up.
-  (jdbc/execute!
-   db/datasource
-   [(str "UPDATE users SET deletion_requested_at = now() - interval '" days " days'
-          WHERE id = ?::uuid")
-    (str user-id)]))
 
 (deftest test-request-deletion-marks-the-account
   (let [user (create-test-user!)]
@@ -68,14 +61,19 @@
   (let [fresh-user (create-test-user!)
         stale-user (create-test-user!)]
     (erasure/request-deletion! db/datasource (:id fresh-user))
-    (erasure/request-deletion! db/datasource (:id stale-user))
-    (backdate-request! (:id stale-user) 31)
+    (expire-deletion-grace! (:id stale-user))
 
     (let [pending (set (erasure/pending-deletions db/datasource))]
       (testing "the fresh request is still within the window — excluded"
         (is (not (contains? pending (:id fresh-user)))))
       (testing "the stale request is past the window — included"
         (is (contains? pending (:id stale-user)))))))
+
+(deftest test-purge-refuses-while-stripe-linked
+  (let [user (create-test-user!)]
+    (db/update! :users {:stripe_customer_id "cus_guard"} [:= :id (:id user)])
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Stripe customer is linked"
+                          (erasure/purge-account! db/datasource (:id user))))))
 
 (deftest test-purge-account-hard-deletes-owned-data
   (let [user    (create-test-user!)

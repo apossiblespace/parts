@@ -110,6 +110,17 @@
 ;; monotonic (GREATEST in SQL), status is a plain overwrite — so Stripe's
 ;; at-least-once delivery needs no dedup ledger.
 
+(defn- release-orphaned-customer!
+  "A recognisably-ours session completed for an account that no longer
+   exists — deleted between opening Checkout and paying. Delete the
+   just-created customer at once: its subscription must not outlive the
+   account it was for."
+  [stripe-config customer client-reference]
+  (stripe/delete-customer-if-present! stripe-config customer)
+  (mulog/log ::orphaned-checkout-released
+             :customer customer
+             :client-reference client-reference))
+
 (defn- handle-checkout-completed!
   "Link the paying account to its Stripe customer, record the subscription
    status, and extend paid-through to the subscription's real period end —
@@ -122,11 +133,13 @@
    already linked to a *different* customer still gets its paid time (the
    charge was real) but never overwrites the link — renewals must keep
    flowing to the first subscription; the conflict is logged for the
-   operator to refund and cancel the duplicate."
+   operator to refund and cancel the duplicate. A session whose account
+   no longer exists goes to `release-orphaned-customer!`."
   [stripe-config {:keys [customer subscription client_reference_id metadata]}]
   (let [plan    (some-> (:plan metadata) keyword plans)
         user-id (when (string? client_reference_id) (parse-uuid client_reference_id))
-        row     (when (and plan user-id) (billing/billing-facts user-id))]
+        ours?   (and plan user-id)
+        row     (when ours? (billing/billing-facts user-id))]
     (if row
       (let [sub        (stripe/get-subscription! stripe-config subscription)
             period-end (latest-epoch->date
@@ -143,9 +156,12 @@
                    :user-id user-id :plan plan
                    :subscription-status (:status sub)
                    :paid-through (str period-end)))
-      (mulog/log ::checkout-session-ignored
-                 :client-reference client_reference_id
-                 :recognized-plan? (boolean plan)))))
+      (if (and ours? customer)
+        (release-orphaned-customer! stripe-config customer client_reference_id)
+        (mulog/log ::checkout-session-ignored
+                   :client-reference client_reference_id
+                   :customer customer
+                   :recognized-plan? (boolean plan))))))
 
 (defn- handle-invoice-paid!
   "Move a linked account's paid-through date to the end of the invoice's

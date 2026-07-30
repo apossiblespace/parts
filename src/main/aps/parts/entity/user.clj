@@ -1,6 +1,7 @@
 (ns aps.parts.entity.user
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.billing :as billing]
    [aps.parts.common.models.user :as model]
    [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.db :as db]
@@ -128,14 +129,17 @@
    pseudonymized to the tombstone UUID rather than deleted, preserving the
    operational trail.
 
-   This is the right-to-erasure path. For the user-initiated 30-day
-   soft-delete flow, see `aps.parts.db.erasure/request-deletion!`."
+   This is the right-to-erasure path; the deletion-purge job funnels
+   expired soft-deletes through here too, so the release-Stripe-then-purge
+   ordering has one owner. For the user-initiated 30-day soft-delete flow,
+   see `aps.parts.db.erasure/request-deletion!`."
   [id]
   (let [uuid-id (db/->uuid id)
         user    (db/query-one (db/sql-format
                                {:select [:id] :from [:users] :where [:= :id uuid-id]}))]
     (if user
       (do
+        (billing/release-stripe-customer! uuid-id)
         (erasure/purge-account! db/datasource uuid-id)
         (mulog/log ::delete-user-complete :user-id id :success true)
         {:id id :deleted true})

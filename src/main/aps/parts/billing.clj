@@ -2,7 +2,12 @@
   "Billing standing: operator REPL tooling, and the storage vocabulary the
    self-serve layer (`aps.parts.api.billing`) writes through — every read
    or write of the `users` billing columns lives here, so \"which columns
-   are the billing columns\" has one home.
+   are the billing columns\" has one home — with one deliberate
+   exception: `erasure/purge-account!`'s refuse-while-linked guard reads
+   the link column itself, because a guard must not depend on the caller
+   it defends against. Erasure's Stripe step
+   (`release-stripe-customer!`) lives here too: the one outbound Stripe
+   call outside the API layer.
 
    The concierge launch bills out of band: the operator sends a Stripe
    invoice by hand, and once it clears moves the account's
@@ -23,8 +28,10 @@
    silently erase paid months. A deliberate claw-back (refund, abuse) is
    the explicit two-step `clear-paid-through!` then `set-paid-through!`."
   (:require
+   [aps.parts.config :as config]
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
+   [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog])
   (:import
    (java.time LocalDate)
@@ -163,6 +170,40 @@
    (db/sql-format {:select [:email :stripe_customer_id :stripe_subscription_status]
                    :from   [:users]
                    :where  [:= :id (db/->uuid user-id)]})))
+
+(defn release-stripe-customer!
+  "Erasure step for an account's Stripe link (TASK-108), run *before* the
+   DB purge: delete the linked Stripe Customer, which immediately cancels
+   its subscriptions — no charge may outlive the account. Stripe retains
+   the customer's past invoices as the financial records it is required
+   to keep; the identity leaves our customer list, which is the erasure
+   stance this codebase commits to.
+
+   Ordering is the safety: a Stripe failure here throws, the caller
+   aborts the purge, and the next attempt retries with the link still on
+   record — never a purged row with a live subscription nobody can find.
+   A 404 (customer already deleted) counts as released. A linked account
+   on a host with no Stripe config cannot call Stripe: that is logged as
+   an operator work item and deliberately does not block erasure."
+  [user-id]
+  (when-let [customer (:stripe_customer_id (billing-facts user-id))]
+    ;; Only the secret key is needed — a host mid-rotation on the webhook
+    ;; secret or price ids must still release, not silently degrade to
+    ;; "no Stripe at all" and purge the only pointer to a live customer.
+    (if-let [secret-key (config/stripe-secret-key)]
+      (if (stripe/delete-customer-if-present! {:secret-key secret-key} customer)
+        (mulog/log ::stripe-customer-released :user-id user-id :customer customer)
+        (mulog/log ::stripe-customer-already-gone :user-id user-id :customer customer))
+      (mulog/log ::stripe-link-remains
+                 :user-id user-id
+                 :customer customer))
+    ;; Clearing the columns is what arms `erasure/purge-account!`'s
+    ;; refuse-while-linked guard; a Stripe throw above leaves them set.
+    (db/update! :users
+                {:stripe_customer_id         nil
+                 :stripe_subscription_status nil}
+                [:= :id (db/->uuid user-id)])
+    nil))
 
 (defn set-paid-through!
   "Record an account as paid through a date; return its updated billing

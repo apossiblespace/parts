@@ -30,12 +30,19 @@
   (* 15 60 1000))
 
 (def alert-events
-  "mulog event names that warrant waking the operator. Mirrors the events
-   logged in `aps.parts.errors`; lives here, not there, so the alerting policy
-   stays with the alerting module rather than leaking into the error handlers."
+  "mulog event names that warrant waking the operator. The alerting policy
+   lives here, not with the emitting namespaces, so it can't leak into the
+   handlers — the cost is that these are plain keywords: renaming an event
+   at its source silently disarms its alert."
   #{:aps.parts.errors/unhandled-exception
     :aps.parts.errors/batch-failure
-    :aps.parts.errors/postgres-exception})
+    :aps.parts.errors/postgres-exception
+    :aps.parts.errors/stripe-failure
+    ;; Erasure-compliance failures (TASK-108): a Stripe-blocked purge
+    ;; silently postpones GDPR erasure hourly; a purge past an unreleasable
+    ;; link leaves the log as the only pointer to a still-billable customer.
+    :aps.parts.jobs.deletion-purge/purge-error
+    :aps.parts.billing/stripe-link-remains})
 
 (defn event-signature
   "A stable cooldown key for an event. Prefers a non-value discriminator —

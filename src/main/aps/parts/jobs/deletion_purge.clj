@@ -5,6 +5,7 @@
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
+   [aps.parts.entity.user :as user]
    [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]))
 
@@ -14,22 +15,28 @@
   (* 60 60 1000))
 
 (defn run-once!
-  "Purge every account whose grace window has elapsed. Returns the number of
-   accounts purged. Each purge runs in its own transaction; one failure
-   doesn't block the others."
+  "Purge every account whose grace window has elapsed, each through
+   `user/delete!` — the right-to-erasure path, which owns the ordering
+   invariant of releasing the account's Stripe link before the purge. A
+   Stripe failure postpones that account to the next hourly run, with its
+   link still on record. Returns the number of accounts purged; one
+   failure doesn't block the others."
   []
   (let [pending (erasure/pending-deletions db/datasource)]
     (reduce
      (fn [purged user-id]
        (try
-         (erasure/purge-account! db/datasource user-id)
-         (mulog/log ::purge-success :user-id user-id)
-         (inc purged)
+         (if (:deleted (user/delete! user-id))
+           (inc purged)
+           purged)
          (catch Exception e
-           (mulog/log ::purge-error
-                      :user-id user-id
-                      :error (.getMessage e)
-                      :error-type (.getName (class e)))
+           (let [data (ex-data e)]
+             (mulog/log ::purge-error
+                        :user-id user-id
+                        :error (.getMessage e)
+                        :error-type (or (:type data) (.getName (class e)))
+                        :error-status (:status data)
+                        :error-path (:path data)))
            purged)))
      0
      pending)))
@@ -47,11 +54,15 @@
                       (mulog/log ::purge-batch-error
                                  :error (.getMessage e)
                                  :error-type (.getName (class e))))))]
-    (tick)
+    ;; The tick does blocking Stripe HTTP per linked account, so it runs
+    ;; on a dedicated thread (async/thread), never on a core.async
+    ;; dispatch thread — a slow Stripe would otherwise starve every go
+    ;; block in the process.
+    (async/thread (tick))
     (async/go-loop []
       (let [timeout-ch (async/timeout interval-ms)
             [_ ch]     (async/alts! [stop-ch timeout-ch])]
         (when (not= ch stop-ch)
-          (tick)
+          (async/<! (async/thread (tick)))
           (recur))))
     stop-ch))

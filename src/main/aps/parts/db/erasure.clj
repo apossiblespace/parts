@@ -4,9 +4,11 @@
 
    Two-phase: `request-deletion!` marks the account, the user can
    `cancel-deletion!` within 30 days, after which the deletion-purge job
-   calls `purge-account!` to hard-delete everything. Audit-log entries
-   referencing the deleted user are pseudonymized to a tombstone UUID
-   rather than deleted, preserving operational accountability.
+   hard-deletes everything through `aps.parts.entity.user/delete!` — the
+   path that first releases the account's Stripe link, then calls
+   `purge-account!`. Audit-log entries referencing the deleted user are
+   pseudonymized to a tombstone UUID rather than deleted, preserving
+   operational accountability.
 
    This is the *only* namespace that issues `DELETE FROM` on temporal
    tables — enforced by `aps.parts.architecture-test`."
@@ -58,7 +60,9 @@
 
 (defn pending-deletions
   "Return user-ids whose grace window has expired and are ready to purge.
-   The deletion-purge job iterates this and calls `purge-account!` for each."
+   The deletion-purge job iterates this and calls
+   `aps.parts.entity.user/delete!` for each — never `purge-account!`
+   directly, which would skip the Stripe-link release."
   [ds]
   (->> (jdbc/execute!
         ds
@@ -111,6 +115,18 @@
     (when (= user-uuid tombstone-id)
       (throw (ex-info "Refusing to purge the tombstone user"
                       {:type :forbidden :user-id user-id})))
+    ;; `billing/release-stripe-customer!` clears this column; a purge past
+    ;; a still-set link would destroy the only pointer to a live
+    ;; subscription.
+    (when (:stripe_customer_id
+           (jdbc/execute-one! ds
+                              (db/sql-format
+                               {:select [:stripe_customer_id]
+                                :from   [:users]
+                                :where  [:= :id user-uuid]})
+                              {:builder-fn rs/as-unqualified-maps}))
+      (throw (ex-info "Refusing to purge while a Stripe customer is linked — release it first (entity.user/delete! does)"
+                      {:type :stripe-link-present :user-id user-id})))
     (mulog/log ::purge-account-start :user-id user-id)
     (jdbc/with-transaction [tx ds]
       ;; Assume the erasure-only role for the whole transaction (SET LOCAL

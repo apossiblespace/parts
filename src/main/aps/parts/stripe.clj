@@ -143,6 +143,36 @@
   [stripe-config subscription-id]
   (request! stripe-config :get (str "/v1/subscriptions/" subscription-id) nil))
 
+(defn delete-customer!
+  "Delete a Customer. Stripe immediately cancels the customer's active
+   subscriptions and removes their identity from the account's customer
+   list, while retaining the invoices it must keep as financial records.
+   The erasure path's one Stripe call — see
+   `aps.parts.billing/release-stripe-customer!`."
+  [stripe-config customer-id]
+  (request! stripe-config :delete (str "/v1/customers/" customer-id) nil))
+
+(defn- not-found?
+  "True when `e` is this namespace's error for a 404. Private: callers
+   express already-gone tolerance through `delete-customer-if-present!`."
+  [e]
+  (and (= :stripe-api (:type (ex-data e)))
+       (= 404 (:status (ex-data e)))))
+
+(defn delete-customer-if-present!
+  "Delete a Customer, tolerating one that is already gone: true when
+   deleted, false when Stripe reports it missing. Anything else throws —
+   the caller's retry mechanism (webhook redelivery, hourly purge run)
+   depends on real failures propagating."
+  [stripe-config customer-id]
+  (try
+    (delete-customer! stripe-config customer-id)
+    true
+    (catch clojure.lang.ExceptionInfo e
+      (if (not-found? e)
+        false
+        (throw e)))))
+
 (defn create-checkout-session!
   "Create a Checkout Session; returns the session (`:url` is the hosted
    payment page to redirect the browser to)."

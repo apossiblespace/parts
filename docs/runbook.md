@@ -177,18 +177,50 @@ Invites from the production REPL:
 (ops/send-invitation-email! (ops/generate-invitation! "jane@example.com"))
 ```
 
-## Billing (concierge)
+## Billing
 
-Billing is out of band: send each invoice by hand from the Stripe dashboard;
-once it clears, move the account forward with the `aps.parts.billing` REPL
-helpers — `(billing-status!)` to see standing, `(set-paid-through! email)` to
-extend it. The app never calls Stripe; there is no integration.
+Two lanes share one source of truth — `users.paid_through_date`, which only
+ever moves forward.
 
-**Keep client data out of Stripe.** Stripe prohibits health data and will not
-sign a BAA, so a Stripe customer or invoice must carry **only the therapist's
-own name and email** — never a client's name, a Map title, or any clinical
-detail. This is purely a discipline for what you type into the dashboard by
-hand; when self-serve billing lands (TASK-046) it becomes a code invariant.
+**Concierge** — send an invoice by hand from the Stripe dashboard; once it
+clears, `(set-paid-through! email)` from the production REPL, and
+`(billing-status!)` to see standing. The helper never moves a date
+backwards; a deliberate claw-back (refund, abuse response) is
+`(clear-paid-through! email)` followed by a fresh set. Caveat: a Stripe
+`invoice.paid` redelivery within ~3 days of the original event re-extends a
+clawed-back date, so re-check after the retry window.
+
+**Self-serve (TASK-046)** — the app creates Checkout/Portal sessions and
+consumes webhooks once all four `PARTS__STRIPE__*` variables are set;
+unset, the integration is off and concierge continues unchanged. The
+restricted key needs three scopes: **Checkout Sessions: Write, Billing
+Portal: Write, and Customers: Write** — the last one is what lets erasure
+delete a linked Customer; without it every deletion of a subscriber fails
+with a permission error. The webhook keeps `paid_through_date` and
+`stripe_subscription_status` current.
+The production webhook endpoint must be pinned to the latest Stripe API
+version (the account default is 2018-era) and subscribed to
+`checkout.session.completed`, `invoice.paid`, and the three
+`customer.subscription.*` events.
+
+**Keep client data out of Stripe.** Stripe prohibits health data and will
+not sign a BAA, so a Stripe customer or invoice must carry **only the
+therapist's own name and email** — never a client's name, a Map title, or
+any clinical detail. For dashboard work this is discipline; in code it is
+an invariant: the checkout payload is a closed allowlist pinned by
+`aps.parts.stripe-test`.
+
+**Erasure releases the Stripe link (TASK-108).** Account deletion — the
+immediate path and the 30-day purge job alike — deletes the linked Stripe
+Customer *before* the DB purge. Stripe immediately cancels the customer's
+subscriptions (no charge outlives an account) and retains past invoices as
+the financial records it must keep; removing the customer's identity from
+our Stripe account is the extent of the erasure promise there. If Stripe is
+unreachable, the purge is postponed to the next hourly run with the link
+still on record — nothing half-completes. If an account is linked but the
+host has no Stripe config, the purge proceeds and logs
+`stripe-link-remains`: an operator work item to delete that customer from
+the dashboard by hand.
 
 ## Backups & retention
 
