@@ -1,5 +1,8 @@
 (ns aps.parts.billing
-  "Concierge billing — operator REPL tooling for account standing.
+  "Billing standing: operator REPL tooling, and the storage vocabulary the
+   self-serve layer (`aps.parts.api.billing`) writes through — every read
+   or write of the `users` billing columns lives here, so \"which columns
+   are the billing columns\" has one home.
 
    The concierge launch bills out of band: the operator sends a Stripe
    invoice by hand, and once it clears moves the account's
@@ -12,7 +15,13 @@
      (billing-status!)                      ; standing of every account
      (set-paid-through! email)              ; paid one more month from today
      (set-paid-through! email \"2027-05-22\") ; paid through an explicit date
-     (clear-paid-through! email)            ; back to never-paid (NULL)"
+     (clear-paid-through! email)            ; back to never-paid (NULL)
+
+   Since self-serve billing (TASK-046) the paid-through date is monotonic:
+   both the Stripe webhook and `set-paid-through!` only ever move it
+   forward, so a concierge invoice recorded after a self-serve year can't
+   silently erase paid months. A deliberate claw-back (refund, abuse) is
+   the explicit two-step `clear-paid-through!` then `set-paid-through!`."
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
@@ -84,6 +93,77 @@
   "Report sort order — accounts that need attention come first."
   {:never-paid 0 :overdue 1 :paid 2})
 
+(defn- extend-paid-through-set
+  "The `:set` map for a monotonic paid-through move: GREATEST in SQL, so
+   the date never travels backwards and concurrent writers (two webhook
+   deliveries, webhook + operator) can't interleave a stale read."
+  [^LocalDate date]
+  {:paid_through_date [:greatest [:coalesce :paid_through_date date] date]})
+
+(defn- coerce-paid-through
+  "An updated row with its `:paid_through_date` as a LocalDate, so the
+   JDBC DATE type never escapes this namespace. nil passes through."
+  [row]
+  (some-> row (update :paid_through_date ->local-date)))
+
+(defn extend-paid-through!
+  "Move an account's `paid_through_date` forward to `date`, never
+   backwards — an account already paid further ahead keeps its later date.
+   Returns the updated row (`:paid_through_date` as a LocalDate), or nil
+   when no account has that `user-id`."
+  [user-id date]
+  (coerce-paid-through
+   (first (db/update! :users
+                      (extend-paid-through-set (->local-date date))
+                      [:= :id (db/->uuid user-id)]))))
+
+(defn extend-paid-through-for-customer!
+  "The same monotonic move, keyed by the Stripe customer link — the
+   webhook's one-statement path for renewal invoices. Returns the updated
+   row (`:paid_through_date` as a LocalDate), or nil when no account is
+   linked to `customer` (the operator's hand-sent concierge invoices flow
+   through the same Stripe account and must fall out here)."
+  [customer date]
+  (coerce-paid-through
+   (first (db/update! :users
+                      (extend-paid-through-set (->local-date date))
+                      [:= :stripe_customer_id customer]))))
+
+(defn record-subscription-status!
+  "Record the linked account's live Stripe subscription status — a UI
+   fact (subscribe vs manage), never a billing input. Returns the updated
+   row, or nil when no account is linked to `customer`."
+  [customer status]
+  (first (db/update! :users
+                     {:stripe_subscription_status status}
+                     [:= :stripe_customer_id customer])))
+
+(defn record-checkout!
+  "One atomic row move for a completed self-serve Checkout: link the
+   Stripe customer, record the subscription status, and — when the paid
+   period's end is known — extend paid-through, monotonically like every
+   other paid-through move. Returns the updated row (`:paid_through_date`
+   as a LocalDate), or nil when no account has that `user-id`."
+  [user-id customer status period-end]
+  (coerce-paid-through
+   (first (db/update! :users
+                      (cond-> {:stripe_customer_id         customer
+                               :stripe_subscription_status status}
+                        period-end (merge (extend-paid-through-set
+                                           (->local-date period-end))))
+                      [:= :id (db/->uuid user-id)]))))
+
+(defn billing-facts
+  "The billing columns the API layer reads for an account — checkout
+   guard, portal lookup, and the Account page's `:billing` booleans all
+   go through this one projection. Returns nil when no account has that
+   `user-id`."
+  [user-id]
+  (db/query-one
+   (db/sql-format {:select [:email :stripe_customer_id :stripe_subscription_status]
+                   :from   [:users]
+                   :where  [:= :id (db/->uuid user-id)]})))
+
 (defn set-paid-through!
   "Record an account as paid through a date; return its updated billing
    summary, or nil if no account has that `email`.
@@ -91,17 +171,29 @@
    Two arities for the monthly concierge billing cycle:
    - `(set-paid-through! email)`      — paid through one month from today
    - `(set-paid-through! email date)` — paid through an explicit date: a
-     `java.time.LocalDate` or an ISO-8601 string like \"2027-05-22\"."
+     `java.time.LocalDate` or an ISO-8601 string like \"2027-05-22\".
+
+   Never moves the date backwards (see the namespace docstring): recording
+   a shorter period than the account already has keeps the later date and
+   says so. Claw a date back deliberately with `clear-paid-through!` first."
   ([email]
    (set-paid-through! email (.plusMonths (LocalDate/now) 1)))
   ([email date]
    (let [paid-through (->local-date date)]
      (if-let [row (first (db/update! :users
-                                     {:paid_through_date paid-through}
+                                     (extend-paid-through-set paid-through)
                                      [:= :email email]))]
-       (do (mulog/log ::paid-through-set :email email :paid-through (str paid-through))
-           (println (str "Set " email " paid through " paid-through))
-           (->status-line row (LocalDate/now)))
+       (let [recorded (->local-date (:paid_through_date row))]
+         (mulog/log ::paid-through-set
+                    :email email
+                    :requested (str paid-through)
+                    :recorded (str recorded))
+         (if (.isAfter ^LocalDate recorded paid-through)
+           (println (str email " is already paid through " recorded
+                         " — date not moved backwards"
+                         " (clear-paid-through! first to claw back)"))
+           (println (str "Set " email " paid through " recorded)))
+         (->status-line row (LocalDate/now)))
        (do (println (str "No account found for " email))
            nil)))))
 

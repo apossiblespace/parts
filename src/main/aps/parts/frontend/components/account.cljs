@@ -5,59 +5,37 @@
    account, billing, or closure requests."
   (:require
    [aps.parts.common.constants :as c]
+   [aps.parts.frontend.components.account-view :as account-view]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.components.inline-edit :as inline-edit]
+   [aps.parts.frontend.router :as router]
    [clojure.string :as str]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-state]]
    [uix.re-frame :as uix.rf]))
 
-(def ^:private month-names
-  ["January" "February" "March" "April" "May" "June" "July"
-   "August" "September" "October" "November" "December"])
-
-(defn- fmt-iso-date
-  "Render an ISO `YYYY-MM-DD` string as e.g. `8 July 2026` by splitting the
-   string — never via `js/Date`, so a date-only value can't drift a day
-   across timezones. Returns nil for anything that doesn't parse."
-  [iso]
-  (when iso
-    (let [[y m d] (str/split iso #"-")
-          mi      (when m (dec (js/parseInt m 10)))]
-      (when (and y mi d (<= 0 mi 11))
-        (str (js/parseInt d 10) " " (nth month-names mi) " " y)))))
-
-(defn- standing-message
-  "Plain-language good-standing line from the server's `:standing` summary
-   (see `aps.parts.billing/account-standing`). Returns nil when the summary
-   isn't loaded yet, so the caller can show a placeholder."
-  [{:keys [status days_remaining paid_through_date]}]
-  (let [through (fmt-iso-date paid_through_date)]
-    (case status
-      :paid       (cond
-                    (nil? days_remaining)
-                    (str "Your subscription is active through " through ".")
-
-                    (zero? days_remaining)
-                    (str "Your subscription is active through the end of today (" through ").")
-
-                    :else
-                    (str "Your subscription is active for another "
-                         days_remaining (if (= 1 days_remaining) " day" " days")
-                         " — through " through "."))
-      :overdue    (str "Your subscription lapsed on " through ".")
-      :never-paid "We don't have a renewal date on file for your account yet."
-      nil)))
+(defui ^:private billing-button
+  [{:keys [label target primary? pending]}]
+  ($ :button {:class    (str "btn btn-sm" (when primary? " btn-primary"))
+              :disabled (some? pending)
+              :on-click #(rf/dispatch [:billing/start target])}
+     (when (= target pending)
+       ($ :span {:class "loading loading-spinner loading-xs"}))
+     label))
 
 (defui account []
-  (let [user               (uix.rf/use-subscribe [:auth/user])
-        standing           (:standing user)
-        display-name       (:display_name user)
-        update-error       (uix.rf/use-subscribe [:account/update-error])
-        [draft set-draft!] (use-state (or display-name ""))
-        commit             (inline-edit/commit-value draft display-name
-                                                     (complement str/blank?))]
+  (let [user                                    (uix.rf/use-subscribe [:auth/user])
+        standing                                (:standing user)
+        display-name                            (:display_name user)
+        update-error                            (uix.rf/use-subscribe [:account/update-error])
+        billing-error                           (uix.rf/use-subscribe [:account/billing-error])
+        billing-pending                         (uix.rf/use-subscribe [:account/billing-pending])
+        query-params                            (uix.rf/use-subscribe [:router/query-params])
+        [checkout-thanks? set-checkout-thanks!] (use-state false)
+        [draft set-draft!]                      (use-state (or display-name ""))
+        commit                                  (inline-edit/commit-value draft display-name
+                                                                          (complement str/blank?))]
     ;; Seed the draft once the async user record lands — keyed on identity,
     ;; not the name, so a save echo or background auth refresh can't clobber
     ;; an uncommitted draft (the hazard use-autosave-form documents).
@@ -71,6 +49,27 @@
      (fn []
        (rf/dispatch [:auth/check-auth])
        js/undefined)
+     [])
+    ;; Returning from a completed Stripe Checkout lands on
+    ;; /app/account?checkout=success. Latch a thank-you locally, then drop
+    ;; the param from the URL so a reload or bookmark doesn't re-thank.
+    (use-effect
+     (fn []
+       (when (= "success" (:checkout query-params))
+         (set-checkout-thanks! true)
+         (rf/dispatch [:router/replace ::router/account]))
+       js/undefined)
+     [query-params])
+    ;; Back from Stripe restores this page from the bfcache with
+    ;; billing-pending still set; pageshow/.persisted is the only signal
+    ;; on that path — without this the buttons stay stuck disabled.
+    (use-effect
+     (fn []
+       (let [on-pageshow (fn [^js e]
+                           (when (.-persisted e)
+                             (rf/dispatch [:billing/settled])))]
+         (.addEventListener js/window "pageshow" on-pageshow)
+         #(.removeEventListener js/window "pageshow" on-pageshow)))
      [])
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
@@ -125,8 +124,48 @@
 
           ($ :div {:class "bg-white border border-base-300 rounded-lg shadow-sm p-4 mb-4"}
              ($ :h2 {:class "text-sm font-semibold text-gray-500 mb-1"} "Billing")
-             (if-let [msg (standing-message standing)]
-               ($ :p {:class "text-base"} msg)
-               ($ :p {:class "text-base text-gray-400"} "Checking…")))
+             (when checkout-thanks?
+               ($ :div {:role "alert" :class "alert alert-success mb-2"}
+                  ($ :p {:class "text-gray-900"}
+                     "Thank you for subscribing! Your payment went through — "
+                     "it can take a few moments for your renewal date to "
+                     "appear here.")))
+             (let [{:keys [action standing-line]}
+                   (account-view/billing-view {:billing  (:billing user)
+                                               :standing standing})]
+               (if (= :loading action)
+                 ($ :p {:class "text-base text-gray-400"} "Checking…")
+                 ($ :<>
+                    (when standing-line
+                      ($ :p {:class "text-base"} standing-line))
+                    (case action
+                      :subscribe
+                      ($ :div {:class "mt-1"}
+                         ($ :p {:class "text-base"}
+                            "Parts is free while in beta. Subscribing now is "
+                            "optional — it supports development, and your "
+                            "subscription simply carries on once Parts "
+                            "launches.")
+                         ($ :div {:class "flex flex-wrap gap-2 mt-3"}
+                            (for [{:keys [plan label primary?]} c/subscription-plans]
+                              ($ billing-button {:key      (name plan)
+                                                 :label    label
+                                                 :target   plan
+                                                 :primary? primary?
+                                                 :pending  billing-pending}))))
+
+                      :manage
+                      ($ :div {:class "mt-1"}
+                         ($ :p {:class "text-sm text-gray-400"}
+                            "Update your payment details, switch between "
+                            "monthly and yearly, or cancel — any time.")
+                         ($ :div {:class "mt-2"}
+                            ($ billing-button {:label   "Manage subscription"
+                                               :target  :portal
+                                               :pending billing-pending})))
+
+                      :none nil)
+                    (when billing-error
+                      ($ :p {:class "text-sm text-error mt-1"} billing-error))))))
 
           ($ app-footer)))))

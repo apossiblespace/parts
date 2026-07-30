@@ -115,3 +115,13 @@
    processing) is the versioned record, and the private-pay scoping is a Terms
    of Service warranty accepted via the legal-documents checkbox (see ADR-0009)."
   "I understand that mental-health information is processed in Parts, as described in the Privacy Policy.")
+
+(def subscription-plans
+  "The self-serve subscription plans, in display order — annual first,
+   because pricing decision 6 steers to annual. The one definition both
+   runtimes read: the backend validates `:plan` keys at checkout, the
+   Account page renders a button per entry. `:label` is UI copy and must
+   state the same amounts as the Stripe Prices configured through
+   PARTS__STRIPE__PRICE_MONTHLY / _YEARLY — change them together."
+  [{:plan :yearly :label "Subscribe — £150/year" :primary? true}
+   {:plan :monthly :label "Subscribe — £15/month" :primary? false}])

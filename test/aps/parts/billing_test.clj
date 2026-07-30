@@ -47,7 +47,40 @@
       (is (= (.plusMonths (LocalDate/now) 1) (:paid_through_date result)))))
 
   (testing "returns nil when no account has that email"
-    (is (nil? (silently #(billing/set-paid-through! "ghost@example.com" "2027-01-01"))))))
+    (is (nil? (silently #(billing/set-paid-through! "ghost@example.com" "2027-01-01")))))
+
+  (testing "never moves an account's date backwards — a concierge invoice
+            after a self-serve year keeps the later date"
+    (create-test-user! {:email "paid-ahead@example.com"})
+    (silently #(billing/set-paid-through! "paid-ahead@example.com" "2027-08-01"))
+    (let [result (silently #(billing/set-paid-through! "paid-ahead@example.com"))]
+      (is (= "2027-08-01" (str (paid-through-date "paid-ahead@example.com"))))
+      (is (= "2027-08-01" (str (:paid_through_date result))))))
+
+  (testing "clear-paid-through! then set is the deliberate claw-back path"
+    (create-test-user! {:email "clawback@example.com"})
+    (silently #(billing/set-paid-through! "clawback@example.com" "2027-08-01"))
+    (silently #(billing/clear-paid-through! "clawback@example.com"))
+    (silently #(billing/set-paid-through! "clawback@example.com" "2026-08-01"))
+    (is (= "2026-08-01" (str (paid-through-date "clawback@example.com"))))))
+
+(deftest extend-paid-through!-test
+  (testing "extends a never-paid account and returns the updated row"
+    (let [user (create-test-user! {:email "extend-fresh@example.com"})
+          row  (billing/extend-paid-through! (:id user) "2026-12-01")]
+      (is (= "2026-12-01" (str (paid-through-date "extend-fresh@example.com"))))
+      (is (some? (:paid_through_date row)))))
+
+  (testing "moves forward but never backwards"
+    (let [user (create-test-user! {:email "extend-mono@example.com"})]
+      (billing/extend-paid-through! (:id user) "2026-12-01")
+      (billing/extend-paid-through! (:id user) "2027-06-01")
+      (is (= "2027-06-01" (str (paid-through-date "extend-mono@example.com"))))
+      (billing/extend-paid-through! (:id user) "2026-01-01")
+      (is (= "2027-06-01" (str (paid-through-date "extend-mono@example.com"))))))
+
+  (testing "returns nil when no account has that id"
+    (is (nil? (billing/extend-paid-through! (random-uuid) "2027-01-01")))))
 
 (deftest clear-paid-through!-test
   (testing "clears a recorded date back to NULL"

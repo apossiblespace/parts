@@ -3,6 +3,7 @@
    [aps.parts.auth :as auth]
    [aps.parts.billing :as billing]
    [aps.parts.common.demo :as demo]
+   [aps.parts.config :as config]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
@@ -10,17 +11,37 @@
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
+   [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
 
+(defn- billing-info
+  "Self-serve billing facts for the Account page, driving its
+   subscribe-vs-manage choice. Only booleans leave the server; the raw
+   customer id and status string have no business in the client.
+
+   Everything is false when Stripe isn't configured — a subscriber on a
+   host whose Stripe env was removed must not be offered a manage button
+   that can only fail (and the concierge-only host skips the extra query
+   entirely). A live status implies a linked customer — the two are only
+   ever written together — so no separate portal flag is needed."
+  [user-id]
+  (let [enabled? (some? (config/stripe-config))
+        row      (when enabled? (billing/billing-facts user-id))]
+    {:self_serve_enabled  enabled?
+     :subscription_active (contains? stripe/live-subscription-statuses
+                                     (:stripe_subscription_status row))}))
+
 (defn get-account
   "Retrieve own account info, including the account's good-standing summary
-   under `:standing` (see `billing/account-standing`) for the Account page."
+   under `:standing` (see `billing/account-standing`) and the self-serve
+   billing facts under `:billing` (see `billing-info`) for the Account page."
   [request]
   (let [user-id     (auth/current-user-id request)
         user-record (user/fetch user-id)]
     (-> (response/response (assoc user-record
-                                  :standing (billing/account-standing user-record)))
+                                  :standing (billing/account-standing user-record)
+                                  :billing  (billing-info user-id)))
         (response/status 200))))
 
 (defn- credential-change?

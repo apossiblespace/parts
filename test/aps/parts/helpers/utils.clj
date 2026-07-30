@@ -100,3 +100,24 @@
   [f]
   (binding [*out* (java.io.StringWriter.)]
     (f)))
+
+(def stripe-test-config
+  "A fully-populated Stripe config for `with-redefs`-ing
+   `aps.parts.config/stripe-config` in tests."
+  {:secret-key     "rk_test_key"
+   :webhook-secret "whsec_test_secret"
+   :prices         {:monthly "price_monthly" :yearly "price_yearly"}})
+
+(defn stripe-sig-header
+  "A currently-valid Stripe-Signature header for `payload` under `secret`.
+   Computes the HMAC with the JDK directly — independent of
+   `aps.parts.stripe`, whose own test pins the algorithm."
+  [secret payload]
+  (let [now (quot (System/currentTimeMillis) 1000)
+        mac (doto (javax.crypto.Mac/getInstance "HmacSHA256")
+              (.init (javax.crypto.spec.SecretKeySpec.
+                      (.getBytes ^String secret "UTF-8") "HmacSHA256")))
+        hex (->> (.doFinal mac (.getBytes (str now "." payload) "UTF-8"))
+                 (map #(format "%02x" %))
+                 (apply str))]
+    (str "t=" now ",v1=" hex)))

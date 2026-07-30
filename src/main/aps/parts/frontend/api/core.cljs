@@ -90,3 +90,16 @@
   - role"
   []
   (http/GET "/account" {}))
+
+(defn create-checkout-session
+  "Start a Stripe Checkout for a subscription plan (\"monthly\" or
+   \"yearly\"). A 200 carries {:url …} — the hosted payment page to send
+   the browser to."
+  [plan]
+  (http/POST "/billing/checkout-session" {:plan plan}))
+
+(defn create-portal-session
+  "Open the Stripe Customer Portal for the signed-in account. A 200
+   carries {:url …} — the hosted management page to send the browser to."
+  []
+  (http/POST "/billing/portal-session" {}))

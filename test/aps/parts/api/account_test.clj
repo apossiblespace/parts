@@ -2,11 +2,13 @@
   (:require
    [aps.parts.api.account :as account]
    [aps.parts.auth :as auth]
+   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
    [aps.parts.helpers.test-factory :as factory]
-   [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
+                                    with-test-db]]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
@@ -32,8 +34,45 @@
               ;; A fresh account has never paid, so good standing is unset.
               :standing          {:status            :never-paid
                                   :paid_through_date nil
-                                  :days_remaining    nil}} (:body response)))
-      (is (not (contains? response :password_hash))))))
+                                  :days_remaining    nil}
+              ;; Test env has no Stripe config and no linked customer.
+              :billing           {:self_serve_enabled  false
+                                  :subscription_active false}} (:body response)))
+      (is (not (contains? response :password_hash)))))
+
+  (testing "reports the portal usable and the subscription live once Stripe
+            is configured and the account is linked with an active status"
+    (let [user (create-test-user!)]
+      (db/update! :users {:stripe_customer_id         "cus_account_test"
+                          :stripe_subscription_status "active"}
+                  [:= :id (:id user)])
+      (with-redefs [conf/stripe-config (constantly stripe-test-config)]
+        (let [response (account/get-account {:identity {:sub (str (:id user))}})]
+          (is (= {:self_serve_enabled  true
+                  :subscription_active true}
+                 (:billing (:body response))))))))
+
+  (testing "a cancelled subscription reads linked but not active"
+    (let [user (create-test-user!)]
+      (db/update! :users {:stripe_customer_id         "cus_cancelled_acct"
+                          :stripe_subscription_status "canceled"}
+                  [:= :id (:id user)])
+      (with-redefs [conf/stripe-config (constantly stripe-test-config)]
+        (let [response (account/get-account {:identity {:sub (str (:id user))}})]
+          (is (= {:self_serve_enabled  true
+                  :subscription_active false}
+                 (:billing (:body response))))))))
+
+  (testing "a linked customer on a host without Stripe config gets no portal
+            (the button's backend could only fail)"
+    (let [user (create-test-user!)]
+      (db/update! :users {:stripe_customer_id         "cus_unconfigured"
+                          :stripe_subscription_status "active"}
+                  [:= :id (:id user)])
+      (let [response (account/get-account {:identity {:sub (str (:id user))}})]
+        (is (= {:self_serve_enabled  false
+                :subscription_active false}
+               (:billing (:body response))))))))
 
 (deftest test-update-account
   (testing "correctly updates the user data"

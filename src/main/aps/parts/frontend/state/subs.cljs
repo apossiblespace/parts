@@ -206,6 +206,16 @@
    (get-in db [:account :update-error])))
 
 (rf/reg-sub
+ :account/billing-error
+ (fn [db _]
+   (get-in db [:account :billing-error])))
+
+(rf/reg-sub
+ :account/billing-pending
+ (fn [db _]
+   (get-in db [:account :billing-pending])))
+
+(rf/reg-sub
  :auth/loading
  (fn [db _]
    (get-in db [:auth :loading])))

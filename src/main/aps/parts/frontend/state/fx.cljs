@@ -93,6 +93,25 @@
          (rf/dispatch [:account/update-failure
                        (error-message resp "Could not update your details")]))))))
 
+(rf/reg-fx
+ :billing/session-fx
+ (fn [{:keys [target]}]
+   ;; Success is a full-page redirect — `.-href` assignment, not
+   ;; `.replace`, so Back returns to the Account page. The pending flag
+   ;; is deliberately left up (the page is about to unload); the account
+   ;; page's pageshow listener clears it on a bfcache return.
+   (go
+     (let [portal? (= :portal target)
+           resp    (<! (if portal?
+                         (api/create-portal-session)
+                         (api/create-checkout-session (name target))))]
+       (if (= 200 (:status resp))
+         (set! (.-href (.-location js/window)) (get-in resp [:body :url]))
+         (rf/dispatch [:billing/settled
+                       (error-message resp (if portal?
+                                             "Could not open the billing page"
+                                             "Could not start the checkout"))]))))))
+
 ;; -- Sessions (ADR-0014) ----------------------------------------------------
 ;; HTTP-only: Sessions exist for authenticated Maps; demo Maps are exempt
 ;; from the Session model, so these effects never fire in the playground.

@@ -3,6 +3,7 @@
   (:require
    [aps.parts.api.account :as api.account]
    [aps.parts.api.auth :as api.auth]
+   [aps.parts.api.billing :as api.billing]
    [aps.parts.api.maps :as api.maps]
    [aps.parts.api.sessions :as api.sessions]
    [aps.parts.auth.middleware :as auth-mw]
@@ -127,6 +128,12 @@
 
    ["/up" {:get {:handler (fn [_] {:status 200 :body "OK"})}}]
 
+   ;; Stripe webhook — deliberately outside the /api group: Stripe signs
+   ;; the exact raw bytes it sends, so no body-parsing middleware may run
+   ;; before the handler verifies the signature (which is also why it needs
+   ;; neither auth nor CSRF — the signature is the authentication).
+   ["/stripe/webhook" {:post {:handler api.billing/webhook}}]
+
    ;; Form submission endpoint with CSRF protection
    ["/waitlist-signup" {:middleware [middleware/wrap-html-defaults
                                      middleware/wrap-html-response]
@@ -198,6 +205,19 @@
           :get        {:handler api.account/get-account}
           :patch      {:handler api.account/update-account}
           :delete     {:handler api.account/delete-account}}]]
+
+    ;; Self-serve billing: both endpoints only mint redirect URLs to
+    ;; Stripe-hosted pages, but each mint creates an object on Stripe's
+    ;; side — hence the per-user limiter.
+    ["/billing" {:middleware [auth-mw/require-auth]}
+     ["/checkout-session" {:post {:middleware [(ratelimit/user-limiter
+                                                :checkout-session
+                                                {:capacity 10 :refill-per-ms (/ 1.0 60000)})]
+                                  :handler    api.billing/create-checkout-session}}]
+     ["/portal-session" {:post {:middleware [(ratelimit/user-limiter
+                                              :portal-session
+                                              {:capacity 10 :refill-per-ms (/ 1.0 60000)})]
+                                :handler    api.billing/create-portal-session}}]]
 
     ["/maps" {:middleware [auth-mw/require-auth]}
      ;; Write limits are per-user (session identity), far above any real

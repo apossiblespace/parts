@@ -648,6 +648,25 @@
  (fn [db [_ message]]
    (assoc-in db [:account :update-error] message)))
 
+(rf/reg-event-fx
+ :billing/start
+ (fn [{:keys [db]} [_ target]]
+   ;; `target` is a subscription plan (:monthly / :yearly) or :portal;
+   ;; it doubles as the pending tag the buttons key their spinners on.
+   {:db                 (-> db
+                            (assoc-in [:account :billing-error] nil)
+                            (assoc-in [:account :billing-pending] target))
+    :billing/session-fx {:target target}}))
+
+(rf/reg-event-db
+ :billing/settled
+ (fn [db [_ message]]
+   ;; A billing request concluded without redirecting: a failure (with the
+   ;; message to show) or a bfcache return from Stripe (no message).
+   (-> db
+       (assoc-in [:account :billing-error] message)
+       (assoc-in [:account :billing-pending] nil))))
+
 (rf/reg-event-db
  :auth/set-loading
  (fn [db [_ loading]]

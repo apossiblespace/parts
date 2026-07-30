@@ -56,6 +56,12 @@
  (fn [match _]
    (:path-params match)))
 
+(rf/reg-sub
+ :router/query-params
+ :<- [:router/match]
+ (fn [match _]
+   (:query-params match)))
+
 (rf/reg-fx
  :router/navigate
  (fn [{:keys [name path-params]}]
@@ -65,6 +71,19 @@
  :router/navigate
  (fn [_ [_ name path-params]]
    {:router/navigate {:name name :path-params path-params}}))
+
+;; Like :router/navigate but replacing the current entry, leaving no
+;; history behind — used to drop one-shot query params such as
+;; ?checkout=success once the page has reacted to them.
+(rf/reg-fx
+ :router/replace
+ (fn [{:keys [name]}]
+   (rfe/replace-state name)))
+
+(rf/reg-event-fx
+ :router/replace
+ (fn [_ [_ name]]
+   {:router/replace {:name name}}))
 
 (defn- on-navigate
   "Called by reitit on every route change. A matched route stores its

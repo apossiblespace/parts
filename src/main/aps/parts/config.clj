@@ -138,6 +138,27 @@
                        (l-config/get config :mail/from)
                        (:user smtp))))))
 
+(defn stripe-config
+  "Self-serve billing settings (`PARTS__STRIPE__*`): the API secret — use a
+   restricted key (rk_) scoped to Checkout Sessions and Billing Portal, not
+   a full secret key — the webhook signing secret, and the two subscription
+   price ids (one Product, two Prices: monthly and yearly).
+
+   Returns nil unless all four are present, so self-serve billing stays off
+   until deliberately configured — the concierge flow keeps working
+   unchanged on hosts with no Stripe env. Nothing here is committed: this
+   repo is public."
+  []
+  (let [secret-key     (l-config/get config :stripe/secret-key)
+        webhook-secret (l-config/get config :stripe/webhook-secret)
+        price-monthly  (l-config/get config :stripe/price-monthly)
+        price-yearly   (l-config/get config :stripe/price-yearly)]
+    (when (and secret-key webhook-secret price-monthly price-yearly)
+      {:secret-key     secret-key
+       :webhook-secret webhook-secret
+       :prices         {:monthly price-monthly
+                        :yearly  price-yearly}})))
+
 (defn mail-from
   "The From for transactional mail (`PARTS__MAIL__FROM`), e.g.
    `Gosha <gosha@ifs.tools>` — an address on the TEM-verified sending domain
@@ -235,7 +256,8 @@
     :ratelimit/client-ip-header
     :launch/launched?
     :smtp/host :smtp/port
-    :alert/to :alert/from})
+    :alert/to :alert/from
+    :stripe/price-monthly :stripe/price-yearly})
 
 (defn print-config-table
   "Print all accessed configuration keys, values, and sources as a table.
