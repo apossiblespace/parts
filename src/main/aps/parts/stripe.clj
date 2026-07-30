@@ -88,6 +88,8 @@
            :line_items             [{:price price-id :quantity 1}]
            :client_reference_id    (str user-id)
            :metadata               {:plan (name plan)}
+           ;; Requires an active registration in Stripe Tax settings
+           :automatic_tax          {:enabled true}
            :integration_identifier "parts-selfserve-mkwzqhtr"
            :success_url            (str base-url "/app/account?checkout=success")
            :cancel_url             (str base-url "/app/account")}

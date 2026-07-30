@@ -72,9 +72,13 @@
     ;; A new key showing up here must be a deliberate, reviewed decision.
     (testing "payload keys are a closed allowlist (no clinical data can reach Stripe)"
       (is (= #{:mode :line_items :client_reference_id :customer_email
-               :metadata :integration_identifier :success_url :cancel_url}
+               :metadata :automatic_tax :integration_identifier
+               :success_url :cancel_url}
              (set (keys params))))
       (is (= #{:plan} (set (keys (:metadata params))))))
+
+    (testing "automatic tax is enabled (registration lives in Stripe Tax settings)"
+      (is (= {:enabled true} (:automatic_tax params))))
 
     ;; Deliberately no payment_method_types: Stripe then offers whatever
     ;; payment methods the Dashboard enables (dynamic payment methods).
