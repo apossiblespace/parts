@@ -193,10 +193,12 @@ clawed-back date, so re-check after the retry window.
 **Self-serve (TASK-046)** — the app creates Checkout/Portal sessions and
 consumes webhooks once all four `PARTS__STRIPE__*` variables are set;
 unset, the integration is off and concierge continues unchanged. The
-restricted key needs three scopes: **Checkout Sessions: Write, Billing
-Portal: Write, and Customers: Write** — the last one is what lets erasure
-delete a linked Customer; without it every deletion of a subscriber fails
-with a permission error. The webhook keeps `paid_through_date` and
+restricted key needs four scopes: **Checkout Sessions: Write, Billing
+Portal: Write, Customers: Write, and Subscriptions: Read**. Customers:
+Write is what lets erasure delete a linked Customer; Subscriptions: Read
+is what lets the checkout webhook fetch the paid period — missing either
+surfaces as permission errors (failed deletions, or every completed
+checkout 500ing and retrying). The webhook keeps `paid_through_date` and
 `stripe_subscription_status` current.
 The production webhook endpoint must be pinned to the latest Stripe API
 version (the account default is 2018-era) and subscribed to

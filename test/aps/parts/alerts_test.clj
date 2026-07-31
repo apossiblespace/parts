@@ -33,7 +33,14 @@
     (let [e                     (ev :aps.parts.other/heartbeat 1000 :error "noise")
           {:keys [send? state]} (alerts/alert-decision {:x 1} e cooldown)]
       (is (not send?))
-      (is (= {:x 1} state)))))
+      (is (= {:x 1} state))))
+
+  (testing "a webhook failure reaches the operator — a paying customer's
+            money moved but their account didn't"
+    (let [e               (ev :aps.parts.api.billing/webhook-error 1000
+                              :error "Stripe API error")
+          {:keys [send?]} (alerts/alert-decision {} e cooldown)]
+      (is send?))))
 
 (deftest alert-decision-cooldown-test
   (testing "the same signature within the cooldown window is suppressed"

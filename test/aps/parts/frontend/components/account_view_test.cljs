@@ -17,10 +17,7 @@
   {:self_serve_enabled true :subscription_active true})
 
 (def ^:private enabled-cancelled
-  ;; Same shape as enabled-unused — a cancelled subscriber is simply
-  ;; someone with no live subscription; the fixture keeps the scenario
-  ;; named in the tests.
-  {:self_serve_enabled true :subscription_active false})
+  {:self_serve_enabled true :subscription_active false :subscription_cancelled true})
 
 (def ^:private concierge-only
   {:self_serve_enabled false :subscription_active false})
@@ -34,10 +31,11 @@
     (is (= :subscribe (:action (billing-view {:billing  enabled-unused
                                               :standing never-paid})))))
 
-  (testing "a cancelled subscription is offered subscribing again, not a
-            portal for a subscription that no longer exists"
-    (is (= :subscribe (:action (billing-view {:billing  enabled-cancelled
-                                              :standing paid})))))
+  (testing "a cancelled subscription is offered the way back in — with the
+            cancelled state named, never a portal for a subscription that
+            no longer exists"
+    (is (= :resubscribe (:action (billing-view {:billing  enabled-cancelled
+                                                :standing paid})))))
 
   (testing "a concierge-only host offers nothing"
     (is (= :none (:action (billing-view {:billing  concierge-only
@@ -47,6 +45,34 @@
             the login response carries none"
     (is (= :loading (:action (billing-view {:billing nil :standing nil}))))
     (is (= :loading (:action (billing-view {}))))))
+
+(deftest billing-view-activating-test
+  (testing "back from Checkout before the webhook lands: no buttons, just
+            the activating state — subscribe would contradict the payment,
+            manage would mint a portal session the backend still refuses"
+    (is (= :activating (:action (billing-view {:billing           enabled-unused
+                                               :standing          never-paid
+                                               :checkout-pending? true})))))
+
+  (testing "once the webhook lands the real subscribed state wins"
+    (is (= :manage (:action (billing-view {:billing           enabled-subscribed
+                                           :standing          paid
+                                           :checkout-pending? true})))))
+
+  (testing "the stale never-paid line is suppressed while activating"
+    (is (nil? (:standing-line (billing-view {:billing           enabled-unused
+                                             :standing          never-paid
+                                             :checkout-pending? true})))))
+
+  (testing "a concierge-only host never activates (self-serve is off)"
+    (is (= :none (:action (billing-view {:billing           concierge-only
+                                         :standing          never-paid
+                                         :checkout-pending? true})))))
+
+  (testing "resubscribing takes the activating path, not the cancelled one"
+    (is (= :activating (:action (billing-view {:billing           enabled-cancelled
+                                               :standing          paid
+                                               :checkout-pending? true}))))))
 
 (deftest billing-view-standing-line-test
   (testing "the never-paid line is dropped when subscribe buttons show —
@@ -61,12 +87,23 @@
       (is (= :subscribe action))
       (is (str/includes? standing-line "8 September 2026"))))
 
-  (testing "a cancelled-but-paid account reads: active through X, plus
-            the subscribe offer"
+  (testing "a cancelled-but-paid account says cancelled, names the date the
+            paid window ends, and promises no further charges"
     (let [{:keys [action standing-line]}
           (billing-view {:billing enabled-cancelled :standing paid})]
-      (is (= :subscribe action))
-      (is (str/includes? standing-line "8 September 2026"))))
+      (is (= :resubscribe action))
+      (is (str/includes? standing-line "cancelled"))
+      (is (str/includes? standing-line "8 September 2026"))
+      (is (str/includes? standing-line "won't be charged again"))))
+
+  (testing "a cancelled account whose paid window has run out gets the short
+            form"
+    (let [{:keys [standing-line]}
+          (billing-view {:billing  enabled-cancelled
+                         :standing {:status         :overdue :paid_through_date "2026-06-01"
+                                    :days_remaining -30}})]
+      (is (str/includes? standing-line "cancelled"))
+      (is (not (str/includes? standing-line "keeps working")))))
 
   (testing "a subscriber keeps their standing line"
     (is (str/includes? (:standing-line (billing-view {:billing  enabled-subscribed

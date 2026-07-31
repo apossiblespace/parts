@@ -42,6 +42,16 @@
       :never-paid "We don't have a renewal date on file for your account yet."
       nil)))
 
+(defn- cancelled-message
+  "The line for a cancelled subscription. The paid window survives a
+   cancellation (billing decision 7), so while it lasts the message names
+   the date; once it has run out, just the fact."
+  [{:keys [status paid_through_date]}]
+  (if-let [through (and (= :paid status) (fmt-iso-date paid_through_date))]
+    (str "You've cancelled your subscription. Parts keeps working until "
+         through ", and you won't be charged again.")
+    "You've cancelled your subscription — you won't be charged again."))
+
 (defn billing-view
   "View-model for the Billing card, from the server's `:billing` facts and
    `:standing` summary. `:action` is what the card offers:
@@ -49,24 +59,46 @@
    - `:loading` — the account record hasn't loaded yet (the login response
      carries no `:billing`; the mount-time check-auth refresh fills it in)
    - `:manage` — a live subscription exists: the Customer Portal button
-   - `:subscribe` — self-serve is enabled and there's no live
-     subscription; a cancelled subscriber lands here again, so there is
-     always a path back in
+   - `:activating` — just back from a completed Checkout
+     (`checkout-pending?`) but the webhook hasn't landed yet: no buttons.
+     Subscribe would contradict the payment that just went through, and
+     Manage would mint a portal session the backend still refuses. The
+     page polls until the server reports the subscription live.
+   - `:resubscribe` — the subscription was cancelled: the line says so
+     (cancelled, works until X, no further charges) and the subscribe
+     buttons offer the way back in — never \"active\" over a Subscribe CTA
+   - `:subscribe` — self-serve is enabled and there's no subscription
+     history to explain
    - `:none` — self-serve is off (concierge-only hosts)
 
    `:standing-line` is the good-standing sentence, except that the
-   never-paid line is dropped when subscribe buttons are shown — the beta
-   pitch says it better."
-  [{:keys [billing standing]}]
+   never-paid line is dropped when subscribe buttons are shown (the beta
+   pitch says it better) or while activating (it lags the payment), and a
+   cancelled subscription gets its own line in place of one that would
+   claim the subscription is active."
+  [{:keys [billing standing checkout-pending?]}]
   (if (nil? billing)
     {:action :loading :standing-line nil}
     (let [action (cond
                    ;; A live status implies a linked customer — the server
                    ;; only ever writes the two together.
                    (:subscription_active billing) :manage
-                   (:self_serve_enabled billing)  :subscribe
-                   :else                          :none)]
+
+                   (and checkout-pending?
+                        (:self_serve_enabled billing)) :activating
+
+                   (and (:subscription_cancelled billing)
+                        (:self_serve_enabled billing)) :resubscribe
+
+                   (:self_serve_enabled billing) :subscribe
+                   :else                         :none)]
       {:action        action
-       :standing-line (when-not (and (= :subscribe action)
-                                     (= :never-paid (:status standing)))
-                        (standing-message standing))})))
+       :standing-line (cond
+                        (= :resubscribe action)
+                        (cancelled-message standing)
+
+                        (and (contains? #{:subscribe :activating} action)
+                             (= :never-paid (:status standing)))
+                        nil
+
+                        :else (standing-message standing))})))

@@ -20,6 +20,7 @@
    [aps.parts.billing :as billing]
    [aps.parts.common.constants :as c]
    [aps.parts.config :as config]
+   [aps.parts.mail :as mail]
    [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response])
@@ -110,6 +111,44 @@
 ;; monotonic (GREATEST in SQL), status is a plain overwrite — so Stripe's
 ;; at-least-once delivery needs no dedup ledger.
 
+(defn thank-you-message
+  "The postal message for a first-time subscriber — Parts' voice, not the
+   receipt (Stripe's customer emails carry the VAT invoice). Pure and
+   public for its test; carries no :from (the sender identity belongs to
+   the mail layer) and a Reply-To only when one is configured, mirroring
+   `ops/invite-message`."
+  [email plan]
+  (cond-> {:to      email
+           :subject "Thank you for subscribing to Parts"
+           :body    (str "Hello,\n"
+                         "\n"
+                         "Thank you for subscribing to Parts — supporting the beta means\n"
+                         "a great deal.\n"
+                         "\n"
+                         "Your " (name plan) " subscription is active, and it simply carries\n"
+                         "on when Parts launches. You can update your payment details,\n"
+                         "switch plans, or cancel at any time from your account page:\n"
+                         "\n"
+                         (config/base-url) "/app/account\n"
+                         "\n"
+                         "Stripe emails your receipt for each payment separately.\n"
+                         "\n"
+                         "If you have any questions — or anything to tell us about Parts —\n"
+                         "just reply to this email.\n"
+                         "\n"
+                         "— Parts")}
+    (config/mail-reply-to) (assoc :reply-to (config/mail-reply-to))))
+
+(defn- send-thank-you!
+  "Send the first-subscription thank-you, insulated from the webhook's
+   failure path: mail trouble is logged, never thrown — it must not 500 a
+   payment event Stripe would then redeliver."
+  [email plan]
+  (try
+    (mail/send! (thank-you-message email plan))
+    (catch Exception e
+      (mulog/log ::thank-you-email-failed :to email :error (.getMessage e)))))
+
 (defn- release-orphaned-customer!
   "A recognisably-ours session completed for an account that no longer
    exists — deleted between opening Checkout and paying. Delete the
@@ -151,7 +190,12 @@
               (mulog/log ::customer-link-conflict
                          :user-id user-id
                          :incoming-customer customer))
-          (billing/record-checkout! user-id customer (:status sub) period-end))
+          (do (billing/record-checkout! user-id customer (:status sub) period-end)
+              ;; Only the account's first linkage is thanked: a webhook
+              ;; redelivery, or a resubscribe under the existing link,
+              ;; must not re-thank.
+              (when-not (:stripe_customer_id row)
+                (send-thank-you! (:email row) plan))))
         (mulog/log ::checkout-completed
                    :user-id user-id :plan plan
                    :subscription-status (:status sub)
@@ -230,10 +274,14 @@
             (handle-event! stripe-config event)
             (plain 200 "ok")
             (catch Exception e
-              (mulog/log ::webhook-error
-                         :event-id (:id event)
-                         :event-type (:type event)
-                         :error (.getMessage e))
+              (let [data (ex-data e)]
+                (mulog/log ::webhook-error
+                           :event-id (:id event)
+                           :event-type (:type event)
+                           :error (.getMessage e)
+                           :error-type (:type data)
+                           :error-status (:status data)
+                           :error-path (:path data)))
               (plain 500 "processing error"))))
         (do (mulog/log ::webhook-rejected)
             (plain 400 "invalid signature"))))

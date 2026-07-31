@@ -6,6 +6,7 @@
    [aps.parts.helpers.utils :refer [create-test-user! stripe-api-error
                                     stripe-sig-header stripe-test-config
                                     with-test-db]]
+   [aps.parts.mail :as mail]
    [aps.parts.server :as server]
    [aps.parts.stripe :as stripe]
    [clojure.test :refer [deftest is testing use-fixtures]]
@@ -100,14 +101,36 @@
                                   (event-json "unhandled.event" {:id "obj_1"}))))))))))
 
 (deftest webhook-checkout-completed-test
-  (testing "links customer, records status, extends to the real period end"
+  (testing "links customer, records status, extends to the real period end,
+            and thanks the subscriber by email"
     (let [user     (create-test-user! {:email "buyer@example.com"})
-          response (post-webhook (webhook-request (checkout-json user :customer "cus_buyer")))]
+          sent     (atom nil)
+          response (with-redefs [mail/send! (fn [m] (reset! sent m) m)]
+                     (post-webhook (webhook-request (checkout-json user :customer "cus_buyer"))))]
       (is (= 200 (:status response)))
       (let [row (billing-row "buyer@example.com")]
         (is (= "cus_buyer" (:stripe_customer_id row)))
         (is (= "active" (:stripe_subscription_status row)))
-        (is (= period-end-date (paid-through "buyer@example.com"))))))
+        (is (= period-end-date (paid-through "buyer@example.com"))))
+      (is (= "buyer@example.com" (:to @sent)))
+      (is (= "Thank you for subscribing to Parts" (:subject @sent)))))
+
+  (testing "a redelivered checkout event does not re-thank"
+    (let [user    (create-test-user! {:email "rethank@example.com"})
+          payload (checkout-json user :customer "cus_rethank")
+          sends   (atom 0)]
+      (with-redefs [mail/send! (fn [m] (swap! sends inc) m)]
+        (post-webhook (webhook-request payload))
+        (post-webhook (webhook-request payload)))
+      (is (= 1 @sends))))
+
+  (testing "mail trouble never fails the payment event"
+    (let [user     (create-test-user! {:email "no-mail@example.com"})
+          response (with-redefs [mail/send! (fn [_] (throw (ex-info "relay down"
+                                                                    {:type :smtp-error})))]
+                     (post-webhook (webhook-request (checkout-json user :customer "cus_nomail"))))]
+      (is (= 200 (:status response)))
+      (is (= "cus_nomail" (:stripe_customer_id (billing-row "no-mail@example.com"))))))
 
   (testing "an account already paid further ahead (concierge) keeps its later date"
     (let [user   (create-test-user! {:email "concierge@example.com"})

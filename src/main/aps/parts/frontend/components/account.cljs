@@ -24,6 +24,16 @@
        ($ :span {:class "loading loading-spinner loading-xs"}))
      label))
 
+(defui ^:private subscribe-buttons
+  [{:keys [pending]}]
+  ($ :div {:class "flex flex-wrap gap-2 mt-3"}
+     (for [{:keys [plan label primary?]} c/subscription-plans]
+       ($ billing-button {:key      (name plan)
+                          :label    label
+                          :target   plan
+                          :primary? primary?
+                          :pending  pending}))))
+
 (defui account []
   (let [user                                    (uix.rf/use-subscribe [:auth/user])
         standing                                (:standing user)
@@ -33,6 +43,11 @@
         billing-pending                         (uix.rf/use-subscribe [:account/billing-pending])
         query-params                            (uix.rf/use-subscribe [:router/query-params])
         [checkout-thanks? set-checkout-thanks!] (use-state false)
+        [poll-count set-poll-count!]            (use-state 0)
+        {:keys [action standing-line]}          (account-view/billing-view
+                                                 {:billing           (:billing user)
+                                                  :standing          standing
+                                                  :checkout-pending? checkout-thanks?})
         [draft set-draft!]                      (use-state (or display-name ""))
         commit                                  (inline-edit/commit-value draft display-name
                                                                           (complement str/blank?))]
@@ -71,6 +86,20 @@
          (.addEventListener js/window "pageshow" on-pageshow)
          #(.removeEventListener js/window "pageshow" on-pageshow)))
      [])
+    ;; While activating (back from Checkout, webhook not yet landed),
+    ;; re-ask the server every few seconds so the card flips to the real
+    ;; subscribed state on its own — no reload. Capped: past a minute of
+    ;; polling something is genuinely delayed, and the message stands.
+    (use-effect
+     (fn []
+       (if (and (= :activating action) (< poll-count 24))
+         (let [timer (js/setTimeout (fn []
+                                      (set-poll-count! inc)
+                                      (rf/dispatch [:auth/check-auth]))
+                                    2500)]
+           #(js/clearTimeout timer))
+         js/undefined))
+     [action poll-count])
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
           ($ app-header)
@@ -95,8 +124,8 @@
                    c/support-email)
                 "."))
 
-          ($ :div {:class "bg-white border border-base-300 rounded-lg shadow-sm p-4 mb-4"}
-             ($ :h2 {:class "text-sm font-semibold text-gray-500 mb-1"} "Profile")
+          ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Profile")
+          ($ :div
              (if user
                ($ :form {:class     "fieldset"
                          :on-submit (fn [^js e]
@@ -122,50 +151,52 @@
                      "Signed in as " (:email user) "."))
                ($ :p {:class "text-base text-gray-400"} "Checking…")))
 
-          ($ :div {:class "bg-white border border-base-300 rounded-lg shadow-sm p-4 mb-4"}
-             ($ :h2 {:class "text-sm font-semibold text-gray-500 mb-1"} "Billing")
+          ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Billing")
+          ($ :div
              (when checkout-thanks?
                ($ :div {:role "alert" :class "alert alert-success mb-2"}
                   ($ :p {:class "text-gray-900"}
-                     "Thank you for subscribing! Your payment went through — "
-                     "it can take a few moments for your renewal date to "
-                     "appear here.")))
-             (let [{:keys [action standing-line]}
-                   (account-view/billing-view {:billing  (:billing user)
-                                               :standing standing})]
-               (if (= :loading action)
-                 ($ :p {:class "text-base text-gray-400"} "Checking…")
-                 ($ :<>
-                    (when standing-line
-                      ($ :p {:class "text-base"} standing-line))
-                    (case action
-                      :subscribe
-                      ($ :div {:class "mt-1"}
-                         ($ :p {:class "text-base"}
-                            "Parts is free while in beta. Subscribing now is "
-                            "optional — it supports development, and your "
-                            "subscription simply carries on once Parts "
-                            "launches.")
-                         ($ :div {:class "flex flex-wrap gap-2 mt-3"}
-                            (for [{:keys [plan label primary?]} c/subscription-plans]
-                              ($ billing-button {:key      (name plan)
-                                                 :label    label
-                                                 :target   plan
-                                                 :primary? primary?
-                                                 :pending  billing-pending}))))
+                     "Thank you for subscribing! Your payment went through.")))
+             (if (= :loading action)
+               ($ :p {:class "text-base text-gray-400"} "Checking…")
+               ($ :<>
+                  (when standing-line
+                    ($ :p {:class "text-base"} standing-line))
+                  (case action
+                    :activating
+                    ($ :p {:class "text-base text-gray-500"}
+                       ($ :span {:class "loading loading-spinner loading-xs mr-2"})
+                       "Finalising your subscription…")
 
-                      :manage
-                      ($ :div {:class "mt-1"}
-                         ($ :p {:class "text-sm text-gray-400"}
-                            "Update your payment details, switch between "
-                            "monthly and yearly, or cancel — any time.")
-                         ($ :div {:class "mt-2"}
-                            ($ billing-button {:label   "Manage subscription"
-                                               :target  :portal
-                                               :pending billing-pending})))
+                    :subscribe
+                    ($ :div {:class "mt-1"}
+                       ($ :p {:class "text-base"}
+                          "Parts is free while in beta. Subscribing now is "
+                          "optional — it supports development, and your "
+                          "subscription simply carries on once Parts "
+                          "launches.")
+                       ($ subscribe-buttons {:pending billing-pending}))
 
-                      :none nil)
-                    (when billing-error
-                      ($ :p {:class "text-sm text-error mt-1"} billing-error))))))
+                    ;; The cancelled line above already explains; offer the
+                    ;; way back in without re-pitching the beta.
+                    :resubscribe
+                    ($ :div {:class "mt-1"}
+                       ($ :p {:class "text-sm text-gray-400"}
+                          "You're welcome to resubscribe at any time.")
+                       ($ subscribe-buttons {:pending billing-pending}))
+
+                    :manage
+                    ($ :div {:class "mt-1"}
+                       ($ :p {:class "text-sm text-gray-400"}
+                          "Update your payment details, switch between "
+                          "monthly and yearly, or cancel — any time.")
+                       ($ :div {:class "mt-2"}
+                          ($ billing-button {:label   "Manage subscription"
+                                             :target  :portal
+                                             :pending billing-pending})))
+
+                    :none nil)
+                  (when billing-error
+                    ($ :p {:class "text-sm text-error mt-1"} billing-error)))))
 
           ($ app-footer)))))

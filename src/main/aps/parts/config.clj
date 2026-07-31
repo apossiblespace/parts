@@ -148,11 +148,13 @@
 
 (defn stripe-config
   "Self-serve billing settings (`PARTS__STRIPE__*`): the API secret — use
-   a restricted key (rk_), not a full secret key, scoped to Checkout
-   Sessions: Write, Billing Portal: Write, and Customers: Write (erasure
-   deletes the linked Customer; without that scope every deletion of a
-   subscriber fails) — the webhook signing secret, and the two
-   subscription price ids (one Product, two Prices: monthly and yearly).
+   a restricted key (rk_), not a full secret key, with four scopes:
+   Checkout Sessions: Write, Billing Portal: Write, Customers: Write
+   (erasure deletes the linked Customer), and Subscriptions: Read (the
+   checkout webhook fetches the subscription to grant the real paid
+   period; without it every completed checkout 500s and retries) — the
+   webhook signing secret, and the two subscription price ids (one
+   Product, two Prices: monthly and yearly).
 
    Returns nil unless all four are present, so self-serve billing stays off
    until deliberately configured — the concierge flow keeps working

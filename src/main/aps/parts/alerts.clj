@@ -42,7 +42,12 @@
     ;; silently postpones GDPR erasure hourly; a purge past an unreleasable
     ;; link leaves the log as the only pointer to a still-billable customer.
     :aps.parts.jobs.deletion-purge/purge-error
-    :aps.parts.billing/stripe-link-remains})
+    :aps.parts.billing/stripe-link-remains
+    ;; A webhook that 500s is a paying customer whose money moved but whose
+    ;; account didn't — Stripe retries, but a persistent cause (key scope,
+    ;; schema drift) needs the operator. Link conflicts are refund work.
+    :aps.parts.api.billing/webhook-error
+    :aps.parts.api.billing/customer-link-conflict})
 
 (defn event-signature
   "A stable cooldown key for an event. Prefers a non-value discriminator —
