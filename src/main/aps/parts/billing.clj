@@ -9,24 +9,24 @@
    (`release-stripe-customer!`) lives here too: the one outbound Stripe
    call outside the API layer.
 
-   The concierge launch bills out of band: the operator sends a Stripe
-   invoice by hand, and once it clears moves the account's
-   `paid_through_date` forward. These helpers are that move. Standing is
+   Billing is self-serve (TASK-046): the Stripe webhook is the ordinary
+   writer of `paid_through_date`. The REPL helpers below are operator
+   *adjustment* tools — goodwill extensions, corrections, and the
+   abuse-response claw-back — not a parallel billing lane (the concierge
+   hand-invoicing workflow was retired 2026-07-31). Standing is
    *recorded* here, not *enforced* — gating access on standing is left to
    a later task.
 
-   Operator workflow (production REPL):
+   Operator adjustments (production REPL):
 
      (billing-status!)                      ; standing of every account
-     (set-paid-through! email)              ; paid one more month from today
-     (set-paid-through! email \"2027-05-22\") ; paid through an explicit date
+     (set-paid-through! email \"2027-05-22\") ; extend to an explicit date
      (clear-paid-through! email)            ; back to never-paid (NULL)
 
-   Since self-serve billing (TASK-046) the paid-through date is monotonic:
-   both the Stripe webhook and `set-paid-through!` only ever move it
-   forward, so a concierge invoice recorded after a self-serve year can't
-   silently erase paid months. A deliberate claw-back (refund, abuse) is
-   the explicit two-step `clear-paid-through!` then `set-paid-through!`."
+   The paid-through date is monotonic: the webhook and `set-paid-through!`
+   only ever move it forward, so an adjustment can't silently erase paid
+   months. A deliberate claw-back (refund, abuse) is the explicit
+   two-step `clear-paid-through!` then `set-paid-through!`."
   (:require
    [aps.parts.config :as config]
    [aps.parts.db :as db]
@@ -128,8 +128,8 @@
   "The same monotonic move, keyed by the Stripe customer link — the
    webhook's one-statement path for renewal invoices. Returns the updated
    row (`:paid_through_date` as a LocalDate), or nil when no account is
-   linked to `customer` (the operator's hand-sent concierge invoices flow
-   through the same Stripe account and must fall out here)."
+   linked to `customer` — the webhook's signal that the invoice matches
+   nothing we know."
   [customer date]
   (coerce-paid-through
    (first (db/update! :users
@@ -206,19 +206,14 @@
     nil))
 
 (defn set-paid-through!
-  "Record an account as paid through a date; return its updated billing
-   summary, or nil if no account has that `email`.
-
-   Two arities for the monthly concierge billing cycle:
-   - `(set-paid-through! email)`      — paid through one month from today
-   - `(set-paid-through! email date)` — paid through an explicit date: a
-     `java.time.LocalDate` or an ISO-8601 string like \"2027-05-22\".
+  "Extend an account's paid-through to an explicit `date` — a
+   `java.time.LocalDate` or an ISO-8601 string like \"2027-05-22\".
+   Returns the updated billing summary, or nil if no account has that
+   `email`.
 
    Never moves the date backwards (see the namespace docstring): recording
    a shorter period than the account already has keeps the later date and
    says so. Claw a date back deliberately with `clear-paid-through!` first."
-  ([email]
-   (set-paid-through! email (.plusMonths (LocalDate/now) 1)))
   ([email date]
    (let [paid-through (->local-date date)]
      (if-let [row (first (db/update! :users

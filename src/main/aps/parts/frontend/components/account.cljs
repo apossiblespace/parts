@@ -25,6 +25,15 @@
        ($ :span {:class "loading loading-spinner loading-xs"}))
      label))
 
+(def ^:private subscription-status-class
+  "View-model status tone → daisyUI status colour; :neutral stays the
+   base (uncoloured) dot."
+  {:success "status-success"
+   :info    "status-info"
+   :warning "status-warning"
+   :error   "status-error"
+   :neutral ""})
+
 (defui ^:private subscribe-buttons
   [{:keys [pending]}]
   ($ :div {:class "flex flex-wrap gap-2 mt-3"}
@@ -45,7 +54,7 @@
         query-params                            (uix.rf/use-subscribe [:router/query-params])
         [checkout-thanks? set-checkout-thanks!] (use-state false)
         [poll-count set-poll-count!]            (use-state 0)
-        {:keys [action standing-line]}          (account-view/billing-view
+        {:keys [action standing-line status]}   (account-view/billing-view
                                                  {:billing           (:billing user)
                                                   :standing          standing
                                                   :checkout-pending? checkout-thanks?})
@@ -148,6 +157,12 @@
                 "A subscription is not required to use Parts while in beta. "
                 "Subscribing now helps fund development."))
           ($ :div
+             (when status
+               ($ :div {:class "flex items-center gap-2 mb-2"}
+                  ($ :span {:class       (str "status "
+                                              (subscription-status-class (:tone status)))
+                            :aria-hidden "true"})
+                  ($ :span {:class "text-sm text-gray-500"} (:label status))))
              (when checkout-thanks?
                ($ banner {:variant :success :class "mb-2"}
                   ($ :p "Thank you for subscribing! Your payment went through.")))

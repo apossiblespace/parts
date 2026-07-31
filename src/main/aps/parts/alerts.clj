@@ -46,8 +46,11 @@
     ;; A webhook that 500s is a paying customer whose money moved but whose
     ;; account didn't — Stripe retries, but a persistent cause (key scope,
     ;; schema drift) needs the operator. Link conflicts are refund work.
+    ;; An unmatched paid invoice is money with no account behind it — since
+    ;; the concierge lane was retired there is no innocent explanation.
     :aps.parts.api.billing/webhook-error
-    :aps.parts.api.billing/customer-link-conflict})
+    :aps.parts.api.billing/customer-link-conflict
+    :aps.parts.api.billing/invoice-unmatched})
 
 (defn event-signature
   "A stable cooldown key for an event. Prefers a non-value discriminator —

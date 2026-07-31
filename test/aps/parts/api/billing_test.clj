@@ -132,13 +132,13 @@
       (is (= 200 (:status response)))
       (is (= "cus_nomail" (:stripe_customer_id (billing-row "no-mail@example.com"))))))
 
-  (testing "an account already paid further ahead (concierge) keeps its later date"
-    (let [user   (create-test-user! {:email "concierge@example.com"})
+  (testing "an account already extended further ahead by hand keeps its later date"
+    (let [user   (create-test-user! {:email "hand-paid@example.com"})
           beyond (.plusYears period-end-date 1)]
       (db/update! :users {:paid_through_date beyond} [:= :id (:id user)])
-      (post-webhook (webhook-request (checkout-json user :customer "cus_concierge")))
-      (is (= beyond (paid-through "concierge@example.com")))
-      (is (= "cus_concierge" (:stripe_customer_id (billing-row "concierge@example.com"))))))
+      (post-webhook (webhook-request (checkout-json user :customer "cus_handpaid")))
+      (is (= beyond (paid-through "hand-paid@example.com")))
+      (is (= "cus_handpaid" (:stripe_customer_id (billing-row "hand-paid@example.com"))))))
 
   (testing "an account linked to a different customer keeps its link (no orphaned
             renewals) but still receives the paid time"
@@ -239,11 +239,11 @@
       (post-webhook (webhook-request payload))
       (is (= period-end-date (paid-through "replay@example.com")))))
 
-  (testing "an invoice for an unlinked customer is acknowledged and ignored
-            (concierge invoices flow through the same account)"
+  (testing "an invoice matching no linked account is still acknowledged —
+            it alerts as unmatched, but a 500 would retry forever"
     (let [payload (event-json "invoice.paid"
                               {:id       "in_5"
-                               :customer "cus_concierge_manual"
+                               :customer "cus_unmatched"
                                :lines    {:data [{:period {:end period-end}}]}})]
       (is (= 200 (:status (post-webhook (webhook-request payload)))))))
 

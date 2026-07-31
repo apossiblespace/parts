@@ -19,7 +19,7 @@
 (def ^:private enabled-cancelled
   {:self_serve_enabled true :subscription_active false :subscription_cancelled true})
 
-(def ^:private concierge-only
+(def ^:private self-serve-off
   {:self_serve_enabled false :subscription_active false})
 
 (deftest billing-view-action-test
@@ -37,8 +37,8 @@
     (is (= :resubscribe (:action (billing-view {:billing  enabled-cancelled
                                                 :standing paid})))))
 
-  (testing "a concierge-only host offers nothing"
-    (is (= :none (:action (billing-view {:billing  concierge-only
+  (testing "a self-serve-off host offers nothing"
+    (is (= :none (:action (billing-view {:billing  self-serve-off
                                          :standing never-paid})))))
 
   (testing "an account record without billing facts is still loading —
@@ -64,8 +64,8 @@
                                              :standing          never-paid
                                              :checkout-pending? true})))))
 
-  (testing "a concierge-only host never activates (self-serve is off)"
-    (is (= :none (:action (billing-view {:billing           concierge-only
+  (testing "a self-serve-off host never activates (self-serve is off)"
+    (is (= :none (:action (billing-view {:billing           self-serve-off
                                          :standing          never-paid
                                          :checkout-pending? true})))))
 
@@ -80,7 +80,7 @@
     (is (nil? (:standing-line (billing-view {:billing  enabled-unused
                                              :standing never-paid})))))
 
-  (testing "an account paid ahead by concierge keeps its standing line
+  (testing "an account extended ahead by hand keeps its standing line
             alongside the subscribe buttons"
     (let [{:keys [action standing-line]}
           (billing-view {:billing enabled-unused :standing paid})]
@@ -110,6 +110,32 @@
                                                       :standing paid}))
                        "8 September 2026")))
 
-  (testing "a concierge-only host keeps the never-paid line"
-    (is (some? (:standing-line (billing-view {:billing  concierge-only
+  (testing "a self-serve-off host keeps the never-paid line"
+    (is (some? (:standing-line (billing-view {:billing  self-serve-off
                                               :standing never-paid}))))))
+
+(deftest billing-view-status-test
+  (testing "the status dot names each subscription state with its tone"
+    (is (= {:tone :success :label "Active"}
+           (:status (billing-view {:billing enabled-subscribed :standing paid}))))
+    (is (= {:tone :warning :label "Cancelled"}
+           (:status (billing-view {:billing enabled-cancelled :standing paid}))))
+    (is (= {:tone :info :label "Finalising"}
+           (:status (billing-view {:billing           enabled-unused
+                                   :standing          never-paid
+                                   :checkout-pending? true})))))
+
+  (testing "without a self-serve subscription the dot reflects standing —
+            a hand-extended account reads active, however it was paid"
+    (is (= {:tone :success :label "Active"}
+           (:status (billing-view {:billing enabled-unused :standing paid}))))
+    (is (= {:tone :error :label "Lapsed"}
+           (:status (billing-view {:billing  enabled-unused
+                                   :standing {:status            :overdue
+                                              :paid_through_date "2026-05-01"
+                                              :days_remaining    -45}}))))
+    (is (= {:tone :neutral :label "No subscription"}
+           (:status (billing-view {:billing enabled-unused :standing never-paid})))))
+
+  (testing "no dot while the account record is loading"
+    (is (nil? (:status (billing-view {:billing nil :standing nil}))))))

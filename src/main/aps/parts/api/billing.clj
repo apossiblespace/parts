@@ -8,8 +8,8 @@
    event means which move). Standing stays *recorded*, not *enforced*: a
    lapse never locks anyone out here.
 
-   Everything stays off until `config/stripe-config` is fully set, so the
-   concierge flow keeps working unchanged on hosts with no Stripe env.
+   Everything stays off until `config/stripe-config` is fully set — a
+   host with no Stripe env simply has no billing.
 
    The webhook route is mounted at the top level, outside the /api transit
    middleware: Stripe signs the exact raw bytes it sends, so the body must
@@ -209,10 +209,11 @@
 
 (defn- handle-invoice-paid!
   "Move a linked account's paid-through date to the end of the invoice's
-   paid period, never backwards. Unlinked customers fall out of the
-   one-statement update and are acknowledged — the operator's hand-sent
-   concierge invoices flow through the same Stripe account, and a non-2xx
-   would put them on Stripe's retry treadmill forever."
+   paid period, never backwards. An invoice matching no linked account is
+   an anomaly — there is no other billing lane — so it's flagged for the
+   operator (`::invoice-unmatched` is alertable), but still acknowledged:
+   a non-2xx would put an unmatchable delivery on Stripe's retry
+   treadmill forever."
   [{:keys [customer lines]}]
   (let [period-end (latest-epoch->date (map #(get-in % [:period :end]) (:data lines)))]
     (if-let [updated (when (and customer period-end)
@@ -220,7 +221,7 @@
       (mulog/log ::invoice-applied
                  :customer customer
                  :paid-through (str (:paid_through_date updated)))
-      (mulog/log ::invoice-ignored :customer customer))))
+      (mulog/log ::invoice-unmatched :customer customer))))
 
 (defn- handle-subscription-change!
   "Keep `stripe_subscription_status` current for a linked account. The

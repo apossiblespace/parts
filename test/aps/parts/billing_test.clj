@@ -50,19 +50,14 @@
       (is (= "2027-05-22" (str (paid-through-date "explicit@example.com"))))
       (is (= :paid (:status result)))))
 
-  (testing "the no-date arity records one month from today"
-    (create-test-user! {:email "monthly@example.com"})
-    (let [result (silently #(billing/set-paid-through! "monthly@example.com"))]
-      (is (= (.plusMonths (LocalDate/now) 1) (:paid_through_date result)))))
-
   (testing "returns nil when no account has that email"
     (is (nil? (silently #(billing/set-paid-through! "ghost@example.com" "2027-01-01")))))
 
-  (testing "never moves an account's date backwards — a concierge invoice
+  (testing "never moves an account's date backwards — an adjustment
             after a self-serve year keeps the later date"
     (create-test-user! {:email "paid-ahead@example.com"})
     (silently #(billing/set-paid-through! "paid-ahead@example.com" "2027-08-01"))
-    (let [result (silently #(billing/set-paid-through! "paid-ahead@example.com"))]
+    (let [result (silently #(billing/set-paid-through! "paid-ahead@example.com" "2026-09-01"))]
       (is (= "2027-08-01" (str (paid-through-date "paid-ahead@example.com"))))
       (is (= "2027-08-01" (str (:paid_through_date result))))))
 

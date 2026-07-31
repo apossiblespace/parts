@@ -157,9 +157,8 @@
    Product, two Prices: monthly and yearly).
 
    Returns nil unless all four are present, so self-serve billing stays off
-   until deliberately configured — the concierge flow keeps working
-   unchanged on hosts with no Stripe env. Nothing here is committed: this
-   repo is public."
+   until deliberately configured. Nothing here is committed: this repo is
+   public."
   []
   (let [secret-key     (stripe-secret-key)
         webhook-secret (l-config/get config :stripe/webhook-secret)

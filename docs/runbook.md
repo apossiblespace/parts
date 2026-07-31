@@ -179,20 +179,10 @@ Invites from the production REPL:
 
 ## Billing
 
-Two lanes share one source of truth — `users.paid_through_date`, which only
-ever moves forward.
-
-**Concierge** — send an invoice by hand from the Stripe dashboard; once it
-clears, `(set-paid-through! email)` from the production REPL, and
-`(billing-status!)` to see standing. The helper never moves a date
-backwards; a deliberate claw-back (refund, abuse response) is
-`(clear-paid-through! email)` followed by a fresh set. Caveat: a Stripe
-`invoice.paid` redelivery within ~3 days of the original event re-extends a
-clawed-back date, so re-check after the retry window.
-
-**Self-serve (TASK-046)** — the app creates Checkout/Portal sessions and
-consumes webhooks once all four `PARTS__STRIPE__*` variables are set;
-unset, the integration is off and concierge continues unchanged. The
+Billing is self-serve (TASK-046), with one source of truth —
+`users.paid_through_date`, which only ever moves forward. The app creates
+Checkout/Portal sessions and consumes webhooks once all four
+`PARTS__STRIPE__*` variables are set; unset, billing is off. The
 restricted key needs four scopes: **Checkout Sessions: Write, Billing
 Portal: Write, Customers: Write, and Subscriptions: Read**. Customers:
 Write is what lets erasure delete a linked Customer; Subscriptions: Read
@@ -204,6 +194,17 @@ The production webhook endpoint must be pinned to the latest Stripe API
 version (the account default is 2018-era) and subscribed to
 `checkout.session.completed`, `invoice.paid`, and the three
 `customer.subscription.*` events.
+
+**Operator adjustments** — from the production REPL: `(billing-status!)`
+for standing, `(set-paid-through! email "2027-05-22")` for a goodwill
+extension or correction, `(clear-paid-through! email)` to reset. The
+setter never moves a date backwards; a deliberate claw-back (refund,
+abuse response) is clear-then-set. Caveat: a Stripe `invoice.paid`
+redelivery within ~3 days of the original event re-extends a clawed-back
+date, so re-check after the retry window. The concierge hand-invoicing
+lane is retired (2026-07-31): a paid invoice matching no linked account
+now alerts (`invoice-unmatched`) instead of being quietly ignored, so
+don't send ad-hoc invoices from this Stripe account.
 
 **Keep client data out of Stripe.** Stripe prohibits health data and will
 not sign a BAA, so a Stripe customer or invoice must carry **only the

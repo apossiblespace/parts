@@ -43,7 +43,7 @@
                       (select-keys (meta (var ~target)) [:doc :arglists]))
          (var ~sym))))
 
-;; Billing — concierge account standing
+;; Billing — account standing and operator adjustments
 (re-export billing/billing-status!)
 (re-export billing/set-paid-through!)
 (re-export billing/clear-paid-through!)

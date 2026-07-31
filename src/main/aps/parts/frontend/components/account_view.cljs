@@ -52,6 +52,22 @@
          through ", and you won't be charged again.")
     "You've cancelled your subscription — you won't be charged again."))
 
+(defn- subscription-status
+  "The at-a-glance state for the Billing section's status dot:
+   {:tone :success|:info|:warning|:error|:neutral, :label \"…\"}. The
+   tone maps to a daisyUI status colour in the component. Accounts
+   extended by hand (no self-serve subscription) read as active too —
+   the dot reflects standing, not how it was paid."
+  [action {:keys [status]}]
+  (case action
+    :manage      {:tone :success :label "Active"}
+    :activating  {:tone :info :label "Finalising"}
+    :resubscribe {:tone :warning :label "Cancelled"}
+    (case status
+      :paid    {:tone :success :label "Active"}
+      :overdue {:tone :error :label "Lapsed"}
+      {:tone :neutral :label "No subscription"})))
+
 (defn billing-view
   "View-model for the Billing card, from the server's `:billing` facts and
    `:standing` summary. `:action` is what the card offers:
@@ -69,7 +85,7 @@
      buttons offer the way back in — never \"active\" over a Subscribe CTA
    - `:subscribe` — self-serve is enabled and there's no subscription
      history to explain
-   - `:none` — self-serve is off (concierge-only hosts)
+   - `:none` — self-serve is off
 
    `:standing-line` is the good-standing sentence, except that the
    never-paid line is dropped when subscribe buttons are shown (the beta
@@ -101,4 +117,5 @@
                              (= :never-paid (:status standing)))
                         nil
 
-                        :else (standing-message standing))})))
+                        :else (standing-message standing))
+       :status        (subscription-status action standing)})))
