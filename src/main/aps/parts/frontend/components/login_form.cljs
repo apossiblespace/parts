@@ -6,6 +6,7 @@
    when omitted the form relies on the surrounding auth flow."
   (:require
    [aps.parts.frontend.api.utils :as utils]
+   [aps.parts.frontend.components.banner :refer [banner]]
    [re-frame.core :as rf]
    [uix.core :refer [defui $ use-state]]))
 
@@ -31,7 +32,7 @@
 
     ($ :<>
        (when error
-         ($ :div {:class "alert alert-error mb-4"}
+         ($ banner {:variant :alert :class "mb-4"}
             ($ :span {:class "font-medium"} error)))
 
        ($ :form {:on-submit handle-submit}

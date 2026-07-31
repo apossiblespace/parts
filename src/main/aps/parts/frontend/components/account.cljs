@@ -8,6 +8,7 @@
    [aps.parts.frontend.components.account-view :as account-view]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
+   [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.components.inline-edit :as inline-edit]
    [aps.parts.frontend.router :as router]
    [clojure.string :as str]
@@ -103,20 +104,8 @@
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
           ($ app-header)
-          ($ :h1 {:class "text-lg font-bold mb-6"} "Account")
-
-          ($ :div {:role "alert" :class "alert alert-info alert-outline mb-4"}
-             ($ :svg
-                {:xmlns   "http://www.w3.org/2000/svg",
-                 :fill    "none",
-                 :viewBox "0 0 24 24",
-                 :class   "stroke-info h-6 w-6 shrink-0"}
-                ($ :path
-                   {:stroke-linecap  "round",
-                    :stroke-linejoin "round",
-                    :stroke-width    "2",
-                    :d               "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"}))
-             ($ :p {:class "text-gray-900"}
+          ($ banner {:variant :warning :class "mb-4"}
+             ($ :p
                 "This page is still in development. To make any changes to your account, "
                 "for any billing inquiries, or to close your account and delete your "
                 "information, please email us at "
@@ -124,7 +113,9 @@
                    c/support-email)
                 "."))
 
-          ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Profile")
+          ($ :h1 {:class "text-lg font-bold mb-6"} "Account")
+
+          ($ :h2 {:class "text-md font-semibold mb-2"} "Profile")
           ($ :div
              (if user
                ($ :form {:class     "fieldset"
@@ -152,11 +143,14 @@
                ($ :p {:class "text-base text-gray-400"} "Checking…")))
 
           ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Billing")
+          ($ banner {:variant :info :class "mb-2"}
+             ($ :p
+                "A subscription is not required to use Parts while in beta. "
+                "Subscribing now helps fund development."))
           ($ :div
              (when checkout-thanks?
-               ($ :div {:role "alert" :class "alert alert-success mb-2"}
-                  ($ :p {:class "text-gray-900"}
-                     "Thank you for subscribing! Your payment went through.")))
+               ($ banner {:variant :success :class "mb-2"}
+                  ($ :p "Thank you for subscribing! Your payment went through.")))
              (if (= :loading action)
                ($ :p {:class "text-base text-gray-400"} "Checking…")
                ($ :<>
@@ -171,10 +165,8 @@
                     :subscribe
                     ($ :div {:class "mt-1"}
                        ($ :p {:class "text-base"}
-                          "Parts is free while in beta. Subscribing now is "
-                          "optional — it supports development, and your "
-                          "subscription simply carries on once Parts "
-                          "launches.")
+                          "All features are included with each plan. Yearly "
+                          "subscriptions include two free months.")
                        ($ subscribe-buttons {:pending billing-pending}))
 
                     ;; The cancelled line above already explains; offer the
