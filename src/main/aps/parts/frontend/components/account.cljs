@@ -4,6 +4,7 @@
    still being built out, points the user at concierge support for any
    account, billing, or closure requests."
   (:require
+   ["lucide-react" :refer [Check]]
    [aps.parts.common.constants :as c]
    [aps.parts.frontend.components.account-view :as account-view]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
@@ -34,15 +35,35 @@
    :error   "status-error"
    :neutral ""})
 
-(defui ^:private subscribe-buttons
+(defui ^:private plan-card
+  [{:keys [plan title price cadence features primary? pending]}]
+  ($ :div {:class (str "card bg-base-100 border w-full sm:w-60"
+                       (if primary? " border-primary" " border-base-300"))}
+     ($ :div {:class "card-body p-2"}
+        ($ :div {:class "flex justify-between items-baseline"}
+           ($ :h3 {:class "text-lg font-bold"} title)
+           ($ :span {:class "text-lg"} price
+              ($ :span {:class "text-sm text-gray-500"} cadence)))
+        ($ :ul {:class "mt-1 flex flex-col gap-2 text-sm"}
+           (for [feature features]
+             ($ :li {:key   feature
+                     :class "flex items-center gap-2"}
+                ($ Check {:class "h-4 w-4 shrink-0 text-success"})
+                ($ :span feature))))
+        ($ :div {:class "mt-auto pt-1"}
+           ($ :button {:class    (str "btn btn-sm btn-block"
+                                      (when primary? " btn-primary"))
+                       :disabled (some? pending)
+                       :on-click #(rf/dispatch [:billing/start plan])}
+              (when (= plan pending)
+                ($ :span {:class "loading loading-spinner loading-xs"}))
+              "Subscribe")))))
+
+(defui ^:private plan-cards
   [{:keys [pending]}]
-  ($ :div {:class "flex flex-wrap gap-2 mt-3"}
-     (for [{:keys [plan label primary?]} c/subscription-plans]
-       ($ billing-button {:key      (name plan)
-                          :label    label
-                          :target   plan
-                          :primary? primary?
-                          :pending  pending}))))
+  ($ :div {:class "flex flex-wrap gap-4 mt-3"}
+     (for [{:keys [plan] :as entry} c/subscription-plans]
+       ($ plan-card (assoc entry :key (name plan) :pending pending)))))
 
 (defui account []
   (let [user                                    (uix.rf/use-subscribe [:auth/user])
@@ -180,9 +201,13 @@
                     :subscribe
                     ($ :div {:class "mt-1"}
                        ($ :p {:class "text-base"}
-                          "All features are included with each plan. Yearly "
-                          "subscriptions include two free months.")
-                       ($ subscribe-buttons {:pending billing-pending}))
+                          "Individual plans are valid for a single practitioner. "
+                          "If you wish to purchase a subscription for a group "
+                          "practice, please contact us at "
+                          ($ :a {:href (str "mailto:" c/support-email)}
+                             c/support-email)
+                          ".")
+                       ($ plan-cards {:pending billing-pending}))
 
                     ;; The cancelled line above already explains; offer the
                     ;; way back in without re-pitching the beta.
@@ -190,13 +215,13 @@
                     ($ :div {:class "mt-1"}
                        ($ :p {:class "text-sm text-gray-400"}
                           "You're welcome to resubscribe at any time.")
-                       ($ subscribe-buttons {:pending billing-pending}))
+                       ($ plan-cards {:pending billing-pending}))
 
                     :manage
                     ($ :div {:class "mt-1"}
                        ($ :p {:class "text-sm text-gray-400"}
                           "Update your payment details, switch between "
-                          "monthly and yearly, or cancel — any time.")
+                          "monthly and yearly, or cancel at any time.")
                        ($ :div {:class "mt-2"}
                           ($ billing-button {:label   "Manage subscription"
                                              :target  :portal

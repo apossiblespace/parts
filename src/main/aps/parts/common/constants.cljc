@@ -120,8 +120,18 @@
   "The self-serve subscription plans, in display order — annual first,
    because pricing decision 6 steers to annual. The one definition both
    runtimes read: the backend validates `:plan` keys at checkout, the
-   Account page renders a button per entry. `:label` is UI copy and must
-   state the same amounts as the Stripe Prices configured through
+   Account page renders a pricing card per entry. `:price` is UI copy and
+   must state the same amounts as the Stripe Prices configured through
    PARTS__STRIPE__PRICE_MONTHLY / _YEARLY — change them together."
-  [{:plan :yearly :label "Subscribe — £150/year" :primary? true}
-   {:plan :monthly :label "Subscribe — £15/month" :primary? false}])
+  [{:plan     :yearly
+    :title    "Yearly"
+    :price    "£150"
+    :cadence  "/year"
+    :features ["All features" "Two months free"]
+    :primary? true}
+   {:plan     :monthly
+    :title    "Monthly"
+    :price    "£15"
+    :cadence  "/month"
+    :features ["All features"]
+    :primary? false}])
