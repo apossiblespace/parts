@@ -36,22 +36,27 @@
                                   :paid_through_date nil
                                   :days_remaining    nil}
               ;; Test env has no Stripe config and no linked customer.
-              :billing           {:self_serve_enabled     false
-                                  :subscription_active    false
-                                  :subscription_cancelled false}} (:body response)))
+              :billing           {:self_serve_enabled      false
+                                  :subscription_active     false
+                                  :subscription_cancelled  false
+                                  :subscription_cancelling false
+                                  :subscription_plan       nil}} (:body response)))
       (is (not (contains? response :password_hash)))))
 
   (testing "reports the portal usable and the subscription live once Stripe
             is configured and the account is linked with an active status"
     (let [user (create-test-user!)]
       (db/update! :users {:stripe_customer_id         "cus_account_test"
-                          :stripe_subscription_status "active"}
+                          :stripe_subscription_status "active"
+                          :stripe_plan                "monthly"}
                   [:= :id (:id user)])
       (with-redefs [conf/stripe-config (constantly stripe-test-config)]
         (let [response (account/get-account {:identity {:sub (str (:id user))}})]
-          (is (= {:self_serve_enabled     true
-                  :subscription_active    true
-                  :subscription_cancelled false}
+          (is (= {:self_serve_enabled      true
+                  :subscription_active     true
+                  :subscription_cancelled  false
+                  :subscription_cancelling false
+                  :subscription_plan       "monthly"}
                  (:billing (:body response))))))))
 
   (testing "a cancelled subscription reads linked but not active"
@@ -61,9 +66,11 @@
                   [:= :id (:id user)])
       (with-redefs [conf/stripe-config (constantly stripe-test-config)]
         (let [response (account/get-account {:identity {:sub (str (:id user))}})]
-          (is (= {:self_serve_enabled     true
-                  :subscription_active    false
-                  :subscription_cancelled true}
+          (is (= {:self_serve_enabled      true
+                  :subscription_active     false
+                  :subscription_cancelled  true
+                  :subscription_cancelling false
+                  :subscription_plan       nil}
                  (:billing (:body response))))))))
 
   (testing "a linked customer on a host without Stripe config gets no portal
@@ -73,9 +80,11 @@
                           :stripe_subscription_status "active"}
                   [:= :id (:id user)])
       (let [response (account/get-account {:identity {:sub (str (:id user))}})]
-        (is (= {:self_serve_enabled     false
-                :subscription_active    false
-                :subscription_cancelled false}
+        (is (= {:self_serve_enabled      false
+                :subscription_active     false
+                :subscription_cancelled  false
+                :subscription_cancelling false
+                :subscription_plan       nil}
                (:billing (:body response))))))))
 
 (deftest test-update-account

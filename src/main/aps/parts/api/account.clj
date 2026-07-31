@@ -28,14 +28,20 @@
   [user-id]
   (let [enabled? (some? (config/stripe-config))
         row      (when enabled? (billing/billing-facts user-id))]
-    {:self_serve_enabled     enabled?
-     :subscription_active    (contains? stripe/live-subscription-statuses
-                                        (:stripe_subscription_status row))
+    {:self_serve_enabled      enabled?
+     :subscription_active     (contains? stripe/live-subscription-statuses
+                                         (:stripe_subscription_status row))
      ;; Distinct from merely not-active: a cancelled subscriber keeps
      ;; their paid window (decision 7), and the card must say "cancelled,
      ;; works until X, no further charges" rather than "active" over
      ;; subscribe buttons.
-     :subscription_cancelled (= "canceled" (:stripe_subscription_status row))}))
+     :subscription_cancelled  (= "canceled" (:stripe_subscription_status row))
+     ;; Pending cancellation: still live and reversible in the portal,
+     ;; but the page must say the window ends, not promise a renewal.
+     :subscription_cancelling (= "canceling" (:stripe_subscription_status row))
+     ;; Which plan, so the page can name the renewal amount. A plan word,
+     ;; not a price — amounts stay in the shared constants.
+     :subscription_plan       (:stripe_plan row)}))
 
 (defn get-account
   "Retrieve own account info, including the account's good-standing summary

@@ -27,16 +27,14 @@
      label))
 
 (def ^:private subscription-status-class
-  "View-model status tone → daisyUI status colour; :neutral stays the
-   base (uncoloured) dot."
+  "View-model status tone → daisyUI status colour."
   {:success "status-success"
    :info    "status-info"
    :warning "status-warning"
-   :error   "status-error"
-   :neutral ""})
+   :error   "status-error"})
 
 (defui ^:private plan-card
-  [{:keys [plan title price cadence features primary? pending]}]
+  [{:keys [plan title price cadence features primary? pending cta]}]
   ($ :div {:class (str "card bg-base-100 border w-full sm:w-60"
                        (if primary? " border-primary" " border-base-300"))}
      ($ :div {:class "card-body p-2"}
@@ -57,13 +55,13 @@
                        :on-click #(rf/dispatch [:billing/start plan])}
               (when (= plan pending)
                 ($ :span {:class "loading loading-spinner loading-xs"}))
-              "Subscribe")))))
+              (or cta "Subscribe"))))))
 
 (defui ^:private plan-cards
-  [{:keys [pending]}]
+  [{:keys [pending cta]}]
   ($ :div {:class "flex flex-wrap gap-4 mt-3"}
      (for [{:keys [plan] :as entry} c/subscription-plans]
-       ($ plan-card (assoc entry :key (name plan) :pending pending)))))
+       ($ plan-card (assoc entry :key (name plan) :pending pending :cta cta)))))
 
 (defui account []
   (let [user                                    (uix.rf/use-subscribe [:auth/user])
@@ -75,7 +73,7 @@
         query-params                            (uix.rf/use-subscribe [:router/query-params])
         [checkout-thanks? set-checkout-thanks!] (use-state false)
         [poll-count set-poll-count!]            (use-state 0)
-        {:keys [action standing-line status]}   (account-view/billing-view
+        {:keys [action status-line cta]}        (account-view/billing-view
                                                  {:billing           (:billing user)
                                                   :standing          standing
                                                   :checkout-pending? checkout-thanks?})
@@ -118,19 +116,33 @@
          #(.removeEventListener js/window "pageshow" on-pageshow)))
      [])
     ;; While activating (back from Checkout, webhook not yet landed),
-    ;; re-ask the server every few seconds so the card flips to the real
-    ;; subscribed state on its own — no reload. Capped: past a minute of
-    ;; polling something is genuinely delayed, and the message stands.
+    ;; re-ask the server so the card flips to the real subscribed state on
+    ;; its own — no reload, ever: quick polls for the first ~30s (the
+    ;; webhook normally lands in seconds), then a gentle 30s cadence
+    ;; indefinitely for the delayed-delivery tail.
     (use-effect
      (fn []
-       (if (and (= :activating action) (< poll-count 24))
+       (if (= :activating action)
          (let [timer (js/setTimeout (fn []
                                       (set-poll-count! inc)
                                       (rf/dispatch [:auth/check-auth]))
-                                    2500)]
+                                    (if (< poll-count 12) 2500 30000))]
            #(js/clearTimeout timer))
          js/undefined))
      [action poll-count])
+    ;; And refresh the moment the tab becomes visible again while
+    ;; activating — returning from another tab shouldn't wait out the
+    ;; slow-poll interval.
+    (use-effect
+     (fn []
+       (if (= :activating action)
+         (let [on-visible (fn []
+                            (when (= "visible" (.-visibilityState js/document))
+                              (rf/dispatch [:auth/check-auth])))]
+           (.addEventListener js/document "visibilitychange" on-visible)
+           #(.removeEventListener js/document "visibilitychange" on-visible))
+         js/undefined))
+     [action])
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
           ($ app-header)
@@ -170,7 +182,7 @@
                     ($ :p {:class "text-sm text-error mt-1"} update-error))
                   ($ :p {:class "text-sm text-gray-400 mt-1"}
                      "Signed in as " (:email user) "."))
-               ($ :p {:class "text-base text-gray-400"} "Checking…")))
+               ($ :p {:class "text-sm text-gray-400"} "Checking…")))
 
           ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Billing")
           ($ banner {:variant :info :class "mb-2"}
@@ -178,57 +190,54 @@
                 "A subscription is not required to use Parts while in beta. "
                 "Subscribing now helps fund development."))
           ($ :div
-             (when status
-               ($ :div {:class "flex items-center gap-2 mb-2"}
-                  ($ :span {:class       (str "status "
-                                              (subscription-status-class (:tone status)))
-                            :aria-hidden "true"})
-                  ($ :span {:class "text-sm text-gray-500"} (:label status))))
              (when checkout-thanks?
                ($ banner {:variant :success :class "mb-2"}
                   ($ :p "Thank you for subscribing! Your payment went through.")))
              (if (= :loading action)
-               ($ :p {:class "text-base text-gray-400"} "Checking…")
+               ($ :p {:class "text-sm text-gray-400"} "Checking…")
                ($ :<>
-                  (when standing-line
-                    ($ :p {:class "text-base"} standing-line))
+                  (when status-line
+                    ($ :p {:class "text-sm mb-2"}
+                       ;; Same 1lh trick as the banner icon: the wrapper is
+                       ;; exactly one text line tall and top-aligned, so the
+                       ;; dot centres on the first line at any font size.
+                       ($ :span {:class       "inline-flex h-[1lh] items-center align-top mr-1"
+                                 :aria-hidden "true"}
+                          ($ :span {:class (str "status "
+                                                (subscription-status-class
+                                                 (:tone status-line)))}))
+                       ($ :span {:class "font-medium"} (:headline status-line))
+                       (:body status-line)))
                   (case action
-                    :activating
-                    ($ :p {:class "text-base text-gray-500"}
-                       ($ :span {:class "loading loading-spinner loading-xs mr-2"})
-                       "Finalising your subscription…")
-
                     :subscribe
                     ($ :div {:class "mt-1"}
-                       ($ :p {:class "text-base"}
-                          "Individual plans are valid for a single practitioner. "
-                          "If you wish to purchase a subscription for a group "
-                          "practice, please contact us at "
-                          ($ :a {:href (str "mailto:" c/support-email)}
-                             c/support-email)
-                          ".")
-                       ($ plan-cards {:pending billing-pending}))
+                       ($ plan-cards {:pending billing-pending :cta cta}))
 
-                    ;; The cancelled line above already explains; offer the
-                    ;; way back in without re-pitching the beta.
+                    ;; The status line explains what happens next; the
+                    ;; cards just offer the way back in.
                     :resubscribe
                     ($ :div {:class "mt-1"}
-                       ($ :p {:class "text-sm text-gray-400"}
-                          "You're welcome to resubscribe at any time.")
-                       ($ plan-cards {:pending billing-pending}))
+                       ($ plan-cards {:pending billing-pending :cta cta}))
 
-                    :manage
-                    ($ :div {:class "mt-1"}
-                       ($ :p {:class "text-sm text-gray-400"}
+                    (:manage :cancelling)
+                    ($ :div {:class "mt-2 flex items-center gap-2"}
+                       ($ billing-button {:label   "Manage subscription"
+                                          :target  :portal
+                                          :pending billing-pending})
+                       ($ :p {:class "text-sm"}
                           "Update your payment details, switch between "
-                          "monthly and yearly, or cancel at any time.")
-                       ($ :div {:class "mt-2"}
-                          ($ billing-button {:label   "Manage subscription"
-                                             :target  :portal
-                                             :pending billing-pending})))
+                          "monthly and yearly, or cancel at any time."))
 
-                    :none nil)
+                    nil)
                   (when billing-error
-                    ($ :p {:class "text-sm text-error mt-1"} billing-error)))))
+                    ($ :p {:class "text-sm text-error mt-1"} billing-error))))
+
+             ($ :p {:class "text-sm mt-4 mb-8"}
+                "Individual plans are valid for a single practitioner. "
+                "If you wish to purchase a subscription for a group "
+                "practice, please contact us at "
+                ($ :a {:href (str "mailto:" c/support-email)}
+                   c/support-email)
+                "."))
 
           ($ app-footer)))))

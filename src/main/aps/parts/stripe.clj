@@ -33,11 +33,14 @@
 
 (def live-subscription-statuses
   "Subscription statuses that mean the account has an ongoing subscription
-   relationship: covered (`active`, `trialing`) or in dunning
-   (`past_due`, `unpaid` — Stripe is still trying to collect). Everything
-   else (`canceled`, `incomplete`, `incomplete_expired`, `paused`) means
-   there is no live subscription and subscribing again is the right offer."
-  #{"active" "trialing" "past_due" "unpaid"})
+   relationship: covered (`active`, `trialing`), in dunning (`past_due`,
+   `unpaid` — Stripe is still trying to collect), or our own synthetic
+   `canceling` (active with cancel_at_period_end set — still live, still
+   reversible in the portal, so a second checkout must stay refused).
+   Everything else (`canceled`, `incomplete`, `incomplete_expired`,
+   `paused`) means there is no live subscription and subscribing again is
+   the right offer."
+  #{"active" "trialing" "past_due" "unpaid" "canceling"})
 
 ;; --- Form encoding ---------------------------------------------------------
 ;;

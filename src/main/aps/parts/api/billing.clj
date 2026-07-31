@@ -41,6 +41,21 @@
    renders its buttons from — one source for both runtimes."
   (into #{} (map :plan) c/subscription-plans))
 
+(defn- effective-status
+  "The status we record: Stripe's own, except an active subscription with
+   a scheduled cancellation becomes our synthetic \"canceling\" — still
+   live (the guard must refuse a second checkout, the portal can reverse
+   it), but the page must say the window ends rather than promise a
+   renewal charge. Stripe schedules cancellation two ways depending on
+   API version and surface: the `cancel_at_period_end` boolean, or a
+   `cancel_at` timestamp (what the portal sets on current versions) —
+   either one means no renewal is coming."
+  [{:keys [status cancel_at_period_end cancel_at]}]
+  (if (and (= "active" status)
+           (or cancel_at_period_end cancel_at))
+    "canceling"
+    status))
+
 (defn- latest-epoch->date
   "The latest of a collection of epoch-second values, as a UTC date — the
    one zone every billing date is derived in. Latest, not first: a
@@ -190,7 +205,7 @@
               (mulog/log ::customer-link-conflict
                          :user-id user-id
                          :incoming-customer customer))
-          (do (billing/record-checkout! user-id customer (:status sub) period-end)
+          (do (billing/record-checkout! user-id customer (effective-status sub) (name plan) period-end)
               ;; Only the account's first linkage is thanked: a webhook
               ;; redelivery, or a resubscribe under the existing link,
               ;; must not re-thank.
@@ -223,16 +238,27 @@
                  :paid-through (str (:paid_through_date updated)))
       (mulog/log ::invoice-unmatched :customer customer))))
 
+(defn- price->plan
+  "Which of our plans a Stripe price id belongs to — \"monthly\" /
+   \"yearly\" — or nil for a price we don't recognise. How plan switches
+   made in the Customer Portal reach `stripe_plan`."
+  [stripe-config price-id]
+  (some (fn [[plan id]] (when (= id price-id) (name plan)))
+        (:prices stripe-config)))
+
 (defn- handle-subscription-change!
-  "Keep `stripe_subscription_status` current for a linked account. The
-   deleted event carries status \"canceled\", so cancellation flows
-   through the same overwrite — and the Account page re-offers
-   subscribing. Never touches paid_through_date: cancelling doesn't
-   retract time already paid for."
-  [{:keys [customer status]}]
-  (if (and customer (billing/record-subscription-status! customer status))
-    (mulog/log ::subscription-status-updated :customer customer :status status)
-    (mulog/log ::subscription-event-ignored :customer customer)))
+  "Keep `stripe_subscription_status` (and the plan, on switches) current
+   for a linked account. The deleted event carries status \"canceled\",
+   so cancellation flows through the same overwrite — and the Account
+   page re-offers subscribing. Never touches paid_through_date:
+   cancelling doesn't retract time already paid for."
+  [stripe-config {:keys [customer items] :as subscription}]
+  (let [status (effective-status subscription)
+        plan   (price->plan stripe-config (get-in items [:data 0 :price :id]))]
+    (if (and customer (billing/record-subscription-status! customer status plan))
+      (mulog/log ::subscription-status-updated
+                 :customer customer :status status :plan plan)
+      (mulog/log ::subscription-event-ignored :customer customer))))
 
 (defn- handle-event! [stripe-config {:keys [type data]}]
   (case type
@@ -245,7 +271,7 @@
     ("customer.subscription.created"
      "customer.subscription.updated"
      "customer.subscription.deleted")
-    (handle-subscription-change! (:object data))
+    (handle-subscription-change! stripe-config (:object data))
 
     (mulog/log ::event-unhandled :event-type type)))
 

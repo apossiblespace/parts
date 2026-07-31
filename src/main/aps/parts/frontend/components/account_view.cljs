@@ -3,6 +3,7 @@
    of uix/React so it can be unit-tested directly under the cljs suite —
    the `account` component is a thin shell over `billing-view`."
   (:require
+   [aps.parts.common.constants :as c]
    [clojure.string :as str]))
 
 (def ^:private month-names
@@ -20,53 +21,80 @@
       (when (and y mi d (<= 0 mi 11))
         (str (js/parseInt d 10) " " (nth month-names mi) " " y)))))
 
-(defn- standing-message
-  "Plain-language good-standing line from the server's `:standing` summary
-   (see `aps.parts.billing/account-standing`). Returns nil when the summary
-   isn't loaded yet, so the caller can show a placeholder."
-  [{:keys [status days_remaining paid_through_date]}]
-  (let [through (fmt-iso-date paid_through_date)]
-    (case status
-      :paid       (cond
-                    (nil? days_remaining)
-                    (str "Your subscription is active through " through ".")
+(defn- in-days
+  "\" in 29 days (29 August 2026)\", \" in 1 day (…)\", \" today (…)\", or
+   \" on 29 August 2026\" when the day count is unknown."
+  [days through]
+  (cond
+    (nil? days)  (str " on " through)
+    (zero? days) (str " today (" through ")")
+    :else        (str " in " days (if (= 1 days) " day" " days")
+                      " (" through ")")))
 
-                    (zero? days_remaining)
-                    (str "Your subscription is active through the end of today (" through ").")
+(defn- status-line
+  "The Billing section's one status sentence, dot and description
+   combined: {:tone :success|:info|:warning|:error, :headline \"…\",
+   :body \"…\"} — the component renders the coloured dot, the bold
+   headline, then the body. Nil when there is nothing to report (no
+   subscription, nothing paid): the pricing cards say that plainly
+   enough.
 
-                    :else
-                    (str "Your subscription is active for another "
-                         days_remaining (if (= 1 days_remaining) " day" " days")
-                         " — through " through "."))
-      :overdue    (str "Your subscription lapsed on " through ".")
-      :never-paid "We don't have a renewal date on file for your account yet."
-      nil)))
+   The interesting state is a paid window with no live subscription
+   behind it (cancelled, or extended by hand): that must read as
+   \"will expire — you will not be charged again\", never as \"active\"
+   above Subscribe buttons. The resubscribe invitation is appended only
+   when the cards are actually shown (`:resubscribe`, not `:none`)."
+  [action plan {:keys [status days_remaining paid_through_date]}]
+  (let [through (fmt-iso-date paid_through_date)
+        cards?  (= :resubscribe action)]
+    (case action
+      :manage
+      ;; Renewal framing, not expiry: the charge lands on the paid-through
+      ;; date. The amount comes from the shared plan constants so it can't
+      ;; drift from the pricing cards.
+      (let [price (some #(when (= (:plan %) (keyword plan)) (:price %))
+                        c/subscription-plans)]
+        {:tone     :success
+         :headline "Subscription active."
+         :body     (str " You will be next charged "
+                        (when price (str price " "))
+                        "on " through ".")})
 
-(defn- cancelled-message
-  "The line for a cancelled subscription. The paid window survives a
-   cancellation (billing decision 7), so while it lasts the message names
-   the date; once it has run out, just the fact."
-  [{:keys [status paid_through_date]}]
-  (if-let [through (and (= :paid status) (fmt-iso-date paid_through_date))]
-    (str "You've cancelled your subscription. Parts keeps working until "
-         through ", and you won't be charged again.")
-    "You've cancelled your subscription — you won't be charged again."))
+      :activating
+      {:tone :info :headline "Finalising your subscription" :body "…"}
 
-(defn- subscription-status
-  "The at-a-glance state for the Billing section's status dot:
-   {:tone :success|:info|:warning|:error|:neutral, :label \"…\"}. The
-   tone maps to a daisyUI status colour in the component. Accounts
-   extended by hand (no self-serve subscription) read as active too —
-   the dot reflects standing, not how it was paid."
-  [action {:keys [status]}]
-  (case action
-    :manage      {:tone :success :label "Active"}
-    :activating  {:tone :info :label "Finalising"}
-    :resubscribe {:tone :warning :label "Cancelled"}
-    (case status
-      :paid    {:tone :success :label "Active"}
-      :overdue {:tone :error :label "Lapsed"}
-      {:tone :neutral :label "No subscription"})))
+      ;; Cancelled at period end: the subscription still exists (and can
+      ;; be reversed in the portal), but no further charge is coming.
+      :cancelling
+      {:tone     :warning
+       :headline "Subscription will expire"
+       :body     (str (in-days days_remaining through)
+                      ". You will not be charged again. Changed your mind?"
+                      " You can renew your subscription below.")}
+
+      ;; :resubscribe and :none share the standing-driven wording; only
+      ;; :resubscribe appends the invitation to use the cards below.
+      (case status
+        :paid
+        {:tone     :warning
+         :headline "Subscription will expire"
+         :body     (str (in-days days_remaining through)
+                        ". You will not be charged again."
+                        (when cards?
+                          (str " If you wish to continue using Parts after "
+                               through ", please resubscribe below.")))}
+
+        :overdue
+        {:tone     :error
+         :headline "Subscription expired"
+         :body     (str " on " through ". You will not be charged again."
+                        (when cards?
+                          " If you wish to continue using Parts, please resubscribe below."))}
+
+        (when cards?
+          {:tone     :warning
+           :headline "Subscription cancelled"
+           :body     " — you will not be charged again. You're welcome to resubscribe below."})))))
 
 (defn billing-view
   "View-model for the Billing card, from the server's `:billing` facts and
@@ -75,47 +103,44 @@
    - `:loading` — the account record hasn't loaded yet (the login response
      carries no `:billing`; the mount-time check-auth refresh fills it in)
    - `:manage` — a live subscription exists: the Customer Portal button
+   - `:cancelling` — cancelled at period end: still live and reversible
+     in the portal (so the Manage button stays), but the line says the
+     window ends and no charge is coming
    - `:activating` — just back from a completed Checkout
      (`checkout-pending?`) but the webhook hasn't landed yet: no buttons.
      Subscribe would contradict the payment that just went through, and
      Manage would mint a portal session the backend still refuses. The
      page polls until the server reports the subscription live.
-   - `:resubscribe` — the subscription was cancelled: the line says so
-     (cancelled, works until X, no further charges) and the subscribe
-     buttons offer the way back in — never \"active\" over a Subscribe CTA
-   - `:subscribe` — self-serve is enabled and there's no subscription
-     history to explain
+   - `:resubscribe` — no live subscription but there is history to
+     explain (cancelled, or a paid/lapsed window): the status line says
+     what happens next and the cards' CTA reads Resubscribe
+   - `:subscribe` — self-serve is enabled and there's nothing to explain
    - `:none` — self-serve is off
 
-   `:standing-line` is the good-standing sentence, except that the
-   never-paid line is dropped when subscribe buttons are shown (the beta
-   pitch says it better) or while activating (it lags the payment), and a
-   cancelled subscription gets its own line in place of one that would
-   claim the subscription is active."
+   `:status-line` (see `status-line`) is the single dot-plus-sentence
+   summary; `:cta` is the pricing cards' button label."
   [{:keys [billing standing checkout-pending?]}]
   (if (nil? billing)
-    {:action :loading :standing-line nil}
-    (let [action (cond
-                   ;; A live status implies a linked customer — the server
-                   ;; only ever writes the two together.
-                   (:subscription_active billing) :manage
+    {:action :loading :status-line nil}
+    (let [history? (or (:subscription_cancelled billing)
+                       (contains? #{:paid :overdue} (:status standing)))
+          action   (cond
+                     ;; Pending cancellation outranks plain active: the page
+                     ;; must not promise a renewal that will never come.
+                     (:subscription_cancelling billing) :cancelling
 
-                   (and checkout-pending?
-                        (:self_serve_enabled billing)) :activating
+                     ;; A live status implies a linked customer — the server
+                     ;; only ever writes the two together.
+                     (:subscription_active billing) :manage
 
-                   (and (:subscription_cancelled billing)
-                        (:self_serve_enabled billing)) :resubscribe
+                     (and checkout-pending?
+                          (:self_serve_enabled billing)) :activating
 
-                   (:self_serve_enabled billing) :subscribe
-                   :else                         :none)]
-      {:action        action
-       :standing-line (cond
-                        (= :resubscribe action)
-                        (cancelled-message standing)
+                     (and history?
+                          (:self_serve_enabled billing)) :resubscribe
 
-                        (and (contains? #{:subscribe :activating} action)
-                             (= :never-paid (:status standing)))
-                        nil
-
-                        :else (standing-message standing))
-       :status        (subscription-status action standing)})))
+                     (:self_serve_enabled billing) :subscribe
+                     :else                         :none)]
+      {:action      action
+       :status-line (status-line action (:subscription_plan billing) standing)
+       :cta         (if (= :resubscribe action) "Resubscribe" "Subscribe")})))

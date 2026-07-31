@@ -137,12 +137,15 @@
                       [:= :stripe_customer_id customer]))))
 
 (defn record-subscription-status!
-  "Record the linked account's live Stripe subscription status — a UI
-   fact (subscribe vs manage), never a billing input. Returns the updated
-   row, or nil when no account is linked to `customer`."
-  [customer status]
+  "Record the linked account's live Stripe subscription status — and,
+   when known, which plan it is on (plan switches arrive this way). UI
+   facts (subscribe vs manage, the renewal amount), never billing inputs.
+   Returns the updated row, or nil when no account is linked to
+   `customer`."
+  [customer status plan]
   (first (db/update! :users
-                     {:stripe_subscription_status status}
+                     (cond-> {:stripe_subscription_status status}
+                       plan (assoc :stripe_plan plan))
                      [:= :stripe_customer_id customer])))
 
 (defn record-checkout!
@@ -151,11 +154,12 @@
    period's end is known — extend paid-through, monotonically like every
    other paid-through move. Returns the updated row (`:paid_through_date`
    as a LocalDate), or nil when no account has that `user-id`."
-  [user-id customer status period-end]
+  [user-id customer status plan period-end]
   (coerce-paid-through
    (first (db/update! :users
                       (cond-> {:stripe_customer_id         customer
-                               :stripe_subscription_status status}
+                               :stripe_subscription_status status
+                               :stripe_plan                plan}
                         period-end (merge (extend-paid-through-set
                                            (->local-date period-end))))
                       [:= :id (db/->uuid user-id)]))))
@@ -167,7 +171,8 @@
    `user-id`."
   [user-id]
   (db/query-one
-   (db/sql-format {:select [:email :stripe_customer_id :stripe_subscription_status]
+   (db/sql-format {:select [:email :stripe_customer_id
+                            :stripe_subscription_status :stripe_plan]
                    :from   [:users]
                    :where  [:= :id (db/->uuid user-id)]})))
 
@@ -201,7 +206,8 @@
     ;; refuse-while-linked guard; a Stripe throw above leaves them set.
     (db/update! :users
                 {:stripe_customer_id         nil
-                 :stripe_subscription_status nil}
+                 :stripe_subscription_status nil
+                 :stripe_plan                nil}
                 [:= :id (db/->uuid user-id)])
     nil))
 

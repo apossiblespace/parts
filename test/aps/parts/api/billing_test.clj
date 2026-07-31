@@ -61,7 +61,7 @@
 (defn- billing-row [email]
   (db/query-one
    (db/sql-format {:select [:paid_through_date :stripe_customer_id
-                            :stripe_subscription_status]
+                            :stripe_subscription_status :stripe_plan]
                    :from   [:users]
                    :where  [:= :email email]})))
 
@@ -111,6 +111,7 @@
       (let [row (billing-row "buyer@example.com")]
         (is (= "cus_buyer" (:stripe_customer_id row)))
         (is (= "active" (:stripe_subscription_status row)))
+        (is (= "monthly" (:stripe_plan row)))
         (is (= period-end-date (paid-through "buyer@example.com"))))
       (is (= "buyer@example.com" (:to @sent)))
       (is (= "Thank you for subscribing to Parts" (:subject @sent)))))
@@ -259,6 +260,50 @@
                      (event-json "customer.subscription.updated"
                                  {:id "sub_1" :customer "cus_lifecycle" :status "past_due"})))
       (is (= "past_due" (:stripe_subscription_status (billing-row "lifecycle@example.com"))))))
+
+  (testing "cancel-at-period-end records the synthetic canceling status —
+            still live, but no renewal may be promised"
+    (let [user (create-test-user! {:email "cancelling@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_cancelling"} [:= :id (:id user)])
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.updated"
+                                 {:id                   "sub_5"
+                                  :customer             "cus_cancelling"
+                                  :status               "active"
+                                  :cancel_at_period_end true})))
+      (is (= "canceling" (:stripe_subscription_status (billing-row "cancelling@example.com"))))
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.updated"
+                                 {:id                   "sub_5"
+                                  :customer             "cus_cancelling"
+                                  :status               "active"
+                                  :cancel_at_period_end false})))
+      (is (= "active" (:stripe_subscription_status (billing-row "cancelling@example.com")))
+          "reversing the cancellation in the portal restores plain active")
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.updated"
+                                 {:id        "sub_5"
+                                  :customer  "cus_cancelling"
+                                  :status    "active"
+                                  :cancel_at 1788214435})))
+      (is (= "canceling" (:stripe_subscription_status (billing-row "cancelling@example.com")))
+          "a cancel_at timestamp (the portal's mechanism on current API
+           versions) also reads as canceling")))
+
+  (testing "a plan switch made in the portal updates the recorded plan"
+    (let [user (create-test-user! {:email "switcher-plan@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_planswitch"
+                          :stripe_plan        "monthly"}
+                  [:= :id (:id user)])
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.updated"
+                                 {:id       "sub_4"
+                                  :customer "cus_planswitch"
+                                  :status   "active"
+                                  :items    {:data [{:price {:id "price_yearly"}}]}})))
+      (let [row (billing-row "switcher-plan@example.com")]
+        (is (= "yearly" (:stripe_plan row)))
+        (is (= "active" (:stripe_subscription_status row))))))
 
   (testing "cancellation records canceled status but keeps the paid window"
     (let [user (create-test-user! {:email "cancelled@example.com"})]
