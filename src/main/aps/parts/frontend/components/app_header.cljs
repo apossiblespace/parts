@@ -9,18 +9,23 @@
    [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))
 
+(defn- nav-item [label route-name]
+  (let [current-route-name (uix.rf/use-subscribe [:router/route-name])]
+    (if (= current-route-name route-name)
+      ($ :span {:class "text-sm font-bold"} label)
+      ($ :a {:class    "text-sm cursor-pointer hover:underline font-normal"
+             :on-click #(rf/dispatch [:router/navigate route-name])}
+         label))))
+
 (defui app-header []
-  (let [route-name (uix.rf/use-subscribe [:router/route-name])]
-    ($ :div {:class "flex items-center justify-between mb-6"}
-       ($ :div {:class "flex items-center gap-2"}
-          ($ :a {:href "/app"}
-             ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"}))
-          ($ :span {:class "badge badge-sm badge-soft"} "Beta")
-          ($ :nav {:class "ml-4"}
-             ($ :a {:class    (str "text-sm cursor-pointer hover:underline"
-                                   (if (= ::router/maps-list route-name)
-                                     " font-semibold"
-                                     " font-normal"))
-                    :on-click #(rf/dispatch [:router/navigate ::router/maps-list])}
-                "All maps")))
-       ($ auth-status))))
+  ($ :div {:class "flex items-center justify-between mb-6"}
+     ($ :div {:class "flex items-center gap-2"}
+        ($ :a {:href "/app"}
+           ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"}))
+        ($ :span
+           {:class "badge badge-sm badge-soft"}
+           "Beta")
+        ($ :nav {:class "ml-6 flex item-center gap-6"}
+           (nav-item "Your Maps" ::router/maps-list)
+           (nav-item "Account" ::router/account)))
+     ($ auth-status)))

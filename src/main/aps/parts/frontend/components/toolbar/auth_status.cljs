@@ -1,7 +1,6 @@
 (ns aps.parts.frontend.components.toolbar.auth-status
   (:require
-   ["lucide-react" :refer [ChevronDown LogOut User]]
-   [aps.parts.frontend.router :as router]
+   ["lucide-react" :refer [ChevronDown LogOut]]
    [clojure.string :as str]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui]]
@@ -53,11 +52,6 @@
                  :class    "dropdown-content menu menu-sm z-10 mt-1 w-40"}
             (if user
               ($ :<>
-                 ($ :li
-                    ($ :a {:on-click #(rf/dispatch [:router/navigate ::router/account])}
-                       ($ User {:size 16})
-                       "Account"))
-                 ($ :li ($ :hr {:class "-mx-2 border-base-300"}))
                  ($ :li
                     ($ :a {:on-click #(rf/dispatch [:auth/logout])}
                        ($ LogOut {:size 16})
