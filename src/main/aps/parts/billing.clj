@@ -170,11 +170,13 @@
    go through this one projection. Returns nil when no account has that
    `user-id`."
   [user-id]
-  (db/query-one
-   (db/sql-format {:select [:email :stripe_customer_id
-                            :stripe_subscription_status :stripe_plan]
-                   :from   [:users]
-                   :where  [:= :id (db/->uuid user-id)]})))
+  (coerce-paid-through
+   (db/query-one
+    (db/sql-format {:select [:email :stripe_customer_id
+                             :stripe_subscription_status :stripe_plan
+                             :paid_through_date]
+                    :from   [:users]
+                    :where  [:= :id (db/->uuid user-id)]}))))
 
 (defn release-stripe-customer!
   "Erasure step for an account's Stripe link (TASK-108), run *before* the

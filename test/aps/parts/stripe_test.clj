@@ -85,6 +85,31 @@
     (testing "payment_method_types is never sent"
       (is (not (contains? params :payment_method_types))))))
 
+(deftest checkout-session-params-trial-end-test
+  (testing "a resuming subscriber's remaining paid time becomes a trial —
+            the first charge lands when the already-paid window ends,
+            instead of overlapping it"
+    (let [params (stripe/checkout-session-params
+                  {:user-id   #uuid "00000000-0000-0000-0000-000000000001"
+                   :email     "therapist@example.com"
+                   :customer  "cus_123"
+                   :plan      :monthly
+                   :price-id  "price_123"
+                   :base-url  "https://parts.test"
+                   :trial-end 1790640000})]
+      (is (= {:trial_end 1790640000} (:subscription_data params)))
+      (is (= {:submit {:message (str "Your remaining paid time is applied — "
+                                     "your first payment will be on 29 September 2026.")}}
+             (:custom_text params))
+          "Checkout renders trial_end as a free trial; the submit note
+           reframes it as time already paid for")
+      ;; Same AC#9 closed allowlist as above — a new key must be a
+      ;; deliberate, reviewed decision.
+      (is (= #{:mode :line_items :client_reference_id :customer
+               :metadata :automatic_tax :integration_identifier
+               :success_url :cancel_url :subscription_data :custom_text}
+             (set (keys params)))))))
+
 (deftest checkout-session-params-existing-customer-test
   (testing "an already-linked customer is reused instead of a raw email"
     (let [params (stripe/checkout-session-params

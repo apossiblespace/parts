@@ -42,19 +42,54 @@
   (into #{} (map :plan) c/subscription-plans))
 
 (defn- effective-status
-  "The status we record: Stripe's own, except an active subscription with
-   a scheduled cancellation becomes our synthetic \"canceling\" — still
-   live (the guard must refuse a second checkout, the portal can reverse
-   it), but the page must say the window ends rather than promise a
-   renewal charge. Stripe schedules cancellation two ways depending on
-   API version and surface: the `cancel_at_period_end` boolean, or a
-   `cancel_at` timestamp (what the portal sets on current versions) —
-   either one means no renewal is coming."
+  "The status we record: Stripe's own, except a charging subscription
+   (`active`, or `trialing` — how a resubscriber's remaining window is
+   carried) with a scheduled cancellation becomes our synthetic
+   \"canceling\" — still live (the guard must refuse a second checkout,
+   the portal can reverse it), but the page must say the window ends
+   rather than promise a renewal charge. Stripe schedules cancellation
+   two ways depending on API version and surface: the
+   `cancel_at_period_end` boolean, or a `cancel_at` timestamp (what the
+   portal sets on current versions) — either one means no renewal is
+   coming."
   [{:keys [status cancel_at_period_end cancel_at]}]
-  (if (and (= "active" status)
+  (if (and (contains? #{"active" "trialing"} status)
            (or cancel_at_period_end cancel_at))
     "canceling"
     status))
+
+(def ^:private min-trial-lead-seconds
+  "Stripe refuses a Checkout `trial_end` less than 48 hours out. The
+   margin covers the time between our check and Stripe receiving the
+   request — a boundary rejection would 502 the checkout and page the
+   operator, strictly worse than the fallback of charging immediately."
+  (+ (* 48 3600) 300))
+
+(defn- resume-trial-end
+  "When a previously-subscribed account still has paid-for time, the
+   epoch second the new subscription's first charge should land: the
+   start (UTC) of the day *after* the paid-through date — the date is
+   inclusive (`billing/account-standing` counts its final day as
+   covered), so charging at midnight on the date itself would take back
+   the last paid day. Without this, Checkout charges immediately and
+   the overlap swallows the remaining days.
+
+   Nil — meaning charge now — in three cases: the account has no Stripe
+   link (a comped window on a never-subscribed account is goodwill, not
+   credit — subscribing from one should start funding development, not
+   defer payment for months); there is no future window; or the window
+   ends inside `min-trial-lead-seconds`, where up to two days of
+   overlap is the best Stripe allows. A *linked* account's window
+   counts in full, even the parts extended by hand: an operator
+   extension through X deliberately means the next charge lands after
+   X. Two-arity for tests, like `billing/account-standing`."
+  ([row] (resume-trial-end row (quot (System/currentTimeMillis) 1000)))
+  ([{:keys [stripe_customer_id ^LocalDate paid_through_date]} now]
+   (when (and stripe_customer_id paid_through_date)
+     (let [epoch (.toEpochSecond (.atStartOfDay (.plusDays paid_through_date 1)
+                                                ZoneOffset/UTC))]
+       (when (> epoch (+ now min-trial-lead-seconds))
+         epoch)))))
 
 (defn- latest-epoch->date
   "The latest of a collection of epoch-second values, as a UTC date — the
@@ -89,12 +124,13 @@
       (let [session (stripe/create-checkout-session!
                      stripe-config
                      (stripe/checkout-session-params
-                      {:user-id  user-id
-                       :email    (:email row)
-                       :customer (:stripe_customer_id row)
-                       :plan     plan
-                       :price-id (get-in stripe-config [:prices plan])
-                       :base-url (config/base-url)}))]
+                      {:user-id   user-id
+                       :email     (:email row)
+                       :customer  (:stripe_customer_id row)
+                       :plan      plan
+                       :price-id  (get-in stripe-config [:prices plan])
+                       :base-url  (config/base-url)
+                       :trial-end (resume-trial-end row)}))]
         (mulog/log ::checkout-session-created :user-id user-id :plan plan)
         (response/response {:url (:url session)})))))
 

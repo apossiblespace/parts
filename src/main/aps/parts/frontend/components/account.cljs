@@ -192,7 +192,7 @@
           ($ :div
              (when checkout-thanks?
                ($ banner {:variant :success :class "mb-2"}
-                  ($ :p "Thank you for subscribing! Your payment went through.")))
+                  ($ :p "Thank you for subscribing! Your subscription has been set up.")))
              (if (= :loading action)
                ($ :p {:class "text-sm text-gray-400"} "Checking…")
                ($ :<>

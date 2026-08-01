@@ -19,6 +19,9 @@
   (:import
    (java.net URLEncoder)
    (java.security MessageDigest)
+   (java.time Instant LocalDate ZoneOffset)
+   (java.time.format DateTimeFormatter)
+   (java.util Locale)
    (javax.crypto Mac)
    (javax.crypto.spec SecretKeySpec)))
 
@@ -85,8 +88,15 @@
    An account already linked to a Stripe customer passes `:customer` so
    Stripe reuses it; otherwise `:customer_email` pre-fills the payment page.
    No `payment_method_types`: Stripe then offers whatever payment methods
-   the Dashboard enables (dynamic payment methods)."
-  [{:keys [user-id email customer plan price-id base-url]}]
+   the Dashboard enables (dynamic payment methods).
+
+   `:trial-end` (epoch seconds, optional) delays the first charge to that
+   moment — how a resubscriber's remaining paid window is honoured rather
+   than double-billed. Stripe requires it at least 48 hours out; the
+   caller decides whether to send it. Checkout renders it as a free
+   trial (\"N days free, £0.00 due today\"), so a note above the pay
+   button reframes it: the days are already paid for, not a gift."
+  [{:keys [user-id email customer plan price-id base-url trial-end]}]
   (cond-> {:mode                   "subscription"
            :line_items             [{:price price-id :quantity 1}]
            :client_reference_id    (str user-id)
@@ -97,7 +107,17 @@
            :success_url            (str base-url "/app/account?checkout=success")
            :cancel_url             (str base-url "/app/account")}
     customer       (assoc :customer customer)
-    (not customer) (assoc :customer_email email)))
+    (not customer) (assoc :customer_email email)
+    trial-end      (assoc :subscription_data {:trial_end trial-end}
+                          :custom_text
+                          {:submit {:message (str "Your remaining paid time is applied — "
+                                                  "your first payment will be on "
+                                                  (.format (LocalDate/ofInstant
+                                                            (Instant/ofEpochSecond trial-end)
+                                                            ZoneOffset/UTC)
+                                                           (DateTimeFormatter/ofPattern
+                                                            "d MMMM uuuu" Locale/UK))
+                                                  ".")}})))
 
 (defn portal-session-params
   "Params for a Customer Portal session — the hosted page where a

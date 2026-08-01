@@ -288,7 +288,16 @@
                                   :cancel_at 1788214435})))
       (is (= "canceling" (:stripe_subscription_status (billing-row "cancelling@example.com")))
           "a cancel_at timestamp (the portal's mechanism on current API
-           versions) also reads as canceling")))
+           versions) also reads as canceling")
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.updated"
+                                 {:id        "sub_5"
+                                  :customer  "cus_cancelling"
+                                  :status    "trialing"
+                                  :cancel_at 1788214435})))
+      (is (= "canceling" (:stripe_subscription_status (billing-row "cancelling@example.com")))
+          "cancelling during a trial (a resubscriber's carried window)
+           must also read as canceling, not as a promised charge")))
 
   (testing "a plan switch made in the portal updates the recorded plan"
     (let [user (create-test-user! {:email "switcher-plan@example.com"})]
@@ -327,35 +336,36 @@
                           (event-json "customer.subscription.deleted"
                                       {:id "sub_3" :customer "cus_ghost" :status "canceled"}))))))))
 
+(defn- checkout-call!
+  "Run create-checkout-session for `user` with Stripe stubbed; returns
+   {:response …, :params …} — the handler's response and the params it
+   would have sent to Stripe."
+  [user plan]
+  (let [captured (atom nil)]
+    (with-redefs [conf/stripe-config              (constantly stripe-config)
+                  stripe/create-checkout-session! (fn [_cfg params]
+                                                    (reset! captured params)
+                                                    {:url "https://checkout.stripe.com/stub"})]
+      (let [response (billing-api/create-checkout-session
+                      {:identity    {:sub (str (:id user))}
+                       :body-params {:plan plan}})]
+        {:response response :params @captured}))))
+
 (deftest create-checkout-session-test
   (testing "creates a session for the chosen plan and returns its URL"
-    (let [user     (create-test-user! {:email "buyer2@example.com"})
-          captured (atom nil)]
-      (with-redefs [conf/stripe-config              (constantly stripe-config)
-                    stripe/create-checkout-session! (fn [_cfg params]
-                                                      (reset! captured params)
-                                                      {:url "https://checkout.stripe.com/c/pay/cs_test"})]
-        (let [response (billing-api/create-checkout-session
-                        {:identity    {:sub (str (:id user))}
-                         :body-params {:plan "yearly"}})]
-          (is (= 200 (:status response)))
-          (is (= {:url "https://checkout.stripe.com/c/pay/cs_test"} (:body response)))
-          (is (= "price_yearly" (get-in @captured [:line_items 0 :price])))
-          (is (= "buyer2@example.com" (:customer_email @captured)))))))
+    (let [user                      (create-test-user! {:email "buyer2@example.com"})
+          {:keys [response params]} (checkout-call! user "yearly")]
+      (is (= 200 (:status response)))
+      (is (= {:url "https://checkout.stripe.com/stub"} (:body response)))
+      (is (= "price_yearly" (get-in params [:line_items 0 :price])))
+      (is (= "buyer2@example.com" (:customer_email params)))))
 
   (testing "an already-linked account reuses its Stripe customer"
-    (let [user     (create-test-user! {:email "linked-buyer@example.com"})
-          _        (db/update! :users {:stripe_customer_id "cus_linked"} [:= :id (:id user)])
-          captured (atom nil)]
-      (with-redefs [conf/stripe-config              (constantly stripe-config)
-                    stripe/create-checkout-session! (fn [_cfg params]
-                                                      (reset! captured params)
-                                                      {:url "https://checkout.stripe.com/x"})]
-        (billing-api/create-checkout-session
-         {:identity    {:sub (str (:id user))}
-          :body-params {:plan "monthly"}})
-        (is (= "cus_linked" (:customer @captured)))
-        (is (not (contains? @captured :customer_email))))))
+    (let [user             (create-test-user! {:email "linked-buyer@example.com"})
+          _                (db/update! :users {:stripe_customer_id "cus_linked"} [:= :id (:id user)])
+          {:keys [params]} (checkout-call! user "monthly")]
+      (is (= "cus_linked" (:customer params)))
+      (is (not (contains? params :customer_email)))))
 
   (testing "refuses while a live subscription exists (no double-subscribe)"
     (let [user (create-test-user! {:email "subscribed@example.com"})]
@@ -369,19 +379,51 @@
                                 :body-params {:plan "monthly"}}))))))
 
   (testing "a cancelled subscriber can subscribe again"
-    (let [user     (create-test-user! {:email "resubscriber@example.com"})
-          captured (atom nil)]
+    (let [user (create-test-user! {:email "resubscriber@example.com"})]
       (db/update! :users {:stripe_customer_id         "cus_resub"
                           :stripe_subscription_status "canceled"}
                   [:= :id (:id user)])
-      (with-redefs [conf/stripe-config              (constantly stripe-config)
-                    stripe/create-checkout-session! (fn [_cfg params]
-                                                      (reset! captured params)
-                                                      {:url "https://checkout.stripe.com/y"})]
-        (is (= 200 (:status (billing-api/create-checkout-session
-                             {:identity    {:sub (str (:id user))}
-                              :body-params {:plan "yearly"}}))))
-        (is (= "cus_resub" (:customer @captured))))))
+      (let [{:keys [response params]} (checkout-call! user "yearly")]
+        (is (= 200 (:status response)))
+        (is (= "cus_resub" (:customer params)))
+        (is (not (contains? params :subscription_data))))))
+
+  (testing "a resubscriber's remaining paid window becomes the new
+            subscription's trial: the first charge lands the day after
+            the (inclusive) paid-through date, so the already-paid days
+            are never bought twice"
+    (let [user         (create-test-user! {:email "resume@example.com"})
+          paid-through (.plusDays (LocalDate/now ZoneOffset/UTC) 29)]
+      (db/update! :users {:stripe_customer_id         "cus_resume"
+                          :stripe_subscription_status "canceled"
+                          :paid_through_date          paid-through}
+                  [:= :id (:id user)])
+      (is (= (.toEpochSecond (.atStartOfDay (.plusDays paid-through 1) ZoneOffset/UTC))
+             (get-in (:params (checkout-call! user "monthly"))
+                     [:subscription_data :trial_end])))))
+
+  (doseq [[description email columns]
+          [["a window inside Stripe's 48-hour trial minimum charges
+             immediately — the small overlap is the best Stripe allows"
+            "resume-soon@example.com"
+            {:stripe_customer_id         "cus_resume_soon"
+             :stripe_subscription_status "canceled"
+             :paid_through_date          (LocalDate/now ZoneOffset/UTC)}]
+           ["a lapsed window grants no trial"
+            "resume-late@example.com"
+            {:stripe_customer_id         "cus_resume_late"
+             :stripe_subscription_status "canceled"
+             :paid_through_date          (.minusDays (LocalDate/now ZoneOffset/UTC) 10)}]
+           ["an operator-comped window with no Stripe history grants no
+             trial — comped time is goodwill, not credit, and subscribing
+             from it should start funding now"
+            "comped@example.com"
+            {:paid_through_date (.plusDays (LocalDate/now ZoneOffset/UTC) 300)}]]]
+    (testing description
+      (let [user (create-test-user! {:email email})]
+        (db/update! :users columns [:= :id (:id user)])
+        (is (not (contains? (:params (checkout-call! user "monthly"))
+                            :subscription_data))))))
 
   (testing "rejects an unknown plan"
     (let [user (create-test-user! {:email "confused@example.com"})]
@@ -398,6 +440,19 @@
                               (billing-api/create-checkout-session
                                {:identity    {:sub (str (:id user))}
                                 :body-params {:plan "monthly"}})))))))
+
+(deftest resume-trial-end-boundary-test
+  ;; Pins the exact threshold with an injected clock: the checkout tests
+  ;; above use the real clock, so a mutated constant or a flipped
+  ;; comparison would still pass them.
+  (let [paid-through (LocalDate/parse "2026-08-10")
+        trial-end    (.toEpochSecond (.atStartOfDay (.plusDays paid-through 1) ZoneOffset/UTC))
+        row          {:stripe_customer_id "cus_x" :paid_through_date paid-through}
+        lead         (+ (* 48 3600) 300)]
+    (testing "granted one second past the 48-hour-plus-margin lead"
+      (is (= trial-end (#'billing-api/resume-trial-end row (- trial-end lead 1)))))
+    (testing "refused at the lead exactly — charge immediately instead"
+      (is (nil? (#'billing-api/resume-trial-end row (- trial-end lead)))))))
 
 (deftest create-portal-session-test
   (testing "returns the portal URL for a linked account"
