@@ -85,6 +85,8 @@ Before you dive in, you may want to watch this video walkthrough of Parts that w
 
 This should help you understand the basic functionality of Parts and start building the maps for your clients.
 
+Please note: Parts is currently in beta, and is free to use during this time. You can still purchase an optional subscription to help support development (please see the Account page after signing up), but this is not required to use all the features at the moment. I will email you two weeks before we start requiring payment to continue using Parts.
+
 If you have questions, thoughts, ideas, feature requests, bug reports, or anything else, just hit reply -- replies come straight to my personal inbox, so I will definitely see your message and get back to you quickly.
 
 Please give Parts a try, and let me know how you get on, and how I can help you help your clients.
