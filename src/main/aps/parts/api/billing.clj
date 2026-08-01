@@ -137,8 +137,8 @@
            :subject "Thank you for subscribing to Parts"
            :body    (str "Hello,\n"
                          "\n"
-                         "Thank you for subscribing to Parts — supporting the beta means\n"
-                         "a great deal.\n"
+                         "Thank you for subscribing to Parts and for supporting the development! It means\n"
+                         "a great deal to us.\n"
                          "\n"
                          "Your " (name plan) " subscription is active, and it simply carries\n"
                          "on when Parts launches. You can update your payment details,\n"
@@ -148,10 +148,11 @@
                          "\n"
                          "Stripe emails your receipt for each payment separately.\n"
                          "\n"
-                         "If you have any questions — or anything to tell us about Parts —\n"
+                         "If you have any questions at all, or any feedback about Parts,\n"
                          "just reply to this email.\n"
                          "\n"
-                         "— Parts")}
+                         "Warmly,\n"
+                         "Gosha and Tingyi, creators of Parts")}
     (config/mail-reply-to) (assoc :reply-to (config/mail-reply-to))))
 
 (defn- send-thank-you!
