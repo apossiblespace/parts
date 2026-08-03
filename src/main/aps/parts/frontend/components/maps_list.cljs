@@ -7,6 +7,7 @@
   (:require
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
+   [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
@@ -56,7 +57,7 @@
          (set-loaded! (.-complete img)))
        js/undefined)
      [src])
-    ($ :div {:class (str "relative w-28 aspect-square flex-shrink-0 bg-gray-50 "
+    ($ :div {:class (str "relative w-20 sm:w-28 aspect-square flex-shrink-0 bg-gray-50 "
                          "flex items-center justify-center border-r border-base-300")}
        ($ :img {:ref      img-ref
                 :class    "max-w-full max-h-full object-contain p-2"
@@ -113,17 +114,22 @@
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
           ($ app-header)
 
-          ($ :div {:class "flex items-center justify-between gap-3 mb-4"}
+          ;; Phones view, never edit (TASK-105) — creating a Map here
+          ;; would only open a canvas with nothing to do on it, so this
+          ;; banner replaces the Create button. Especially for a
+          ;; zero-Maps account, which must not read as a dead end with
+          ;; no explanation.
+          (when device/phone-primary?
+            ($ banner {:variant :warning :class "mb-4"}
+               ($ :p "To create and edit Maps, use a tablet or computer.")))
+
+          ($ :div {:class "flex flex-wrap items-center justify-between gap-3 mb-4"}
              ($ :h1 {:class "text-lg font-bold"} "Your Maps")
-             ($ :div {:class "flex items-center gap-2"}
-                ;; Phones view, never edit (TASK-105) — creating a Map
-                ;; here would only open a canvas with nothing to do on
-                ;; it, so the hint replaces the button. Especially for
-                ;; a zero-Maps account, which must not read as a dead
-                ;; end with no explanation.
-                (if device/phone-primary?
-                  ($ :p {:class "text-xs text-gray-500 text-right"}
-                     "To create and edit Maps, use a tablet or computer.")
+             ;; w-full below sm gives the input's w-full a real width to
+             ;; resolve against — a shrink-wrapped flex parent would make
+             ;; the percentage a no-op.
+             ($ :div {:class "flex flex-wrap items-center gap-2 w-full sm:w-auto"}
+                (when-not device/phone-primary?
                   ($ :button
                      {:class    "btn btn-sm btn-primary"
                       :on-click handle-create}
@@ -134,7 +140,7 @@
                 (when (seq maps)
                   ($ :input {:type        "search"
                              :placeholder "Filter by title"
-                             :class       "input input-bordered input-sm w-56"
+                             :class       "input input-bordered input-sm w-full sm:w-56"
                              :value       query
                              :on-change   #(set-query (.. % -target -value))}))))
 

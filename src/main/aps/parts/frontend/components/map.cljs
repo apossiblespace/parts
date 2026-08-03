@@ -11,11 +11,13 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
+   [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.components.delete-confirmation-modal :refer [delete-confirmation-modal]]
+   [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
-   [aps.parts.frontend.components.relationship-type-dropdown :refer [close-dropdown! relationship-type-dropdown]]
+   [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.dates :as dates]
@@ -495,6 +497,19 @@
                             map-name-width-classes)}
           ($ :span {:class map-name-text-class} title)))))
 
+(def ^:private overlay-banner-classes
+  "The canvas's one overlay-banner slot, shared by phone-banner and
+   save-error-banner: centred at the top, above the chrome. `flex w-max`
+   overrides the daisyUI alert's full-width grid so the banner hugs its
+   content instead of spanning the canvas."
+  "absolute top-4 left-1/2 -translate-x-1/2 z-50 shadow-lg flex w-max")
+
+(def ^:private phone-banner-classes
+  (str overlay-banner-classes " max-w-[calc(100%-2rem)]"))
+
+(def ^:private save-error-banner-classes
+  (str overlay-banner-classes " max-w-2xl"))
+
 (defui ^:private phone-banner
   "Explains the reduced phone UI (TASK-105) — same overlay slot as
    save-error-banner, which can't collide with it: a view-only canvas
@@ -503,17 +518,11 @@
   []
   (let [[dismissed? set-dismissed!] (use-state false)]
     (when-not dismissed?
-      ($ :div {:class (str "absolute top-4 left-1/2 -translate-x-1/2 z-50 "
-                           "alert alert-info shadow-lg "
-                           "flex w-max max-w-[calc(100%-2rem)] "
-                           "items-center gap-3 px-4 py-2")
-               :role  "alert"}
+      ($ banner {:variant    :info
+                 :class      phone-banner-classes
+                 :on-dismiss #(set-dismissed! true)}
          ($ :span {:class "text-sm"}
-            "Parts is designed for use on a tablet or computer.")
-         ($ :button {:class      "btn btn-sm btn-ghost btn-square shrink-0"
-                     :aria-label "Dismiss"
-                     :on-click   #(set-dismissed! true)}
-            "✕")))))
+            "Parts is designed for use on a tablet or computer.")))))
 
 (defui save-error-banner
   "Persistent warning shown when a change batch failed and was rolled back
@@ -523,15 +532,12 @@
   []
   (let [save-error (uix.rf/use-subscribe [:map/save-error])]
     (when save-error
-      ;; `flex w-max` overrides the daisyUI alert's full-width grid so the
-      ;; banner hugs its content instead of spanning the canvas.
-      ($ :div {:class (str "absolute top-4 left-1/2 -translate-x-1/2 z-50 "
-                           "alert alert-warning shadow-lg "
-                           "flex w-max max-w-2xl items-center gap-3 px-4 py-2")
-               :role  "alert"}
+      ($ banner {:variant :warning
+                 :class   save-error-banner-classes}
          ($ :span {:class "text-sm"}
             "Some recent changes couldn’t be saved — this Map may be out of date.")
-         ($ :button {:class    "btn btn-sm whitespace-nowrap"
+         ;; Same sizing trick as the banner's own dismiss button.
+         ($ :button {:class    "btn btn-sm whitespace-nowrap self-center -my-1.5"
                      :on-click #(.reload (.-location js/window))}
             "Reload Map")))))
 

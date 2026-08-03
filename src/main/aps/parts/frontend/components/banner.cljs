@@ -20,18 +20,28 @@
 (defui banner
   "A page notice. `:variant` is `:info` (the default), `:success`,
    `:warning`, or `:alert`; `:class` appends layout classes (`mb-4`, …);
-   children render after the icon.
+   children render after the icon. `:on-dismiss`, when given, adds a ✕
+   button after the children that calls it — dismissal state stays with
+   the caller.
 
    The icon rides in a wrapper exactly one line-height tall (`h-[1lh]`),
    centred within it, and is sized in em — so it sits centred on the
    first text line and matches the text at any font size, with no magic
-   pixel offsets. `p-3`/`gap-2` keep the banner compact against daisyUI's
+   pixel offsets. `p-2`/`gap-1.5` keep the banner compact against daisyUI's
    roomier alert defaults."
-  [{:keys [variant class children]}]
+  [{:keys [variant class children on-dismiss]}]
   (let [{:keys [tint icon-tint icon]} (get variants variant (:info variants))]
     ($ :div {:role  "alert"
              :class (str "alert items-start gap-1.5 p-2 text-gray-900 " tint
                          (when class (str " " class)))}
        ($ :span {:class "flex h-[1lh] shrink-0 items-center"}
           ($ icon {:class (str "h-[1em] w-[1em] " icon-tint)}))
-       children)))
+       children
+       (when on-dismiss
+         ;; self-center overrides the banner's items-start per-item; the
+         ;; negative margin keeps the btn-sm tap target from inflating a
+         ;; single-line banner's height.
+         ($ :button {:class      "btn btn-sm btn-ghost btn-square shrink-0 self-center -my-1.5"
+                     :aria-label "Dismiss"
+                     :on-click   on-dismiss}
+            "✕")))))

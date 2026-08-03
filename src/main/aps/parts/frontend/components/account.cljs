@@ -170,12 +170,13 @@
                      "Display name:")
                   ($ :div {:class "flex gap-2"}
                      ($ :input {:id       "display-name"
-                                :class    "input input-sm w-64"
+                                ;; w-full with a cap: a fixed width overflows narrow phones.
+                                :class    "input input-sm w-full max-w-64"
                                 :type     "text"
                                 :value    draft
                                 :onChange #(set-draft! (.. % -target -value))})
                      ($ :button {:type     "submit"
-                                 :class    "btn btn-sm"
+                                 :class    "btn btn-sm shrink-0"
                                  :disabled (nil? commit)}
                         "Save"))
                   (when update-error
@@ -220,7 +221,7 @@
                        ($ plan-cards {:pending billing-pending :cta cta}))
 
                     (:manage :cancelling)
-                    ($ :div {:class "mt-2 flex items-center gap-2"}
+                    ($ :div {:class "mt-2 flex flex-wrap items-center gap-2"}
                        ($ billing-button {:label   "Manage subscription"
                                           :target  :portal
                                           :pending billing-pending})

@@ -1,10 +1,26 @@
 (ns aps.parts.frontend.components.toolbar.auth-status
   (:require
    ["lucide-react" :refer [ChevronDown LogOut]]
-   [clojure.string :as str]
+   [aps.parts.frontend.components.avatar :refer [avatar-initial]]
+   [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))
+
+(defui account-menu-items
+  "The account menu's shared tail — Log out when signed in, Log in when
+   not — rendered inside a daisyUI menu `ul` by both the desktop avatar
+   menu and the phone hamburger, so the two menus can't drift."
+  [{:keys [user]}]
+  (if user
+    ($ :li
+       ($ :a {:on-click (fn []
+                          (close-dropdown!)
+                          (rf/dispatch [:auth/logout]))}
+          ($ LogOut {:size 16})
+          "Log out"))
+    ($ :li
+       ($ :a {:href "/app"} "Log in"))))
 
 (defui auth-status
   "Auth-status menu for the Maps list header. When signed in, the trigger
@@ -15,8 +31,7 @@
   []
   (let [user         (uix.rf/use-subscribe [:auth/user])
         loading      (uix.rf/use-subscribe [:auth/loading])
-        display-name (:display_name user)
-        initial      (some-> display-name not-empty (subs 0 1) str/upper-case)]
+        display-name (:display_name user)]
     ($ :div {:class "dropdown dropdown-end ml-4"}
        ;; Plain flex row, not a button. The hover affordance lives only on the
        ;; caret, but `group` makes it light up when hovering anywhere on the
@@ -34,10 +49,11 @@
 
             user
             ($ :<>
-               ($ :div {:class "avatar avatar-placeholder"}
-                  ($ :div {:class "bg-neutral text-neutral-content w-6 rounded-full"}
-                     ($ :span {:class "text-xs"} initial)))
-               ($ :span {:class "text-sm font-normal"} display-name))
+               ($ avatar-initial {:display-name display-name})
+               ;; The cap bounds the row's min-content width — an uncapped
+               ;; long name widens the whole page.
+               ($ :span {:class "text-sm font-normal truncate max-w-48"}
+                  display-name))
 
             :else
             ($ :<>
@@ -50,11 +66,4 @@
        (when-not loading
          ($ :ul {:tabIndex 0
                  :class    "dropdown-content menu menu-sm z-10 mt-1 w-40"}
-            (if user
-              ($ :<>
-                 ($ :li
-                    ($ :a {:on-click #(rf/dispatch [:auth/logout])}
-                       ($ LogOut {:size 16})
-                       "Log out")))
-              ($ :li
-                 ($ :a {:href "/app"} "Log in"))))))))
+            ($ account-menu-items {:user user}))))))

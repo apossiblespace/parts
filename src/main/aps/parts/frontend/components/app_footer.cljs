@@ -22,13 +22,13 @@
   ;; when content fills the screen. The pages must be `flex flex-col` with a
   ;; growing content wrapper for this to take effect.
   ($ :footer {:class "mt-auto pt-6 border-t border-gray-200 flex flex-col gap-3 text-xs text-gray-500"}
-     ($ :div {:class "flex items-center justify-between gap-3"}
-        ($ :div {:class "flex items-center gap-1"}
+     ($ :div {:class "flex flex-wrap items-center justify-between gap-3"}
+        ($ :div {:class "flex flex-wrap items-center gap-x-1 gap-y-0.5"}
            ($ :span {:class "text-black font-bold"} "🆘 Need help?")
            ($ :span " Email us for a quick reply: ")
            ($ :a {:href (str "mailto:" c/support-email) :class "hover:text-ifs-green"}
               c/support-email)))
-     ($ :div {:class "flex items-center gap-3 text-gray-400"}
+     ($ :div {:class "flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-400"}
         ($ :span
            "© 2026 "
            ($ :a {:href   "https://a.possible.space/"
