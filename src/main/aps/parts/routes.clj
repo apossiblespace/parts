@@ -10,6 +10,7 @@
    [aps.parts.handlers.invite :as invite]
    [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
+   [aps.parts.handlers.password-reset :as password-reset]
 
    [aps.parts.handlers.waitlist :as waitlist]
    [aps.parts.middleware :as middleware]
@@ -149,6 +150,31 @@
                                    middleware/wrap-html-response]
                       :get        {:handler invite/show}
                       :post       {:handler invite/redeem}}]
+
+   ;; Self-serve password reset. Server-rendered and top-level like /invite
+   ;; — recovering access must not depend on the SPA bundle loading first.
+   ;; Public by design: no auth, no launch gate. Request and redemption get
+   ;; separate per-IP buckets so a burst of requests behind a shared NAT
+   ;; cannot 429 someone opening a valid link; the POST additionally
+   ;; buckets per submitted address (3 burst, ~3/hour) so one client
+   ;; cannot flood a victim's inbox through the production relay.
+   ["/reset-password" {:middleware [(ratelimit/limiter :password-reset-request {})
+                                    middleware/wrap-csp
+                                    middleware/wrap-html-defaults
+                                    middleware/wrap-html-response]
+                       :get        {:handler password-reset/request-form}
+                       ;; Sits after wrap-html-defaults so :form-params is parsed.
+                       :post       {:middleware [(ratelimit/form-email-limiter
+                                                  :password-reset-email
+                                                  {:capacity      3
+                                                   :refill-per-ms (/ 3.0 (* 60 60 1000))})]
+                                    :handler    password-reset/request-submit}}]
+   ["/reset/:token" {:middleware [(ratelimit/limiter :password-reset-redeem {})
+                                  middleware/wrap-csp
+                                  middleware/wrap-html-defaults
+                                  middleware/wrap-html-response]
+                     :get        {:handler password-reset/show}
+                     :post       {:handler password-reset/redeem}}]
 
    ;; Legal documents — Privacy Policy, Terms of Service, DPA. Server-rendered
    ;; and public (no auth, no launch gate). Content is operator-supplied at

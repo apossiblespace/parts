@@ -5,7 +5,7 @@
    An invitation is an operator-minted, single-use bearer credential: the
    `token` in a magic link (`/invite/<token>`) authorises creating one
    account. Lifecycle: issued -> redeemed | revoked (soft, via
-   `revoked_at`) | expired (30 days, `expires_at` — a bearer credential
+   `revoked_at`) | expired (180 days, `expires_at` — a bearer credential
    must not stay live forever). See CONTEXT.md (Invitation, Founding
    Circle).
 

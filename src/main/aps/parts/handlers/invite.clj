@@ -13,31 +13,22 @@
    [aps.parts.views.layouts :as layouts]
    [aps.parts.views.partials :as partials]
    [com.brunobonacci.mulog :as mulog]
-   [hiccup2.core :refer [html]]
    [ring.util.response :as response])
   (:import
    (org.postgresql.util PSQLException)))
-
-(def ^:private page-styles ["/css/style.css"])
 
 (defn- signup-page
   "Full HTML document for the invite signup form. `opts` is passed straight
    to `partials/invite-signup-content` (:token, :email, :error, :values)."
   [opts]
-  ;; :html-class nil — content pages, not the canvas app: they must not
-  ;; inherit the app shell's touch-device scaling (see layouts/fullscreen).
-  (html (layouts/fullscreen {:title      "Join the Founding Circle"
-                             :styles     page-styles
-                             :html-class nil}
-                            (partials/invite-signup-content opts))))
+  (layouts/content-page "Join the Founding Circle"
+                        (partials/invite-signup-content opts)))
 
 (defn- unavailable-page
   "Full HTML document for the calm 'invite unavailable' error page."
   []
-  (html (layouts/fullscreen {:title      "Invite unavailable"
-                             :styles     page-styles
-                             :html-class nil}
-                            (partials/invite-unavailable-content))))
+  (layouts/content-page "Invite unavailable"
+                        (partials/invite-unavailable-content)))
 
 (defn show
   "GET /invite/:token — the signup page for a valid token, or a calm error

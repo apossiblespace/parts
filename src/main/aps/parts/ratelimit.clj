@@ -16,6 +16,7 @@
    reliably the client. See docs/runbook.md, 'Rate limiting & the trusted
    client IP'."
   (:require
+   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.config :as conf]
    [clojure.string :as str]))
 
@@ -85,3 +86,41 @@
   (limit-by route-key
             (fn [request] (or (get-in request [:identity :sub]) "anonymous"))
             opts))
+
+(defn form-email-limiter
+  "Reitit middleware that token-buckets requests per submitted form `email`
+   — for endpoints that send mail to an attacker-chosen address (password
+   reset requests), where a per-IP bucket alone still lets one client flood
+   a victim's inbox and burn sender reputation. Keys on the normalized
+   address whether or not an account exists, so being limited reveals
+   nothing. Must sit after form-params parsing in the middleware chain; a
+   request without an email shares one bucket — over-throttling, never a
+   bypass. opts: see `limit-by`."
+  [route-key opts]
+  (limit-by route-key
+            (fn [request]
+              (or (normalize-email (get-in request [:form-params "email"]))
+                  "missing"))
+            opts))
+
+(def ^:private prune-idle-ms
+  "How long a bucket may sit untouched before the sweep drops it. Every
+   configured limiter refills to full well within a day, and a full bucket
+   is indistinguishable from a fresh one — so dropping day-idle entries
+   changes no limiting decision."
+  (* 24 60 60 1000))
+
+(defn prune-idle!
+  "Drop day-idle buckets; returns the number removed. Needed since
+   `form-email-limiter` keys on attacker-chosen input, which would grow
+   the module atom for the life of the process. Called hourly by the
+   cleanup job."
+  ([] (prune-idle! (System/currentTimeMillis)))
+  ([now-ms]
+   (let [cutoff    (- now-ms prune-idle-ms)
+         [old new] (swap-vals! buckets
+                               (fn [m]
+                                 (into {}
+                                       (remove (fn [[_ b]] (< (:last-ms b) cutoff)))
+                                       m)))]
+     (- (count old) (count new)))))

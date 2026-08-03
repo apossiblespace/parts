@@ -69,7 +69,13 @@
                     :value     password
                     :disabled  loading
                     :on-change #(set-password (.. % -target -value))
-                    :required  true}))
+                    :required  true})
+                ;; Server-rendered page, deliberately outside the SPA — a
+                ;; locked-out user must not depend on the app bundle.
+                ($ :div {:class "text-right mt-1"}
+                   ($ :a {:href  "/reset-password"
+                          :class "link link-hover text-xs"}
+                      "Forgotten your password?")))
              ($ :div {:class "modal-action mt-4"}
                 ($ :button
                    {:type     "submit"

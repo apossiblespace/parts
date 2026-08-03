@@ -46,3 +46,14 @@
    `:html-class nil` to opt out."
   [options & content]
   (page (merge {:html-class "app"} options) content))
+
+(defn content-page
+  "A server-rendered content page in the fullscreen shell — the invite and
+   password-reset pages. Opts out of the app-shell adaptations (these are
+   content pages, not the canvas app) and carries the app stylesheet.
+   Returns the complete rendered document."
+  [title & content]
+  (fullscreen {:title      title
+               :styles     ["/css/style.css"]
+               :html-class nil}
+              content))

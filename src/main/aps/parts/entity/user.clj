@@ -60,19 +60,21 @@
   attrs)
 
 (defn- sanitize-attrs
-  "Ensure we are not trying to save attributes that cannot be updated"
+  "Ensure we are not trying to save attributes that cannot be updated.
+  Nil values are dropped too: every updatable column is NOT NULL, so a
+  present-but-nil key (a JSON null, a missing form field) can only ever
+  be noise — kept, it would reach the database as an impossible update."
   [attrs]
-  (select-keys attrs allowed-update-fields))
+  (into {} (filter (comp some? val)) (select-keys attrs allowed-update-fields)))
 
 (defn- set-password-hash
-  "Prepare a user record to be persisted by removing the password attribute and
-  inserting a password hash instead."
+  "Prepare a user record to be persisted by replacing the password attribute
+  with a password hash. Always strips the password keys — users has no
+  password column."
   [attrs]
-  (if-let [password (:password attrs)]
-    (-> attrs
-        (dissoc :password :password_confirmation)
-        (assoc :password_hash (auth/hash-password password)))
-    attrs))
+  (let [password (:password attrs)]
+    (cond-> (dissoc attrs :password :password_confirmation)
+      password (assoc :password_hash (auth/hash-password password)))))
 
 (defn- remove-sensitive-data
   "Ensure we are not echoing back sensitive informatin (eg password hash)"
@@ -97,17 +99,19 @@
     (throw (ex-info "User not found" {:type :not-found :id id}))))
 
 (defn update!
-  "Update a user record with provided attributes"
-  [id attrs]
-  (when (not id) (throw (ex-info "Missing User ID" {:type :validation})))
-  (let [sanitized-attrs (-> attrs
-                            validate-password-confirmation
-                            sanitize-attrs
-                            normalize-attrs
-                            validate-attrs
-                            set-password-hash)]
-    (remove-sensitive-data
-     (first (db/update! :users sanitized-attrs [:= :id (db/->uuid id)])))))
+  "Update a user record with provided attributes.
+   Accepts an optional datasource-or-transaction to participate in a surrounding tx."
+  ([id attrs] (update! id attrs db/datasource))
+  ([id attrs tx]
+   (when (not id) (throw (ex-info "Missing User ID" {:type :validation})))
+   (let [sanitized-attrs (-> attrs
+                             validate-password-confirmation
+                             sanitize-attrs
+                             normalize-attrs
+                             validate-attrs
+                             set-password-hash)]
+     (remove-sensitive-data
+      (first (db/update! :users sanitized-attrs [:= :id (db/->uuid id)] tx))))))
 
 (defn create!
   "Create a new user record with the provided attributes.

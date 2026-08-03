@@ -46,6 +46,11 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
                             (user/update! (:id db-user) {:role "therapist"})))))
 
+  (testing "treats a present-but-nil field as nothing to update, not a DB write"
+    (let [db-user (create-test-user!)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Nothing to update"
+                            (user/update! (:id db-user) {:password nil})))))
+
   (testing "updates the password when password and confirmation match"
     (let [db-user (create-test-user!)
           new-pw  "brand-new-password-99"

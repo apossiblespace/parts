@@ -1,10 +1,14 @@
 (ns aps.parts.jobs.session-cleanup
-  "Hourly sweep of expired rows in auth_sessions. Correctness never depends
-   on it (the store's reads filter on expires_at) — it only stops dead
-   sessions accumulating. Mirrors the deletion-purge job's async pattern."
+  "Hourly sweep of expired ephemera: auth_sessions and password_resets
+   rows, and idle in-memory rate-limit buckets. Correctness never depends
+   on it (reads filter on expires_at; a full bucket equals a fresh one) —
+   it only stops dead entries accumulating. Mirrors the deletion-purge
+   job's async pattern."
   (:require
    [aps.parts.auth.session-store :as session-store]
    [aps.parts.db :as db]
+   [aps.parts.password-resets :as password-resets]
+   [aps.parts.ratelimit :as ratelimit]
    [clojure.core.async :as async]
    [com.brunobonacci.mulog :as mulog]))
 
@@ -19,6 +23,12 @@
                     (let [n (session-store/delete-expired! db/datasource)]
                       (when (pos? n)
                         (mulog/log ::sessions-swept :removed n)))
+                    (let [n (password-resets/delete-expired! db/datasource)]
+                      (when (pos? n)
+                        (mulog/log ::password-resets-swept :removed n)))
+                    (let [n (ratelimit/prune-idle!)]
+                      (when (pos? n)
+                        (mulog/log ::rate-limit-buckets-pruned :removed n)))
                     (catch Exception e
                       (mulog/log ::sweep-error
                                  :error (.getMessage e)

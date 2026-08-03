@@ -41,7 +41,9 @@
   (testing "GET with an unknown token renders the calm 404 error page"
     (let [response (GET {:path-params {:token "no-such-token"}})]
       (is (= 404 (:status response)))
-      (is (str/includes? (:body response) "no longer valid"))))
+      (is (str/includes? (:body response) "no longer valid"))
+      (is (str/includes? (:body response) "/reset-password")
+          "points a forgotten-account visitor at login/reset")))
 
   (testing "GET with a revoked token renders the same 404 error page"
     (let [{:keys [token]} (inv/generate-invitation! "show-revoked@example.com")

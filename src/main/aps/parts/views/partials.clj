@@ -6,6 +6,17 @@
    [aps.parts.version :as version]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
 
+(defn- anti-forgery-field
+  "The hidden CSRF input every server-rendered POST form must carry."
+  []
+  [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}])
+
+(defn- text-link
+  "An inline underlined text link in the house style."
+  [href label]
+  [:a {:href href :class "underline underline-offset-4 hover:text-ifs-green"}
+   label])
+
 (defn scripts
   "Render script tags at the bottom of the main body tag.
    Always includes main.js plus any additional scripts from options."
@@ -233,10 +244,7 @@
        :data-analytics        "Email Field Focus"
        :data-analytics-on     "focus"
        :data-analytics-source "homepage"}]
-     [:input {:type  "hidden"
-              :id    "__anti-forgery-token"
-              :name  "__anti-forgery-token"
-              :value *anti-forgery-token*}]
+     (anti-forgery-field)
      [:input.join-item.btn.btn-xl.btn-primary
       {:type "submit" :value "Sign me up!"}]]]
    [:div.relative.mt-1.ml-6.inline-block
@@ -249,9 +257,10 @@
        [:span
         "No credit card required."])]]])
 
-(defn- invite-card
-  "Shared centered-card chrome for the server-rendered invite pages: logo
-   above a white card wrapping the given `body` elements."
+(defn- auth-card
+  "Shared centered-card chrome for the server-rendered auth pages (invite
+   redemption, password reset): logo above a white card wrapping the given
+   `body` elements."
   [& body]
   [:div {:class "min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12"}
    [:div {:class "w-full max-w-md"}
@@ -266,7 +275,7 @@
    not the form); on a validation error, `error` is shown and the typed
    `values` (a form-params map with string keys) are kept."
   [{:keys [token email error values]}]
-  (invite-card
+  (auth-card
    [:h1 {:class "text-2xl font-bold mb-1"}
     "You’re invited!"]
    [:p {:class "text-gray-600 mb-6"}
@@ -274,7 +283,7 @@
    (when error
      [:div {:class "alert alert-error text-sm mb-4"} error])
    [:form {:id "invite-form" :method "post" :action (str "/invite/" token)}
-    [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}]
+    (anti-forgery-field)
     ;; Display-only: the account's email is fixed by the invitation token,
     ;; never taken from this form. No `name`, so it is not submitted at all
     ;; — there is no attacker-controllable email in the request.
@@ -332,12 +341,87 @@
    unknown, already redeemed, or revoked. Deliberately one message for all
    three: it does not reveal which failure mode occurred."
   []
-  (invite-card
+  (auth-card
    [:h1 {:class "text-2xl font-bold mb-2"} "This invite link isn’t available"]
-   [:p {:class "text-gray-600"}
+   [:p {:class "text-gray-600 mb-4"}
     "This invitation link is no longer valid — it may already have been used.
      If you think this is a mistake, please reach out to us at "
-    [:a {:href  (str "mailto:" c/support-email)
-         :class "underline underline-offset-4 hover:text-ifs-green"}
-     c/support-email]
-    " and we’ll sort it out."]))
+    (text-link (str "mailto:" c/support-email) c/support-email)
+    " and we’ll sort it out."]
+   ;; The most common way here: someone created their account, forgot, and
+   ;; clicked the invite email again — point them back into the app.
+   [:p {:class "text-gray-600"}
+    "Already used this invite to create your account? You can "
+    (text-link "/app/login" "log in")
+    ", or "
+    (text-link "/reset-password" "reset your password")
+    " if you’ve forgotten it."]))
+
+;; -- password reset pages (TASK-109) ---------------------------------------
+
+(defn password-reset-request-content
+  "The request-a-reset-link form body — GET /reset-password."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-1"} "Reset your password"]
+   [:p {:class "text-gray-600 mb-6"}
+    "Enter your email address and we’ll send you a reset link."]
+   [:form {:method "post" :action "/reset-password"}
+    (anti-forgery-field)
+    [:label {:class "fieldset-label"} "Email"]
+    [:input {:class    "input input-bordered w-full mb-4"
+             :type     "email"
+             :name     "email"
+             :required true}]
+    [:button {:class "btn btn-primary w-full" :type "submit"}
+     "Email me a reset link"]]))
+
+(defn password-reset-sent-content
+  "The response body for every reset request. Deliberately static and
+   identical whether or not an account exists for the submitted address —
+   account existence must not be inferable from this page."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "Check your email"]
+   [:p {:class "text-gray-600"}
+    "If an account exists for that address, we’ve sent it a password reset
+     link. The link is valid for one hour — if it doesn’t arrive, check your
+     spam folder or request another."]))
+
+(defn password-reset-form-content
+  "The set-a-new-password form body, rendered for a valid reset token. On a
+   validation error, `error` is shown and the form re-rendered."
+  [{:keys [token error]}]
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-1"} "Choose a new password"]
+   [:p {:class "text-gray-600 mb-6"}
+    "Set a new password for your account to log back in."]
+   (when error
+     [:div {:class "alert alert-error text-sm mb-4"} error])
+   [:form {:method "post" :action (str "/reset/" token)}
+    (anti-forgery-field)
+    [:label {:class "fieldset-label"} "New password"]
+    [:input {:class    "input input-bordered w-full mb-3"
+             :type     "password"
+             :name     "password"
+             :required true}]
+    [:label {:class "fieldset-label"} "Confirm new password"]
+    [:input {:class    "input input-bordered w-full mb-4"
+             :type     "password"
+             :name     "password_confirmation"
+             :required true}]
+    [:button {:class "btn btn-primary w-full" :type "submit"}
+     "Save new password"]]))
+
+(defn password-reset-unavailable-content
+  "The calm error page body, shown for any unusable reset token — unknown,
+   already used, or expired. Deliberately one message for all three: it
+   does not reveal which failure mode occurred."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "This reset link isn’t available"]
+   [:p {:class "text-gray-600"}
+    "This password reset link is no longer valid — it may have expired or
+     already been used. You can "
+    (text-link "/reset-password" "request a new one")
+    "."]))
