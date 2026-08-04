@@ -19,9 +19,16 @@
 (defn- postal-connection
   "The postal connection map for the relay credentials. The transport flag
    follows the submission port: 587 is STARTTLS (`:tls`), 465 (and anything
-   else) is implicit SSL from connect (`:ssl`)."
+   else) is implicit SSL from connect (`:ssl`). Connect/IO timeouts are set
+   because JavaMail's defaults are infinite — a hung relay must fail the
+   send, not pin the sending thread until restart."
   [{:keys [host port user pass]}]
-  (assoc {:host host :port port :user user :pass pass}
+  (assoc {:host              host
+          :port              port
+          :user              user
+          :pass              pass
+          :connectiontimeout 10000
+          :timeout           30000}
          (if (= 587 port) :tls :ssl) true))
 
 (defn send!
@@ -48,3 +55,24 @@
                       {:type :smtp-error :result result :to (:to message)})))
     (mulog/log ::email-sent :to (:to message) :subject (:subject message))
     msg))
+
+;; Sender identity policy lives here, not in the message builders —
+;; builders stay pure content (:to/:subject/:body).
+
+(defn send-personal!
+  "Send `message` in the operator's personal voice — invites, thank-yous,
+   anything a human signs. From stays the default sender (`:mail/from`);
+   Reply-To is the operator's personal address (`:mail/reply-to`) when
+   configured, keeping the concierge reply promise."
+  [message]
+  (let [reply-to (conf/mail-reply-to)]
+    (send! (cond-> message reply-to (assoc :reply-to reply-to)))))
+
+(defn send-system!
+  "Send `message` as an impersonal system notification — password resets
+   and other machine-sent mail. From is `:mail/system-from` (e.g.
+   Parts <help@ifs.tools>) when configured, else the default sender; no
+   Reply-To — system mail doesn't invite replies."
+  [message]
+  (let [from (conf/mail-system-from)]
+    (send! (cond-> message from (assoc :from from)))))

@@ -39,27 +39,23 @@
    :magic-link "https://parts.ifs.tools/invite/tok"})
 
 (deftest test-invite-message
-  (with-redefs [conf/mail-reply-to (constantly "gosha@gosha.net")]
-    (let [msg (ops/invite-message invite)]
-      (testing "to the invitee; Reply-To routes replies to the operator's
-                personal inbox (the sender identity is the mail layer's)"
-        (is (= "jane@example.com" (:to msg)))
-        (is (= "gosha@gosha.net" (:reply-to msg)))
-        (is (not (contains? msg :from))))
-      (testing "fixed subject"
-        (is (= "Your invite to Parts, the mapping tool for IFS practitioners"
-               (:subject msg))))
-      (testing "magic link replaces the [LINK] placeholder in the plain-text body"
-        (is (string? (:body msg)))
-        (is (cstr/includes? (:body msg) "https://parts.ifs.tools/invite/tok"))
-        (is (not (cstr/includes? (:body msg) "[LINK]"))))
-      (testing "the body no longer claims to be sent from the personal address,
-                but still promises replies reach the operator"
-        (is (not (cstr/includes? (:body msg) "from my personal email address")))
-        (is (cstr/includes? (:body msg) "hit reply")))))
-  (testing "no Reply-To header at all when :mail/reply-to is unset"
-    (with-redefs [conf/mail-reply-to (constantly nil)]
-      (is (not (contains? (ops/invite-message invite) :reply-to))))))
+  (let [msg (ops/invite-message invite)]
+    (testing "to the invitee; pure content — the identity headers are
+              `mail/send-personal!`'s business, not the builder's"
+      (is (= "jane@example.com" (:to msg)))
+      (is (not (contains? msg :from)))
+      (is (not (contains? msg :reply-to))))
+    (testing "fixed subject"
+      (is (= "Your invite to Parts, the mapping tool for IFS practitioners"
+             (:subject msg))))
+    (testing "magic link replaces the [LINK] placeholder in the plain-text body"
+      (is (string? (:body msg)))
+      (is (cstr/includes? (:body msg) "https://parts.ifs.tools/invite/tok"))
+      (is (not (cstr/includes? (:body msg) "[LINK]"))))
+    (testing "the body no longer claims to be sent from the personal address,
+              but still promises replies reach the operator"
+      (is (not (cstr/includes? (:body msg) "from my personal email address")))
+      (is (cstr/includes? (:body msg) "hit reply")))))
 
 (deftest test-invite-pending-waitlist
   (let [invite-for (fn [email] {:email      email
@@ -97,7 +93,9 @@
       (with-redefs [conf/mail-reply-to (constantly "gosha@gosha.net")
                     mail/send!         (fn [msg] (reset! sent msg) msg)]
         (is (= invite (ops/send-invitation-email! invite)))
-        (is (= "jane@example.com" (:to @sent))))))
+        (is (= "jane@example.com" (:to @sent)))
+        (is (= "gosha@gosha.net" (:reply-to @sent))
+            "goes through the personal-mail path, which stamps the Reply-To"))))
   (testing "a failed send propagates — the operator at the REPL must see it"
     (with-redefs [conf/mail-reply-to (constantly nil)
                   mail/send!         (fn [_]

@@ -185,6 +185,15 @@
   []
   (l-config/get config :mail/reply-to))
 
+(defn mail-system-from
+  "The From for impersonal system notifications — password resets and other
+   machine-sent mail (`PARTS__MAIL__SYSTEM_FROM`), e.g. `Parts <help@ifs.tools>`,
+   an address on the TEM-verified sending domain. Personal mail (invites, the
+   operator's notes) keeps `mail-from`. Nil when unset; consumers fall back to
+   the default sender then."
+  []
+  (l-config/get config :mail/system-from))
+
 (def ^:private dev-session-key
   "The session key shipped in config.edn for local development. Production
    must override it; `session-key` refuses to run on this value in prod."

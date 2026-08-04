@@ -66,3 +66,30 @@
                   conf/mail-from      (constantly "Gosha <gosha@ifs.tools>")
                   postal/send-message (constantly {:code 99 :error :FAILURE})]
       (is (= :smtp-error (ex-type #(mail/send! message)))))))
+
+(deftest test-sender-identity-wrappers
+  (let [sent (atom nil)]
+    (with-redefs [conf/smtp-config    (constantly smtp)
+                  conf/mail-from      (constantly "Gosha <gosha@ifs.tools>")
+                  postal/send-message (fn [_conn msg] (reset! sent msg) {:error :SUCCESS})]
+
+      (testing "send-personal! keeps the default From and stamps the operator Reply-To"
+        (with-redefs [conf/mail-reply-to (constantly "gosha@gosha.net")]
+          (mail/send-personal! message)
+          (is (= "Gosha <gosha@ifs.tools>" (:from @sent)))
+          (is (= "gosha@gosha.net" (:reply-to @sent)))))
+
+      (testing "send-system! sends from the system identity with no Reply-To"
+        (with-redefs [conf/mail-system-from (constantly "Parts <help@ifs.tools>")]
+          (mail/send-system! message)
+          (is (= "Parts <help@ifs.tools>" (:from @sent)))
+          (is (not (contains? @sent :reply-to)))))
+
+      (testing "both fall back to the default sender when their config is unset"
+        (with-redefs [conf/mail-reply-to    (constantly nil)
+                      conf/mail-system-from (constantly nil)]
+          (mail/send-personal! message)
+          (is (= "Gosha <gosha@ifs.tools>" (:from @sent)))
+          (is (not (contains? @sent :reply-to)))
+          (mail/send-system! message)
+          (is (= "Gosha <gosha@ifs.tools>" (:from @sent))))))))

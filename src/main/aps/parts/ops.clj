@@ -24,7 +24,6 @@
    section comment."
   (:require
    [aps.parts.billing :as billing]
-   [aps.parts.config :as conf]
    [aps.parts.invitations :as invitations]
    [aps.parts.mail :as mail]
    [aps.parts.stats :as stats]
@@ -61,10 +60,9 @@
 ;; =============================================================================
 ;; Invitation email — the operator-facing compose-and-send for invite magic
 ;; links, delegating the actual send to `aps.parts.mail` (TASK-014, ADR-0016).
-;; The From is the mail layer's configured sender on the verified domain;
-;; Reply-To is the operator's personal address (`:mail/reply-to`) because
-;; replies must land with a human. Nothing records that an email was sent;
-;; the mulog `::invitation-email-sent` event is the send trail.
+;; Sent via `mail/send-personal!` — the operator's voice, with replies
+;; routed to a human. Nothing records that an email was sent; the mulog
+;; `::invitation-email-sent` event is the send trail.
 
 (def ^:private invite-subject
   "Your invite to Parts, the mapping tool for IFS practitioners")
@@ -110,15 +108,14 @@ https://gosha.net")
 (defn invite-message
   "The postal message map for an invite — the pure, testable core of
    `send-invitation-email!`. Plain text; the invite's magic link fills the
-   [LINK] placeholder in the body. Carries no :from — the sender identity
-   belongs to the mail layer — and a Reply-To only when one is configured."
+   [LINK] placeholder in the body. Pure content: the identity headers
+   (From, the operator Reply-To) are stamped by `mail/send-personal!`."
   [{:keys [email magic-link]}]
   (when-not (valid-recipient? email)
     (throw (ex-info "Invalid invite recipient address" {:type :validation})))
-  (cond-> {:to      email
-           :subject invite-subject
-           :body    (cstr/replace invite-body-template "[LINK]" magic-link)}
-    (conf/mail-reply-to) (assoc :reply-to (conf/mail-reply-to))))
+  {:to      email
+   :subject invite-subject
+   :body    (cstr/replace invite-body-template "[LINK]" magic-link)})
 
 (defn send-invitation-email!
   "Email `invite` — the map returned by `generate-invitation!` — its magic
@@ -132,7 +129,7 @@ https://gosha.net")
    REPL must see a failed send. Returns the invite on success."
   [invite]
   (when invite
-    (mail/send! (invite-message invite))
+    (mail/send-personal! (invite-message invite))
     (mulog/log ::invitation-email-sent :email (:email invite))
     (println (str "Sent invite to " (:email invite)))
     invite))
