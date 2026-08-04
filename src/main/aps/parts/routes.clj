@@ -155,20 +155,15 @@
    ;; — recovering access must not depend on the SPA bundle loading first.
    ;; Public by design: no auth, no launch gate. Request and redemption get
    ;; separate per-IP buckets so a burst of requests behind a shared NAT
-   ;; cannot 429 someone opening a valid link; the POST additionally
-   ;; buckets per submitted address (3 burst, ~3/hour) so one client
-   ;; cannot flood a victim's inbox through the production relay.
+   ;; cannot 429 someone opening a valid link. The per-address email cap
+   ;; lives inside the handler (`ratelimit/allow?`), not here: a 429 keyed
+   ;; on the submitted address would break the identical-response rule.
    ["/reset-password" {:middleware [(ratelimit/limiter :password-reset-request {})
                                     middleware/wrap-csp
                                     middleware/wrap-html-defaults
                                     middleware/wrap-html-response]
                        :get        {:handler password-reset/request-form}
-                       ;; Sits after wrap-html-defaults so :form-params is parsed.
-                       :post       {:middleware [(ratelimit/form-email-limiter
-                                                  :password-reset-email
-                                                  {:capacity      3
-                                                   :refill-per-ms (/ 3.0 (* 60 60 1000))})]
-                                    :handler    password-reset/request-submit}}]
+                       :post       {:handler password-reset/request-submit}}]
    ["/reset/:token" {:middleware [(ratelimit/limiter :password-reset-redeem {})
                                   middleware/wrap-csp
                                   middleware/wrap-html-defaults

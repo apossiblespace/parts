@@ -2,6 +2,7 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.auth.session-store :as session-store]
+   [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.handlers.password-reset :as reset]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
@@ -70,6 +71,31 @@
           "the email carries the magic link")
       (is (= "reset-req@example.com" (:to (first sent-known))))
       (is (empty? sent-unknown) "no email goes to an address without an account"))))
+
+(deftest request-submit-system-sender-test
+  (testing "the reset email travels the system-sender path (fallback
+            behaviour is mail_test's concern)"
+    (create-test-user! {:email "reset-sender@example.com"})
+    (let [[_ [sent]]
+          (with-redefs [conf/mail-system-from (constantly "Parts <help@ifs.tools>")]
+            (with-captured-mail
+              #(POST-request {:form-params {"email" "reset-sender@example.com"}})))]
+      (is (= "Parts <help@ifs.tools>" (:from sent))))))
+
+(deftest request-submit-email-cap-test
+  (testing "reset emails per account are capped; the response stays uniform
+            and the existing link stays valid (idempotent token)"
+    (create-test-user! {:email "reset-flood@example.com"})
+    (let [[responses sent]
+          (with-captured-mail
+            #(vec (repeatedly 4 (fn []
+                                  (POST-request
+                                   {:form-params {"email" "reset-flood@example.com"}})))))]
+      (is (= 3 (count sent)) "the burst allows three sends, then caps")
+      (is (apply = (map :body responses))
+          "capped requests render the same page as sent ones")
+      (is (apply = (map :body sent))
+          "every email delivered carries the same still-valid link"))))
 
 (deftest request-submit-send-failure-test
   (testing "a failed send is not revealed to the requester"

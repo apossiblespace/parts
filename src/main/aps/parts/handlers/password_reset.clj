@@ -15,6 +15,7 @@
    [aps.parts.entity.user :as user]
    [aps.parts.mail :as mail]
    [aps.parts.password-resets :as resets]
+   [aps.parts.ratelimit :as ratelimit]
    [aps.parts.views.layouts :as layouts]
    [aps.parts.views.partials :as partials]
    [com.brunobonacci.mulog :as mulog]
@@ -34,25 +35,25 @@
   "Reset your Parts password")
 
 (defn- reset-message
-  "The postal message map for a reset link. Carries no :from — the sender
-   identity belongs to the mail layer — and a Reply-To only when one is
-   configured, matching the invite email (ops/invite-message)."
+  "The postal message map for a reset link — pure content; the sender
+   identity is stamped by `mail/send-system!` (a machine notification,
+   unlike the operator-signed invite)."
   [{:keys [email url]}]
-  (cond-> {:to      email
-           :subject reset-subject
-           :body    (str "Hello,
+  {:to      email
+   :subject reset-subject
+   :body    (str "Hello,
 
 Someone asked to reset the password for the Parts account registered to this
 email address. If that was you, use this link to choose a new password:
 
 " url "
 
-The link is valid for one hour and can be used once. If you didn’t request
+The link can be used once, and expires an hour after it was first requested —
+if it has already expired, just request a new one. If you didn’t request
 this, you can safely ignore this email — your password is unchanged.
 
-Gosha
-" (conf/base-url))}
-    (conf/mail-reply-to) (assoc :reply-to (conf/mail-reply-to))))
+The Parts team
+" (conf/base-url))})
 
 (defn request-form
   "GET /reset-password — the request-a-link form."
@@ -62,31 +63,43 @@ Gosha
 
 (defn run-async!
   "Run thunk `f` on another thread, swallowing (but logging) anything it
-   throws. The request endpoint must answer in constant time whether or
-   not an account exists — the account lookup, token mint, and blocking
-   SMTP round trip all happen off the request thread so response timing
-   (and a slow relay pinning server threads) cannot leak the difference.
-   A named var so tests can rebind it to run synchronously."
+   throws — Throwable, not Exception: an Error inside an undereferenced
+   future would otherwise vanish without a trace. The request endpoint
+   must answer in constant time whether or not an account exists — the
+   account lookup, token mint, and blocking SMTP round trip all happen
+   off the request thread so response timing (and a slow relay pinning
+   server threads) cannot leak the difference. A named var so tests can
+   rebind it to run synchronously."
   [f]
   (future
     (try
       (f)
-      (catch Exception e
-        (mulog/log ::reset-email-failed :error (ex-message e))))))
+      (catch Throwable t
+        (mulog/log ::reset-email-failed :error (ex-message t))))))
+
+(def ^:private email-budget
+  "Reset-email cap per account. Keyed on the account's stored email — a
+   bounded set — never on the raw submitted value."
+  {:capacity 3 :refill-per-ms (/ 3.0 (* 60 60 1000))})
 
 (defn request-submit
   "POST /reset-password — mint and email a reset link when the address has
    an account; always render the same 'check your email' page, immediately.
    Nothing about the response (status, body, timing, or an error) may
    reveal whether the account exists or whether the send worked — failures
-   are logged for the operator instead (`::reset-email-failed`)."
+   are logged for the operator instead (`::reset-email-failed`). Over-cap
+   requests silently skip the send for the same reason; the link already
+   delivered stays valid (`create-reset!` is idempotent), so a flooder
+   cannot lock the account holder out of recovery."
   [request]
   (let [email (get-in request [:form-params "email"])]
     (run-async!
      (fn []
        (when-let [reset (resets/create-reset! email)]
-         (mail/send! (reset-message reset))
-         (mulog/log ::reset-email-sent :email (:email reset)))))
+         (if (ratelimit/allow? :password-reset-email (:email reset) email-budget)
+           (do (mail/send-system! (reset-message reset))
+               (mulog/log ::reset-email-sent :email (:email reset)))
+           (mulog/log ::reset-email-capped :email (:email reset))))))
     (response/response
      (layouts/content-page "Check your email" (partials/password-reset-sent-content)))))
 

@@ -12,9 +12,11 @@
 
 (defn normalize-email
   "Normalize an email address for storage and lookup: trim surrounding
-   whitespace and lowercase. Returns nil for nil input. Apply at every site
-   where email enters the system (writes AND reads) — asymmetry causes silent
-   lookup failures."
+   whitespace and lowercase. Returns nil for nil or non-string input —
+   request params can arrive as vectors (a duplicated form field) and a
+   normalizer that throws turns that into a 500 at every call site. Apply
+   at every site where email enters the system (writes AND reads) —
+   asymmetry causes silent lookup failures."
   [email]
-  (when email
+  (when (string? email)
     (-> email str/trim str/lower-case)))

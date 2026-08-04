@@ -1,12 +1,13 @@
 (ns aps.parts.jobs.deletion-purge
   "Background job that hard-deletes accounts whose 30-day grace window has
-   expired. Mirrors the core.async pattern used by `schedule-token-cleanup`
-   in `aps.parts.server`."
+   expired. Runs on the shared interval scaffold (`aps.parts.jobs.scheduling`)
+   — the tick does blocking Stripe HTTP per linked account, which must stay
+   off core.async dispatch threads."
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.user :as user]
-   [clojure.core.async :as async]
+   [aps.parts.jobs.scheduling :as scheduling]
    [com.brunobonacci.mulog :as mulog]))
 
 (def ^:private interval-ms
@@ -44,25 +45,14 @@
 (defn schedule!
   "Start the deletion-purge loop. Returns a stop channel; close it to halt."
   []
-  (let [stop-ch (async/chan)
-        tick    (fn []
-                  (try
-                    (let [n (run-once!)]
-                      (when (pos? n)
-                        (mulog/log ::purge-batch-complete :purged n)))
-                    (catch Exception e
-                      (mulog/log ::purge-batch-error
-                                 :error (.getMessage e)
-                                 :error-type (.getName (class e))))))]
-    ;; The tick does blocking Stripe HTTP per linked account, so it runs
-    ;; on a dedicated thread (async/thread), never on a core.async
-    ;; dispatch thread — a slow Stripe would otherwise starve every go
-    ;; block in the process.
-    (async/thread (tick))
-    (async/go-loop []
-      (let [timeout-ch (async/timeout interval-ms)
-            [_ ch]     (async/alts! [stop-ch timeout-ch])]
-        (when (not= ch stop-ch)
-          (async/<! (async/thread (tick)))
-          (recur))))
-    stop-ch))
+  (scheduling/schedule-every!
+   interval-ms
+   (fn []
+     (try
+       (let [n (run-once!)]
+         (when (pos? n)
+           (mulog/log ::purge-batch-complete :purged n)))
+       (catch Exception e
+         (mulog/log ::purge-batch-error
+                    :error (.getMessage e)
+                    :error-type (.getName (class e))))))))

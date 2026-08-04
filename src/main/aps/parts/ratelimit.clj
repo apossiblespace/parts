@@ -16,7 +16,6 @@
    reliably the client. See docs/runbook.md, 'Rate limiting & the trusted
    client IP'."
   (:require
-   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.config :as conf]
    [clojure.string :as str]))
 
@@ -48,25 +47,37 @@
    :headers {"Content-Type" "text/plain" "Retry-After" "60"}
    :body    "Too many requests. Please slow down and try again shortly."})
 
-(defn- limit-by
-  "Token-bucket middleware keyed by [route-key (identity-fn request)]. opts:
+(defn allow?
+  "The one token-bucket consume: true when one request under
+   [`route-key` `ident`] is within budget right now. Middleware goes
+   through `limit-by`; call this directly to throttle an *action* rather
+   than a route — e.g. capping reset emails per account — where a 429
+   would leak that the identity exists, so the caller quietly skips the
+   action instead. Never key this on raw attacker-supplied input: the
+   bucket atom retains every distinct key until `prune-idle!`. opts:
      :capacity      burst size (default 10)
      :refill-per-ms tokens added per millisecond (default 10/60000 = 10/min)
      :now-ms        clock thunk (default System/currentTimeMillis; for tests)
      :store         buckets atom (default the shared module atom; for tests)"
-  [route-key identity-fn {:keys [capacity refill-per-ms now-ms store]
-                          :or   {capacity      10
-                                 refill-per-ms (/ 10.0 60000)
-                                 now-ms        #(System/currentTimeMillis)
-                                 store         buckets}}]
+  [route-key ident {:keys [capacity refill-per-ms now-ms store]
+                    :or   {capacity      10
+                           refill-per-ms (/ 10.0 60000)
+                           now-ms        #(System/currentTimeMillis)
+                           store         buckets}}]
+  (let [k [route-key ident]]
+    (-> (swap! store update k step (now-ms) capacity refill-per-ms)
+        (get k)
+        :allowed?)))
+
+(defn- limit-by
+  "Token-bucket middleware keyed by [route-key (identity-fn request)];
+   the consume itself (and the opts) are `allow?`'s."
+  [route-key identity-fn opts]
   (fn [handler]
     (fn [request]
-      (let [k [route-key (identity-fn request)]
-            b (-> (swap! store update k step (now-ms) capacity refill-per-ms)
-                  (get k))]
-        (if (:allowed? b)
-          (handler request)
-          too-many-response)))))
+      (if (allow? route-key (identity-fn request) opts)
+        (handler request)
+        too-many-response))))
 
 (defn limiter
   "Reitit middleware that token-buckets requests per client IP under
@@ -87,22 +98,6 @@
             (fn [request] (or (get-in request [:identity :sub]) "anonymous"))
             opts))
 
-(defn form-email-limiter
-  "Reitit middleware that token-buckets requests per submitted form `email`
-   — for endpoints that send mail to an attacker-chosen address (password
-   reset requests), where a per-IP bucket alone still lets one client flood
-   a victim's inbox and burn sender reputation. Keys on the normalized
-   address whether or not an account exists, so being limited reveals
-   nothing. Must sit after form-params parsing in the middleware chain; a
-   request without an email shares one bucket — over-throttling, never a
-   bypass. opts: see `limit-by`."
-  [route-key opts]
-  (limit-by route-key
-            (fn [request]
-              (or (normalize-email (get-in request [:form-params "email"]))
-                  "missing"))
-            opts))
-
 (def ^:private prune-idle-ms
   "How long a bucket may sit untouched before the sweep drops it. Every
    configured limiter refills to full well within a day, and a full bucket
@@ -111,10 +106,10 @@
   (* 24 60 60 1000))
 
 (defn prune-idle!
-  "Drop day-idle buckets; returns the number removed. Needed since
-   `form-email-limiter` keys on attacker-chosen input, which would grow
-   the module atom for the life of the process. Called hourly by the
-   cleanup job."
+  "Drop day-idle buckets; returns the number removed. The key space is
+   open-ended — client IPs for the middleware limiters, per-account
+   identities for `allow?` — so without a sweep the module atom grows
+   for the life of the process. Called hourly by the cleanup job."
   ([] (prune-idle! (System/currentTimeMillis)))
   ([now-ms]
    (let [cutoff    (- now-ms prune-idle-ms)
