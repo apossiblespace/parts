@@ -8,6 +8,11 @@
     (is (= "G" (initial-of "gosha")))
     (is (= "T" (initial-of "Ting-yi"))))
 
+  (testing "expanding case mappings still give a single glyph"
+    ;; "ß".toUpperCase() is "SS" — uppercasing after extraction would
+    ;; overflow the one-character avatar.
+    (is (= "S" (initial-of "ßert"))))
+
   (testing "astral-plane characters survive whole"
     ;; 🦊 is one code point but two UTF-16 code units — a subs-based
     ;; implementation would return a broken lone surrogate here.

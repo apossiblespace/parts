@@ -7,10 +7,11 @@
 
 (defn initial-of
   "Uppercased first character of `display-name` for the avatar
-   placeholder. Reads the first code point, not the first UTF-16 unit,
-   so a name starting with an emoji or other astral-plane character
-   keeps the whole character — `subs` would slice its surrogate pair
-   in half."
+   placeholder. Uppercases before extracting, because some case mappings
+   expand (ß -> SS, ﬃ -> FFI) and the round avatar fits one glyph. Reads
+   the first code point, not the first UTF-16 unit, so a name starting
+   with an emoji or other astral-plane character keeps the whole
+   character — `subs` would slice its surrogate pair in half."
   [display-name]
-  (some-> display-name not-empty (.codePointAt 0)
-          js/String.fromCodePoint str/upper-case))
+  (some-> display-name not-empty str/upper-case
+          (.codePointAt 0) js/String.fromCodePoint))
