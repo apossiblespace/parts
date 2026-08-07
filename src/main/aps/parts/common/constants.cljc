@@ -6,8 +6,14 @@
    :firefighter {:label "Firefighter"}
    :exile       {:label "Exile"}})
 
+(def part-type-order
+  "Part types in canonical display order — the canvas toolbar, the type
+   dropdown, and the maps-list type strip all render from this vector
+   rather than relying on map ordering."
+  [:manager :firefighter :exile :unknown])
+
 (def part-types
-  (set (map name (keys part-labels))))
+  (set (map name part-type-order)))
 
 (def part-min-size
   "Canvas resize bounds for a Part's width/height, in Map coordinates.
@@ -89,6 +95,23 @@
    :carries-burden "#ff9800"
    :fearful-of     "#009688"
    :suppresses     "#795548"})
+
+(def part-colors
+  "Per-Part-type identity colour. Mirrors the fill each type's node glyph
+   is drawn with (resources/public/images/nodes/*.svg) — code cannot read
+   a colour out of SVG artwork, so the palette lives in two places. The
+   architecture-fitness test checks the artwork side carries every value."
+  {:manager     "#D1B43C"
+   :firefighter "#F2BE56"
+   :exile       "#62A294"
+   :unknown     "#999999"})
+
+(defn part-toolbar-glyph
+  "URL of a Part type's solid-fill toolbar glyph — the small-size variant
+   of the node artwork (the canvas SVGs' 0.2-opacity fill washes out at
+   icon sizes). The one owner of this asset-path convention."
+  [type]
+  (str "/images/nodes/toolbar/" (name type) ".svg"))
 
 (def brand-suffix
   "The suffix appearing after the page title in the <title> element"

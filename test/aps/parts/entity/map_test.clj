@@ -5,6 +5,7 @@
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
+   [aps.parts.entity.session :as session]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc])
@@ -78,6 +79,55 @@
         (is (= (:id created) (:id result)))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Map not found"
                               (parts-map/fetch (:id created))))))))
+
+(defn- stats-of
+  "The `:stats` of `map-id` in `owner-id`'s index."
+  [owner-id map-id]
+  (->> (parts-map/index owner-id)
+       (filter #(= map-id (:id %)))
+       first
+       :stats))
+
+(deftest test-index-stats
+  (testing "index carries per-map stats counted from the current slice"
+    (let [user    (create-test-user!)
+          the-map (parts-map/create! {:title "Stats Map" :owner_id (:id user)} (:id user))
+          part1   (part/create! {:map_id     (:id the-map)
+                                 :type       "manager"
+                                 :label      "M"
+                                 :position_x 0
+                                 :position_y 0}
+                                (:id user))
+          part2   (part/create! {:map_id     (:id the-map)
+                                 :type       "exile"
+                                 :label      "E"
+                                 :position_x 10
+                                 :position_y 10}
+                                (:id user))
+          _       (session/create! (:id the-map) (:id user))
+          _       (session/create! (:id the-map) (:id user))
+          ;; A bitemporal update writes a second version row for part1 —
+          ;; the stats must count the Part once, not per version.
+          _       (part/update! (:id part1) {:label "M renamed"} (:id user))
+          stats   (stats-of (:id user) (:id the-map))]
+      (is (= {:manager 1 :exile 1} (:parts_by_type stats)))
+      (is (= 2 (get-in stats [:last_session :ordinal])))
+      (is (some? (get-in stats [:last_session :anchor_valid_at])))
+
+      ;; Retract the exile — the stats must drop it, not merely dedupe
+      ;; versions (a retracted row is still TT-current; only the
+      ;; valid-time bound excludes it).
+      (testing "retracted parts leave the stats"
+        (part/delete! (:id part2) (:id user))
+        (is (= {:manager 1}
+               (:parts_by_type (stats-of (:id user) (:id the-map))))))))
+
+  (testing "an empty map has empty stats and no last session"
+    (let [user  (create-test-user!)
+          _     (parts-map/create! {:title "Empty Map" :owner_id (:id user)} (:id user))
+          stats (:stats (first (parts-map/index (:id user))))]
+      (is (= {} (:parts_by_type stats)))
+      (is (nil? (:last_session stats))))))
 
 (deftest test-map-validations
   (testing "creates fails with invalid data"

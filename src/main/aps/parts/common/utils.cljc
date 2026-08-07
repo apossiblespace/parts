@@ -10,6 +10,11 @@
                     {:type    :validation
                      :explain (s/explain-str spec data)}))))
 
+(defn plural
+  "Pick the wording for a count: `(plural 1 \"part\" \"parts\")` => \"part\"."
+  [n one many]
+  (if (= 1 n) one many))
+
 (defn normalize-email
   "Normalize an email address for storage and lookup: trim surrounding
    whitespace and lowercase. Returns nil for nil or non-string input —

@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.toolbar.part-form
   (:require
-   [aps.parts.common.constants :refer [part-labels]]
+   [aps.parts.common.constants :refer [part-labels part-type-order]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.body-location :refer [location-field]]
    [aps.parts.frontend.components.toolbar.form :as form]
@@ -48,10 +48,10 @@
             ($ :select {:class    "select select-sm mb-1"
                         :value    (:type values)
                         :onChange #(commit-field! :type (.. % -target -value))}
-               (->> part-labels
-                    (map (fn [[k {:keys [label]}]]
+               (->> part-type-order
+                    (map (fn [k]
                            ($ :option {:key k :value k}
-                              label)))))
+                              (get-in part-labels [k :label]))))))
 
             ($ :label {:class "fieldset-label"} "Label:")
             ($ :input {:class     "input input-sm mb-1"

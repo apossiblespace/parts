@@ -9,6 +9,7 @@
    [aps.parts.common.geometry :as geometry]
    [aps.parts.common.models.relationship :as relationship]
    [aps.parts.common.observe :as o]
+   [aps.parts.common.utils :refer [plural]]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.components.banner :refer [banner]]
@@ -69,16 +70,14 @@
                  ;; From the router's table — the tooltip can't drift
                  ;; from the routing.
                  :shortcut ["P" (toolbar/chord-keys mode)]))
-        [{:mode :add-unknown :label "Unknown"}
-         {:mode :add-exile :label "Exile"}
-         {:mode :add-firefighter :label "Firefighter"}
-         {:mode :add-manager :label "Manager"}]))
+        (for [k constants/part-type-order]
+          {:mode  (keyword (str "add-" (name k)))
+           :label (get-in constants/part-labels [k :label])})))
 
 (def ^:private add-mode->part-type
-  {:add-unknown     "unknown"
-   :add-exile       "exile"
-   :add-firefighter "firefighter"
-   :add-manager     "manager"})
+  (into {}
+        (map (fn [k] [(keyword (str "add-" (name k))) (name k)]))
+        constants/part-type-order))
 
 ;; Stable JS identities for ReactFlow props. A fresh #js array per render
 ;; busts ReactFlow's memoized renderer — re-registering its key listeners
@@ -93,8 +92,6 @@
   [^js event]
   (let [tag (.. event -target -tagName)]
     (not (or (= "INPUT" tag) (= "TEXTAREA" tag)))))
-
-(defn- plural [n one many] (if (= 1 n) one many))
 
 (defn- point->flow-position
   "A client-coordinate `{:x :y}` point in Map (flow) coordinates."
@@ -1335,9 +1332,8 @@
                                        ($ button {:key         (name mode)
                                                   :label       label
                                                   :label-class part-label-class
-                                                  :icon        ($ :img {:src   (str "/images/nodes/toolbar/"
-                                                                                    (add-mode->part-type mode)
-                                                                                    ".svg")
+                                                  :icon        ($ :img {:src   (constants/part-toolbar-glyph
+                                                                                (add-mode->part-type mode))
                                                                         :alt   ""
                                                                         :class "h-4 w-auto"})
                                                   :tooltip     create-label

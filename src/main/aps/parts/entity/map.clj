@@ -13,6 +13,7 @@
    [aps.parts.common.models.map :as model]
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
+   [aps.parts.entity.session :as session]
    [com.brunobonacci.mulog :as mulog]
    [next.jdbc :as jdbc]))
 
@@ -99,14 +100,18 @@
 
 (defn index
   "List a user's alive maps. Each row carries `:title` (from the
-   bitemporal `map_metadata`) and `:updated_at` (the same monotonic
-   change-time used as the Render ETag — see `version`).
+   bitemporal `map_metadata`), `:updated_at` (the same monotonic
+   change-time used as the Render ETag — see `version`), and `:stats`:
+   `:parts_by_type` (keyword type -> count, from the current bitemporal
+   slice, so a Part edited many times still counts once) and
+   `:last_session` (`:ordinal` + `:anchor_valid_at`, nil for a Map with
+   no Sessions). Exactly what the Maps-list card renders — grow it when
+   a consumer appears, not before.
 
-   Query shape: one for maps, one for all their current metadata, and
-   `version` per map. For a small cohort (dozens of Maps per therapist)
-   the per-map calls are cheap; if N grows, the obvious win is one
-   grouped `MAX(lower(sys_period))` query per table — three queries
-   total, regardless of N."
+   Query shape: one for maps, one per child table across all of them,
+   and `version` per map. For a small cohort (dozens of Maps per
+   therapist) the per-map calls are cheap; if N grows, the obvious win
+   is grouped aggregate queries — a fixed count, regardless of N."
   [owner-id]
   (let [maps (db/query
               (db/sql-format
@@ -117,14 +122,25 @@
                          [:= :deleted_at nil]]}))]
     (if (empty? maps)
       []
-      (let [meta-by-map (->> (bt/as-of-now db/datasource :map_metadata
-                                           [:in :map_id (mapv :id maps)])
-                             (group-by :map_id))]
+      (let [ids          (mapv :id maps)
+            current      (fn [table]
+                           (group-by :map_id
+                                     (bt/as-of-now db/datasource table
+                                                   [:in :map_id ids])))
+            meta-by-map  (current :map_metadata)
+            parts-by-map (current :parts)
+            sessions     (session/latest-by-map ids)]
         (->> maps
              (mapv (fn [m]
-                     (assoc m
-                            :title      (-> meta-by-map (get (:id m)) first :title)
-                            :updated_at (version (:id m)))))
+                     (let [parts (get parts-by-map (:id m) [])]
+                       (assoc m
+                              :title      (-> meta-by-map (get (:id m)) first :title)
+                              :updated_at (version (:id m))
+                              :stats      {:parts_by_type (frequencies
+                                                           (map (comp keyword :type) parts))
+                                           :last_session  (some-> (get sessions (:id m))
+                                                                  (select-keys [:ordinal
+                                                                                :anchor_valid_at]))}))))
              ;; Most-recently-touched first. `compare` on Java time types
              ;; works as natural-ordering; reverse the args for descending.
              (sort-by :updated_at #(compare %2 %1))

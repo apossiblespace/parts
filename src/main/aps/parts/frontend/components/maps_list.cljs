@@ -1,43 +1,65 @@
 (ns aps.parts.frontend.components.maps-list
   "Full-page Maps list route (/app/maps). Fetches the list on mount and
-   lets the user open or create a Map. Each Map is rendered as a row
-   showing a server-side SVG preview (see ADR-0008), the Map's title,
-   and the created / last-updated dates. Selecting a Map navigates the
-   client-side router to /app/maps/:id."
+   lets the user open or create a Map. Each Map is a card in a grid:
+   the server-side SVG preview (see ADR-0008) on top, then the Map's
+   title, a proportional part-type strip, and the latest Session plus
+   the last-update time — all read from the list API's per-map :stats.
+   Selecting a card navigates the client-side router to /app/maps/:id."
   (:require
+   [aps.parts.common.constants :refer [part-colors part-labels
+                                       part-toolbar-glyph part-type-order]]
+   [aps.parts.common.utils :refer [plural]]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
+   [clojure.string :as str]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-layout-effect use-ref use-state]]
    [uix.re-frame :as uix.rf]))
 
 (defn- title-matches?
-  "Case-insensitive substring match of `query` against `the-map`'s title.
-   A blank query matches everything; a Map with no title matches nothing
-   unless the query is also blank."
-  [query the-map]
-  (let [q (.. (or query "") trim toLowerCase)]
-    (or (zero? (.-length q))
-        (let [t (.. (or (:title the-map) "") toLowerCase)]
-          (.includes t q)))))
+  "Case-insensitive substring match against `the-map`'s title. `q` must
+   arrive trimmed and lower-cased; a Map with no title matches nothing."
+  [q the-map]
+  (str/includes? (str/lower-case (or (:title the-map) "")) q))
 
-(defn- fmt-date
-  "Format a date-ish value as `YYYY/MM/DD`, or nil when unparseable."
-  [d]
-  (when-let [^js dt (dates/->js-date d)]
-    (let [pad #(.padStart (str %) 2 "0")]
-      (str (.getFullYear dt) "/"
-           (pad (inc (.getMonth dt))) "/"
-           (pad (.getDate dt))))))
+(defn- type-count-label
+  "\"3 Managers\" / \"1 Exile\" — count + type label, pluralised."
+  [k n]
+  (let [label (get-in part-labels [k :label])]
+    (str n " " (plural n label (str label "s")))))
+
+(defui ^:private type-strip
+  "Proportional segmented bar of a Map's part types, in canonical order.
+   The bar shows proportion; exact counts live in the hover tooltip."
+  [{:keys [by-type]}]
+  (let [present (filter #(pos? (get by-type % 0)) part-type-order)]
+    (when (seq present)
+      ($ :div {:class "tooltip block w-full"}
+         ;; Tracks must be auto, not fr — fr tracks stretch the panel
+         ;; far wider than its content despite w-max.
+         ($ :div {:class "tooltip-content w-max text-xs"}
+            ($ :div {:class "grid grid-cols-[auto_auto] gap-x-3 gap-y-1 p-1 text-left"}
+               (for [k present]
+                 ($ :div {:key   (name k)
+                          :class "flex items-center gap-1.5 whitespace-nowrap"}
+                    ($ :img {:src   (part-toolbar-glyph k)
+                             :alt   ""
+                             :class "h-3.5 w-auto"})
+                    ($ :span (type-count-label k (get by-type k)))))))
+         ($ :div {:class "flex h-1.5 rounded-full overflow-hidden gap-px"}
+            (for [k present]
+              ($ :div {:key   (name k)
+                       :style {:flexGrow        (get by-type k)
+                               :backgroundColor (part-colors k)}})))))))
 
 (defui ^:private map-preview
-  "The server-rendered SVG preview for one Map (ADR-0008). Owns a `loaded?`
-   flag so a *changed* preview shows a skeleton while its new image loads,
-   without disturbing previews that didn't change."
+  "The server-rendered SVG preview atop one Map's card (ADR-0008). Owns a
+   `loaded?` flag so a *changed* preview shows a skeleton while its new
+   image loads, without disturbing previews that didn't change."
   [{:keys [the-map]}]
   (let [;; `?v=` is a cache-bust fingerprint, not a server param — the handler
         ;; ignores it. As `:updated_at` advances after an edit, the URL changes
@@ -57,10 +79,11 @@
          (set-loaded! (.-complete img)))
        js/undefined)
      [src])
-    ($ :div {:class (str "relative w-20 sm:w-28 aspect-square flex-shrink-0 bg-gray-50 "
-                         "flex items-center justify-center border-r border-base-300")}
+    ($ :div {:class (str "relative w-full aspect-[4/3] bg-gray-50 "
+                         "overflow-hidden rounded-t-lg "
+                         "flex items-center justify-center border-b border-base-300")}
        ($ :img {:ref      img-ref
-                :class    "max-w-full max-h-full object-contain p-2"
+                :class    "max-w-full max-h-full object-contain p-3"
                 :src      src
                 :alt      (str "Preview of " (:title the-map))
                 :on-load  #(set-loaded! true)
@@ -69,31 +92,47 @@
        (when-not loaded?
          ($ :div {:class "absolute inset-0 skeleton"})))))
 
-(defui ^:private map-row
-  "One row in the Maps list: a clickable button with the server-rendered
-   SVG preview on the left, and the Map's title + Created/Updated dates
-   on the right."
+(defui ^:private map-card
+  "One card in the Maps grid: the preview on top, then the title, the
+   part-type strip, and a two-line footer — the latest Session with its
+   anchor date, and the relative last-update time."
   [{:keys [the-map on-select]}]
-  ($ :button
-     {:class    (str "w-full flex items-stretch cursor-pointer "
-                     "bg-white border border-base-300 rounded-lg "
-                     "shadow-sm hover:shadow-md transition-shadow "
-                     "text-left p-0 overflow-hidden")
-      :on-click #(on-select the-map)}
-     ($ map-preview {:the-map the-map})
-     ($ :div {:class "flex-1 px-4 py-3 flex flex-col justify-center min-w-0"}
-        ($ :h2 {:class "text-base font-medium truncate"}
-           (:title the-map))
-        ($ :p {:class "text-xs text-gray-500 mt-2"}
-           "Created: " (fmt-date (:created_at the-map))
-           (when-let [updated (fmt-date (:updated_at the-map))]
-             (str "    Updated: " updated))))))
+  (let [{:keys [parts_by_type last_session]} (:stats the-map)]
+    ($ :button
+       ;; No overflow-hidden here — it would clip the strip's tooltip at
+       ;; the card edges. The preview clips its own corners instead.
+       {:class    (str "cursor-pointer bg-white border border-base-300 rounded-lg "
+                       "shadow-sm hover:shadow-md transition-shadow "
+                       "text-left p-0 flex flex-col")
+        :on-click #(on-select the-map)}
+       ($ map-preview {:the-map the-map})
+       ($ :div {:class "p-3 flex flex-col gap-1.5 w-full min-w-0"}
+          ($ :h2 {:class "text-sm font-medium truncate"}
+             (:title the-map))
+          ($ type-strip {:by-type parts_by_type})
+          ($ :div {:class "text-xs text-gray-500 flex flex-col gap-0.5"}
+             (when last_session
+               ($ :span {:class "flex items-baseline"}
+                  ($ :span {:class "whitespace-nowrap"}
+                     (str "Session " (:ordinal last_session)))
+                  ($ :span {:class (str "flex-1 mx-1.5 self-center "
+                                        "border-b border-dotted border-gray-300")})
+                  ($ :span {:class "whitespace-nowrap"}
+                     (dates/format-date dates/long-date-format
+                                        (:anchor_valid_at last_session)))))
+             (when-let [updated (dates/relative-past (:updated_at the-map))]
+               ($ :span {:class "mt-3"}
+                  (str "Updated " updated))))))))
 
 (defui maps-list []
   (let [maps              (uix.rf/use-subscribe [:maps/list])
         loading           (uix.rf/use-subscribe [:maps/loading])
         [query set-query] (use-state "")
-        filtered          (filter (partial title-matches? query) maps)
+        ;; Normalise the query once per render, not once per map.
+        filtered          (let [q (str/lower-case (str/trim query))]
+                            (if (str/blank? q)
+                              maps
+                              (filter (partial title-matches? q) maps)))
 
         handle-create     (fn []
                             (rf/dispatch [:map/create]))
@@ -161,10 +200,10 @@
                "No Maps match \"" query "\"")
 
             :else
-            ($ :div {:class "flex flex-col gap-3"}
+            ($ :div {:class "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"}
                (for [the-map filtered]
-                 ($ map-row {:key       (:id the-map)
-                             :the-map   the-map
-                             :on-select handle-select}))))
+                 ($ map-card {:key       (:id the-map)
+                              :the-map   the-map
+                              :on-select handle-select}))))
 
           ($ app-footer)))))

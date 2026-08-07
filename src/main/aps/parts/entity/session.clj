@@ -53,16 +53,26 @@
       :order-by  [[:s.anchor_valid_at :asc]]})
     {:builder-fn rs/as-unqualified-maps})))
 
+(defn latest-by-map
+  "The active Session — the latest by anchor — for each of `map-ids`,
+   as `{map-id row}` from one DISTINCT ON query. Maps with no Sessions
+   are absent. The single SQL spelling of \"active = latest by anchor\"
+   (ADR-0014); `latest` derives from it."
+  [map-ids]
+  (into {}
+        (map (juxt :map_id identity))
+        (db/query
+         (db/sql-format
+          {:select-distinct-on [[:map_id] :*]
+           :from               [:sessions]
+           :where              [:in :map_id (mapv db/->uuid map-ids)]
+           :order-by           [[:map_id :asc] [:anchor_valid_at :desc]]}))))
+
 (defn- latest
   "The active Session — the latest by anchor — or nil for a Map with none."
   [map-id]
-  (db/query-one
-   (db/sql-format
-    {:select   [:*]
-     :from     [:sessions]
-     :where    [:= :map_id (db/->uuid map-id)]
-     :order-by [[:anchor_valid_at :desc]]
-     :limit    1})))
+  (let [uuid (db/->uuid map-id)]
+    (get (latest-by-map [uuid]) uuid)))
 
 (defn create!
   "Open a new Session: the anchor is captured server-side at creation, the

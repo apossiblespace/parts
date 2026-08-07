@@ -77,6 +77,29 @@
         (is (re-find (re-pattern (str "\\.edge-" (name type) "\\s*\\{")) css)
             (str "main.css lacks an .edge-" (name type) " selector"))))))
 
+(deftest node-artwork-carries-the-part-palette
+  (testing
+   "the artwork side of the two-source part palette: every hex in
+    aps.parts.common.constants/part-colors appears as a fill in both
+    glyph variants the UI pairs with it — the canvas node SVG and the
+    solid-fill toolbar SVG (which sits beside the coloured strip in the
+    maps-list tooltip). A re-exported glyph with a tweaked colour would
+    otherwise silently drift from the strip"
+    (doseq [[type hex] constants/part-colors
+            variant    ["" "toolbar/"]]
+      (let [path    (str "resources/public/images/nodes/" variant
+                         (name type) ".svg")
+            svg     (slurp path)
+            ;; The glyphs spell colour two ways: exile/unknown as a hex
+            ;; fill, manager/firefighter as fill:rgb(r,g,b).
+            rgb     (map #(Integer/parseInt % 16)
+                         (re-seq #"[0-9a-fA-F]{2}" (subs hex 1)))
+            rgb-str (str "rgb(" (str/join "," rgb) ")")]
+        (is (or (str/includes? (str/lower-case svg) (str/lower-case hex))
+                (str/includes? svg rgb-str))
+            (str path " does not carry the part colour " hex
+                 " (as hex or " rgb-str ")"))))))
+
 (deftest raw-sql-is-banned
   (testing
    "HoneySQL [:raw ...] splices strings straight into SQL, bypassing
