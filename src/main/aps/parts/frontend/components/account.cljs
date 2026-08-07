@@ -189,7 +189,7 @@
           ($ banner {:variant :info :class "mb-2"}
              ($ :p
                 "A subscription is not required to use Parts while in beta. "
-                "Subscribing now helps fund development."))
+                "Subscribing now supports continued development."))
           ($ :div
              (when checkout-thanks?
                ($ banner {:variant :success :class "mb-2"}
