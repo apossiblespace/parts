@@ -9,13 +9,15 @@
   [{:type       "firefighter"
     :label      "Escapist"
     :position_x 300
-    :position_y 130
+    :position_y 100
+    :width      130
+    :height     130
     :notes      "Numbs/distracts when the Exile gets activated. Could be substances, scrolling social media, shopping, etc."
     :map_id     map-id}
    {:type       "exile"
     :label      "Disappointed kid"
     :position_x 200
-    :position_y 320
+    :position_y 350
     :notes      "Carries shame/sadness from childhood events. Can get triggered by criticism/rejection."
     :map_id     map-id}
    {:type       "manager"
@@ -41,6 +43,7 @@
     [{:type      "unknown"
       :source_id (:id firefighter)
       :target_id (:id exile)
+      :intensity 20
       :map_id    map-id}
      {:type      "protects"
       :source_id (:id manager)

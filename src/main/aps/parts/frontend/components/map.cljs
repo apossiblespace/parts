@@ -184,6 +184,12 @@
 ;; rendering varies by platform, and a stage firing a hair early is
 ;; invisible while one firing late overlaps the minimap.
 (def ^:private part-label-class "max-[870px]:hidden")
+;; In the minimal hero demo the toolbar has only the right half of the
+;; viewport — its left edge sits at 50vw (the .minimal .toolbar rule in
+;; main.css) — so the labelled palette needs roughly twice the viewport
+;; width before it fits. Fires for an iPad landscape (1024); clears on
+;; a 1280 laptop.
+(def ^:private minimal-part-label-class "max-[1250px]:hidden")
 (def ^:private history-label-class "max-[680px]:hidden")
 (def ^:private connect-label-class "max-[450px]:hidden")
 (def ^:private minimap-hidden-class "max-[650px]:hidden")
@@ -1331,7 +1337,9 @@
                                        ;; 0.2-opacity fill washes out at 16px.
                                        ($ button {:key         (name mode)
                                                   :label       label
-                                                  :label-class part-label-class
+                                                  :label-class (if minimal
+                                                                 minimal-part-label-class
+                                                                 part-label-class)
                                                   :icon        ($ :img {:src   (constants/part-toolbar-glyph
                                                                                 (add-mode->part-type mode))
                                                                         :alt   ""

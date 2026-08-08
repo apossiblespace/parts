@@ -58,7 +58,7 @@
   ;; The white text highlight only makes sense over the canvas (lg overlay);
   ;; on mobile the text sits on the page background, so keep it plain.
   (let [highlight ["lg:box-decoration-clone" "lg:bg-white" "lg:px-3" "lg:py-1"]]
-    [:section {:class ["relative" "overflow-hidden" "lg:h-[90vh]"]}
+    [:section {:class ["relative" "overflow-hidden" "lg:h-[750px]"]}
      ;; Text first in the DOM so it stacks above the demo on mobile; on lg the
      ;; demo is taken out of flow (absolute) and this overlays it.
      [:div {:class ["relative" "z-10" "lg:pointer-events-none" "mx-auto"
