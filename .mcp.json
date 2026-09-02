@@ -4,6 +4,8 @@
       "type": "stdio",
       "command": "uvx",
       "args": [
+        "--with",
+        "mcp<2",
         "postgres-mcp",
         "--access-mode=restricted"
       ],
