@@ -4,11 +4,24 @@
 
 The project uses Nix + direnv for reproducible development environments.
 
+## Language
+
+Write in ASD-STE100 Simplified Technical English.
+
+Be concise and direct. Use short sentences and common words.
+State the answer first. Omit introductions, restatements, filler, praise,
+and generic caveats. Do not explain basic concepts unless I ask.
+Use bullets only when they improve scanability.
+
+For factual or technical work:
+- Give the recommendation or conclusion first.
+- Include only the evidence, trade-offs, and next action needed.
+- State uncertainty plainly when it materially affects the answer.
+
 ## Autonomous Development Workflow
 
 - Always clarify the developer's intentions before writing code
-- Do not attempt to read or edit files outside the project folder
-- Add failing tests first, then fix them
+- Do not attempt to read or edit files outside the project directory, unless explicitly instructed
 - Work autonomously in small, testable increments
 - Run targeted tests, and lint continuously during development
 - Prioritise understanding existing patterns before implementing
@@ -22,7 +35,7 @@ See `make help` for the standard targets (repl, test, format, build).
 - Update dependencies: `clojure -M:antq --upgrade`
 
 ## Code Style Guidelines
-- **Docstrings & comments**: Explanatory length is fine when the thing being explained is genuinely complex; what matters is plain, simple language. Avoid jargon where a plain word works; don't restate what the code already says
+- **Docstrings & comments**: Explanatory length is fine when the thing being explained is genuinely complex; what matters is plain, simple language. Avoid jargon where a plain word works; don't restate what the code already says. Use ASD-STE100 Simplified Technical English.
 - **Error handling**: Use `ex-info` with `:type` key for classification
 - **Testing**: Use fixtures when appropriate, name tests with `test-` prefix
 - **Frontend**: Use UIx components with `defui` and `$` for React components
