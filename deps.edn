@@ -79,7 +79,7 @@
     djblue/portal                 {:mvn/version "0.62.0"}
     ;;
     ;; Editor nREPL middleware (dev-only; prod runs plain nREPL)
-    cider/cider-nrepl             {:mvn/version "0.58.0"
+    cider/cider-nrepl             {:mvn/version "0.62.2"
                                    :exclusions  [org.clojure/clojuredocs]}
     ;;
     ;; Test runner for the dev REPL's `repl` ns helpers (kaocha.repl/watch);
