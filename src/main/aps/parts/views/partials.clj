@@ -175,6 +175,17 @@
     [:p.text-center.text-sm.text-gray-600.mt-8
      "Prices include VAT where applicable. Cancel at any time; access continues to the end of the period you’ve paid for. Pick a plan after you sign up."]]])
 
+(defn- homepage-anchor-link
+  "Footer link to a section of the launched homepage. Pre-launch shows a
+   Coming-soon stub, so the footer never links to a missing anchor."
+  [anchor label]
+  (if (launch/launched?)
+    [:a {:href (str "/#" anchor) :class "text-gray-600 hover:text-ifs-green"}
+     label]
+    [:div {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
+     [:span {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
+      label]]))
+
 (defn footer
   "Site footer"
   []
@@ -196,24 +207,8 @@
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Quick Links"]
       [:ul
        {:class "space-y-2"}
-       [:li
-        [:div
-         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
-         [:span
-          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
-          "Features"]]]
-       [:li
-        ;; Pricing only exists on the launched homepage; pre-launch keeps
-        ;; the stub so the footer never links to a missing anchor.
-        (if (launch/launched?)
-          [:a
-           {:href "/#pricing" :class "text-gray-600 hover:text-ifs-green"}
-           "Pricing"]
-          [:div
-           {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
-           [:span
-            {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
-            "Pricing"]])]
+       [:li (homepage-anchor-link "features" "Features")]
+       [:li (homepage-anchor-link "pricing" "Pricing")]
        [:li
         [:a
          {:href "https://github.com/apossiblespace/parts?tab=readme-ov-file#readme", :class "text-gray-600 hover:text-ifs-green"}
