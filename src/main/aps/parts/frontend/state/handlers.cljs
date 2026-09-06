@@ -92,9 +92,13 @@
          demo-map           {:id            map-id
                              :title         "Demo Map"
                              :parts         demo-parts
-                             :relationships demo-relationships}]
-     ;; Load demo map into app state immediately
-     {:db (assoc-in db [:map] demo-map)
+                             :relationships demo-relationships}
+         escapist-id        (some #(when (= "Escapist" (:label %)) (:id %)) demo-parts)]
+     ;; Load demo map into app state immediately, with the Escapist Part
+     ;; selected so the playground opens on a populated sidebar.
+     {:db (-> db
+              (assoc :map demo-map)
+              (assoc-in [:ui :selected-node-ids] [escapist-id]))
       ;; Persist to storage backend and save current map ID
       :fx [[:storage/create-map demo-map]
            [:api-utils/save-current-map-id map-id]]})))
