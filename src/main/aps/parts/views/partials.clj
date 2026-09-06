@@ -32,43 +32,63 @@
    :styles      - additional stylesheets
    :analytics?  - load the Plausible collector. Public marketing pages only —
                   never the signed-in app or invite pages, where the URL would
-                  carry a Map id or invite token."
+                  carry a Map id or invite token. Pages without it are also
+                  marked noindex, so token URLs and the app shell stay out of
+                  search results."
   ([] (head {}))
   ([{:keys [title description styles analytics? html-class]}]
-   [:head
-    [:meta {:charset "utf-8"}]
-    ;; App shell only: viewport-fit=cover makes env(safe-area-inset-*)
-    ;; report real values in home-screen standalone mode, and only the
-    ;; canvas compensates with safe-area padding (the
-    ;; .react-flow__panel.bottom rule in main.css). Other layouts keep
-    ;; the browser's automatic safe-area letterboxing — cover without
-    ;; compensation would push their edge content under a notch.
-    [:meta {:name    "viewport"
-            :content (str "width=device-width, initial-scale=1"
-                          (when (= html-class "app") ", viewport-fit=cover"))}]
-    [:meta {:name "description" :content description}]
-    [:meta {:name "theme-color" :content "#62a294"}]
-    [:meta {:name "csrf-token" :content *anti-forgery-token*}]
-    [:meta {:name "version" :content (version/current)}]
-    [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
-    [:link {:rel "apple-touch-icon" :href "/images/icons/favicon.png"}]
-    [:title (if title
-              (str title " – " c/brand-suffix)
-              c/brand-suffix)]
-    ;; [:link {:rel "stylesheet" :href "/css/style.css"}]
-    (for [href (or styles [])]
-      [:link {:rel "stylesheet" :href href}])
-    (when analytics?
-      ;; No inline script: the plausible queue bootstrap and the
-      ;; data-attribute event wiring live in marketing.js, so these pages
-      ;; hold a CSP without 'unsafe-inline' (TASK-069).
-      (list
-       [:script {:defer       true
-                 :data-domain (conf/app-domain)
-                 :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
-       ;; Not under /js/ — that whole directory is shadow-cljs build
-       ;; output (gitignored); this file is a tracked static asset.
-       [:script {:src "/marketing.js" :defer true}]))]))
+   (let [full-title (if title
+                      (str title " – " c/brand-suffix)
+                      c/brand-suffix)]
+     [:head
+      [:meta {:charset "utf-8"}]
+      ;; App shell only: viewport-fit=cover makes env(safe-area-inset-*)
+      ;; report real values in home-screen standalone mode, and only the
+      ;; canvas compensates with safe-area padding (the
+      ;; .react-flow__panel.bottom rule in main.css). Other layouts keep
+      ;; the browser's automatic safe-area letterboxing — cover without
+      ;; compensation would push their edge content under a notch.
+      [:meta {:name    "viewport"
+              :content (str "width=device-width, initial-scale=1"
+                            (when (= html-class "app") ", viewport-fit=cover"))}]
+      [:meta {:name "description" :content description}]
+      (when-not analytics?
+        [:meta {:name "robots" :content "noindex, nofollow"}])
+      [:meta {:name "theme-color" :content "#62a294"}]
+      [:meta {:name "csrf-token" :content *anti-forgery-token*}]
+      [:meta {:name "version" :content (version/current)}]
+      [:link {:rel "icon" :sizes "192x192" :href "/images/icons/favicon.png"}]
+      [:link {:rel "apple-touch-icon" :href "/images/social.png"}]
+      [:title full-title]
+      ;; Link previews (Slack, iMessage, LinkedIn…). og:image must be an
+      ;; absolute URL — crawlers do not resolve relative paths. The image is
+      ;; square, so the Twitter card is "summary", not "summary_large_image".
+      [:meta {:property "og:type" :content "website"}]
+      [:meta {:property "og:site_name" :content "Parts"}]
+      [:meta {:property "og:locale" :content "en_GB"}]
+      [:meta {:property "og:title" :content full-title}]
+      [:meta {:property "og:description" :content description}]
+      [:meta {:property "og:image" :content (str (conf/base-url) "/images/social.png")}]
+      [:meta {:property "og:image:width" :content "512"}]
+      [:meta {:property "og:image:height" :content "512"}]
+      [:meta {:property "og:image:alt" :content "Parts logo: a circle, a hexagon, and a star above the word PARTS"}]
+      [:meta {:name "twitter:card" :content "summary"}]
+      [:meta {:name "fediverse:creator" :content "@gosha@merveilles.town"}]
+      [:link {:rel "me" :href "https://merveilles.town/@gosha"}]
+      ;; [:link {:rel "stylesheet" :href "/css/style.css"}]
+      (for [href (or styles [])]
+        [:link {:rel "stylesheet" :href href}])
+      (when analytics?
+        ;; No inline script: the plausible queue bootstrap and the
+        ;; data-attribute event wiring live in marketing.js, so these pages
+        ;; hold a CSP without 'unsafe-inline' (TASK-069).
+        (list
+         [:script {:defer       true
+                   :data-domain (conf/app-domain)
+                   :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
+         ;; Not under /js/ — that whole directory is shadow-cljs build
+         ;; output (gitignored); this file is a tracked static asset.
+         [:script {:src "/marketing.js" :defer true}]))])))
 
 (defn header-signup
   "Post-launch site header: Log in + Create an account buttons."
