@@ -176,6 +176,7 @@
            :allow           "encrypted-media; fullscreen; picture-in-picture"
            :referrerpolicy  "strict-origin-when-cross-origin"
            :allowfullscreen true}]]]
+       (partials/pricing-section)
        [:section.py-16
         [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
          [:h2.text-3xl.font-bold.text-center.mb-12

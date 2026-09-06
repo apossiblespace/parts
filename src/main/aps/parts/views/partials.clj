@@ -133,6 +133,48 @@
     (header-signup)
     (header-waitlist)))
 
+(defn pricing-section
+  "Homepage pricing section, launched variant only. Cards render from the
+   shared `subscription-plans` constant — the same definition the account
+   page's checkout buttons use — so the marketing price cannot drift from
+   the price actually charged."
+  []
+  [:section#pricing.py-16.bg-gray-50
+   [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
+    [:h2.text-3xl.font-bold.text-center.mb-4 "Pricing"]
+    [:p.text-xl.text-center.text-gray-600.mb-10
+     "One subscription per practitioner. Includes unlimited clients and unlimited Maps."]
+    [:div.flex.flex-wrap.justify-center.gap-6
+     (for [{:keys [title price cadence features primary?]} c/subscription-plans]
+       [:div {:class (str "card bg-white border w-full sm:w-72"
+                          (if primary? " border-primary shadow-md" " border-base-300"))}
+        [:div.card-body
+         [:div.flex.justify-between.items-baseline
+          [:h3.text-xl.font-bold title]
+          [:span.text-xl price
+           [:span.text-sm.text-gray-600 cadence]]]
+         [:ul.mt-2.flex.flex-col.gap-2
+          (for [feature features]
+            [:li.flex.items-center.gap-2
+             [:svg {:class           "h-4 w-4 shrink-0 text-success"
+                    :viewBox         "0 0 24 24"
+                    :fill            "none"
+                    :stroke          "currentColor"
+                    :stroke-width    "2"
+                    :stroke-linecap  "round"
+                    :stroke-linejoin "round"
+                    :aria-hidden     "true"}
+              [:path {:d "M20 6 9 17l-5-5"}]]
+             [:span feature]])]]])]
+    [:div.text-center.mt-8
+     [:a.btn.btn-primary.btn-lg
+      {:href                  "/app/signup"
+       :data-analytics        "Create Account Click"
+       :data-analytics-source "homepage-pricing"}
+      "Create an account"]]
+    [:p.text-center.text-sm.text-gray-600.mt-8
+     "Prices include VAT where applicable. Cancel at any time; access continues to the end of the period you’ve paid for. Pick a plan after you sign up."]]])
+
 (defn footer
   "Site footer"
   []
@@ -161,11 +203,17 @@
           {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
           "Features"]]]
        [:li
-        [:div
-         {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
-         [:span
-          {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
-          "Pricing"]]]
+        ;; Pricing only exists on the launched homepage; pre-launch keeps
+        ;; the stub so the footer never links to a missing anchor.
+        (if (launch/launched?)
+          [:a
+           {:href "/#pricing" :class "text-gray-600 hover:text-ifs-green"}
+           "Pricing"]
+          [:div
+           {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
+           [:span
+            {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
+            "Pricing"]])]
        [:li
         [:a
          {:href "https://github.com/apossiblespace/parts?tab=readme-ov-file#readme", :class "text-gray-600 hover:text-ifs-green"}
