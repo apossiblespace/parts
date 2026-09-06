@@ -85,6 +85,10 @@
                       :accepted-medical?     (some? (get form "accept_medical"))}
                      tx))))]
           (mulog/log ::invitation-redeemed :email (:email invitation))
+          (mulog/log ::account/signup
+                     :user-id (:id account)
+                     :email (:email account)
+                     :display-name (:display_name account))
           ;; 303 See Other — POST-redirect-GET. Establish the auth session
           ;; (ADR-0007) so the new member lands in /app already signed in.
           (-> (response/redirect "/app")

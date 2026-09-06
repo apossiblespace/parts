@@ -1,6 +1,6 @@
 (ns aps.parts.alerts
-  "Operator error-alert sink: emails the operator the first time something in
-   the alert allowlist throws, throttled so a crash-loop can't flood the inbox.
+  "Operator alert sink: emails the operator when an event in the alert
+   allowlist fires, throttled so a crash-loop can't flood the inbox.
 
    Two layers:
 
@@ -50,17 +50,22 @@
     ;; the concierge lane was retired there is no innocent explanation.
     :aps.parts.api.billing/webhook-error
     :aps.parts.api.billing/customer-link-conflict
-    :aps.parts.api.billing/invoice-unmatched})
+    :aps.parts.api.billing/invoice-unmatched
+    ;; Not an error: a new account. The operator wants to know who signed up
+    ;; (email and display name) without watching the log.
+    :aps.parts.api.account/signup})
 
 (defn event-signature
   "A stable cooldown key for an event. Prefers a non-value discriminator —
    sql-state, then error-class — over the free-text message, so a crash-loop of
    one fault collapses to a single email while distinct faults stay distinct.
    The message is avoided as a key because for postgres it embeds the offending
-   row value and is no longer logged."
+   row value and is no longer logged. `:user-id` is last so a non-error event
+   about one account (signup) is its own signature and is never throttled
+   against another account's."
   [event]
   [(:mulog/event-name event)
-   (or (:sql-state event) (:error-class event) (:error event))])
+   (or (:sql-state event) (:error-class event) (:error event) (:user-id event))])
 
 (defn- prune
   "Drop cooldown entries last sent before `now - cooldown-ms`, bounding the map
@@ -107,7 +112,8 @@
    alert must never carry clinical content into an operator inbox, so the body is
    built from these structural fields only — never a full-event dump."
   [:mulog/event-name :mulog/timestamp :mulog/namespace
-   :error :error-class :cause-type :sql-state :diagnostics :failing-change])
+   :error :error-class :cause-type :sql-state :diagnostics :failing-change
+   :user-id :email :display-name])
 
 (defn- alert-body
   "The alert email body: the allowlisted structural fields of `event`,

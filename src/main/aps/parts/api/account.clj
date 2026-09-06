@@ -134,10 +134,11 @@
     (try
       (let [{:keys [account map-id]} (db/with-transaction
                                        #(provision-account! params %))]
-        (mulog/log ::register
+        (mulog/log ::signup
+                   :user-id (:id account)
                    :email (:email account)
-                   :map-id map-id
-                   :status :success)
+                   :display-name (:display_name account)
+                   :map-id map-id)
         (-> (response/response (merge account {:map_id map-id}))
             (response/status 201)
             (auth/establish-session request (:id account))))

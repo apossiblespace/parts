@@ -110,3 +110,19 @@
           {:keys [state]} (alerts/alert-decision stale e cooldown)]
       (is (= #{[:aps.parts.errors/unhandled-exception "fresh"]}
              (set (keys state)))))))
+
+(deftest alert-decision-signup-test
+  (testing "each signup is its own signature — two accounts inside one cooldown both send"
+    (let [e1              (ev :aps.parts.api.account/signup 1000 :user-id "u1")
+          s1              (:state (alerts/alert-decision {} e1 cooldown))
+          e2              (ev :aps.parts.api.account/signup 1001 :user-id "u2")
+          {:keys [send?]} (alerts/alert-decision s1 e2 cooldown)]
+      (is send?)))
+  (testing "the signup email carries the email address and display name"
+    (let [body (#'alerts/alert-body {:mulog/event-name :aps.parts.api.account/signup
+                                     :mulog/timestamp  1
+                                     :user-id          "u1"
+                                     :email            "new@x.com"
+                                     :display-name     "New Person"})]
+      (is (str/includes? body "new@x.com"))
+      (is (str/includes? body "New Person")))))
