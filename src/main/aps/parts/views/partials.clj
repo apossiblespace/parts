@@ -73,8 +73,8 @@
       [:meta {:property "og:image:height" :content "512"}]
       [:meta {:property "og:image:alt" :content "Parts logo: a circle, a hexagon, and a star above the word PARTS"}]
       [:meta {:name "twitter:card" :content "summary"}]
-      [:meta {:name "fediverse:creator" :content "@gosha@merveilles.town"}]
-      [:link {:rel "me" :href "https://merveilles.town/@gosha"}]
+      [:meta {:name "fediverse:creator" :content "@gosha@gosha.net"}]
+      [:link {:rel "me" :href "https://fedi.gosha.net/@gosha"}]
       ;; [:link {:rel "stylesheet" :href "/css/style.css"}]
       (for [href (or styles [])]
         [:link {:rel "stylesheet" :href href}])
