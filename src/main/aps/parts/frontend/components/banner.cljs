@@ -6,7 +6,10 @@
    text on every variant (the tint and icon carry the severity), and a
    text-line-sized icon aligned to the first line of the message."
   (:require
-   ["lucide-react" :refer [CircleAlert CircleCheck Info TriangleAlert]]
+   ["lucide-react/dist/esm/icons/circle-alert" :default CircleAlert]
+   ["lucide-react/dist/esm/icons/circle-check" :default CircleCheck]
+   ["lucide-react/dist/esm/icons/info" :default Info]
+   ["lucide-react/dist/esm/icons/triangle-alert" :default TriangleAlert]
    [uix.core :refer [$ defui]]))
 
 (def ^:private variants

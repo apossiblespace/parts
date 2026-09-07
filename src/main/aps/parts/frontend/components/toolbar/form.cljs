@@ -5,7 +5,7 @@
    reverting the field, and discrete controls commit on change. One
    implementation so the two forms cannot drift."
   (:require
-   ["lucide-react" :refer [Trash2]]
+   ["lucide-react/dist/esm/icons/trash-2" :default Trash2]
    [aps.parts.frontend.components.inline-edit :as inline-edit]
    [clojure.string :as str]
    [uix.core :refer [$ defui use-effect use-ref use-state]]))

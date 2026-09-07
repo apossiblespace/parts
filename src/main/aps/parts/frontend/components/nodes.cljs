@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.components.nodes
   (:require
    ["@xyflow/react" :refer [Handle NodeResizer Position]]
-   ["lucide-react" :refer [Zap]]
+   ["lucide-react/dist/esm/icons/zap" :default Zap]
    [aps.parts.common.constants :as constants]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]

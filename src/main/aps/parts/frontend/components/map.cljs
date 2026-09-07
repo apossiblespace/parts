@@ -2,9 +2,18 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow]]
-   ["lucide-react" :refer [ChevronDown ChevronLeft ChevronRight ChevronUp
-                           Download FilePenLine Hand History MousePointer2
-                           Plus Spline Undo2]]
+   ["lucide-react/dist/esm/icons/chevron-down" :default ChevronDown]
+   ["lucide-react/dist/esm/icons/chevron-left" :default ChevronLeft]
+   ["lucide-react/dist/esm/icons/chevron-right" :default ChevronRight]
+   ["lucide-react/dist/esm/icons/chevron-up" :default ChevronUp]
+   ["lucide-react/dist/esm/icons/download" :default Download]
+   ["lucide-react/dist/esm/icons/file-pen-line" :default FilePenLine]
+   ["lucide-react/dist/esm/icons/hand" :default Hand]
+   ["lucide-react/dist/esm/icons/history" :default History]
+   ["lucide-react/dist/esm/icons/mouse-pointer-2" :default MousePointer2]
+   ["lucide-react/dist/esm/icons/plus" :default Plus]
+   ["lucide-react/dist/esm/icons/spline" :default Spline]
+   ["lucide-react/dist/esm/icons/undo-2" :default Undo2]
    [aps.parts.common.constants :as constants]
    [aps.parts.common.geometry :as geometry]
    [aps.parts.common.models.relationship :as relationship]

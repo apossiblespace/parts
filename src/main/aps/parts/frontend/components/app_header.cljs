@@ -9,7 +9,7 @@
    width breakpoint would diverge on landscape phones (wide viewport,
    still view-only) and narrow desktop windows (the reverse)."
   (:require
-   ["lucide-react" :refer [Menu]]
+   ["lucide-react/dist/esm/icons/menu" :default Menu]
    [aps.parts.frontend.components.avatar :refer [avatar-initial]]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.toolbar.auth-status :refer [account-menu-items auth-status]]

@@ -4,7 +4,7 @@
    still being built out, points the user at concierge support for any
    account, billing, or closure requests."
   (:require
-   ["lucide-react" :refer [Check]]
+   ["lucide-react/dist/esm/icons/check" :default Check]
    [aps.parts.common.constants :as c]
    [aps.parts.frontend.components.account-view :as account-view]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]

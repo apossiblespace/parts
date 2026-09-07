@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.relationship-type-dropdown
   (:require
-   ["lucide-react" :refer [Check]]
+   ["lucide-react/dist/esm/icons/check" :default Check]
    [aps.parts.common.constants :as constants]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [uix.core :refer [$ defui]]))

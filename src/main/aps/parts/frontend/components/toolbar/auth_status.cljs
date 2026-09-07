@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.components.toolbar.auth-status
   (:require
-   ["lucide-react" :refer [ChevronDown LogOut]]
+   ["lucide-react/dist/esm/icons/chevron-down" :default ChevronDown]
+   ["lucide-react/dist/esm/icons/log-out" :default LogOut]
    [aps.parts.frontend.components.avatar :refer [avatar-initial]]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [re-frame.core :as rf]
