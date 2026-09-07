@@ -109,6 +109,14 @@
    :webhook-secret "whsec_test_secret"
    :prices         {:monthly "price_monthly" :yearly "price_yearly"}})
 
+(defn without-stripe
+  "Fixture: run `f` with no Stripe config, whatever the shell exports.
+   Tests that need Stripe `with-redefs` it back inside."
+  [f]
+  (with-redefs [conf/stripe-config     (constantly nil)
+                conf/stripe-secret-key (constantly nil)]
+    (f)))
+
 (defn stripe-sig-header
   "A currently-valid Stripe-Signature header for `payload` under `secret`.
    Computes the HMAC with the JDK directly — independent of

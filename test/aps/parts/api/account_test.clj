@@ -8,11 +8,12 @@
    [aps.parts.entity.session :as session]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
-                                    with-test-db]]
+                                    with-test-db without-stripe]]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
+(use-fixtures :each without-stripe)
 
 (def ^:private acceptance
   "The onboarding acceptances the server now requires (ADR-0009); merged into a
