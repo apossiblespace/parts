@@ -12,6 +12,7 @@
    [aps.parts.frontend.state.sessions :as sessions]
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
+   [aps.parts.frontend.state.windows :as windows]
    [re-frame.core :as rf]))
 
 (def ^:private require-editable
@@ -157,6 +158,28 @@
  :ui/relationship-type-set
  (fn [db [_ type]]
    (update db :ui toolbar/choose-relationship-type type)))
+
+;; -- Floating windows (ADR-0017) -------------------------------------------
+
+(rf/reg-event-db
+ :window/open
+ (fn [db [_ kind]]
+   (update-in db [:ui :windows] windows/open kind)))
+
+(rf/reg-event-db
+ :window/close
+ (fn [db [_ kind]]
+   (update-in db [:ui :windows] windows/close kind)))
+
+(rf/reg-event-db
+ :window/front
+ (fn [db [_ kind]]
+   (update-in db [:ui :windows] windows/front kind)))
+
+(rf/reg-event-db
+ :window/move
+ (fn [db [_ kind pos size bounds]]
+   (update-in db [:ui :windows] windows/move kind pos size bounds)))
 
 ;; -- save-status indicator (TASK-077) ----------------------------------------
 ;; Dispatched by the change-event queue and the direct-write fx; the pure

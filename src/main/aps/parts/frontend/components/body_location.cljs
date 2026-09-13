@@ -9,10 +9,14 @@
    left / right selects the front / back half (the box's 1:2 aspect keeps it
    undistorted). A click yields a normalized point
    `{:view \"front\"|\"back\" :x 0..1 :y 0..1}` — the shape stored in a Part's
-   `body_location`."
+   `body_location`. Precise placement happens in a floating window
+   (ADR-0017) scoped to the selected Part; the Part form only previews."
   (:require
-   [aps.parts.frontend.components.modal :refer [modal]]
-   [uix.core :refer [$ defui use-state]]))
+   [aps.parts.frontend.components.window :refer [window]]
+   [aps.parts.frontend.state.windows :as windows]
+   [re-frame.core :as rf]
+   [uix.core :refer [$ defui use-effect]]
+   [uix.re-frame :as uix.rf]))
 
 (def ^:private silhouette-url "/images/silhouette.svg")
 
@@ -50,7 +54,7 @@
      (when (= view (:view location))
        ;; The pin is sized as a fraction of the figure width (with a 1:1
        ;; aspect so it stays round), so it looks the same whether the figure
-       ;; is the small sidebar preview or the large modal one.
+       ;; is the small sidebar preview or the large window one.
        ($ :div {:aria-hidden true
                 :style       {:position      "absolute"
                               :left          (str (* 100 (:x location)) "%")
@@ -87,39 +91,52 @@
 
 (defui location-field
   "Body-location section of the Part form: a small read-only preview plus a
-   button opening a modal with both figures for precise placement. `on-change`
-   receives the new point, or nil when cleared; the surrounding form persists
-   it on Save like any other field."
-  [{:keys [location on-change]}]
-  (let [[open? set-open] (use-state false)]
-    ($ :div {:class "mt-1"}
-       ($ :div {:class "flex items-center justify-between"}
-          ($ :label {:class "fieldset-label"} "Body location:")
-          ($ :button {:type     "button"
-                      :class    "btn btn-xs"
-                      :on-click #(set-open true)}
-             (if location "Edit" "Add")))
-       (when location
-         ($ location-preview {:location location
-                              :on-open  #(set-open true)}))
-       ($ modal {:show      open?
-                 :title     "Body location"
-                 :on-close  #(set-open false)
-                 :box-class "max-w-3xl"}
-          ($ :div {:class "flex justify-center gap-4"}
-             (for [view ["front" "back"]]
-               ($ figure {:key      view
-                          :view     view
-                          :location location
-                          :on-place on-change
-                          :class    "flex-1 min-w-0 rounded border border-base-300"})))
-          ($ :div {:class "flex justify-between mt-3"}
-             ($ :button {:type     "button"
-                         :class    "btn btn-sm btn-ghost"
-                         :disabled (nil? location)
-                         :on-click #(on-change nil)}
-                "Clear")
-             ($ :button {:type     "button"
-                         :class    "btn btn-sm btn-primary"
-                         :on-click #(set-open false)}
-                "Done"))))))
+   button; both open the body-location window via `on-open`. The window
+   saves on its own, so this field has no value to commit."
+  [{:keys [location on-open]}]
+  ($ :div {:class "mt-1"}
+     ($ :div {:class "flex items-center justify-between"}
+        ($ :label {:class "fieldset-label"} "Body location:")
+        ($ :button {:type     "button"
+                    :class    "btn btn-xs"
+                    :on-click on-open}
+           (if location "Edit" "Add")))
+     (when location
+       ($ location-preview {:location location
+                            :on-open  on-open}))))
+
+(defui body-location-window
+  "The Body location floating window (ADR-0017). Scope: the selected
+   Part, exactly one — otherwise it closes itself, so it never shows a
+   Part the selection has left. Points commit on placement (a discrete
+   control); read-only while the canvas is, which hides Clear and
+   ignores clicks on the figures."
+  []
+  (let [part      (windows/scope-part (uix.rf/use-subscribe [:map/selected-parts]))
+        editable? (uix.rf/use-subscribe [:canvas/editable?])
+        location  (:body_location part)
+        save!     (fn [loc]
+                    (rf/dispatch [:map/part-update (:id part) {:body_location loc}]))]
+    (use-effect
+     (fn []
+       (when-not part
+         (rf/dispatch [:window/close :body-location])))
+     [part])
+    (when part
+      ($ window {:kind  :body-location
+                 :class "body-location"
+                 :title (str "Body location · " (:label part))}
+         ($ :div {:class "flex justify-center gap-4"}
+            (for [view ["front" "back"]]
+              ($ figure {:key      view
+                         :view     view
+                         :location location
+                         :on-place (when editable? save!)
+                         :class    "flex-1 min-w-0 rounded border border-base-300"})))
+         (when editable?
+           ($ :div {:class "mt-3"}
+              ($ :button {:type     "button"
+                          :class    "btn btn-sm btn-ghost"
+                          :disabled (nil? location)
+                          :on-click #(save! nil)}
+                 "Clear")))))))

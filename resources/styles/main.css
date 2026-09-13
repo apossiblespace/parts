@@ -200,6 +200,50 @@ body {
     width: auto;
 }
 
+/* Floating windows (ADR-0017): a native <dialog> in non-modal mode. The
+   UA centres an open dialog (margin:auto, inset:0); reset that so the
+   left/top from state place it within .map-view, its offsetParent and
+   the clamp box. Above every panel (5) and the marquee (7); the z from
+   state (10+) orders the windows among themselves. */
+.floating-window {
+    position: absolute;
+    inset: auto;
+    margin: 0;
+    padding: 0;
+    max-width: calc(100% - 1rem);
+    max-height: calc(100% - 1rem);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box, 0.5rem);
+    background: var(--color-base-100);
+    color: inherit;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    outline: none;
+}
+
+.floating-window-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.35rem 0.35rem 0.7rem;
+    border-bottom: 1px solid var(--color-base-300);
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.floating-window-body {
+    padding: 0.7rem;
+    overflow: auto;
+}
+
+.floating-window.body-location {
+    width: 30rem;
+}
+
 /* Fixed-width variant: view/edit modes of one dialog must not resize
    as content changes. (Width utilities can't do this — this file's
    .modal-box rule is unlayered, so it beats any Tailwind layer.) */

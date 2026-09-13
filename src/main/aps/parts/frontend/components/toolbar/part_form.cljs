@@ -4,6 +4,7 @@
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.body-location :refer [location-field]]
    [aps.parts.frontend.components.toolbar.form :as form]
+   [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect]]))
 
 (defui part-form
@@ -18,14 +19,17 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save on-delete collapsed]}]
   (let [{:keys [id type label notes body_location]} part
+        ;; body_location is not a form field: it is edited in its
+        ;; floating window (ADR-0017), which saves on its own. Keeping
+        ;; it out of `fields` means a notes commit can never write a
+        ;; stale point over the window's save.
         {:keys [values collapsed? update-field toggle-collapsed
                 commit-field! text-blur text-keys]}
         (form/use-autosave-form
          {:entity-id    id
-          :fields       {:type          type
-                         :label         label
-                         :notes         notes
-                         :body_location body_location}
+          :fields       {:type  type
+                         :label label
+                         :notes notes}
           :collapsed    collapsed
           :revert-blank :label
           :on-save      (fn [vals]
@@ -68,5 +72,5 @@
                           :on-blur   text-blur
                           :onKeyDown (text-keys :notes)})
 
-            ($ location-field {:location  (:body_location values)
-                               :on-change #(commit-field! :body_location %)}))))))
+            ($ location-field {:location body_location
+                               :on-open  #(rf/dispatch [:window/open :body-location])}))))))

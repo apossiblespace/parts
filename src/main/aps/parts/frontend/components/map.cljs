@@ -22,6 +22,7 @@
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.components.banner :refer [banner]]
+   [aps.parts.frontend.components.body-location :refer [body-location-window]]
    [aps.parts.frontend.components.delete-confirmation-modal :refer [delete-confirmation-modal]]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
@@ -30,6 +31,7 @@
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
+   [aps.parts.frontend.components.window :refer [floating-windows]]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.state.time-travel :as time-travel]
@@ -95,12 +97,15 @@
 (def ^:private multi-selection-key-codes #js ["Meta" "Shift"])
 
 (defn- non-input-target?
-  "True unless the keydown originated inside a form input. Keeps the tool
-   shortcuts (V/H/Escape) from stealing keystrokes while typing in the
-   sidebar's relationship/notes editors or an inline label."
+  "True unless the keydown originated inside a form input or a dialog.
+   Keeps the tool shortcuts (V/H/Escape) from stealing keystrokes while
+   typing in the sidebar's relationship/notes editors or an inline
+   label, and lets a floating window (ADR-0017) own its Escape."
   [^js event]
-  (let [tag (.. event -target -tagName)]
-    (not (or (= "INPUT" tag) (= "TEXTAREA" tag)))))
+  (let [target ^js (.-target event)
+        tag    (.-tagName target)]
+    (not (or (= "INPUT" tag) (= "TEXTAREA" tag)
+             (and (.-closest target) (.closest target "dialog"))))))
 
 (defn- point->flow-position
   "A client-coordinate `{:x :y}` point in Map (flow) coordinates."
@@ -1466,7 +1471,11 @@
                           :style #js {:left   (- (:x rect) left)
                                       :top    (- (:y rect) top)
                                       :width  (:width rect)
-                                      :height (:height rect)}})))))
+                                      :height (:height rect)}}))))
+          ;; Floating windows (ADR-0017): outside ReactFlow so a title-
+          ;; bar drag never reaches the pane as a pan; anchored to the
+          ;; map-view like the marquee overlay.
+          ($ floating-windows {:kinds {:body-location body-location-window}}))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal

@@ -179,6 +179,12 @@
    (get-in db [:ui :relationship-type] :unknown)))
 
 (rf/reg-sub
+ :ui/windows
+ ;; Open floating windows (ADR-0017): {kind {:pos [x y] :z n}}.
+ (fn [db _]
+   (get-in db [:ui :windows] {})))
+
+(rf/reg-sub
  :map/selected-parts
  ;; Joins against the CANVAS source, not [:map :parts] — in Time-travel
  ;; the sidebar must show a Part's details as they stood in the viewed
