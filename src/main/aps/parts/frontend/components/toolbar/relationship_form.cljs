@@ -30,9 +30,7 @@
                       :notes     notes
                       :intensity (or intensity 0)}
           :collapsed collapsed
-          :on-save   (fn [vals]
-                       (o/track "Relationship saved" {:type (:type vals)})
-                       (on-save id vals))})]
+          :on-save   #(on-save id %)})]
 
     (use-effect
      (fn [] (o/debug "relationship-form" "Relationship" id "from:" source_id "to:" target_id))

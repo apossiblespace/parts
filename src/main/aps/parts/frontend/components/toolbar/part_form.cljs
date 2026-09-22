@@ -37,9 +37,7 @@
                          :notes notes}
           :collapsed    collapsed
           :revert-blank :label
-          :on-save      (fn [vals]
-                          (o/track "Part saved" {:type (:type vals)})
-                          (on-save id vals))})]
+          :on-save      #(on-save id %)})]
 
     (use-effect
      (fn [] (o/debug "part-form" "Part" id))
