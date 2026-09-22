@@ -4,6 +4,7 @@
    [aps.parts.frontend.state.sessions :as sessions]
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
+   [aps.parts.frontend.state.windows :as windows]
    [re-frame.core :as rf]))
 
 (rf/reg-sub
@@ -180,9 +181,29 @@
 
 (rf/reg-sub
  :ui/windows
- ;; Open floating windows (ADR-0017): {kind {:pos [x y] :z n}}.
+ ;; Floating windows (ADR-0017): {kind {:open? :pos :size :z :drafts}}.
  (fn [db _]
    (get-in db [:ui :windows] {})))
+
+(rf/reg-sub
+ :ui/window
+ ;; One kind's window state, or nil if never opened.
+ :<- [:ui/windows]
+ (fn [windows [_ kind]]
+   (get windows kind)))
+
+(rf/reg-sub
+ :ui/window-open?
+ :<- [:ui/windows]
+ (fn [windows [_ kind]]
+   (windows/open? windows kind)))
+
+(rf/reg-sub
+ :ui/window-draft
+ ;; The draft `kind` holds for `entity-id`, or nil (see `windows/draft`).
+ :<- [:ui/windows]
+ (fn [windows [_ kind entity-id]]
+   (windows/draft windows kind entity-id)))
 
 (rf/reg-sub
  :map/selected-parts

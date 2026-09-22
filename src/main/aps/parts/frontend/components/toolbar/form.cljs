@@ -20,8 +20,8 @@
                     an uncommitted draft in another field)
    - :fields        the entity's current field map
    - :collapsed     whether the form starts collapsed
-   - :on-save       (fn [values]) — called with the full field map on
-                    each commit
+   - :on-save       (fn [changed]) — called with the fields that
+                    differ from the last commit (the handlers merge)
    - :revert-blank  (optional) field keyword whose blank drafts revert to
                     the previous value instead of committing (the canvas
                     inline-label idiom); the kept value is also trimmed,
@@ -47,12 +47,19 @@
                                               (set-form-state
                                                (fn [state]
                                                  (update state :collapsed? not))))
+        ;; Only the fields that changed go out: the update handlers
+        ;; merge, and a field edited elsewhere (a floating window,
+        ;; ADR-0017) must never be written back from this form's copy.
         commit!                             (fn [vals]
-                                              (when (not= vals initial)
-                                                (on-save vals)
-                                                (set-form-state
-                                                 (fn [state]
-                                                   (assoc state :values vals :initial vals)))))
+                                              (let [changed (into {}
+                                                                  (filter (fn [[k v]]
+                                                                            (not= v (get initial k))))
+                                                                  vals)]
+                                                (when (seq changed)
+                                                  (on-save changed)
+                                                  (set-form-state
+                                                   (fn [state]
+                                                     (assoc state :values vals :initial vals))))))
         commit-field!                       (fn [field value]
                                               (commit! (assoc values field value)))
         text-blur                           (fn [_e]
@@ -89,6 +96,20 @@
         (fn [state]
           (assoc state :values fields :initial fields :collapsed? collapsed))))
      ^:lint/disable [entity-id collapsed])
+    ;; A field changed underneath the form (a floating window saved it)
+    ;; re-syncs unless it is mid-edit here. Returns the same state object
+    ;; when nothing differs, so React bails out and the render settles.
+    (use-effect
+     (fn []
+       (set-form-state
+        (fn [state]
+          (reduce (fn [st [k v]]
+                    (if (and (not= v (get-in st [:initial k]))
+                             (= (get-in st [:values k]) (get-in st [:initial k])))
+                      (-> st (assoc-in [:values k] v) (assoc-in [:initial k] v))
+                      st))
+                  state fields))))
+     ^:lint/disable [fields])
     {:values           values
      :collapsed?       collapsed?
      :update-field     update-field

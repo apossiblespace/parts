@@ -181,6 +181,21 @@
  (fn [db [_ kind pos size bounds]]
    (update-in db [:ui :windows] windows/move kind pos size bounds)))
 
+(rf/reg-event-db
+ :window/resize
+ (fn [db [_ kind size bounds]]
+   (update-in db [:ui :windows] windows/resize kind size bounds)))
+
+(rf/reg-event-db
+ :window/set-draft
+ (fn [db [_ kind entity-id value]]
+   (update-in db [:ui :windows] windows/set-draft kind entity-id value)))
+
+(rf/reg-event-db
+ :window/clear-draft
+ (fn [db [_ kind entity-id]]
+   (update-in db [:ui :windows] windows/clear-draft kind entity-id)))
+
 ;; -- save-status indicator (TASK-077) ----------------------------------------
 ;; Dispatched by the change-event queue and the direct-write fx; the pure
 ;; transitions live in `state/save-status`.

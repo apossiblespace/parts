@@ -4,17 +4,21 @@
 
 Accepted — 2026-09-13.
 
-Amends the **saving model** in `CONTEXT.md`: the "modals are the exception"
-clause now covers only true modals.
+Amends the **saving model** in `CONTEXT.md`: sidebar fields autosave;
+floating windows and modals commit explicitly.
+
+Revised 2026-09-14: windows hold drafts with Save / Cancel (not autosave),
+resize is in v1, and Part notes is a fourth consumer.
 
 ## Context
 
-Three surfaces need more room than a sidebar form gives, but must not stop
+Four surfaces need more room than a sidebar form gives, but must not stop
 the therapist from working on the canvas while they are open:
 
 - **Body location** (ADR-0013): the two-figure silhouette. Today a modal.
 - **Session trigger** (ADR-0014): a multi-line text. Today a modal with
   Save / Cancel.
+- **Part notes**: a textarea in the sidebar, cramped for anything long.
 - **Self statements** (planned, own ADR): a per-Part log of what Self said to
   the Part and what the Part said back, grouped by Session. A therapist reads
   this log *while* selecting Parts on the canvas — a modal cannot do that at
@@ -33,7 +37,7 @@ by making the primitive small and its rules few.
 
 ## Decision
 
-Add one **floating window** primitive to the map view, and move the three
+Add one **floating window** primitive to the map view, and move the four
 surfaces above onto it.
 
 ### The primitive
@@ -48,7 +52,10 @@ surfaces above onto it.
   for the page's life only; a reload puts a window back at its default spot.
 - **Default position per kind**, away from the inspector (top-right) and the
   tool palette (bottom-centre).
-- **Fixed size per kind**, scrolling inside. No resize.
+- **Resize by a corner handle**, pointer events again (CSS `resize` draws no
+  grip on iOS). A minimum size per window, and never past the map view. Space
+  is at a premium on a 13" laptop or an iPad; the therapist arranges the
+  workspace.
 - **Click brings to front.** A single z counter, nothing more.
 - **Escape closes** and one close button. The canvas key handler ignores keys
   whose target is inside a dialog, so Escape does one thing.
@@ -58,9 +65,9 @@ surfaces above onto it.
 - **Phones**: the map is view-only on a phone (TASK-105) and offers none of
   these surfaces, so no phone form is needed.
 
-Deliberately **not** built: resize, minimise, several windows of one kind,
-persisted position, snapping, cascade, keyboard move. Each waits for a
-consumer that needs it.
+Deliberately **not** built: minimise, several windows of one kind,
+persisted position or size, persisted drafts, snapping, cascade, keyboard
+move. Each waits for a consumer that needs it.
 
 ### Scope following
 
@@ -69,6 +76,7 @@ A window shows the current entity of its **scope** and never pins:
 | Kind | Scope | On empty selection |
 |---|---|---|
 | Body location | selected Part | closes |
+| Notes | selected Part | closes |
 | Trigger | viewed Session | n/a |
 | Statements | selected Part, else viewed Session | switches to the Session view |
 
@@ -81,23 +89,39 @@ Windows **survive time-travel**: while viewing a past Session they show that
 Session's data read-only, with editing controls hidden. This falls out of the
 same derived-Session reads the sidebar uses.
 
-### Saving
+### Saving: drafts with Save / Cancel
 
-Floating windows **autosave** like the sidebar: text commits on blur with
-Escape reverting the field, discrete controls commit on change. A window that
-stays open while the canvas is live cannot hold an uncommitted edit — on the
-next selection change it would have to block, discard, or nag. So the trigger
-loses its Save / Cancel; Escape-reverts covers Cancel. Body location already
-commits on point change and loses nothing.
+A window is where the therapist **composes**. Sidebar fields are quick edits
+and autosave on blur; a window must not — clicking the canvas mid-sentence
+must not commit, and the writer must not have to think about it. So:
 
-The "modals are the exception" clause of the saving model now covers only
-**true modals**: the delete confirmation and the demo waitlist.
+- A window edits a **draft**, keyed by kind and scope entity, held in window
+  state for the page's life. **Save** commits through the entity's normal
+  update path (the map status indicator takes over from there). **Cancel**
+  discards the draft.
+- **Close and Escape keep the draft.** Reopening shows it. Cancel is the only
+  discard. A dirty draft is marked in the title bar.
+- Because drafts are keyed by entity, selecting Part B and returning to Part
+  A shows A's draft again, and in Time-travel the active Session's trigger
+  draft waits while the past is shown read-only.
+- While a field's window is open for an entity, the sidebar's quick editor
+  of that same field is disabled, so two editors never race.
+- Body location follows the same rule (place a pin, then Save). It is the one
+  place the draft model costs a click; if that proves heavy in use it can go
+  back to commit-on-place without touching the others.
+
+The saving model in `CONTEXT.md` becomes: **sidebar fields autosave; floating
+windows and modals commit explicitly.** A draft that was never saved is not a
+sync state — the status indicator reports backend sync only.
 
 ## Consequences
 
 - **Body location first.** It is the smallest consumer with no data-model
-  change and proves the primitive. Then the trigger. Self statements land on a
-  primitive that has been in use.
+  change and proves the primitive. Then the trigger, then notes. Self
+  statements land on a primitive that has been in use.
+- **The sidebar form commits only changed fields** and re-syncs fields that
+  are not being edited when the entity changes underneath it. Without that, a
+  window's notes save would be written back by the next label blur.
 - **Self statements need their own ADR** for the data model (a per-Part,
   bitemporal, append-only log with Session membership derived from
   `valid_at`, ADR-0014 style). This ADR fixes only the surface it renders in.

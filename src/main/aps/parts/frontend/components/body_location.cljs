@@ -12,7 +12,7 @@
    `body_location`. Precise placement happens in a floating window
    (ADR-0017) scoped to the selected Part; the Part form only previews."
   (:require
-   [aps.parts.frontend.components.window :refer [window]]
+   [aps.parts.frontend.components.window :refer [window window-actions]]
    [aps.parts.frontend.state.windows :as windows]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect]]
@@ -108,15 +108,24 @@
 (defui body-location-window
   "The Body location floating window (ADR-0017). Scope: the selected
    Part, exactly one — otherwise it closes itself, so it never shows a
-   Part the selection has left. Points commit on placement (a discrete
-   control); read-only while the canvas is, which hides Clear and
-   ignores clicks on the figures."
+   Part the selection has left. Edits a draft `{:location point-or-nil}`
+   keyed by Part: place a pin (or Remove pin), then Save; Cancel discards.
+   Read-only while the canvas is: figures ignore clicks and the actions
+   are hidden."
   []
   (let [part      (windows/scope-part (uix.rf/use-subscribe [:map/selected-parts]))
         editable? (uix.rf/use-subscribe [:canvas/editable?])
-        location  (:body_location part)
-        save!     (fn [loc]
-                    (rf/dispatch [:map/part-update (:id part) {:body_location loc}]))]
+        part-id   (:id part)
+        draft     (uix.rf/use-subscribe [:ui/window-draft :body-location part-id])
+        saved     (:body_location part)
+        location  (if draft (:location draft) saved)
+        dirty?    (and (some? draft) (not= location saved))
+        place!    (fn [loc]
+                    (rf/dispatch [:window/set-draft :body-location part-id {:location loc}]))
+        cancel!   #(rf/dispatch [:window/clear-draft :body-location part-id])
+        save!     (fn []
+                    (rf/dispatch [:map/part-update part-id {:body_location location}])
+                    (cancel!))]
     (use-effect
      (fn []
        (when-not part
@@ -128,15 +137,26 @@
                  :title (str "Body location · " (:label part))}
          ($ :div {:class "flex justify-center gap-4"}
             (for [view ["front" "back"]]
-              ($ figure {:key      view
-                         :view     view
-                         :location location
-                         :on-place (when editable? save!)
-                         :class    "flex-1 min-w-0 rounded border border-base-300"})))
+              ($ :div {:key view :class "relative flex-1 min-w-0"}
+                 ($ figure {:view     view
+                            :location location
+                            :on-place (when editable? place!)
+                            :class    "w-full rounded border border-base-300"})
+                 ;; Removing the pin edits the draft (Save still commits),
+                 ;; so it is the figure's control, not a footer finish
+                 ;; action: it sits in the corner of the figure holding
+                 ;; the pin — the outer corner (front left, back right), away
+                 ;; from the gap between the figures. A sibling of the
+                 ;; figure, so a click on it never places a pin.
+                 (when (and editable? (= view (:view location)))
+                   ($ :button {:type     "button"
+                               :class    (str "btn btn-xs absolute bottom-2 "
+                                              (if (= view "front") "left-2" "right-2"))
+                               :on-click #(place! nil)}
+                      "Remove pin")))))
          (when editable?
-           ($ :div {:class "mt-3"}
-              ($ :button {:type     "button"
-                          :class    "btn btn-sm btn-ghost"
-                          :disabled (nil? location)
-                          :on-click #(save! nil)}
-                 "Clear")))))))
+           ;; Same gap as the body's top padding under the title bar.
+           ($ :div {:class "mt-[0.7rem]"}
+              ($ window-actions {:dirty?    dirty?
+                                 :on-save   save!
+                                 :on-cancel cancel!})))))))

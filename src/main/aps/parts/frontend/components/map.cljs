@@ -28,8 +28,10 @@
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types]]
+   [aps.parts.frontend.components.notes-window :refer [notes-window]]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
+   [aps.parts.frontend.components.toolbar.session-card :refer [trigger-window]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.components.window :refer [floating-windows]]
    [aps.parts.frontend.dates :as dates]
@@ -1475,7 +1477,9 @@
           ;; Floating windows (ADR-0017): outside ReactFlow so a title-
           ;; bar drag never reaches the pane as a pan; anchored to the
           ;; map-view like the marquee overlay.
-          ($ floating-windows {:kinds {:body-location body-location-window}}))
+          ($ floating-windows {:kinds {:body-location body-location-window
+                                       :notes         notes-window
+                                       :trigger       trigger-window}}))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal
