@@ -81,7 +81,15 @@
                          rows))]
     (-> the-map
         (update :parts tag)
-        (update :relationships tag))))
+        (update :relationships tag)
+        ;; The window groups by Session and lists in writing order.
+        (update :conversation_entries
+                (fn [entries]
+                  (->> (tag entries)
+                       (mapv #(assoc % :first_appeared_at
+                                     (get-in appeared [(:id %) :first_at])))
+                       (sort-by :first_appeared_at)
+                       vec))))))
 
 (defn get-map
   "Get a map by ID. Access is gated by `wrap-map-access` middleware.

@@ -27,12 +27,13 @@
    field stay out by default, rather than leaking on the day the column
    lands. The export's REQUIRED clinical fields (notes, body_location,
    trigger) are all present."
-  {:parts         [:type :label :description :notes :position_x :position_y
-                   :width :height :body_location :valid_from :valid_to]
-   :relationships [:type :source_id :target_id :notes :intensity
-                   :valid_from :valid_to]
-   :map-metadata  [:title :valid_from :valid_to]
-   :sessions      [:id :ordinal :trigger :anchor_valid_at :activated_part_id]})
+  {:parts                [:type :label :description :notes :position_x :position_y
+                          :width :height :body_location :valid_from :valid_to]
+   :relationships        [:type :source_id :target_id :notes :intensity
+                          :valid_from :valid_to]
+   :conversation_entries [:part_id :speaker :text :valid_from :valid_to]
+   :map-metadata         [:title :valid_from :valid_to]
+   :sessions             [:id :ordinal :trigger :anchor_valid_at :activated_part_id]})
 
 (defn- project
   [entity row]
@@ -64,15 +65,19 @@
    the Map exists and is the subject's to export."
   [ds map-id]
   (let [mid (db/->uuid map-id)]
-    {:format_version format-version
-     :exported_at    (OffsetDateTime/now)
-     :map            (assoc (map-identity ds mid)
-                            :title_history
-                            (mapv #(project :map-metadata %)
-                                  (bt/history ds :map_metadata [:= :map_id mid])))
-     :parts          (by-entity :parts (bt/history ds :parts [:= :map_id mid]))
-     :relationships  (by-entity :relationships
-                                (bt/history ds :relationships [:= :map_id mid]))
+    {:format_version       format-version
+     :exported_at          (OffsetDateTime/now)
+     :map                  (assoc (map-identity ds mid)
+                                  :title_history
+                                  (mapv #(project :map-metadata %)
+                                        (bt/history ds :map_metadata [:= :map_id mid])))
+     :parts                (by-entity :parts (bt/history ds :parts [:= :map_id mid]))
+     :relationships        (by-entity :relationships
+                                      (bt/history ds :relationships [:= :map_id mid]))
+     ;; Clinical (ADR-0018). Additive key, so format_version stays "1".
+     :conversation_entries (by-entity :conversation_entries
+                                      (bt/history ds :conversation_entries
+                                                  [:= :map_id mid]))
      ;; Sessions are non-temporal (ADR-0014): each exports once,
      ;; unversioned — the anchor instant is its valid-time place.
-     :sessions       (mapv #(project :sessions %) (session/index ds mid))}))
+     :sessions             (mapv #(project :sessions %) (session/index ds mid))}))

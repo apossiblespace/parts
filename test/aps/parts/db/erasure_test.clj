@@ -110,6 +110,34 @@
       (testing "user row physically gone"
         (is (zero? (:c users-left)))))))
 
+(deftest test-purge-deletes-conversation-entries
+  (let [user     (create-test-user!)
+        the-map  (create-test-map! (:id user) "Doomed")
+        part-id  (random-uuid)
+        entry-id (random-uuid)]
+    (bt/insert! db/datasource :parts
+                {:id         part-id :map_id     (:id the-map) :type "exile" :label "E"
+                 :position_x 0       :position_y 0}
+                {:actor-id (:id user)})
+    (bt/insert! db/datasource :conversation_entries
+                {:id      entry-id :map_id (:id the-map)    :part_id part-id
+                 :speaker "self"   :text   "clinical words"}
+                {:actor-id (:id user)})
+    (erasure/purge-account! db/datasource (:id user))
+    (testing "entries are physically gone"
+      (is (zero? (:c (jdbc/execute-one!
+                      db/datasource
+                      ["SELECT count(*) AS c FROM conversation_entries WHERE id = ?::uuid"
+                       (str entry-id)]
+                      {:builder-fn rs/as-unqualified-maps})))))
+    (testing "their audit snapshots are scrubbed"
+      (is (zero? (:c (jdbc/execute-one!
+                      db/datasource
+                      ["SELECT count(*) AS c FROM audit_log
+                        WHERE row_pk->>'id' = ? AND (before_row IS NOT NULL OR after_row IS NOT NULL)"
+                       (str entry-id)]
+                      {:builder-fn rs/as-unqualified-maps})))))))
+
 (deftest test-purge-deletes-sessions-and-activations
   ;; Clinical trigger text must not survive erasure (ADR-0014).
   (let [user    (create-test-user!)

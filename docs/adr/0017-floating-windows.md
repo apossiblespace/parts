@@ -7,7 +7,7 @@ Accepted — 2026-09-13.
 Amends the **saving model** in `CONTEXT.md`: sidebar fields autosave;
 floating windows and modals commit explicitly.
 
-Revised 2026-09-14: windows hold drafts with Save / Cancel (not autosave),
+Revised 2026-09-14: windows hold drafts with Save / Discard changes (not autosave),
 resize is in v1, and Part notes is a fourth consumer.
 
 ## Context
@@ -89,7 +89,7 @@ Windows **survive time-travel**: while viewing a past Session they show that
 Session's data read-only, with editing controls hidden. This falls out of the
 same derived-Session reads the sidebar uses.
 
-### Saving: drafts with Save / Cancel
+### Saving: drafts with Save / Discard changes
 
 A window is where the therapist **composes**. Sidebar fields are quick edits
 and autosave on blur; a window must not — clicking the canvas mid-sentence
@@ -97,10 +97,16 @@ must not commit, and the writer must not have to think about it. So:
 
 - A window edits a **draft**, keyed by kind and scope entity, held in window
   state for the page's life. **Save** commits through the entity's normal
-  update path (the map status indicator takes over from there). **Cancel**
+  update path (the map status indicator takes over from there). **Discard
+  changes**
   discards the draft.
-- **Close and Escape keep the draft.** Reopening shows it. Cancel is the only
-  discard. A dirty draft is marked in the title bar.
+- **Close and Escape keep the draft.** Reopening shows it. Discard changes is
+  the only discard.
+- **One footer for every editing window:** the save status on the left
+  ("Unsaved changes" with a dot; empty when clean), Discard changes and Save
+  on the right. Controls that *edit* the draft stay with the content, never in
+  the footer (Body location's Remove pin sits in the corner of the figure that
+  holds the pin).
 - Because drafts are keyed by entity, selecting Part B and returning to Part
   A shows A's draft again, and in Time-travel the active Session's trigger
   draft waits while the past is shown read-only.

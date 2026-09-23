@@ -5,14 +5,6 @@
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]))
 
-(defn- map-scope
-  "WHERE fragment confining a write to Relationships of `map-id`, or nil when
-   no Map is given. The API path always supplies it so a caller can only
-   touch Relationships in the Map they're authorised for; a Relationship in
-   another Map reads as not-found."
-  [map-id]
-  (when map-id [:= :map_id (db/->uuid map-id)]))
-
 (defn- validate-endpoints!
   "Both ends of a relationship must be Parts that currently exist in the
    *same* Map as the relationship — otherwise a caller could draw an edge to
@@ -66,7 +58,7 @@
    (model/validate-update data)
    (bt/update! tx :relationships (db/->uuid id) data
                {:actor-id (db/->uuid actor-id)
-                :scope    (map-scope map-id)})))
+                :scope    (db/map-scope map-id)})))
 
 (defn delete!
   "Retract a relationship. When `map-id` is given (the API path), scoped to
@@ -77,5 +69,5 @@
   ([id actor-id tx map-id]
    (let [result (bt/retract! tx :relationships (db/->uuid id)
                              {:actor-id (db/->uuid actor-id)
-                              :scope    (map-scope map-id)})]
+                              :scope    (db/map-scope map-id)})]
      {:id id :deleted (:retracted result)})))

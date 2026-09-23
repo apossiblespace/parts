@@ -58,6 +58,41 @@
       (is (vector? (-> response :body :parts)))
       (is (vector? (-> response :body :relationships))))))
 
+(deftest test-get-map-conversation-entries
+  (let [user    (create-test-user!)
+        map-id  (:id (create-test-map! (:id user) "Talk"))
+        s1      (session/create! map-id (:id user))
+        part-id (str (random-uuid))
+        entry!  (fn [text]
+                  (events/apply-changes!
+                   db/datasource
+                   {:map-id   map-id
+                    :actor-id (:id user)
+                    :changes  [{:entity "conversation-entry"                          :type "create"
+                                :id     (str (random-uuid))
+                                :data   {:part_id part-id :speaker "self" :text text}}]}))]
+    (events/apply-changes! db/datasource
+                           {:map-id   map-id
+                            :actor-id (:id user)
+                            :changes  [{:entity "part"                               :type "create" :id part-id
+                                        :data   {:type       "exile" :label      "E"
+                                                 :position_x 0       :position_y 0}}]})
+    (entry! "first")
+    (session/create! map-id (:id user))
+    (entry! "second")
+    (testing "entries come in writing order, each tagged with its Session"
+      (let [entries (-> (api/get-map (make-request user :params {:id map-id}))
+                        :body :conversation_entries)]
+        (is (= [["first" 1] ["second" 2]]
+               (mapv (juxt :text :first_appeared_ordinal) entries)))
+        (is (every? :first_appeared_at entries))))
+    (testing "Time-travel to Session 1 shows only what was said by then"
+      (is (= ["first"]
+             (mapv :text (-> (api/get-map (make-request user
+                                                        :params {:id map-id}
+                                                        :query {:at (str (:id s1))}))
+                             :body :conversation_entries)))))))
+
 (deftest test-get-map-as-of-session
   (let [user    (create-test-user!)
         the-map (parts-map/create! {:title "Time travel" :owner_id (:id user)}

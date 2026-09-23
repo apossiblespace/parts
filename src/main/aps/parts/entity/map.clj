@@ -37,7 +37,7 @@
   (let [uuid-id (db/->uuid id)
         where   [:= :map_id uuid-id]
         times   (keep #(bt/latest-change-at db/datasource % where)
-                      [:parts :relationships :map_metadata])]
+                      [:parts :relationships :conversation_entries :map_metadata])]
     (when (seq times)
       (reduce #(if (pos? (compare %2 %1)) %2 %1) times))))
 
@@ -95,8 +95,10 @@
        (throw (ex-info "Map not found" {:type :not-found :id id})))
      (assoc the-map
             :title         (:title (current-metadata db/datasource uuid-id))
-            :parts         (slice :parts)
-            :relationships (slice :relationships)))))
+            :parts                (slice :parts)
+            :relationships        (slice :relationships)
+            ;; Clinical (ADR-0018): the Render and PDF never read it.
+            :conversation_entries (slice :conversation_entries)))))
 
 (defn index
   "List a user's alive maps. Each row carries `:title` (from the
@@ -174,8 +176,11 @@
         actor   (db/->uuid actor-id)
         parts   (bt/as-of-now tx :parts [:= :map_id uuid-id])
         rels    (bt/as-of-now tx :relationships [:= :map_id uuid-id])
+        entries (bt/as-of-now tx :conversation_entries [:= :map_id uuid-id])
         meta    (current-metadata tx uuid-id)]
     ;; Child cascade: mirror in `db.erasure/purge-account!`.
+    (doseq [e entries]
+      (bt/retract! tx :conversation_entries (:id e) {:actor-id actor}))
     (doseq [r rels]
       (bt/retract! tx :relationships (:id r) {:actor-id actor}))
     (doseq [p parts]

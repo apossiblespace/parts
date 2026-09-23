@@ -16,6 +16,7 @@
   (:require
    [aps.parts.common.change-event :as change-event]
    [aps.parts.common.constants :as constants]
+   [aps.parts.entity.conversation-entry :as conversation-entry]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
    [next.jdbc :as jdbc]))
@@ -52,6 +53,19 @@
 (defmethod process-change [:relationship :remove]
   [{:keys [map-id actor-id tx]} {:keys [id]}]
   {:success true :result (relationship/delete! id actor-id tx map-id)})
+
+(defmethod process-change [:conversation-entry :create]
+  [{:keys [map-id actor-id tx]} {:keys [id data]}]
+  {:success true
+   :result  (conversation-entry/create! (assoc data :id id :map_id map-id) actor-id tx)})
+
+(defmethod process-change [:conversation-entry :update]
+  [{:keys [map-id actor-id tx]} {:keys [id data]}]
+  {:success true :result (conversation-entry/update! id data actor-id tx map-id)})
+
+(defmethod process-change [:conversation-entry :remove]
+  [{:keys [map-id actor-id tx]} {:keys [id]}]
+  {:success true :result (conversation-entry/delete! id actor-id tx map-id)})
 
 ;; -- Transport-agnostic batch entry point ---------------------------------
 

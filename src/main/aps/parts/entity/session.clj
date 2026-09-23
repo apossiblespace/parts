@@ -58,21 +58,59 @@
    as `{map-id row}` from one DISTINCT ON query. Maps with no Sessions
    are absent. The single SQL spelling of \"active = latest by anchor\"
    (ADR-0014); `latest` derives from it."
-  [map-ids]
-  (into {}
-        (map (juxt :map_id identity))
-        (db/query
-         (db/sql-format
-          {:select-distinct-on [[:map_id] :*]
-           :from               [:sessions]
-           :where              [:in :map_id (mapv db/->uuid map-ids)]
-           :order-by           [[:map_id :asc] [:anchor_valid_at :desc]]}))))
+  ([map-ids] (latest-by-map db/datasource map-ids))
+  ([ds map-ids]
+   (into {}
+         (map (juxt :map_id identity))
+         (jdbc/execute!
+          ds
+          (db/sql-format
+           {:select-distinct-on [[:map_id] :*]
+            :from               [:sessions]
+            :where              [:in :map_id (mapv db/->uuid map-ids)]
+            :order-by           [[:map_id :asc] [:anchor_valid_at :desc]]})
+          {:builder-fn rs/as-unqualified-maps}))))
 
-(defn- latest
-  "The active Session — the latest by anchor — or nil for a Map with none."
-  [map-id]
-  (let [uuid (db/->uuid map-id)]
-    (get (latest-by-map [uuid]) uuid)))
+(defn latest
+  "The active Session — the latest by anchor — or nil for a Map with none.
+   Pass the surrounding `tx` to read it inside a transaction."
+  ([map-id] (latest db/datasource map-id))
+  ([ds map-id]
+   (let [uuid (db/->uuid map-id)]
+     (get (latest-by-map ds [uuid]) uuid))))
+
+(defn lock-map!
+  "Lock the Map's identity row for the rest of `tx`. Session creation
+   takes it `:update` (exclusive); a write whose validity depends on which
+   Session is active takes it `:share`. So a Session cannot start between
+   such a check and its commit (ADR-0018's edit rule), while shared
+   holders never block each other."
+  [tx map-id mode]
+  (jdbc/execute! tx [(str "SELECT 1 FROM maps WHERE id = ? "
+                          (case mode :update "FOR UPDATE" :share "FOR SHARE"))
+                     (db/->uuid map-id)]))
+
+(defn- next-anchor
+  "The new Session's anchor, from the app's write clock (`bt/clock-ts`) —
+   the clock that stamps every Part, Relationship and Conversation entry —
+   so an anchor and the content after it never land out of order across
+   two clocks. Strictly after the previous anchor."
+  [tx map-uuid]
+  (bt/clock-ts (some-> (latest tx map-uuid) :anchor_valid_at db/->instant)))
+
+(defn require-active!
+  "Throws unless instant `t` falls in the Map's active (latest) Session —
+   the rule for content that may change only while its Session is live
+   (ADR-0018). Holds a shared lock on the Map until `tx` commits, so no
+   Session can start between this check and the caller's write."
+  [tx map-id t]
+  (lock-map! tx map-id :share)
+  (let [active (latest tx map-id)]
+    (when-not (and active
+                   (not (.isBefore (db/->instant t)
+                                   (db/->instant (:anchor_valid_at active)))))
+      (throw (ex-info "Only entries from the active Session can be changed"
+                      {:type :validation :map-id map-id})))))
 
 (defn create!
   "Open a new Session: the anchor is captured server-side at creation, the
@@ -84,6 +122,7 @@
    (jdbc/with-transaction [tx db/datasource]
      (create! map-id actor-id tx)))
   ([map-id actor-id tx]
+   (lock-map! tx map-id :update)
    (let [map-uuid (db/->uuid map-id)
          next-ord (-> (jdbc/execute-one!
                        tx
@@ -96,7 +135,7 @@
                               {:map_id          map-uuid
                                :ordinal         next-ord
                                :trigger         nil
-                               :anchor_valid_at [:now]}
+                               :anchor_valid_at (next-anchor tx map-uuid)}
                               tx)]
      (audit/record! tx {:actor-id actor-id
                         :table    :sessions
@@ -148,19 +187,22 @@
           (.atOffset java.time.ZoneOffset/UTC)))))
 
 (defn first-appearances
-  "Which Session did each Part and Relationship first appear in? Returns
-   `{entity-id → session-row}` for every entity ever recorded on the Map
+  "Which Session did each Part, Relationship and Conversation entry first
+   appear in? Returns
+   `{entity-id → session-row}`, each row carrying the entity's own
+   `:first_at` instant, for every entity ever recorded on the Map
    (retracted included — see `bt/first-appearances`), bucketed into anchor
    ranges; there is no session_id column anywhere (ADR-0014)."
   [map-id]
   (let [sessions (index map-id)
         scope    [:= :map_id (db/->uuid map-id)]
         firsts   (merge (bt/first-appearances db/datasource :parts scope)
-                        (bt/first-appearances db/datasource :relationships scope))]
+                        (bt/first-appearances db/datasource :relationships scope)
+                        (bt/first-appearances db/datasource :conversation_entries scope))]
     (into {}
           (keep (fn [[id first-at]]
                   (when-let [s (covering sessions first-at)]
-                    [id s])))
+                    [id (assoc s :first_at first-at)])))
           firsts)))
 
 ;; -- Narrow mutation (ADR-0014, "Session mutation") ---------------------------

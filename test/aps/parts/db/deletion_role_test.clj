@@ -24,17 +24,18 @@
   "Every (table, privilege) pair purge-account! relies on while running as
    deletion_role. Extend this WHEN extending the purge — the coverage test
    fails when a grant is missing, before a live purge can."
-  {"parts"               ["SELECT" "DELETE"]
-   "relationships"       ["SELECT" "DELETE"]
-   "maps"                ["SELECT" "DELETE"]
-   "map_metadata"        ["SELECT" "DELETE"]
-   "sessions"            ["SELECT" "DELETE"]
-   "session_activations" ["SELECT" "DELETE"]
-   "invitations"         ["SELECT" "DELETE"]
-   "waitlist_signups"    ["SELECT" "DELETE"]
-   "policy_acceptances"  ["SELECT" "DELETE"]
-   "users"               ["SELECT" "UPDATE" "DELETE"]
-   "audit_log"           ["SELECT" "INSERT" "UPDATE"]})
+  {"parts"                ["SELECT" "DELETE"]
+   "relationships"        ["SELECT" "DELETE"]
+   "conversation_entries" ["SELECT" "DELETE"]
+   "maps"                 ["SELECT" "DELETE"]
+   "map_metadata"         ["SELECT" "DELETE"]
+   "sessions"             ["SELECT" "DELETE"]
+   "session_activations"  ["SELECT" "DELETE"]
+   "invitations"          ["SELECT" "DELETE"]
+   "waitlist_signups"     ["SELECT" "DELETE"]
+   "policy_acceptances"   ["SELECT" "DELETE"]
+   "users"                ["SELECT" "UPDATE" "DELETE"]
+   "audit_log"            ["SELECT" "INSERT" "UPDATE"]})
 
 (deftest test-deletion-role-grants-cover-the-purge
   (doseq [[table privs] purge-privileges

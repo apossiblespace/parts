@@ -54,6 +54,14 @@
                      (throw (ex-info "Invalid UUID format" {:type :invalid-uuid :value id}))))
     :else (throw (ex-info "Invalid UUID type" {:type :invalid-uuid :value id}))))
 
+(defn map-scope
+  "WHERE fragment confining a write to rows of `map-id`, or nil when no Map
+   is given. The API path always supplies it so a caller can only touch
+   rows in the Map they're authorised for; a row in another Map reads as
+   not-found."
+  [map-id]
+  (when map-id [:= :map_id (->uuid map-id)]))
+
 (defn ->instant
   "A timestamp value as java.time.Instant, whatever shape it arrived in:
    plain (non-range) `timestamptz` reads come back as java.sql.Timestamp,

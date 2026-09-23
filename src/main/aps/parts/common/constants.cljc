@@ -69,6 +69,12 @@
 (def relationship-types
   (set (map name relationship-type-order)))
 
+(def conversation-speakers
+  "Who can speak in a Part's conversation (ADR-0018): Self, the Part
+   itself, or the therapist (IFS direct access). Order is the composer's
+   control order."
+  ["self" "part" "therapist"])
+
 (defn relationship-edge-label
   "The label drawn along an edge of `type` (string or keyword), or nil
    for unknown — a grey line already reads as unknown, so labelling it

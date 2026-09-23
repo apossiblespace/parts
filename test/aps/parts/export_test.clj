@@ -131,3 +131,21 @@
 
       (testing "map_id is dropped — the export is scoped to one Map"
         (is (not (contains? e1 :map_id)))))))
+
+(deftest test-export-includes-conversation-entries
+  (testing "conversation entries export with Part, speaker and text (ADR-0018)"
+    (let [user    (create-test-user!)
+          the-map (create-test-map! (:id user))
+          part    (part-row (:id the-map))
+          _       (bt/insert! db/datasource :parts part {:actor-id (:id user)})
+          entry   {:id      (random-uuid)
+                   :map_id  (db/->uuid (:id the-map))
+                   :part_id (:id part)
+                   :speaker "part"
+                   :text    "[turns away]"}
+          _       (bt/insert! db/datasource :conversation_entries entry {:actor-id (:id user)})
+          out     (export/export-map db/datasource (:id the-map))]
+      (is (= "1" (:format_version out)))
+      (is (= [{:part_id (:id part) :speaker "part" :text "[turns away]" :valid_to nil}]
+             (mapv #(dissoc % :valid_from)
+                   (:versions (first (:conversation_entries out)))))))))

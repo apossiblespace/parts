@@ -143,6 +143,23 @@
                                                   :source_id "a"
                                                   :target_id "b"})))))
 
+(deftest conversation-entry-events-test
+  (testing "create carries Part, speaker and text"
+    (is (s/valid? ::ce/change-event
+                  (ce/conversation-entry-create "e-1" {:part_id "p-1"                     :speaker "therapist"
+                                                       :text    "What are you afraid of?"}))))
+  (testing "update edits speaker or text only — never the Part"
+    (is (= {:text "x"} (:data (ce/conversation-entry-update "e-1" {:text "x"}))))
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/conversation-entry-update "e-1" {:part_id "p-2"}))))
+  (testing "unknown speakers and blank text are rejected"
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/conversation-entry-create "e-1" {:part_id "p" :speaker "guide" :text "hi"})))
+    (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core.ExceptionInfo)
+                 (ce/conversation-entry-create "e-1" {:part_id "p" :speaker "self" :text " "}))))
+  (testing "remove carries nothing"
+    (is (= {} (:data (ce/conversation-entry-remove "e-1"))))))
+
 (deftest parse-test
   (testing "coerces a single wire change (string entity/type) into a canonical vector"
     (is (= [part-create]

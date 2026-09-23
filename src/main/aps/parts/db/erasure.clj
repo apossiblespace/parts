@@ -88,7 +88,7 @@
         audit scrub, while the rows still exist).
      3. Hard-DELETE the user's email-keyed rows in invitations and
         waitlist_signups (resolving the email before the users row goes).
-     4. Hard-DELETE relationships / parts / sessions (with their
+     4. Hard-DELETE conversation entries / relationships / parts / sessions (with their
         activation links) / maps owned by the user.
      5. Scrub `before_row`/`after_row` from every audit_log row describing
         those entities. The DELETEs in step 4 each fire the audit trigger,
@@ -151,9 +151,12 @@
                        SELECT id::text FROM relationships
                         WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)
                        UNION
+                       SELECT id::text FROM conversation_entries
+                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)
+                       UNION
                        SELECT id::text FROM sessions
                         WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
-                      user-uuid user-uuid user-uuid user-uuid user-uuid])
+                      user-uuid user-uuid user-uuid user-uuid user-uuid user-uuid])
       ;; Resolve the email before the users row is deleted: invitations and
       ;; waitlist_signups are keyed by email, not user-id.
       (let [email (:email (jdbc/execute-one!
@@ -164,6 +167,10 @@
           (jdbc/execute! tx ["DELETE FROM invitations WHERE email = ?" email])
           (jdbc/execute! tx ["DELETE FROM waitlist_signups WHERE email = ?" email])))
       ;; Child cascade: mirror in `entity.map/delete-impl!`.
+      (jdbc/execute! tx
+                     ["DELETE FROM conversation_entries
+                       WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"
+                      user-uuid])
       (jdbc/execute! tx
                      ["DELETE FROM relationships
                        WHERE map_id IN (SELECT id FROM maps WHERE owner_id = ?)"

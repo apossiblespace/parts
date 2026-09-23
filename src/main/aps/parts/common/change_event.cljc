@@ -2,7 +2,7 @@
   "A change-event is the intent to mutate a Map's contents.
 
    A change-event is `{:entity :type :id :data}`: a keyworded entity (`:part` /
-   `:relationship`), a keyworded operation (`:create` / `:update` / `:remove`),
+   `:relationship` / `:conversation-entry`), a keyworded operation (`:create` / `:update` / `:remove`),
    the entity id, and a per-operation `:data` payload.
 
    This module is the seam the change-event crosses client-to-server: it owns
@@ -15,6 +15,7 @@
    Change-events cover committed mutations only, what goes through the
    all-or-nothing batch into the bitemporal record."
   (:require
+   [aps.parts.common.models.conversation-entry :as conversation-entry]
    [aps.parts.common.models.part :as part]
    [aps.parts.common.models.relationship :as relationship]
    [aps.parts.common.utils :as utils]
@@ -22,7 +23,7 @@
 
 ;; -- envelope --------------------------------------------------------------
 
-(s/def ::entity #{:part :relationship})
+(s/def ::entity #{:part :relationship :conversation-entry})
 (s/def ::type   #{:create :update :remove})
 (s/def ::id     (s/or :string string? :uuid uuid?))
 (s/def ::data   map?)
@@ -46,6 +47,9 @@
 
 (def ^:private relationship-attr-keys
   #{:type :source_id :target_id :notes :intensity})
+
+(def ^:private conversation-entry-attr-keys
+  #{:part_id :speaker :text})
 
 (defn- attrs-only
   "Predicate: `m`'s keys all belong to `allowed` — closing the otherwise
@@ -79,6 +83,17 @@
          (attrs-only relationship-attr-keys)
          seq))
 
+(s/def ::conversation-entry-create-data
+  (s/and (s/keys :req-un [::conversation-entry/part_id ::conversation-entry/speaker
+                          ::conversation-entry/text])
+         (attrs-only conversation-entry-attr-keys)))
+
+;; The Part an entry belongs to is fixed at creation (ADR-0018).
+(s/def ::conversation-entry-update-data
+  (s/and (s/keys :opt-un [::conversation-entry/speaker ::conversation-entry/text])
+         (attrs-only #{:speaker :text})
+         seq))
+
 (s/def ::remove-data (s/and map? empty?))
 
 ;; -- :data spec dispatch ---------------------------------------------------
@@ -95,6 +110,9 @@
     [:relationship :create] ::relationship-create-data
     [:relationship :update] ::relationship-update-data
     [:relationship :remove] ::remove-data
+    [:conversation-entry :create] ::conversation-entry-create-data
+    [:conversation-entry :update] ::conversation-entry-update-data
+    [:conversation-entry :remove] ::remove-data
     nil))
 
 ;; -- the canonical change-event -------------------------------------------
@@ -150,6 +168,21 @@
   "Change-event retracting a Relationship."
   [id]
   (build :relationship :remove id {}))
+
+(defn conversation-entry-create
+  "Change-event adding a Conversation entry with `attrs`."
+  [id attrs]
+  (build :conversation-entry :create id attrs))
+
+(defn conversation-entry-update
+  "Change-event editing a Conversation entry's speaker or text."
+  [id attrs]
+  (build :conversation-entry :update id attrs))
+
+(defn conversation-entry-remove
+  "Change-event retracting a Conversation entry."
+  [id]
+  (build :conversation-entry :remove id {}))
 
 ;; -- parse -----------------------------------------------------------------
 ;; Consumer-side. Untrusted wire input → a vector of canonical change-events.

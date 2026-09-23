@@ -195,33 +195,40 @@
                                :where  (current-where id scope)})
                   exec-opts)))
 
-(defn- write-ts
-  "The single wall-clock instant one sequenced write operates at, given the
-   `current` row it is superseding. Wall clock rather than SQL `now()` so
-   that several writes to one entity inside one transaction each get their
-   own instant (`now()` is frozen at transaction start and would collapse
-   them into inverted or empty ranges).
+(defn clock-ts
+  "The app's one write clock: now, truncated to microseconds (Postgres
+   timestamptz resolution), clamped to a tick past `floor` (an Instant or
+   OffsetDateTime, or nil) when the wall clock is at or behind it — NTP can
+   step it back. Shared by every sequenced write (`write-ts`) and by Session
+   anchors, so an anchor and the content after it come from one clock.
 
-   Clamped: if the wall clock is at or behind the row's bounds (NTP stepping
-   the clock back between writes), returns a tick just past those bounds so
-   every derived range stays well-formed. The lie is bounded at a
-   microsecond; the alternative is a rejected write.
-
-   Truncated to microseconds — Postgres timestamptz resolution. The same
-   instant reaches Postgres on two paths (a bound JDBC parameter in
-   `close-current-row!`, an ISO string inside a range literal from
-   `range-types`), and the two paths round sub-microsecond digits
-   differently; a µs-aligned value serializes identically on both."
-  [current]
+   Truncation matters: the same instant reaches Postgres on two paths (a
+   bound JDBC parameter in `close-current-row!`, an ISO string inside a
+   range literal from `range-types`), and the two paths round
+   sub-microsecond digits differently; a µs-aligned value serializes
+   identically on both. The clamp's lie is bounded at a microsecond; the
+   alternative is a rejected write."
+  [floor]
   (let [now-ts (.truncatedTo (OffsetDateTime/now) ChronoUnit/MICROS)
-        floor  (->> [(:lower (:valid_at current))
-                     (:lower (:sys_period current))]
-                    (filter #(instance? OffsetDateTime %))
-                    sort
-                    last)]
+        floor  (if (instance? java.time.Instant floor)
+                 (.atOffset ^java.time.Instant floor java.time.ZoneOffset/UTC)
+                 floor)]
     (if (and floor (not (.isAfter now-ts ^OffsetDateTime floor)))
       (.plusNanos ^OffsetDateTime floor 1000)
       now-ts)))
+
+(defn- write-ts
+  "The single wall-clock instant one sequenced write operates at, given the
+   `current` row it is superseding: `clock-ts` past the row's bounds, so
+   several writes to one entity inside one transaction each get their own
+   instant (SQL `now()` is frozen at transaction start and would collapse
+   them into inverted or empty ranges)."
+  [current]
+  (clock-ts (->> [(:lower (:valid_at current))
+                  (:lower (:sys_period current))]
+                 (filter #(instance? OffsetDateTime %))
+                 sort
+                 last)))
 
 (defn- close-current-row!
   "Advance the `sys_period` upper bound of the currently-in-effect row to
