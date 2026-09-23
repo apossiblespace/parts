@@ -5,7 +5,8 @@
    [aps.parts.common.models.part :as model]
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
-   [aps.parts.entity.conversation-entry :as conversation-entry]))
+   [aps.parts.entity.conversation-entry :as conversation-entry]
+   [aps.parts.entity.relationship :as relationship]))
 
 (defn create!
   "Create a new part. Requires `actor-id` (the user making the change).
@@ -38,15 +39,16 @@
 
 (defn delete!
   "Retract a part — it no longer exists from now on. Past history is preserved.
-   Its Conversation entries are retracted with it (ADR-0018).
-   When `map-id` is given (the API path), scoped to that Map — a Part in
-   another Map is not-found and nothing is retracted."
-  ([id actor-id] (delete! id actor-id db/datasource nil))
-  ([id actor-id tx] (delete! id actor-id tx nil))
-  ([id actor-id tx map-id]
-   (let [result (bt/retract! tx :parts (db/->uuid id)
-                             {:actor-id (db/->uuid actor-id)
-                              :scope    (db/map-scope map-id)})]
-     (when (:retracted result)
-       (conversation-entry/retract-for-part! tx id actor-id))
-     {:id id :deleted (:retracted result)})))
+   Its Relationships and Conversation entries are retracted with it, in
+   the same transaction, so no child outlives the Part in the present.
+   `tx` must be an open transaction: the cascade is atomic only inside one.
+   Scoped to `map-id` — a Part in another Map is not-found and nothing is
+   retracted."
+  [id actor-id tx map-id]
+  (let [result (bt/retract! tx :parts (db/->uuid id)
+                            {:actor-id (db/->uuid actor-id)
+                             :scope    (db/map-scope map-id)})]
+    (when (:retracted result)
+      (relationship/retract-for-part! tx id actor-id)
+      (conversation-entry/retract-for-part! tx id actor-id))
+    {:id id :deleted (:retracted result)}))

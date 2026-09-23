@@ -4,7 +4,8 @@
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
-   [clojure.test :refer [deftest is testing use-fixtures]]))
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [next.jdbc :as jdbc]))
 
 (use-fixtures :once with-test-db)
 
@@ -55,7 +56,8 @@
 
     (testing "delete!"
       (let [created (part/create! part-data (:id user))
-            result  (part/delete! (:id created) (:id user))]
+            result  (jdbc/with-transaction [tx db/datasource]
+                      (part/delete! (:id created) (:id user) tx (:map_id created)))]
         (is (:deleted result))
         (is (= (:id created) (:id result)))
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Part not found"
@@ -145,7 +147,8 @@
 
     (testing "delete! scoped to another Map retracts nothing"
       (is (= {:id (:id part-b) :deleted false}
-             (part/delete! (:id part-b) (:id user) db/datasource (:id map-a))))
+             (jdbc/with-transaction [tx db/datasource]
+               (part/delete! (:id part-b) (:id user) tx (:id map-a)))))
       (is (= "B Part" (:label (part/fetch (:id part-b))))))
 
     (testing "the same write scoped to the correct Map succeeds"

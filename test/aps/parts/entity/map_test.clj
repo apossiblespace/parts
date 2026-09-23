@@ -118,7 +118,8 @@
       ;; versions (a retracted row is still TT-current; only the
       ;; valid-time bound excludes it).
       (testing "retracted parts leave the stats"
-        (part/delete! (:id part2) (:id user))
+        (jdbc/with-transaction [tx db/datasource]
+          (part/delete! (:id part2) (:id user) tx (:id the-map)))
         (is (= {:manager 1}
                (:parts_by_type (stats-of (:id user) (:id the-map))))))))
 

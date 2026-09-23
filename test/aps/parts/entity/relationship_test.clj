@@ -1,5 +1,7 @@
 (ns aps.parts.entity.relationship-test
   (:require
+   [aps.parts.api.maps-events :as events]
+   [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
@@ -156,3 +158,50 @@
                                                    :target_id (:id p)
                                                    :type      "protects"}
                                                   (:id user)))))))
+
+(defn- three-parts-two-edges!
+  "A Map with Parts a, b, c and edges a->b, c->a. Returns ids."
+  []
+  (let [user    (create-test-user!)
+        map-id  (:id (parts-map/create! {:title "Cascade" :owner_id (:id user)} (:id user)))
+        [a b c] (repeatedly 3 #(str (random-uuid)))
+        [ab ca] (repeatedly 2 #(str (random-uuid)))
+        part    (fn [id] {:entity "part"                                                  :type "create" :id id
+                          :data   {:type "manager" :label id :position_x 0 :position_y 0}})
+        edge    (fn [id s t] {:entity "relationship"                               :type "create" :id id
+                              :data   {:type "protects" :source_id s :target_id t}})]
+    (events/apply-changes! db/datasource
+                           {:map-id  map-id                                                   :actor-id (:id user)
+                            :changes [(part a) (part b) (part c) (edge ab a b) (edge ca c a)]})
+    {:user (:id user) :map-id map-id :a a :b b :ab ab :ca ca}))
+
+(defn- live-edges [map-id]
+  (set (map (comp str :id) (:relationships (parts-map/fetch map-id)))))
+
+(deftest test-part-delete-retracts-its-relationships
+  (testing "the server alone retracts edges at either end of a deleted Part"
+    (let [{:keys [user map-id a]} (three-parts-two-edges!)]
+      (events/apply-changes! db/datasource
+                             {:map-id  map-id                                           :actor-id user
+                              :changes [{:entity "part" :type "remove" :id a :data {}}]})
+      (is (empty? (live-edges map-id)))))
+
+  (testing "an edge not touching the deleted Part survives"
+    (let [{:keys [user map-id b ca]} (three-parts-two-edges!)]
+      (events/apply-changes! db/datasource
+                             {:map-id  map-id                                           :actor-id user
+                              :changes [{:entity "part" :type "remove" :id b :data {}}]})
+      (is (= #{ca} (live-edges map-id)))))
+
+  (testing "client removes in the same batch still succeed, before or after the Part"
+    (doseq [order [:edges-first :part-first]]
+      (let [{:keys [user map-id a ab ca]} (three-parts-two-edges!)
+            edges                         [{:entity "relationship" :type "remove" :id ab :data {}}
+                                           {:entity "relationship" :type "remove" :id ca :data {}}]
+            part-rm                       {:entity "part" :type "remove" :id a :data {}}]
+        (events/apply-changes! db/datasource
+                               {:map-id  map-id                     :actor-id user
+                                :changes (if (= order :edges-first)
+                                           (conj edges part-rm)
+                                           (into [part-rm] edges))})
+        (is (empty? (live-edges map-id)) (str order))))))

@@ -71,3 +71,14 @@
                              {:actor-id (db/->uuid actor-id)
                               :scope    (db/map-scope map-id)})]
      {:id id :deleted (:retracted result)})))
+
+(defn retract-for-part!
+  "Retract every live Relationship with Part `part-id` at either end — the
+   Part is being retracted in the same transaction, so no edge outlives an
+   endpoint in the present. A client that also sends its own removes for
+   these edges is harmless: retracting an already-retracted edge is a
+   no-op."
+  [tx part-id actor-id]
+  (let [pid (db/->uuid part-id)]
+    (doseq [r (bt/live-rows tx :relationships [:or [:= :source_id pid] [:= :target_id pid]])]
+      (bt/retract! tx :relationships (:id r) {:actor-id (db/->uuid actor-id)}))))
