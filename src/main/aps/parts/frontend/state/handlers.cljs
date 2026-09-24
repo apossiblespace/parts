@@ -7,6 +7,7 @@
    [aps.parts.common.models.relationship :as relationship :refer [make-relationship]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.utils :as api-utils]
+   [aps.parts.frontend.state.conversations :as conversations]
    [aps.parts.frontend.state.map-updates :as map-updates]
    [aps.parts.frontend.state.save-status :as save-status]
    [aps.parts.frontend.state.sessions :as sessions]
@@ -238,9 +239,11 @@
                      parts))))
 
 (defn- remove-part
-  "Drop the part with `part-id` and clear it from selection."
+  "Drop the part with `part-id`, its conversation, and clear it from
+   selection."
   [db part-id]
   (-> db
+      (update-in [:map :conversation_entries] conversations/remove-part-entries part-id)
       (update-in [:map :parts]
                  (fn [parts] (filterv #(not= (:id %) part-id) parts)))
       (update-in [:ui :selected-node-ids]
@@ -303,6 +306,52 @@
  (fn [{:keys [db]} [_ part-id]]
    {:db              (remove-part db part-id)
     :queue/add-event (ce/part-remove part-id)}))
+
+;; -- Conversation entries (ADR-0018) ----------------------------------------
+
+(rf/reg-event-fx
+ :map/conversation-entry-create
+ [require-editable]
+ (fn [{:keys [db]} [_ part-id speaker text]]
+   (let [entry {:id (str (random-uuid)) :part_id part-id :speaker speaker :text text}]
+     ;; A new entry is Session content, so it closes the undo window
+     ;; like a new Part does.
+     {:db              (-> db
+                           (conversations/add-entry entry)
+                           sessions/close-undo-window)
+      :queue/add-event (ce/conversation-entry-create
+                        (:id entry) (select-keys entry [:part_id :speaker :text]))})))
+
+(rf/reg-event-fx
+ :map/conversation-entry-update
+ [require-editable]
+ (fn [{:keys [db]} [_ id attrs]]
+   {:db              (update-in db [:map :conversation_entries]
+                                conversations/merge-entry id attrs)
+    :queue/add-event (ce/conversation-entry-update id attrs)}))
+
+(rf/reg-event-fx
+ :map/conversation-entry-remove
+ [require-editable]
+ (fn [{:keys [db]} [_ id]]
+   {:db              (update-in db [:map :conversation_entries]
+                                conversations/remove-entry id)
+    :queue/add-event (ce/conversation-entry-remove id)}))
+
+(rf/reg-event-db
+ :conversation/show
+ ;; Open the conversation window in `mode` (:part or :self).
+ (fn [db [_ mode]]
+   (-> db
+       (assoc-in [:ui :conversation-mode] mode)
+       (update-in [:ui :windows] windows/open :conversation))))
+
+(rf/reg-event-fx
+ :conversation/show-part
+ ;; Self mode's Part heading: select that Part and switch to Part mode.
+ (fn [{:keys [db]} [_ part-id]]
+   {:db (assoc-in db [:ui :conversation-mode] :part)
+    :fx [[:dispatch [:selection/set {:node-ids [part-id] :edge-ids []}]]]}))
 
 (rf/reg-event-db
  :map/part-update-position

@@ -5,12 +5,10 @@
    [aps.parts.api.maps-events :as events]
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
-   [aps.parts.entity.conversation-entry :as conversation-entry]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user! create-test-map!]]
-   [clojure.test :refer [deftest is testing use-fixtures]]
-   [next.jdbc :as jdbc]))
+   [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
 
@@ -69,35 +67,39 @@
                               (add-entry! (assoc ctx :part-id (:part-id other))
                                           "self" "hello")))))))
 
-(deftest test-edit-only-while-session-active
+(deftest test-edit-and-delete-like-notes
   (let [ctx (setup!)
-        id  (add-entry! ctx "part" "I'm scared.")]
-    (testing "edit and delete work while the entry's Session is active"
+        id  (add-entry! ctx "part" "I'm scared.")
+        s1  (first (session/index (:map-id ctx)))]
+    (session/create! (:map-id ctx) (:user-id ctx))
+
+    (testing "an entry from an earlier Session can still be edited from the present"
       (apply! ctx [{:entity "conversation-entry"               :type "update" :id id
                     :data   {:text "I'm scared you'll leave."}}])
       (is (= "I'm scared you'll leave." (:text (first (entries ctx))))))
 
-    (testing "once a newer Session starts, the entry is read-only"
-      (session/create! (:map-id ctx) (:user-id ctx))
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"active Session"
-                            (apply! ctx [{:entity "conversation-entry" :type "update" :id id
-                                          :data   {:text "rewritten"}}])))
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"active Session"
-                            (apply! ctx [{:entity "conversation-entry" :type "remove" :id id
-                                          :data   {}}])))
-      (is (= "I'm scared you'll leave." (:text (first (entries ctx))))))
+    (testing "the edit is sequenced: the earlier Session still shows the original"
+      (is (= ["I'm scared."]
+             (mapv :text (:conversation_entries
+                          (parts-map/fetch (:map-id ctx)
+                                           (session/as-of-instant (:map-id ctx) s1)))))))
 
     (testing "the Part an entry belongs to cannot be changed"
       (is (thrown? clojure.lang.ExceptionInfo
-                   (apply! ctx [{:entity "conversation-entry"           :type "update"
-                                 :id     (add-entry! ctx "self" "new")
+                   (apply! ctx [{:entity "conversation-entry"           :type "update" :id id
                                  :data   {:part_id (str (random-uuid))}}]))))
 
-    (testing "an entry in another Map reads as not-found"
+    (testing "an entry in another Map is not touched"
       (let [other (setup!)]
-        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not found"
-                              (apply! other [{:entity "conversation-entry" :type "remove"
-                                              :id     id                   :data {}}])))))))
+        (is (thrown? clojure.lang.ExceptionInfo
+                     (apply! other [{:entity "conversation-entry" :type "update" :id id
+                                     :data   {:text "hijacked"}}])))
+        (apply! other [{:entity "conversation-entry" :type "remove" :id id :data {}}])
+        (is (= "I'm scared you'll leave." (:text (first (entries ctx)))))))
+
+    (testing "delete removes it from the present"
+      (apply! ctx [{:entity "conversation-entry" :type "remove" :id id :data {}}])
+      (is (empty? (entries ctx))))))
 
 (deftest test-part-delete-retracts-its-entries
   (let [ctx (setup!)]
@@ -115,8 +117,8 @@
 
 (deftest test-entry-right-after-a-new-session-lands-in-it
   ;; Anchors and content share the app server's clock, so an entry
-  ;; written the instant a Session starts belongs to that Session and is
-  ;; editable — never filed under the previous one.
+  ;; written the instant a Session starts belongs to that Session —
+  ;; never filed under the previous one.
   (let [ctx (setup!)]
     (dotimes [_ 5]
       (let [s  (session/create! (:map-id ctx) (:user-id ctx))
@@ -131,18 +133,3 @@
                           (session/index (:map-id ctx)))]
         (is (apply distinct? anchors))
         (is (= anchors (sort anchors)))))))
-
-(deftest test-session-start-waits-for-an-in-flight-edit
-  ;; The edit check holds a shared lock on the Map until its batch
-  ;; commits; starting a Session needs the exclusive lock, so it cannot
-  ;; slip in between the check and the write.
-  (let [ctx (setup!)
-        id  (add-entry! ctx "self" "hold")]
-    (jdbc/with-transaction [edit-tx db/datasource]
-      (conversation-entry/update! id {:text "mid-edit"} (:user-id ctx) edit-tx (:map-id ctx))
-      (let [start (future
-                    (jdbc/with-transaction [s-tx db/datasource]
-                      (jdbc/execute! s-tx ["SET LOCAL lock_timeout = '200ms'"])
-                      (session/create! (:map-id ctx) (:user-id ctx) s-tx)))]
-        (is (thrown? Exception @start)
-            "the Session start is blocked while the edit is open")))))

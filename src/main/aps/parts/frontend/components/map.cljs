@@ -23,6 +23,7 @@
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.components.body-location :refer [body-location-window]]
+   [aps.parts.frontend.components.conversation-window :refer [conversation-window]]
    [aps.parts.frontend.components.delete-confirmation-modal :refer [delete-confirmation-modal]]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
@@ -1478,6 +1479,7 @@
           ;; bar drag never reaches the pane as a pan; anchored to the
           ;; map-view like the marquee overlay.
           ($ floating-windows {:kinds {:body-location body-location-window
+                                       :conversation  conversation-window
                                        :notes         notes-window
                                        :trigger       trigger-window}}))
        (let [{:keys [title body confirm-label]} (when pending-deletes

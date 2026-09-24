@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.toolbar.relationship-form
   (:require
-   [aps.parts.common.constants :refer [relationship-colors relationship-labels]]
+   [aps.parts.common.constants :refer [relationship-colors relationship-labels max-text-length]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.form :as form]
@@ -107,8 +107,9 @@
                          :on-blur       commit-intensity}))
 
             ($ :label {:class "fieldset-label"} "Notes:")
-            ($ :textarea {:class     "textarea textarea-sm mb-1"
-                          :value     (:notes values)
-                          :onChange  #(update-field :notes (.. % -target -value))
-                          :on-blur   text-blur
-                          :onKeyDown (text-keys :notes)}))))))
+            ($ :textarea {:max-length max-text-length
+                          :class      "textarea textarea-sm mb-1"
+                          :value      (:notes values)
+                          :onChange   #(update-field :notes (.. % -target -value))
+                          :on-blur    text-blur
+                          :onKeyDown  (text-keys :notes)}))))))

@@ -82,13 +82,12 @@
     (-> the-map
         (update :parts tag)
         (update :relationships tag)
-        ;; The window groups by Session and lists in writing order.
+        ;; Sent in writing order: the window groups entries but never
+        ;; sorts them, so the write time itself stays on the server.
         (update :conversation_entries
                 (fn [entries]
                   (->> (tag entries)
-                       (mapv #(assoc % :first_appeared_at
-                                     (get-in appeared [(:id %) :first_at])))
-                       (sort-by :first_appeared_at)
+                       (sort-by #(get-in appeared [(:id %) :first_at]))
                        vec))))))
 
 (defn get-map

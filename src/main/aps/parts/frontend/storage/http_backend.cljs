@@ -3,32 +3,9 @@
   (:require
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.api.http :as http]
+   [aps.parts.frontend.storage.ids :as ids]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [<! go]]))
-
-(defn normalize-map-ids
-  "Converts all UUID objects in a map's data to strings.
-   Transit decodes Java UUIDs as CLJS UUID objects, but the rest of the app
-   (ReactFlow adapters, localStorage backend) expects plain strings — a
-   UUID object as a ReactFlow id breaks its nodeLookup (JS Maps compare
-   object keys by reference), which hides every edge. Public because the
-   Time-travel snapshot fetch reads the same endpoint outside this
-   backend and must normalize identically."
-  [the-map]
-  (-> the-map
-      (update :id str)
-      (update :parts
-              (fn [parts]
-                (mapv #(-> % (update :id str) (update :map_id str))
-                      parts)))
-      (update :relationships
-              (fn [rels]
-                (mapv #(-> %
-                           (update :id str)
-                           (update :map_id str)
-                           (update :source_id str)
-                           (update :target_id str))
-                      rels)))))
 
 (defrecord HttpBackend []
   StorageBackend
@@ -56,7 +33,7 @@
       (o/debug "http-backend.load-map" "loading map" map-id)
       (let [response (<! (http/GET (str "/maps/" map-id)))]
         (case (:status response)
-          200 (normalize-map-ids (:body response))
+          200 (ids/normalize-map-ids (:body response))
           401 (do
                 (o/warn "http-backend.load-map" "unauthorized" map-id)
                 {:error :unauthorized})

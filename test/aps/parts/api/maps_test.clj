@@ -10,8 +10,10 @@
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!
                                     create-test-map!]]
    [aps.parts.render.document :as document]
+   [aps.parts.routes :as routes]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing use-fixtures]]))
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [muuntaja.core :as m]))
 
 (use-fixtures :once with-test-db)
 
@@ -85,7 +87,14 @@
                         :body :conversation_entries)]
         (is (= [["first" 1] ["second" 2]]
                (mapv (juxt :text :first_appeared_ordinal) entries)))
-        (is (every? :first_appeared_at entries))))
+        (is (not-any? :first_appeared_at entries)
+            "the write time orders entries on the server; it is not sent")))
+    (testing "the response encodes as transit — handler tests never serialize"
+      (let [body (:body (api/get-map (make-request user :params {:id map-id})))
+            wire (m/encode routes/transit-format "application/transit+json" body)]
+        (is (= ["first" "second"]
+               (mapv :text (:conversation_entries
+                            (m/decode routes/transit-format "application/transit+json" wire)))))))
     (testing "Time-travel to Session 1 shows only what was said by then"
       (is (= ["first"]
              (mapv :text (-> (api/get-map (make-request user

@@ -6,6 +6,7 @@
    While it is open the sidebar's quick editor of notes is disabled, so
    two editors never race. Read-only while the canvas is."
   (:require
+   [aps.parts.common.constants :refer [max-text-length]]
    [aps.parts.frontend.components.window :refer [window window-actions]]
    [aps.parts.frontend.state.windows :as windows]
    [re-frame.core :as rf]
@@ -45,7 +46,8 @@
                  :title (str "Notes · " (:label part))}
          (if editable?
            ($ :<>
-              ($ :textarea {:ref         text-ref
+              ($ :textarea {:max-length  max-text-length
+                            :ref         text-ref
                             :class       "floating-window-text"
                             :aria-label  "Part notes"
                             :value       text

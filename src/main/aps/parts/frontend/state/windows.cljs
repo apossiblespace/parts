@@ -25,7 +25,8 @@
    Kinds not listed use `fallback-pos`."
   {:body-location [16 96]
    :notes         [28 112]
-   :trigger       [40 128]})
+   :trigger       [40 128]
+   :conversation  [52 144]})
 
 (def min-size
   "Smallest a window can be resized to, in px: enough for a title bar

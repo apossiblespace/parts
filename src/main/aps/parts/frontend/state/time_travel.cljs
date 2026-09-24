@@ -19,6 +19,12 @@
    [aps.parts.common.constants :as constants]
    [aps.parts.frontend.state.sessions :as sessions]))
 
+(def ^:private content-keys
+  "What the canvas shows from a Map, live or as of a past Session. One
+   list, so a past Session can never show live data for a key the
+   snapshot forgot."
+  [:parts :relationships :conversation_entries])
+
 (defn active? [db]
   (boolean (get-in db [:time-travel :active?])))
 
@@ -148,7 +154,7 @@
   (if (active? db)
     (cond-> (-> db
                 (assoc-in [:time-travel :snapshots session-id]
-                          (select-keys the-map [:parts :relationships]))
+                          (select-keys the-map content-keys))
                 (update :time-travel dissoc :error))
       (= session-id (get-in db [:time-travel :session-id]))
       (assoc-in [:time-travel :shown-session-id] session-id))
@@ -180,8 +186,7 @@
     (if (and (active? db)
              (not= shown-id (:id (sessions/active-session db))))
       (get-in db [:time-travel :snapshots shown-id])
-      {:parts         (get-in db [:map :parts])
-       :relationships (get-in db [:map :relationships])})))
+      (select-keys (:map db) content-keys))))
 
 (defn- glide-frame
   "The glide contract, shared by every tweened attribute: the TARGET
@@ -241,9 +246,9 @@
                      (assoc rel :intensity (lerp t a b)))))))
 
 (defn interpolate-content
-  "One glide frame over whole canvas content maps — the shape
-   `canvas-content` returns, so the component's RAF step tweens both
-   collections with one call."
+  "One glide frame over the canvas's drawn collections — Parts and
+   Relationships from two `canvas-content` maps — so the component's RAF
+   step tweens both with one call."
   [from to t]
   {:parts         (interpolate-parts (:parts from) (:parts to) t)
    :relationships (interpolate-relationships (:relationships from)

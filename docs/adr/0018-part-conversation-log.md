@@ -59,30 +59,34 @@ belongs to the Session whose `[anchor, next-anchor)` range holds the start
 of its `valid_at`. No `session_id` column. Time-travel to Session N shows
 the entries up to Session N for free.
 
-### Append-mostly
+### Editing — the same as notes
 
 - New entries always land in the **active** Session.
-- An entry can be **edited or deleted only while its Session is the active
-  one** — the typo window. No time-based window. Once a newer Session starts, the entry is part of the
-  immutable past like everything else there (ADR-0014); the ops-level
-  correction path is the only way to change it.
+- An entry can be **edited or deleted from the present at any time**, as a
+  Part's notes can. Writes are sequenced (ADR-0001): an edit closes the
+  current version and starts a new one from now, so Time-travel to an
+  earlier Session still shows what was written then. In Time-travel the
+  canvas is read-only and no editing controls show.
 - Deleting a Part retracts its entries in the same all-or-nothing batch
   (ADR-0003), so no entry outlives its Part in the present. History keeps
   both.
 
+*Revised 2026-09-24.* The first version allowed edits only while the
+entry's Session was active. It needed a server check, a Map-row lock
+against a concurrent Session start, and a second copy of the rule on the
+client — to protect what sequenced writes already protect. It was removed.
+What remains open is presentation: an entry edited after its Session reads,
+in the present, as if written in that Session. That question applies to
+notes and every other sequenced clinical field alike, and is tracked
+separately rather than solved for entries alone.
+
 ### Writes
 
 Three change-event types — create / update / remove — through the existing
-change-event module and batch (ADR-0005). The update/remove backstop
-rejects an entry whose Session is not the active one; the UI hides the
-controls, the server is the judge. Two details keep that rule honest:
-
-- The check takes a shared lock on the Map row until the batch commits;
-  starting a Session takes it exclusively. A Session cannot start between
-  the check and the write.
-- A Session's anchor is stamped from the app server's clock, the same
-  clock that stamps content writes, and kept strictly increasing. An entry
-  written the instant a Session starts belongs to that Session.
+change-event module and batch (ADR-0005), scoped to the Map like Parts and
+Relationships. A Session's anchor is stamped from the app server's clock,
+the same clock that stamps content writes, and kept strictly increasing, so
+an entry written the instant a Session starts belongs to that Session.
 
 ### Data lifecycle
 
@@ -141,5 +145,6 @@ any Part on the Map (`speaker_part_id`), with no change to existing rows.
 ## Resolved questions (2026-09-22)
 
 1. **Name:** "Conversation" — it admits more than two participants.
-2. **Edit window:** only while the entry's Session is active.
+2. **Edit window:** only while the entry's Session is active. *Superseded
+   2026-09-24: entries edit like notes; see "Editing".*
 3. **Part speaker label:** the Part's own label.

@@ -3,6 +3,7 @@
   (:require
    [aps.parts.common.models.map :as map-model]
    [aps.parts.common.observe :as o]
+   [aps.parts.frontend.state.conversations :as conversations]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
    [cljs.core.async :refer [go]]))
 
@@ -75,9 +76,20 @@
                       parts)))
 
       [:part :remove]
-      (update map-data :parts
-              (fn [parts]
-                (filterv #(not= (:id %) id) parts)))
+      (-> map-data
+          (update :parts (fn [parts] (filterv #(not= (:id %) id) parts)))
+          ;; The server cascades a Part's conversation; mirror it here.
+          (update :conversation_entries conversations/remove-part-entries id))
+
+      [:conversation-entry :create]
+      (update map-data :conversation_entries (fnil conj [])
+              (assoc data :id id :map_id (:id map-data)))
+
+      [:conversation-entry :update]
+      (update map-data :conversation_entries conversations/merge-entry id data)
+
+      [:conversation-entry :remove]
+      (update map-data :conversation_entries conversations/remove-entry id)
 
       [:relationship :create]
       (let [new-rel (assoc data :id id :map_id (:id map-data))]

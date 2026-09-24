@@ -1,13 +1,36 @@
 (ns aps.parts.frontend.components.toolbar.part-form
   (:require
    ["lucide-react/dist/esm/icons/maximize-2" :default Maximize2]
-   [aps.parts.common.constants :refer [part-labels part-type-order]]
+   [aps.parts.common.constants :refer [part-labels part-type-order max-text-length]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.body-location :refer [location-field]]
    [aps.parts.frontend.components.toolbar.form :as form]
+   [aps.parts.frontend.state.conversations :as c]
    [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect]]
    [uix.re-frame :as uix.rf]))
+
+(defui ^:private conversation-preview
+  "The Part's latest two conversation entries, and a button opening the
+   conversation window in Part mode (ADR-0018)."
+  [{:keys [part]}]
+  (let [entries (uix.rf/use-subscribe [:canvas/conversation-entries])
+        latest  (take-last 2 (c/for-part entries (:id part)))]
+    ($ :div {:class "mt-1 mb-1"}
+       ($ :div {:class "flex items-center justify-between mb-1"}
+          ($ :label {:class "fieldset-label"} "Conversation:")
+          ($ :button {:type     "button"
+                      :class    "btn btn-xs"
+                      :on-click #(rf/dispatch [:conversation/show :part])}
+             "Open"))
+       (if (empty? latest)
+         ($ :p {:class "text-xs text-base-content/50 italic"} "Nothing recorded yet")
+         ($ :ul {:class "space-y-1"}
+            (for [e latest]
+              ($ :li {:key (:id e) :class "text-xs line-clamp-2"}
+                 ($ :span {:class "font-semibold"}
+                    (c/speaker-label (:speaker e) part) ": ")
+                 (:text e))))))))
 
 (defui part-form
   "Form for viewing and editing part properties, to render in the sidebar.
@@ -79,13 +102,16 @@
                            :title      "Open notes in a window"
                            :on-click   #(rf/dispatch [:window/open :notes])}
                   ($ Maximize2 {:size 12})))
-            ($ :textarea {:class     "textarea textarea-sm mb-1"
-                          :value     (:notes values)
-                          :disabled  notes-window-open?
-                          :title     (when notes-window-open? "Editing in the notes window")
-                          :onChange  #(update-field :notes (.. % -target -value))
-                          :on-blur   text-blur
-                          :onKeyDown (text-keys :notes)})
+            ($ :textarea {:max-length max-text-length
+                          :class      "textarea textarea-sm mb-1"
+                          :value      (:notes values)
+                          :disabled   notes-window-open?
+                          :title      (when notes-window-open? "Editing in the notes window")
+                          :onChange   #(update-field :notes (.. % -target -value))
+                          :on-blur    text-blur
+                          :onKeyDown  (text-keys :notes)})
+
+            ($ conversation-preview {:part part})
 
             ($ location-field {:location body_location
                                :on-open  #(rf/dispatch [:window/open :body-location])}))))))

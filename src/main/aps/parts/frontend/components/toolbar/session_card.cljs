@@ -173,6 +173,11 @@
               ($ activation-row {:session    viewed-session
                                  :parts      part-options
                                  :read-only? travelling?}))
+            ;; Self mode: this Session's conversation across all Parts.
+            ($ :button {:type     "button"
+                        :class    "btn btn-xs w-full"
+                        :on-click #(rf/dispatch [:conversation/show :self])}
+               "Session conversation")
             (for [msg (remove nil? [error tt-error])]
               ($ :p {:key   msg
                      :class "text-error text-xs"

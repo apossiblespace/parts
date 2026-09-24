@@ -3,7 +3,7 @@
    [aps.parts.frontend.api.core :as api]
    [aps.parts.frontend.api.queue :as queue]
    [aps.parts.frontend.api.utils :as utils]
-   [aps.parts.frontend.storage.http-backend :as http-backend]
+   [aps.parts.frontend.storage.ids :as ids]
    [aps.parts.frontend.storage.protocol :refer [list-maps load-map create-map update-map]]
    [aps.parts.frontend.storage.registry :as storage-registry]
    [cljs.core.async :refer [<! go]]
@@ -132,7 +132,7 @@
      (let [resp (<! (api/load-map-at map-id session-id))]
        (if (= 200 (:status resp))
          (rf/dispatch [:time-travel/snapshot-success session-id
-                       (http-backend/normalize-map-ids (:body resp))])
+                       (ids/normalize-map-ids (:body resp))])
          (rf/dispatch [:time-travel/fetch-failure
                        (error-message resp "Could not load that session")]))))))
 

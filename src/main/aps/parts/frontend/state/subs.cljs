@@ -133,6 +133,31 @@
    (:relationships (time-travel/canvas-content db))))
 
 (rf/reg-sub
+ :canvas/conversation-entries
+ (fn [db _]
+   (:conversation_entries (time-travel/canvas-content db))))
+
+;; Label projections for the conversation window: it reads only ids and
+;; labels, so drag frames (position writes) leave these `=` and never
+;; re-render it — the same reason `:canvas/part-options` exists.
+(rf/reg-sub
+ :canvas/part-labels
+ :<- [:canvas/parts]
+ (fn [parts _]
+   (into {} (map (juxt :id :label)) parts)))
+
+(rf/reg-sub
+ :conversation/scope-part
+ :<- [:map/selected-parts]
+ (fn [parts _]
+   (some-> (windows/scope-part parts) (select-keys [:id :label]))))
+
+(rf/reg-sub
+ :conversation/chosen-mode
+ (fn [db _]
+   (get-in db [:ui :conversation-mode] :part)))
+
+(rf/reg-sub
  :canvas/viewed-session
  (fn [db _]
    (time-travel/viewed-session db)))

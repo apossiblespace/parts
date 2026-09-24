@@ -79,17 +79,6 @@
    (let [uuid (db/->uuid map-id)]
      (get (latest-by-map ds [uuid]) uuid))))
 
-(defn lock-map!
-  "Lock the Map's identity row for the rest of `tx`. Session creation
-   takes it `:update` (exclusive); a write whose validity depends on which
-   Session is active takes it `:share`. So a Session cannot start between
-   such a check and its commit (ADR-0018's edit rule), while shared
-   holders never block each other."
-  [tx map-id mode]
-  (jdbc/execute! tx [(str "SELECT 1 FROM maps WHERE id = ? "
-                          (case mode :update "FOR UPDATE" :share "FOR SHARE"))
-                     (db/->uuid map-id)]))
-
 (defn- next-anchor
   "The new Session's anchor, from the app's write clock (`bt/clock-ts`) —
    the clock that stamps every Part, Relationship and Conversation entry —
@@ -97,20 +86,6 @@
    two clocks. Strictly after the previous anchor."
   [tx map-uuid]
   (bt/clock-ts (some-> (latest tx map-uuid) :anchor_valid_at db/->instant)))
-
-(defn require-active!
-  "Throws unless instant `t` falls in the Map's active (latest) Session —
-   the rule for content that may change only while its Session is live
-   (ADR-0018). Holds a shared lock on the Map until `tx` commits, so no
-   Session can start between this check and the caller's write."
-  [tx map-id t]
-  (lock-map! tx map-id :share)
-  (let [active (latest tx map-id)]
-    (when-not (and active
-                   (not (.isBefore (db/->instant t)
-                                   (db/->instant (:anchor_valid_at active)))))
-      (throw (ex-info "Only entries from the active Session can be changed"
-                      {:type :validation :map-id map-id})))))
 
 (defn create!
   "Open a new Session: the anchor is captured server-side at creation, the
@@ -122,7 +97,6 @@
    (jdbc/with-transaction [tx db/datasource]
      (create! map-id actor-id tx)))
   ([map-id actor-id tx]
-   (lock-map! tx map-id :update)
    (let [map-uuid (db/->uuid map-id)
          next-ord (-> (jdbc/execute-one!
                        tx

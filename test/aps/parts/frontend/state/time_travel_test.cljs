@@ -102,7 +102,15 @@
     (let [db (-> db3 tt/enter (tt/step :back)
                  (tt/store-snapshot "s2" {:parts         [{:id "p1"}]
                                           :relationships []}))]
-      (is (= [{:id "p1"}] (:parts (tt/canvas-content db)))))))
+      (is (= [{:id "p1"}] (:parts (tt/canvas-content db))))))
+
+  (testing "a past Session's snapshot carries its conversation entries"
+    (let [db (-> db3 tt/enter (tt/step :back)
+                 (tt/store-snapshot "s2" {:parts                []
+                                          :relationships        []
+                                          :conversation_entries [{:id "e1"}]
+                                          :title                "dropped"}))]
+      (is (= [{:id "e1"}] (:conversation_entries (tt/canvas-content db)))))))
 
 (deftest no-flicker-test
   (testing "stepping to an uncached Session keeps the previous content on
