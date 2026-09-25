@@ -41,6 +41,7 @@
         ;; Set by Escape so the blur it triggers doesn't commit the
         ;; just-reverted draft.
         skip-blur-commit?                   (use-ref false)
+        prev-fields                         (use-ref fields)
         update-field                        (fn [field value]
                                               (set-form-state
                                                (fn [state]
@@ -98,19 +99,11 @@
         (fn [state]
           (assoc state :values fields :initial fields :collapsed? collapsed))))
      ^:lint/disable [entity-id collapsed])
-    ;; A field changed underneath the form (a floating window saved it)
-    ;; re-syncs unless it is mid-edit here. Returns the same state object
-    ;; when nothing differs, so React bails out and the render settles.
     (use-effect
      (fn []
-       (set-form-state
-        (fn [state]
-          (reduce (fn [st [k v]]
-                    (if (and (not= v (get-in st [:initial k]))
-                             (= (get-in st [:values k]) (get-in st [:initial k])))
-                      (-> st (assoc-in [:values k] v) (assoc-in [:initial k] v))
-                      st))
-                  state fields))))
+       (let [prev @prev-fields]
+         (reset! prev-fields fields)
+         (set-form-state #(inline-edit/resync % prev fields))))
      ^:lint/disable [fields])
     {:values           values
      :collapsed?       collapsed?

@@ -1,6 +1,6 @@
 (ns aps.parts.frontend.components.inline-edit-test
   (:require
-   [aps.parts.frontend.components.inline-edit :refer [commit-value]]
+   [aps.parts.frontend.components.inline-edit :refer [commit-value resync]]
    [cljs.test :refer-macros [deftest is testing]]
    [clojure.string :as str]))
 
@@ -28,3 +28,14 @@
     (let [min-six (fn [s] (>= (count s) 6))]
       (is (nil? (commit-value "abc" "Old" min-six)))
       (is (= "abcdef" (commit-value "abcdef" "Old" min-six))))))
+
+(deftest test-resync
+  (let [state {:values {:notes "new"} :initial {:notes "new"}}]
+    (testing "a commit's echo not yet in the store keeps the committed value"
+      (is (identical? state (resync state {:notes "old"} {:notes "old"}))))
+    (testing "a value saved elsewhere lands when the field is not mid-edit"
+      (is (= {:values {:notes "window"} :initial {:notes "window"}}
+             (resync state {:notes "new"} {:notes "window"}))))
+    (testing "a field mid-edit keeps the user's text"
+      (let [editing (assoc-in state [:values :notes] "typing")]
+        (is (identical? editing (resync editing {:notes "new"} {:notes "window"})))))))

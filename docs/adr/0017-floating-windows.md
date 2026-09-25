@@ -101,7 +101,10 @@ must not commit, and the writer must not have to think about it. So:
   changes**
   discards the draft.
 - **Close and Escape keep the draft.** Reopening shows it. Discard changes is
-  the only discard.
+  the only discard, with one exception: a draft remembers the saved value it
+  started from, and if that value changes elsewhere (the notes quick editor,
+  free again once the window closes), the stale draft is dropped, so it can
+  never overwrite newer text.
 - **One footer for every editing window:** the save status on the left
   ("Unsaved changes" with a dot; empty when clean), Discard changes and Save
   on the right. Controls that *edit* the draft stay with the content, never in

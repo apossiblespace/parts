@@ -2,7 +2,8 @@
   "The notes floating window (ADR-0017): the sidebar's notes textarea
    with room to compose. Scope: `windows/scope-notes` — one Part, or one
    Relationship — otherwise it closes itself. Edits a draft keyed by the
-   entity's id: Save commits, Cancel discards, Close/Escape keep it.
+   entity's id: Save commits, Cancel discards, Close/Escape keep it —
+   until the notes change in the sidebar, which drops it.
    While it is open the sidebar's quick editor of notes is disabled, so
    two editors never race. Read-only while the canvas is."
   (:require
@@ -21,7 +22,9 @@
         editable?     (uix.rf/use-subscribe [:canvas/editable?])
         entity-id     (:id entity)
         saved         (or (:notes entity) "")
-        draft         (uix.rf/use-subscribe [:ui/window-draft :notes entity-id])
+        stored        (uix.rf/use-subscribe [:ui/window-draft :notes entity-id])
+        ;; A draft started from older notes (changed in the sidebar since) is stale.
+        draft         (when (= (:base stored) saved) (:text stored))
         text          (or draft saved)
         dirty?        (and (some? draft) (not= draft saved))
         text-ref      (use-ref nil)
@@ -35,6 +38,13 @@
        (when-not entity
          (rf/dispatch [:window/close :notes])))
      [entity])
+    ;; Delete a stale draft, or it returns when the notes (often "") go
+    ;; back to the value it started from.
+    (use-effect
+     (fn []
+       (when (and stored (nil? draft))
+         (rf/dispatch [:window/clear-draft :notes entity-id])))
+     [stored draft entity-id])
     ;; Focus the textarea once it exists, caret at the end.
     (use-effect
      (fn []
@@ -58,7 +68,7 @@
                             :aria-label  "Notes"
                             :value       text
                             :on-change   #(rf/dispatch [:window/set-draft :notes entity-id
-                                                        (.. % -target -value)])
+                                                        {:base saved :text (.. % -target -value)}])
                             :on-key-down (fn [^js e]
                                            (when (and dirty?
                                                       (= "Enter" (.-key e))
