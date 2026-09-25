@@ -15,7 +15,7 @@
   [{:keys [part]}]
   (let [entries (uix.rf/use-subscribe [:canvas/conversation-entries])
         latest  (take-last 2 (c/for-part entries (:id part)))]
-    ($ :div {:class "mt-1 mb-1"}
+    ($ :div {:class "mt-1 mb-3"}
        ($ :div {:class "flex items-center justify-between mb-1"}
           ($ :label {:class "fieldset-label"} "Conversation:")
           ($ :button {:type     "button"
