@@ -56,6 +56,12 @@
     (mapv (fn [pid] [pid (groups pid)])
           (distinct (map :part_id entries)))))
 
+(defn runs
+  "`[[speaker [entry …]] …]`: consecutive entries from one speaker."
+  [entries]
+  (mapv (fn [run] [(:speaker (first run)) run])
+        (partition-by :speaker entries)))
+
 (defn for-part [entries part-id]
   (filterv #(= (:part_id %) part-id) entries))
 
@@ -71,7 +77,7 @@
 (defn window-mode
   "What the conversation window shows: the Part's conversation when the
    user chose Part mode and exactly one Part is selected; otherwise Self
-   mode — the viewed Session across all Parts. So an empty selection
-   shows Self mode, and reselecting a Part returns to it."
+   mode — every Part, grouped by Part inside each Session. So an empty
+   selection shows Self mode, and reselecting a Part returns to it."
   [chosen scope-part]
   (if (and (= chosen :part) scope-part) :part :self))

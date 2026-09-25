@@ -57,7 +57,7 @@
     (when session
       ($ window {:kind  :trigger
                  :class "text-window"
-                 :title (str "Session " (:ordinal session) " · "
+                 :title (str "Session " (:ordinal session) ", "
                              (dates/format-date dates/medium-date-format
                                                 (:anchor_valid_at session)))}
          (if travelling?
@@ -173,7 +173,7 @@
               ($ activation-row {:session    viewed-session
                                  :parts      part-options
                                  :read-only? travelling?}))
-            ;; Self mode: this Session's conversation across all Parts.
+            ;; Self mode, opened at the top of this Session.
             ($ :button {:type     "button"
                         :class    "btn btn-xs w-full"
                         :on-click #(rf/dispatch [:conversation/show :self])}

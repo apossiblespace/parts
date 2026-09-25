@@ -34,6 +34,14 @@
   (testing "filters"
     (is (= ["e1" "e3"] (mapv :id (c/for-part (entries db) "a"))))))
 
+(deftest runs-test
+  (testing "consecutive entries from one speaker form one run"
+    (is (= [["self" ["e1"]] ["part" ["e2" "e3"]] ["self" ["e4"]]]
+           (mapv (fn [[sp es]] [sp (mapv :id es)])
+                 (c/runs [{:id "e1" :speaker "self"} {:id "e2" :speaker "part"}
+                          {:id "e3" :speaker "part"} {:id "e4" :speaker "self"}])))))
+  (is (= [] (c/runs []))))
+
 (deftest speaker-label-test
   (is (= "Self" (c/speaker-label "self" {:label "Exile"})))
   (is (= "Therapist" (c/speaker-label "therapist" nil)))

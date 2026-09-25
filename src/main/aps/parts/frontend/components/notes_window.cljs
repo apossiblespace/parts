@@ -43,7 +43,7 @@
     (when part
       ($ window {:kind  :notes
                  :class "text-window"
-                 :title (str "Notes · " (:label part))}
+                 :title (str "Notes: " (:label part))}
          (if editable?
            ($ :<>
               ($ :textarea {:max-length  max-text-length

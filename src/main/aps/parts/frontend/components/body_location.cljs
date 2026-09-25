@@ -134,7 +134,7 @@
     (when part
       ($ window {:kind  :body-location
                  :class "body-location"
-                 :title (str "Body location · " (:label part))}
+                 :title (str "Body location: " (:label part))}
          ($ :div {:class "flex justify-center gap-4"}
             (for [view ["front" "back"]]
               ($ :div {:key view :class "relative flex-1 min-w-0"}

@@ -100,23 +100,33 @@ A clinical record, like notes and body location:
 
 ### Surface
 
-The **conversation window** — a floating window (ADR-0017):
+The **conversation window** — a floating window (ADR-0017), laid out as a
+log viewer, not a chat app: reading comes first, adding second. Entries
+are left-aligned in runs, the speaker's name once above each run:
+"Self", "Therapist", or **the Part's own label** (e.g. "Firefighter") —
+read at render time, so renaming the Part relabels its past entries. A
+Part name carries a dot in its type colour; the name itself stays in
+the label colour, because the type colours fail text contrast.
 
-- **Part mode** (scope: the selected Part): that Part's entries across all
-  Sessions, grouped under Session headings, each entry labelled by speaker:
-  "Self", "Therapist", or **the Part's own label** (e.g. "Firefighter") —
-  read at render time, so renaming the Part relabels its past entries.
-  A composer at the bottom with a three-way speaker control and **Send**
-  (explicit, like every window). One draft per Part in window state.
-- **Self mode** (scope: the viewed Session): that Session's entries grouped
-  by Part — "what was said to the system this session". Read-only; a Part
-  heading selects that Part on the canvas and flips the window to Part mode.
+- **Part mode** (scope: the selected Part), titled "Conversation:
+  <label>": that Part's entries across all Sessions, under sticky Session
+  headings. Opens at the newest entry. A composer at the bottom: a
+  three-way speaker control, the text, and **Add** (Return adds). The
+  speaker stays as chosen. One draft per Part in window state.
+  Double-click an entry to edit it in place; Delete is in that editor.
+- **Self mode**, titled "Conversation": all Sessions too, grouped by Part
+  inside each Session. It opens at the top of the viewed Session, so the
+  Session card still lands on "what was said to the system this
+  session", but the Sessions before it are a scroll away, as in Part
+  mode. Read-only; a Part heading selects that Part on the canvas and
+  flips the window to Part mode.
 - Part mode follows the selection; an **empty selection switches to Self
   mode**. A mode toggle lets the user cross over.
 - Entry points: the Part form shows the last few entries with an expand
   button (Part mode); the Session card opens Self mode.
 - In Time-travel: read-only, composer hidden; the active Session's draft
-  waits (ADR-0017 drafts are keyed by entity).
+  waits (ADR-0017 drafts are keyed by entity). The log is the snapshot's,
+  so entries after the viewed Session do not show.
 - UI copy says **Conversation**, not "Self statements": the book never
   uses that phrase, and the log holds more than two voices.
 
