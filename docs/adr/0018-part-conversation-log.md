@@ -108,22 +108,27 @@ read at render time, so renaming the Part relabels its past entries. A
 Part name carries a dot in its type colour; the name itself stays in
 the label colour, because the type colours fail text contrast.
 
-- **Part mode** (scope: the selected Part), titled "Conversation:
-  <label>": that Part's entries across all Sessions, under sticky Session
-  headings. Opens at the newest entry. A composer at the bottom: a
-  three-way speaker control, the text, and **Add** (Return adds). The
+- The window is always titled "Conversation". A scope control in its
+  title bar, **All | ● <Part label>**, shows and switches the scope (the
+  second segment reads "No Part selected", disabled, with no selection).
+- **Part scope** (the selected Part): that Part's entries across all
+  Sessions, under sticky Session headings. Opens at the newest entry. A
+  composer at the bottom: a three-way **Speaker** control, the text (its
+  placeholder names the chosen speaker), and **Add** (Return adds). The
   speaker stays as chosen. One draft per Part in window state.
   Double-click an entry to edit it in place; Delete is in that editor.
-- **Self mode**, titled "Conversation": all Sessions too, grouped by Part
-  inside each Session. It opens at the top of the viewed Session, so it
-  lands on "what was said to the system this session", but the Sessions
-  before it are a scroll away, as in Part mode. Read-only; a Part heading selects that Part on the canvas and
-  flips the window to Part mode.
-- Part mode follows the selection; an **empty selection switches to Self
-  mode**. A mode toggle lets the user cross over.
+- **All**: every Part, all Sessions too, grouped by Part inside each
+  Session under a Part heading band. It opens at the top of the viewed
+  Session, so it lands on "what was said to the system this session",
+  but the Sessions before it are a scroll away, as in Part scope.
+  Read-only; a heading's **Show** button selects that Part on the canvas
+  and switches to Part scope. (It is not "Focus": that is one of the IFS
+  6 F's.)
+- Part scope follows the selection; an **empty selection switches to
+  All**.
 - Entry points: the Part form shows the last few entries with an expand
   button (Part mode); the top bar's **Conversation** button, between the
-  Session block and Time Travel, opens Self mode. It is a Map-level view,
+  Session block and Time Travel (shortcut O), opens All. It is a Map-level view,
   so it is not in the Session card, which keeps only the Session's frame
   (the trigger and the Part it activated).
 - In Time-travel: read-only, composer hidden; the active Session's draft

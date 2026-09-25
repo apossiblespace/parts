@@ -1,12 +1,12 @@
 (ns aps.parts.frontend.components.conversation-window
   "The conversation floating window (ADR-0017, ADR-0018), laid out as a
-   log viewer. Part mode: one Part's conversation, editable. Self mode:
+   log viewer. Part mode: one Part's conversation, editable. All mode:
    every Part, grouped by Part inside each Session, read-only.
 
    In Time-travel the entries are the snapshot's, so nothing after the
    viewed Session shows."
   (:require
-   [aps.parts.common.constants :refer [conversation-speakers max-text-length part-colors]]
+   [aps.parts.common.constants :refer [conversation-speakers max-text-length part-colors part-labels]]
    [aps.parts.frontend.components.inline-edit :refer [commit-value]]
    [aps.parts.frontend.components.window :refer [window]]
    [aps.parts.frontend.dates :as dates]
@@ -28,8 +28,8 @@
 (defui ^:private segmented
   "A small pressed-state button group. `options` is `[[value label
    disabled?] …]`."
-  [{:keys [options value on-select class]}]
-  ($ :div {:class (str "join " class)}
+  [{:keys [options value on-select class label]}]
+  ($ :div {:class (str "join " class) :role "group" :aria-label label}
      (for [[v label disabled?] options]
        ($ :button {:key          (str v)
                    :type         "button"
@@ -126,17 +126,23 @@
                     (rf/dispatch [:map/conversation-entry-create part-id (:speaker draft) text])
                     (update! {:text ""})))]
     ($ :div {:class "conversation-composer"}
-       ($ segmented {:options   (for [sp conversation-speakers]
-                                  [sp ($ :<>
-                                         (when (= sp "part") ($ type-dot {:part part}))
-                                         (c/speaker-label sp part))])
-                     :value     (:speaker draft)
-                     :on-select #(update! {:speaker %})})
+       ($ :div {:class "flex items-center gap-2"}
+          ($ :span {:class "text-xs text-base-content/60" :aria-hidden true} "Speaker")
+          ($ segmented {:label     "Speaker"
+                        :options   (for [sp conversation-speakers]
+                                     [sp ($ :<>
+                                            (when (= sp "part") ($ type-dot {:part part}))
+                                            (c/speaker-label sp part))])
+                        :value     (:speaker draft)
+                        :on-select #(update! {:speaker %})}))
        ($ :div {:class "conversation-composer-field"}
           ($ :textarea {:max-length  max-text-length
                         :rows        1
                         :aria-label  "New entry"
-                        :placeholder "What was said or done"
+                        :placeholder (if (= "therapist" (:speaker draft))
+                                       "What the therapist said or did"
+                                       (str "What " (c/speaker-label (:speaker draft) part)
+                                            " said or did"))
                         :value       (:text draft)
                         :on-change   #(update! {:text (.. % -target -value)})
                         :on-key-down (fn [^js e]
@@ -150,11 +156,11 @@
              "Add")))))
 
 (defn- scroll-to!
-  "Self mode lands on the viewed Session; Part mode, or a viewed Session
+  "All mode lands on the viewed Session; Part mode, or a viewed Session
    with no entries, on the newest entry."
   [^js log mode viewed-ordinal]
   (set! (.-scrollTop log)
-        (if-let [^js s (and (= mode :self) viewed-ordinal
+        (if-let [^js s (and (= mode :all) viewed-ordinal
                             (.querySelector log (str "section[data-ordinal=\"" viewed-ordinal "\"]")))]
           (.-offsetTop s)
           (.-scrollHeight log))))
@@ -176,15 +182,21 @@
     (use-effect
      (fn [] (some-> @log-ref (scroll-to! mode viewed)))
      [mode (:id scope-part) viewed (:id (peek shown))])
-    ($ window {:kind  :conversation
-               :class "conversation"
-               :title (if (= mode :part)
-                        (str "Conversation: " (:label scope-part))
-                        "Conversation")}
-       ($ segmented {:class     "conversation-modes"
-                     :options   [[:part "Part" (nil? scope-part)] [:self "Self"]]
-                     :value     mode
-                     :on-select #(rf/dispatch [:conversation/show %])})
+    ($ window {:kind     :conversation
+               :class    "conversation"
+               :title    "Conversation"
+               :controls ($ segmented {:class     "min-w-0"
+                                       :label     "Scope"
+                                       :options   [[:all "All"]
+                                                   [:part (if scope-part
+                                                            ($ :<>
+                                                               ($ type-dot {:part scope-part})
+                                                               ($ :span {:class "truncate max-w-36"}
+                                                                  (:label scope-part)))
+                                                            "No Part selected")
+                                                    (nil? scope-part)]]
+                                       :value     mode
+                                       :on-select #(rf/dispatch [:conversation/show %])})}
        ($ :div {:ref log-ref :class "conversation-log"}
           (if (empty? shown)
             ($ :p {:class "p-3 text-sm italic text-base-content/50"} "Nothing recorded yet")
@@ -195,12 +207,17 @@
                    (for [[pid pes] (c/by-part es)
                          :let      [part (names pid)]]
                      ($ :div {:key pid}
-                        ($ :h5 {:class "conversation-part"}
-                           ($ :button {:type     "button"
-                                       :title    (str "Show the conversation with " (:label part))
-                                       :on-click #(rf/dispatch [:conversation/show-part pid])}
+                        ($ :div {:class "conversation-part"}
+                           ($ :h5 {:class "flex items-center gap-2"}
                               ($ type-dot {:part part})
-                              (:label part)))
+                              (:label part)
+                              ($ :span {:class "conversation-part-type"}
+                                 (get-in part-labels [(keyword (:type part)) :label])))
+                           ($ :button {:type     "button"
+                                       :class    "btn btn-xs ml-auto"
+                                       :title    (str "Show only " (:label part))
+                                       :on-click #(rf/dispatch [:conversation/show-part pid])}
+                              "Show"))
                         ($ entry-runs {:entries pes :part part}))))))))
        (when (and (= mode :part) editable?)
          ($ composer {:part scope-part})))))

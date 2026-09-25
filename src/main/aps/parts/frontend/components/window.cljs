@@ -60,9 +60,10 @@
 
 (defui window
   "Props: `kind` (its key in `[:ui :windows]`), `title`, optional
-   `class` (the per-kind default size lives in CSS), `children`.
-   Renders nothing while the kind is closed."
-  [{:keys [kind title class children]}]
+   `class` (the per-kind default size lives in CSS), optional `controls`
+   (shown after the title: controls that change what the window shows),
+   `children`. Renders nothing while the kind is closed."
+  [{:keys [kind title class controls children]}]
   (let [{:keys [open? pos z] [w h] :size} (uix.rf/use-subscribe [:ui/window kind])
         dialog-ref                        (use-ref nil)
         close!                            #(rf/dispatch [:window/close kind])
@@ -111,9 +112,10 @@
                                           (not (.-defaultPrevented e)))
                                  (close!)))}
            ($ :div (merge {:class "floating-window-title"} title-drag)
-              ($ :span {:class "truncate text-xs font-bold"} title)
+              ($ :span {:class (str "truncate text-xs font-bold" (when controls " shrink-0"))} title)
+              controls
               ($ :button {:type       "button"
-                          :class      "btn btn-xs btn-circle btn-ghost"
+                          :class      "btn btn-xs btn-circle btn-ghost ml-auto"
                           :aria-label "Close"
                           :on-click   close!}
                  "✕"))

@@ -50,5 +50,5 @@
 (deftest window-mode-test
   (testing "Part mode needs a chosen Part mode and one selected Part"
     (is (= :part (c/window-mode :part {:id "a"})))
-    (is (= :self (c/window-mode :part nil)))
-    (is (= :self (c/window-mode :self {:id "a"})))))
+    (is (= :all (c/window-mode :part nil)))
+    (is (= :all (c/window-mode :all {:id "a"})))))

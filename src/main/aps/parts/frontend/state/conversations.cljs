@@ -76,8 +76,8 @@
 
 (defn window-mode
   "What the conversation window shows: the Part's conversation when the
-   user chose Part mode and exactly one Part is selected; otherwise Self
+   user chose Part mode and exactly one Part is selected; otherwise All
    mode — every Part, grouped by Part inside each Session. So an empty
-   selection shows Self mode, and reselecting a Part returns to it."
+   selection shows All mode, and reselecting a Part returns to it."
   [chosen scope-part]
-  (if (and (= chosen :part) scope-part) :part :self))
+  (if (and (= chosen :part) scope-part) :part :all))

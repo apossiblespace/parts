@@ -483,12 +483,12 @@
                                        (close-dropdown!)))}
                       ($ :span {:class "w-4 shrink-0"})
                       "Export map data")))))
-       ;; The conversation is a view of the whole Map (Self mode, opened at
+       ;; The conversation is a view of the whole Map (All mode, opened at
        ;; the viewed Session), so it opens from here, not the Session card.
        ($ :div {:class "shadow-xs shrink-0"}
           ($ :button {:class      "btn btn-sm bg-base-100 flex items-center gap-1.5 tooltip tooltip-bottom"
                       :aria-label "Conversation"
-                      :on-click   #(rf/dispatch [:conversation/show :self])}
+                      :on-click   #(rf/dispatch [:conversation/show :all])}
              ($ tooltip-content {:tip "Conversation" :shortcut "O"})
              ($ MessagesSquare {:size 16})
              ($ :span {:class (if time-travelling?
