@@ -10,6 +10,7 @@
    ["lucide-react/dist/esm/icons/file-pen-line" :default FilePenLine]
    ["lucide-react/dist/esm/icons/hand" :default Hand]
    ["lucide-react/dist/esm/icons/history" :default History]
+   ["lucide-react/dist/esm/icons/messages-square" :default MessagesSquare]
    ["lucide-react/dist/esm/icons/mouse-pointer-2" :default MousePointer2]
    ["lucide-react/dist/esm/icons/plus" :default Plus]
    ["lucide-react/dist/esm/icons/spline" :default Spline]
@@ -103,12 +104,15 @@
   "True unless the keydown originated inside a form input or a dialog.
    Keeps the tool shortcuts (V/H/Escape) from stealing keystrokes while
    typing in the sidebar's relationship/notes editors or an inline
-   label, and lets a floating window (ADR-0017) own its Escape."
+   label, and lets a floating window (ADR-0017) own its Escape. O is the
+   exception: it passes out of a window, so it can close the conversation
+   window it opened, which took focus."
   [^js event]
   (let [target ^js (.-target event)
         tag    (.-tagName target)]
     (not (or (= "INPUT" tag) (= "TEXTAREA" tag)
-             (and (.-closest target) (.closest target "dialog"))))))
+             (and (.-closest target) (.closest target "dialog")
+                  (not (#{"o" "O"} (.-key event))))))))
 
 (defn- point->flow-position
   "A client-coordinate `{:x :y}` point in Map (flow) coordinates."
@@ -207,7 +211,11 @@
 ;; width before it fits. Fires for an iPad landscape (1024); clears on
 ;; a 1280 laptop.
 (def ^:private minimal-part-label-class "max-[1250px]:hidden")
-(def ^:private history-label-class "max-[680px]:hidden")
+;; Conversation and Time Travel collapse to icons together (fit limit
+;; measured at 843px). In Time-travel the steppers take more room, so
+;; Conversation collapses first.
+(def ^:private chrome-label-class "max-[870px]:hidden")
+(def ^:private travel-conversation-label-class "max-[908px]:hidden")
 (def ^:private connect-label-class "max-[450px]:hidden")
 (def ^:private minimap-hidden-class "max-[650px]:hidden")
 ;; The right spacer's min-width is the minimap's 200px + spacing; it
@@ -475,6 +483,18 @@
                                        (close-dropdown!)))}
                       ($ :span {:class "w-4 shrink-0"})
                       "Export map data")))))
+       ;; The conversation is a view of the whole Map (Self mode, opened at
+       ;; the viewed Session), so it opens from here, not the Session card.
+       ($ :div {:class "shadow-xs shrink-0"}
+          ($ :button {:class      "btn btn-sm bg-base-100 flex items-center gap-1.5 tooltip tooltip-bottom"
+                      :aria-label "Conversation"
+                      :on-click   #(rf/dispatch [:conversation/show :self])}
+             ($ tooltip-content {:tip "Conversation" :shortcut "O"})
+             ($ MessagesSquare {:size 16})
+             ($ :span {:class (if time-travelling?
+                                travel-conversation-label-class
+                                chrome-label-class)}
+                "Conversation")))
        (when (time-travel/has-history? the-sessions)
          (let [toggle-label (if time-travelling?
                               "Back to editing"
@@ -496,7 +516,7 @@
                                                 (rf/dispatch [:time-travel/enter]))))}
                  ($ tooltip-content {:tip toggle-label :shortcut "T"})
                  ($ History {:size 16})
-                 ($ :span {:class history-label-class} "Time Travel")))))
+                 ($ :span {:class chrome-label-class} "Time Travel")))))
        (when time-travelling?
          ($ session-steppers {:viewing viewing})))))
 
@@ -1163,11 +1183,13 @@
                                     ;; must stay the browser's. Escape
                                     ;; also lets ReactFlow clear the
                                     ;; selection itself. An open modal
-                                    ;; owns the keyboard.
+                                    ;; owns the keyboard; a floating
+                                    ;; window (a non-modal dialog) does
+                                    ;; not.
                                     (when (and (non-input-target? e)
                                                (nil? (.querySelector
                                                       js/document
-                                                      "dialog[open]"))
+                                                      "dialog:modal"))
                                                (not (or (.-metaKey e)
                                                         (.-ctrlKey e)
                                                         (.-altKey e))))
@@ -1185,6 +1207,9 @@
                                            (if time-travelling?
                                              [:time-travel/exit]
                                              [:time-travel/enter]))
+
+                                          (#{"o" "O"} k)
+                                          (rf/dispatch [:conversation/toggle])
 
                                           tool
                                           (set-tool-mode tool)

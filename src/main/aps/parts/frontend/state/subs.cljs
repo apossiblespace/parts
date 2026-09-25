@@ -161,14 +161,14 @@
  (fn [db _]
    (time-travel/viewed-session db)))
 
-;; Projection for the sidebar's activation select: id + label only, so
-;; per-frame position writes (drags, the Time-travel glide) produce an
-;; `=` output and never re-render the card.
+;; Projection for the sidebar's activation select: id, label and type
+;; only, so per-frame position writes (drags, the Time-travel glide)
+;; produce an `=` output and never re-render the card.
 (rf/reg-sub
  :canvas/part-options
  :<- [:canvas/parts]
  (fn [parts _]
-   (mapv #(select-keys % [:id :label]) parts)))
+   (mapv #(select-keys % [:id :label :type]) parts)))
 
 (rf/reg-sub
  :canvas/session-badges?

@@ -346,6 +346,16 @@
        (assoc-in [:ui :conversation-mode] mode)
        (update-in [:ui :windows] windows/open :conversation))))
 
+(rf/reg-event-db
+ :conversation/toggle
+ ;; The O shortcut: open in Self mode, or close an open window.
+ (fn [db _]
+   (if (windows/open? (get-in db [:ui :windows]) :conversation)
+     (update-in db [:ui :windows] windows/close :conversation)
+     (-> db
+         (assoc-in [:ui :conversation-mode] :self)
+         (update-in [:ui :windows] windows/open :conversation)))))
+
 (rf/reg-event-fx
  :conversation/show-part
  ;; Self mode's Part heading: select that Part and switch to Part mode.

@@ -115,15 +115,17 @@ the label colour, because the type colours fail text contrast.
   speaker stays as chosen. One draft per Part in window state.
   Double-click an entry to edit it in place; Delete is in that editor.
 - **Self mode**, titled "Conversation": all Sessions too, grouped by Part
-  inside each Session. It opens at the top of the viewed Session, so the
-  Session card still lands on "what was said to the system this
-  session", but the Sessions before it are a scroll away, as in Part
-  mode. Read-only; a Part heading selects that Part on the canvas and
+  inside each Session. It opens at the top of the viewed Session, so it
+  lands on "what was said to the system this session", but the Sessions
+  before it are a scroll away, as in Part mode. Read-only; a Part heading selects that Part on the canvas and
   flips the window to Part mode.
 - Part mode follows the selection; an **empty selection switches to Self
   mode**. A mode toggle lets the user cross over.
 - Entry points: the Part form shows the last few entries with an expand
-  button (Part mode); the Session card opens Self mode.
+  button (Part mode); the top bar's **Conversation** button, between the
+  Session block and Time Travel, opens Self mode. It is a Map-level view,
+  so it is not in the Session card, which keeps only the Session's frame
+  (the trigger and the Part it activated).
 - In Time-travel: read-only, composer hidden; the active Session's draft
   waits (ADR-0017 drafts are keyed by entity). The log is the snapshot's,
   so entries after the viewed Session do not show.
