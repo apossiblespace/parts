@@ -1,6 +1,5 @@
 (ns aps.parts.frontend.components.toolbar.part-form
   (:require
-   ["lucide-react/dist/esm/icons/maximize-2" :default Maximize2]
    [aps.parts.common.constants :refer [part-labels part-type-order max-text-length]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.body-location :refer [location-field]]
@@ -44,9 +43,10 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save on-delete collapsed]}]
   (let [{:keys [id type label notes body_location]} part
-        ;; The notes window (ADR-0017) owns notes while it is open: the
-        ;; quick editor below is disabled so two editors never race.
-        notes-window-open?                          (uix.rf/use-subscribe [:ui/window-open? :notes])
+        ;; The notes window (ADR-0017) owns this Part's notes while it is
+        ;; open on them: the quick editor below is disabled.
+        notes-scope?                                (= id (uix.rf/use-subscribe [:notes/scope-id]))
+        notes-in-window?                            (and (uix.rf/use-subscribe [:ui/window-open? :notes]) notes-scope?)
         ;; body_location is not a form field: it is edited in its
         ;; floating window (ADR-0017), which saves on its own. Keeping
         ;; it out of `fields` means a notes commit can never write a
@@ -91,22 +91,12 @@
                        :on-blur   text-blur
                        :onKeyDown (text-keys :label :blur-on-enter? true)})
 
-            ;; Same row shape as Body location's (label left, small button
-            ;; right, gap below), so the textarea stays a plain textarea
-            ;; with its scrollbar and grip where they belong.
-            ($ :div {:class "flex items-center justify-between mb-1"}
-               ($ :label {:class "fieldset-label"} "Notes:")
-               ($ :button {:type       "button"
-                           :class      "btn btn-xs btn-square"
-                           :aria-label "Open notes in a window"
-                           :title      "Open notes in a window"
-                           :on-click   #(rf/dispatch [:window/open :notes])}
-                  ($ Maximize2 {:size 12})))
+            ($ form/notes-header {:disabled? (not notes-scope?)})
             ($ :textarea {:max-length max-text-length
                           :class      "textarea textarea-sm mb-1"
                           :value      (:notes values)
-                          :disabled   notes-window-open?
-                          :title      (when notes-window-open? "Editing in the notes window")
+                          :disabled   notes-in-window?
+                          :title      (when notes-in-window? "Editing in the notes window")
                           :onChange   #(update-field :notes (.. % -target -value))
                           :on-blur    text-blur
                           :onKeyDown  (text-keys :notes)})

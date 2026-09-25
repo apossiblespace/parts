@@ -223,6 +223,13 @@
    (windows/open? windows kind)))
 
 (rf/reg-sub
+ :notes/scope-id
+ :<- [:map/selected-parts]
+ :<- [:map/selected-relationships]
+ (fn [[parts relationships] _]
+   (:id (second (windows/scope-notes parts relationships)))))
+
+(rf/reg-sub
  :ui/window-draft
  ;; The draft `kind` holds for `entity-id`, or nil (see `windows/draft`).
  :<- [:ui/windows]

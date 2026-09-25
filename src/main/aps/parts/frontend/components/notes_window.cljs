@@ -1,8 +1,8 @@
 (ns aps.parts.frontend.components.notes-window
-  "The Part notes floating window (ADR-0017): the sidebar's notes
-   textarea with room to compose. Scope: the selected Part, exactly one —
-   otherwise it closes itself. Edits a draft keyed by Part id: Save
-   commits (`:map/part-update`), Cancel discards, Close/Escape keep it.
+  "The notes floating window (ADR-0017): the sidebar's notes textarea
+   with room to compose. Scope: `windows/scope-notes` — one Part, or one
+   Relationship — otherwise it closes itself. Edits a draft keyed by the
+   entity's id: Save commits, Cancel discards, Close/Escape keep it.
    While it is open the sidebar's quick editor of notes is disabled, so
    two editors never race. Read-only while the canvas is."
   (:require
@@ -15,23 +15,26 @@
 
 (defui notes-window
   []
-  (let [part      (windows/scope-part (uix.rf/use-subscribe [:map/selected-parts]))
-        editable? (uix.rf/use-subscribe [:canvas/editable?])
-        part-id   (:id part)
-        saved     (or (:notes part) "")
-        draft     (uix.rf/use-subscribe [:ui/window-draft :notes part-id])
-        text      (or draft saved)
-        dirty?    (and (some? draft) (not= draft saved))
-        text-ref  (use-ref nil)
-        cancel!   #(rf/dispatch [:window/clear-draft :notes part-id])
-        save!     (fn []
-                    (rf/dispatch [:map/part-update part-id {:notes text}])
-                    (cancel!))]
+  (let [[kind entity] (windows/scope-notes (uix.rf/use-subscribe [:map/selected-parts])
+                                           (uix.rf/use-subscribe [:map/selected-relationships]))
+        names         (uix.rf/use-subscribe [:canvas/part-names])
+        editable?     (uix.rf/use-subscribe [:canvas/editable?])
+        entity-id     (:id entity)
+        saved         (or (:notes entity) "")
+        draft         (uix.rf/use-subscribe [:ui/window-draft :notes entity-id])
+        text          (or draft saved)
+        dirty?        (and (some? draft) (not= draft saved))
+        text-ref      (use-ref nil)
+        cancel!       #(rf/dispatch [:window/clear-draft :notes entity-id])
+        save!         (fn []
+                        (rf/dispatch [(if (= kind :part) :map/part-update :map/relationship-update)
+                                      entity-id {:notes text}])
+                        (cancel!))]
     (use-effect
      (fn []
-       (when-not part
+       (when-not entity
          (rf/dispatch [:window/close :notes])))
-     [part])
+     [entity])
     ;; Focus the textarea once it exists, caret at the end.
     (use-effect
      (fn []
@@ -39,19 +42,22 @@
          (let [end (.-length (.-value t))]
            (.focus t)
            (.setSelectionRange t end end))))
-     [part-id editable?])
-    (when part
+     [entity-id editable?])
+    (when entity
       ($ window {:kind  :notes
                  :class "text-window"
-                 :title (str "Notes: " (:label part))}
+                 :title (str "Notes: " (if (= kind :part)
+                                         (:label entity)
+                                         (str (:label (names (:source_id entity))) " → "
+                                              (:label (names (:target_id entity))))))}
          (if editable?
            ($ :<>
               ($ :textarea {:max-length  max-text-length
                             :ref         text-ref
                             :class       "floating-window-text"
-                            :aria-label  "Part notes"
+                            :aria-label  "Notes"
                             :value       text
-                            :on-change   #(rf/dispatch [:window/set-draft :notes part-id
+                            :on-change   #(rf/dispatch [:window/set-draft :notes entity-id
                                                         (.. % -target -value)])
                             :on-key-down (fn [^js e]
                                            (when (and dirty?

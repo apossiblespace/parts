@@ -5,9 +5,11 @@
    reverting the field, and discrete controls commit on change. One
    implementation so the two forms cannot drift."
   (:require
+   ["lucide-react/dist/esm/icons/maximize-2" :default Maximize2]
    ["lucide-react/dist/esm/icons/trash-2" :default Trash2]
    [aps.parts.frontend.components.inline-edit :as inline-edit]
    [clojure.string :as str]
+   [re-frame.core :as rf]
    [uix.core :refer [$ defui use-effect use-ref use-state]]))
 
 (defn use-autosave-form
@@ -158,3 +160,19 @@
                    :title      delete-label
                    :on-click   on-delete}
           ($ Trash2 {:size 14})))))
+
+(defui notes-header
+  "The \"Notes:\" label and the button that opens the notes window. Same
+   row shape as Body location's, so the textarea below stays a plain
+   textarea with its scrollbar and grip where they belong. The button is
+   disabled when the window would edit another entity (a mixed selection)."
+  [{:keys [disabled?]}]
+  ($ :div {:class "flex items-center justify-between mb-1"}
+     ($ :label {:class "fieldset-label"} "Notes:")
+     ($ :button {:type       "button"
+                 :class      "btn btn-xs btn-square"
+                 :aria-label "Open notes in a window"
+                 :title      "Open notes in a window"
+                 :disabled   disabled?
+                 :on-click   #(rf/dispatch [:window/open :notes])}
+        ($ Maximize2 {:size 12}))))

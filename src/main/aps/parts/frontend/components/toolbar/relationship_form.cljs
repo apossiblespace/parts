@@ -5,7 +5,8 @@
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.form :as form]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-effect use-ref]]))
+   [uix.core :refer [$ defui use-effect use-ref]]
+   [uix.re-frame :as uix.rf]))
 
 (defui relationship-form
   "Form for viewing and editing relationship properties, to render in the
@@ -20,6 +21,8 @@
    - collapsed: Whether the form should start collapsed"
   [{:keys [relationship on-save on-delete collapsed]}]
   (let [{:keys [id type notes intensity source_id target_id]} relationship
+        notes-scope?                                          (= id (uix.rf/use-subscribe [:notes/scope-id]))
+        notes-in-window?                                      (and (uix.rf/use-subscribe [:ui/window-open? :notes]) notes-scope?)
         pending-preview                                       (use-ref nil)
         preview-raf                                           (use-ref nil)
         {:keys [values collapsed? update-field toggle-collapsed
@@ -106,10 +109,12 @@
                          :on-key-up     commit-intensity
                          :on-blur       commit-intensity}))
 
-            ($ :label {:class "fieldset-label"} "Notes:")
+            ($ form/notes-header {:disabled? (not notes-scope?)})
             ($ :textarea {:max-length max-text-length
                           :class      "textarea textarea-sm mb-1"
                           :value      (:notes values)
+                          :disabled   notes-in-window?
+                          :title      (when notes-in-window? "Editing in the notes window")
                           :onChange   #(update-field :notes (.. % -target -value))
                           :on-blur    text-blur
                           :onKeyDown  (text-keys :notes)}))))))

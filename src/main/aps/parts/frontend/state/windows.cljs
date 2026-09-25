@@ -125,3 +125,12 @@
   [selected-parts]
   (when (= 1 (count selected-parts))
     (first selected-parts)))
+
+(defn scope-notes
+  "What the notes window edits, as `[kind entity]`: the scoped Part, else
+   a Relationship selected alone. Nil closes the window."
+  [selected-parts selected-relationships]
+  (if-let [part (scope-part selected-parts)]
+    [:part part]
+    (when (and (empty? selected-parts) (= 1 (count selected-relationships)))
+      [:relationship (first selected-relationships)])))

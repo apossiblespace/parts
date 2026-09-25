@@ -106,3 +106,11 @@
   (testing "none or several means no scope"
     (is (nil? (windows/scope-part [])))
     (is (nil? (windows/scope-part [{:id "a"} {:id "b"}])))))
+
+(deftest scope-notes-test
+  (testing "a Part wins over a Relationship selected with it"
+    (is (= [:part {:id "a"}] (windows/scope-notes [{:id "a"}] [{:id "r"}]))))
+  (testing "a Relationship is the scope only when selected alone"
+    (is (= [:relationship {:id "r"}] (windows/scope-notes [] [{:id "r"}])))
+    (is (nil? (windows/scope-notes [{:id "a"} {:id "b"}] [{:id "r"}])))
+    (is (nil? (windows/scope-notes [] [{:id "r"} {:id "s"}])))))
