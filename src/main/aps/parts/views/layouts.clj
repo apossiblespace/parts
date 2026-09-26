@@ -32,7 +32,7 @@
    nav) and a compact footer. Auth-agnostic. `:active` in options is the slug
    of the current document, highlighted in the nav."
   [options & content]
-  (page (assoc options :analytics? true)
+  (page (assoc options :analytics? true :main-js? false)
         (partials/document-header (:active options))
         [:main {:class "container max-w-3xl mx-auto px-4 py-12"} content]
         (partials/document-footer)))
@@ -55,5 +55,6 @@
   [title & content]
   (fullscreen {:title      title
                :styles     ["/css/style.css"]
-               :html-class nil}
+               :html-class nil
+               :main-js?   false}
               content))

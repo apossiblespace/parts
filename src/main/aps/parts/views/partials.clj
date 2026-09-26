@@ -18,10 +18,12 @@
    label])
 
 (defn scripts
-  "Render script tags at the bottom of the main body tag.
-   Always includes main.js plus any additional scripts from options."
-  [{:keys [scripts]}]
-  (for [src (into ["/js/main.js"] (or scripts []))]
+  "Render script tags at the bottom of the main body tag: main.js (the app
+   bundle) unless `:main-js?` is false, plus any additional scripts from
+   options. Pages with no #root and no htmx forms pass `:main-js? false`,
+   so slow devices do not parse the bundle for nothing."
+  [{:keys [scripts main-js?] :or {main-js? true}}]
+  (for [src (concat (when main-js? ["/js/main.js"]) scripts)]
     [:script {:src src}]))
 
 (defn head
