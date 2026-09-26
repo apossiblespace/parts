@@ -15,13 +15,9 @@
   "Clears all playground-related localStorage (maps + current ID)"
   []
   (clear-current-map-id)
-  ;; Remove all parts-map-* keys
-  (let [keys-to-remove (for [i     (range (.-length js/localStorage))
-                             :let  [key (.key js/localStorage i)]
-                             :when (and key (.startsWith key "parts-map-"))]
-                         key)]
-    (doseq [key keys-to-remove]
-      (.removeItem js/localStorage key))))
+  (doseq [k     (js/Object.keys js/localStorage)
+          :when (.startsWith k "parts-map-")]
+    (.removeItem js/localStorage k)))
 
 ;; Auth is an httpOnly session cookie (ADR-0007). The browser carries it on
 ;; every same-origin request — there is no token to store or read here.
