@@ -10,44 +10,13 @@
    changes could be POSTed to another Map's id (see TASK-064)."
   (:require
    [aps.parts.common.observe :as o]
+   [aps.parts.frontend.api.batch :as batch]
+   [aps.parts.frontend.state.save-status :as save-status]
    [aps.parts.frontend.storage.protocol :refer [process-batched-changes]]
    [aps.parts.frontend.storage.registry :as storage-registry]
-   [cljs.core.async :refer [<! >! alts! chan close! go-loop put! timeout]]
-   [re-frame.core :as rf]))
-
-(def ^:private debounce-ms 2000)
-
-(defn debounce-batch
-  "Creates a debounced channel that batches incoming changes from `input-chan`.
-   After a period of inactivity specified by `debounce-ms`, it sends the
-   accumulated batch of changes to the output channel as a vector. When
-   `input-chan` is closed, it sends any remaining batch and closes the output
-   channel."
-  [input-chan debounce-ms]
-  (let [output-chan (chan)]
-    (go-loop [batch []]
-      (let [timer          (timeout debounce-ms)
-            [value source] (alts! [input-chan timer])]
-        (cond
-          ;; 1. Timer fired, send the batch accumulated so far.
-          (= source timer)
-          (do
-            (when (seq batch)
-              (>! output-chan batch))
-            (recur []))
-
-          ;; 2. Received a new change from input, batch it up.
-          value
-          (recur (conj batch value))
-
-          ;; 3. Input is closed (value is nil), send any remaining changes,
-          ;; clean up.
-          :else
-          (do
-            (when (seq batch)
-              (>! output-chan batch))
-            (close! output-chan)))))
-    output-chan))
+   [cljs.core.async :refer [<! chan close! go-loop put!]]
+   [re-frame.core :as rf]
+   [re-frame.db :as rf-db]))
 
 (defn- consume!
   "Drain debounced batches and POST each to `map-id`'s backend until the
@@ -76,6 +45,28 @@
 ;; a time; `start` replaces it, `stop` clears it.
 (defonce ^:private active (atom nil))
 
+(defn flush!
+  "Send the pending batch now instead of after the debounce."
+  []
+  (when-let [input-chan @active]
+    (put! input-chan batch/flush-signal)))
+
+(defn- on-visibility-change []
+  ;; Hidden is the last moment a page can rely on: iPad Safari may discard
+  ;; a background tab without any further event.
+  (when (= "hidden" (.-visibilityState js/document))
+    (flush!)))
+
+(defn- on-before-unload
+  ;; ponytail: if the user confirms leaving, a batch still in the debounce
+  ;; window (up to ~2 s of edits) is lost. Upgrade: send the final batch
+  ;; with `fetch` keepalive on pagehide.
+  [^js event]
+  (when (#{:dirty :saving} (save-status/status @rf-db/app-db))
+    (.preventDefault event)
+    ;; Older browsers show the prompt only for a truthy returnValue.
+    (set! (.-returnValue event) true)))
+
 (defn stop
   "Tear down the running queue, if any. Closing the input flushes any pending
    batch to the current Map's backend (via the debounce cascade), then the
@@ -83,6 +74,8 @@
   []
   (when-let [input-chan @active]
     (o/info "queue.stop" "update queue stopped")
+    (.removeEventListener js/document "visibilitychange" on-visibility-change)
+    (.removeEventListener js/window "beforeunload" on-before-unload)
     (close! input-chan)
     (reset! active nil)))
 
@@ -93,7 +86,9 @@
   (stop)
   (o/info "queue.start" "update queue started for map" map-id)
   (let [input-chan (chan)]
-    (consume! map-id (debounce-batch input-chan debounce-ms))
+    (consume! map-id (batch/debounce-batch input-chan {:idle-ms 2000 :max-ms 10000}))
+    (.addEventListener js/document "visibilitychange" on-visibility-change)
+    (.addEventListener js/window "beforeunload" on-before-unload)
     (reset! active input-chan)))
 
 (defn add-events!
