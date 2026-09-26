@@ -35,21 +35,6 @@
     --noise: 0;
 }
 
-@font-face {
-    font-family: "Inter";
-    font-style: normal;
-    font-weight: 100 900;
-    font-display: swap;
-    src: url("/fonts/InterVariable.woff2") format("woff2");
-}
-@font-face {
-    font-family: "Inter";
-    font-style: italic;
-    font-weight: 100 900;
-    font-display: swap;
-    src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
-}
-
 :root {
     --ifs-green: #4eb48a;
     --ifs-yellow: #d3be2a;
@@ -80,6 +65,16 @@
    buttons read better at normal weight. */
 .btn:not(.btn-primary):not(.btn-error) {
     font-weight: 400;
+}
+
+/* A button centres the font's line box, but each system font puts its
+   capitals at a different place in that box (SF sits low, Segoe UI
+   high). Trimming the label to cap height and baseline centres the
+   visible letters with any font. Only labels in a <span>: bare text in
+   a flex container cannot be trimmed. Browsers without support render
+   as before. */
+.btn > span:not(.tooltip-content) {
+    text-box: trim-both cap alphabetic;
 }
 
 .input {
@@ -148,11 +143,6 @@
     height: 0.65rem;
     border-radius: 9999px;
     flex-shrink: 0;
-}
-
-body {
-    font-family: "Inter", Helvetica, Arial, sans-serif;
-    font-optical-sizing: auto;
 }
 
 .legal-doc {
