@@ -13,7 +13,8 @@
    [com.brunobonacci.mulog :as mulog]
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.defaults :refer [api-defaults wrap-defaults site-defaults]]
-   [ring.middleware.resource :refer [wrap-resource]]))
+   [ring.middleware.not-modified :refer [not-modified-response]]
+   [ring.middleware.resource :refer [resource-request]]))
 
 (defn logging
   "Middleware logging each incoming request with minimal information.
@@ -128,14 +129,31 @@
     (fn [request]
       (assoc-in (handler request) [:headers "Content-Security-Policy"] policy))))
 
+(defn wrap-static
+  "Serve files from resources/public; pass other requests to `handler`.
+   A URL with `?v=` (see `partials/asset-url`) names one exact content,
+   so the browser may keep it for a year. Other files get `no-cache`:
+   the browser asks each time, and gets a 304 when the file is unchanged."
+  [handler]
+  (fn [request]
+    (if-let [response (resource-request request "public")]
+      (-> response
+          (assoc-in [:headers "Cache-Control"]
+                    (if (re-find #"(?:^|&)v=" (str (:query-string request)))
+                      "public, max-age=31536000, immutable"
+                      "no-cache"))
+          (not-modified-response request))
+      (handler request))))
+
 (defn wrap-core-middlewares
   "Apply essential Ring middleware for the entire application.
-  - `wrap-resource`: Serves static files from resources/public
+  - `wrap-static`: Serves static files from resources/public, with cache
+    headers
   - `wrap-content-type`: Sets proper MIME types based on file extensions,
     ensuring SVG files are served as image/svg+xml instead of text/plain"
   [handler]
   (-> handler
-      (wrap-resource "public")
+      (wrap-static)
       (wrap-content-type)))
 
 (defn wrap-html-response

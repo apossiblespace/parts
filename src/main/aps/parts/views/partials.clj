@@ -4,7 +4,24 @@
    [aps.parts.config :as conf]
    [aps.parts.launch :as launch]
    [aps.parts.version :as version]
+   [clojure.java.io :as io]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
+
+(def ^:private resource-version
+  ;; Memoized: the files inside a running release do not change.
+  (memoize
+   (fn [path]
+     (some->> (io/resource (str "public" path)) slurp hash (format "%08x")))))
+
+(defn asset-url
+  "The URL for the static file at `path` under resources/public, with
+   `?v=` and a hash of its content. Browsers may then cache it for a
+   year (see `middleware/wrap-static`): new content gives a new URL. In
+   dev, and for a path with no file, the path is returned unchanged."
+  [path]
+  (if-let [v (when-not (conf/dev?) (resource-version path))]
+    (str path "?v=" v)
+    path))
 
 (defn- anti-forgery-field
   "The hidden CSRF input every server-rendered POST form must carry."
@@ -24,7 +41,7 @@
    so slow devices do not parse the bundle for nothing."
   [{:keys [scripts main-js?] :or {main-js? true}}]
   (for [src (concat (when main-js? ["/js/main.js"]) scripts)]
-    [:script {:src src}]))
+    [:script {:src (asset-url src)}]))
 
 (defn head
   "Head tag with configurable options.
@@ -79,7 +96,7 @@
       [:link {:rel "me" :href "https://fedi.gosha.net/@gosha"}]
       ;; [:link {:rel "stylesheet" :href "/css/style.css"}]
       (for [href (or styles [])]
-        [:link {:rel "stylesheet" :href href}])
+        [:link {:rel "stylesheet" :href (asset-url href)}])
       (when analytics?
         ;; No inline script: the plausible queue bootstrap and the
         ;; data-attribute event wiring live in marketing.js, so these pages
@@ -90,7 +107,7 @@
                    :src         "https://plausible.io/js/script.outbound-links.tagged-events.js"}]
          ;; Not under /js/ — that whole directory is shadow-cljs build
          ;; output (gitignored); this file is a tracked static asset.
-         [:script {:src "/marketing.js" :defer true}]))])))
+         [:script {:src (asset-url "/marketing.js") :defer true}]))])))
 
 (defn header-signup
   "Post-launch site header: Log in + Create an account buttons."
