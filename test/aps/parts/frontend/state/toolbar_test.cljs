@@ -413,6 +413,27 @@
   (testing "an empty overlay leaves the committed selection as-is"
     (is (= #{"p1"} (toolbar/marquee-preview-ids ["p1"] {})))))
 
+(deftest selected-test
+  (let [parts [{:id "p1" :label "Critic" :position_x 0 :position_y 0 :width 120 :height 80}
+               {:id "p2" :label "Exile" :position_x 50 :position_y 50}]]
+    (testing "keeps only the selected rows, in canvas order"
+      (is (= ["p2"] (map :id (toolbar/selected ["p2"] parts)))))
+
+    (testing "a move or resize does not change the result"
+      (is (= (toolbar/selected ["p1"] parts)
+             (toolbar/selected ["p1"] (assoc parts 0 (assoc (first parts)
+                                                            :position_x 99
+                                                            :position_y 99
+                                                            :width 200
+                                                            :height 160))))))
+
+    (testing "an edit to anything else does change the result"
+      (is (not= (toolbar/selected ["p1"] parts)
+                (toolbar/selected ["p1"] (assoc-in parts [0 :label] "Judge")))))
+
+    (testing "no selection gives an empty vector"
+      (is (= [] (toolbar/selected nil parts))))))
+
 (deftest resize-armed?-test
   (testing "resize arms only for a single selection in Select — each node
             then shows handles iff it is the selected one"

@@ -244,14 +244,14 @@
  :<- [:ui/selected-node-ids]
  :<- [:canvas/parts]
  (fn [[selected-ids parts] _]
-   (filterv #(contains? (set selected-ids) (:id %)) parts)))
+   (toolbar/selected selected-ids parts)))
 
 (rf/reg-sub
  :map/selected-relationships
  :<- [:ui/selected-edge-ids]
  :<- [:canvas/relationships]
  (fn [[selected-ids relationships] _]
-   (filterv #(contains? (set selected-ids) (:id %)) relationships)))
+   (toolbar/selected selected-ids relationships)))
 
 (rf/reg-sub
  :auth/user

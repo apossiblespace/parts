@@ -41,7 +41,7 @@
    [aps.parts.frontend.state.time-travel :as time-travel]
    [aps.parts.frontend.state.toolbar :as toolbar]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-callback use-effect use-ref use-state]]
+   [uix.core :refer [$ defui use-callback use-effect use-memo use-ref use-state]]
    [uix.re-frame :as uix.rf]))
 
 (def ^:private session-glide-ms
@@ -742,8 +742,13 @@
 
         ;; The sidebar forms' delete buttons — same pending-deletes flow
         ;; (and so the same confirmation modal) as the Delete key.
-        sidebar-props         {:on-delete-part         (fn [id] (queue-delete :parts id))
-                               :on-delete-relationship (fn [id] (queue-delete :relationships id))}
+        ;; Memoised: the sidebar is ^:memo, and new fns each render would
+        ;; re-render it on every drag frame.
+        sidebar-props         (use-memo
+                               (fn []
+                                 {:on-delete-part         (fn [id] (queue-delete :parts id))
+                                  :on-delete-relationship (fn [id] (queue-delete :relationships id))})
+                               [queue-delete])
 
         confirm-delete        (use-callback
                                (fn []

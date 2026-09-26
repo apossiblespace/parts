@@ -8,7 +8,7 @@
    [uix.core :refer [$ defui use-state]]
    [uix.re-frame :as uix.rf]))
 
-(defui sidebar
+(defui ^:memo sidebar
   "Map-canvas sidebar: Part / Relationship tool palettes, plus the
    demo-mode sign-up / log-in CTAs for unauthenticated playground
    visitors. Auth status (logged-in user + log-out action) is no longer

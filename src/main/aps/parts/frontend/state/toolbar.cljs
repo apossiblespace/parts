@@ -388,6 +388,21 @@
              (set committed-ids)
              overlay))
 
+(def ^:private geometry-keys
+  [:position_x :position_y :width :height])
+
+(defn selected
+  "The rows whose :id is in `selected-ids`, without geometry. A drag
+   writes a new position each frame; with geometry removed, the result
+   stays `=` and the sidebar and windows that read the selection do not
+   re-render. Nothing that reads the selection needs geometry."
+  [selected-ids rows]
+  (let [ids (set selected-ids)]
+    (into []
+          (comp (filter #(contains? ids (:id %)))
+                (map #(apply dissoc % geometry-keys)))
+          rows)))
+
 (defn resize-armed?
   "Resize belongs to the Select tool, single selection only (ADR-0015):
    corners resize, whole body moves. A marquee selection is for
