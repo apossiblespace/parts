@@ -210,11 +210,21 @@
    (get-in db [:ui :windows] {})))
 
 (rf/reg-sub
+ :ui/open-window-kinds
+ ;; A vector of keywords, so typing into a draft or moving a window
+ ;; does not re-render the mount point.
+ :<- [:ui/windows]
+ (fn [windows _]
+   (windows/open-kinds windows)))
+
+(rf/reg-sub
  :ui/window
- ;; One kind's window state, or nil if never opened.
+ ;; One kind's window state, or nil if never opened. Without the drafts
+ ;; (read through `:ui/window-draft`), so typing does not re-render the
+ ;; window frame.
  :<- [:ui/windows]
  (fn [windows [_ kind]]
-   (get windows kind)))
+   (some-> (get windows kind) (dissoc :drafts))))
 
 (rf/reg-sub
  :ui/window-open?

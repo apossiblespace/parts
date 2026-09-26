@@ -100,6 +100,12 @@
 (def ^:private middle-mouse-pan-buttons #js [1])
 (def ^:private multi-selection-key-codes #js ["Meta" "Shift"])
 
+(def ^:private window-kinds
+  {:body-location body-location-window
+   :conversation  conversation-window
+   :notes         notes-window
+   :trigger       trigger-window})
+
 (defn- non-input-target?
   "True unless the keydown originated inside a form input or a dialog.
    Keeps the tool shortcuts (V/H/Escape) from stealing keystrokes while
@@ -1511,10 +1517,7 @@
           ;; Floating windows (ADR-0017): outside ReactFlow so a title-
           ;; bar drag never reaches the pane as a pan; anchored to the
           ;; map-view like the marquee overlay.
-          ($ floating-windows {:kinds {:body-location body-location-window
-                                       :conversation  conversation-window
-                                       :notes         notes-window
-                                       :trigger       trigger-window}}))
+          ($ floating-windows {:kinds window-kinds}))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
          ($ delete-confirmation-modal

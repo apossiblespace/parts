@@ -148,12 +148,12 @@
                  :on-click on-save}
         "Save")))
 
-(defui floating-windows
+(defui ^:memo floating-windows
   "Mounts one component per open kind. `kinds` maps kind → the consumer
-   component that renders its `window`."
+   component that renders its `window`; pass the same map every render
+   so the memo holds."
   [{:keys [kinds]}]
-  (let [windows (uix.rf/use-subscribe [:ui/windows])]
-    (for [[kind {:keys [open?]}] windows
-          :let                   [component (get kinds kind)]
-          :when                  (and open? component)]
-      ($ component {:key (name kind)}))))
+  (for [kind  (uix.rf/use-subscribe [:ui/open-window-kinds])
+        :let  [component (get kinds kind)]
+        :when component]
+    ($ component {:key (name kind)})))
