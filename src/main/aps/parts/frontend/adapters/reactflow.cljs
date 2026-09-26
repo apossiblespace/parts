@@ -130,6 +130,41 @@
           ;; already-wrapped form yields `url('#url(#edge-arrow)')`.
           :markerEnd    "edge-arrow"})))
 
+(defn update-edge-cache
+  "Convert Relationships to ReactFlow edges, reusing the edge objects in
+   `cache` (the value this fn returned last time, or nil). ReactFlow
+   re-renders an edge when it gets a new edge object, so without reuse
+   every canvas render re-renders every edge. An edge is reused when its
+   Relationship is `identical?` to the cached one and its selected state,
+   bidirectional flag and opts are `=`. Edges attached to a moved Part
+   need no new object: `parts-edge` follows its end nodes itself.
+
+   Returns the new cache; its `:edges` is the Array for ReactFlow.
+   Selected-ids and opts as in `relationships->edges`."
+  [cache relationships selected-ids opts]
+  (o/debug
+   "reactflow.update-edge-cache"
+   "converting relationships to edges"
+   (count relationships))
+  (let [selected-id-set (when selected-ids (set selected-ids))
+        bidi-pairs      (if (identical? relationships (:relationships cache))
+                          (:bidi-pairs cache)
+                          (geometry/bidirectional-pairs relationships))
+        entry           (fn [{:keys [id] :as rel}]
+                          (let [bidir? (geometry/bidirectional? bidi-pairs rel)
+                                k      [(contains? selected-id-set id) bidir? opts]
+                                old    (get-in cache [:entries id])]
+                            (if (and (identical? rel (:rel old)) (= k (:key old)))
+                              old
+                              {:rel  rel
+                               :key  k
+                               :edge (relationship->edge rel selected-id-set bidir? opts)})))
+        entries         (into {} (map (juxt :id entry)) relationships)]
+    {:relationships relationships
+     :bidi-pairs    bidi-pairs
+     :entries       entries
+     :edges         (to-array (map #(:edge (get entries (:id %))) relationships))}))
+
 (defn relationships->edges
   "Convert a sequence of Relationships to an Array of ReactFlow edges.
   The optional selected-ids param is a vector containing the IDs of selected
@@ -138,16 +173,7 @@
   ([relationships] (relationships->edges relationships nil))
   ([relationships selected-ids] (relationships->edges relationships selected-ids nil))
   ([relationships selected-ids opts]
-   (o/debug
-    "reactflow.relationships->edges"
-    "converting relationships to edges"
-    (count relationships))
-   (let [selected-id-set (when selected-ids (set selected-ids))
-         bidi-pairs      (geometry/bidirectional-pairs relationships)]
-     (to-array (map #(relationship->edge % selected-id-set
-                                         (geometry/bidirectional? bidi-pairs %)
-                                         opts)
-                    relationships)))))
+   (:edges (update-edge-cache nil relationships selected-ids opts))))
 
 (defn edge->relationship
   "Convert ReactFlow edge to a Relationship"

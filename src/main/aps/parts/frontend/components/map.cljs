@@ -703,10 +703,13 @@
                                 :activated-part-id  (:activated_part_id
                                                      viewed-session)
                                 :activation-trigger (:trigger viewed-session)})
-        edges                 (adapter/relationships->edges
-                               shown-relationships selected-edge-ids
-                               {:session-badges? session-badges?
-                                :viewed-ordinal  viewed-ordinal})
+        edge-cache            (use-ref nil)
+        edges                 (:edges (reset! edge-cache
+                                              (adapter/update-edge-cache
+                                               @edge-cache
+                                               shown-relationships selected-edge-ids
+                                               {:session-badges? session-badges?
+                                                :viewed-ordinal  viewed-ordinal})))
         rf-instance           (useReactFlow)
 
         set-tool-mode         (use-callback

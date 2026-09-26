@@ -163,6 +163,45 @@
         (is (= "t1" (:target first-edge)))
         (is (= "protects" (get-in first-edge [:data :relationship])))))))
 
+(deftest update-edge-cache-test
+  (let [r1   {:id "r1" :source_id "a" :target_id "b" :type "protects"}
+        r2   {:id "r2" :source_id "b" :target_id "c" :type "protects"}
+        rels [r1 r2]
+        opts {:viewed-ordinal 1}
+        c1   (adapter/update-edge-cache nil rels nil opts)
+        edge (fn [cache i] (aget (:edges cache) i))]
+    (testing "unchanged Relationships reuse their edge objects"
+      (let [c2 (adapter/update-edge-cache c1 rels nil {:viewed-ordinal 1})]
+        (is (identical? (edge c1 0) (edge c2 0)))
+        (is (identical? (edge c1 1) (edge c2 1)))))
+
+    (testing "selecting one Relationship rebuilds only its edge"
+      (let [c2 (adapter/update-edge-cache c1 rels ["r2"] opts)]
+        (is (identical? (edge c1 0) (edge c2 0)))
+        (is (not (identical? (edge c1 1) (edge c2 1))))
+        (is (true? (.-selected (edge c2 1))))))
+
+    (testing "an edited Relationship gets a new edge object"
+      (let [c2 (adapter/update-edge-cache c1 [(assoc r1 :type "polarizes-with") r2] nil opts)]
+        (is (not (identical? (edge c1 0) (edge c2 0))))
+        (is (identical? (edge c1 1) (edge c2 1)))))
+
+    (testing "a new reverse Relationship flips both ends of the pair to bowed"
+      (let [c2 (adapter/update-edge-cache c1 (conj rels {:id "r3" :source_id "b" :target_id "a" :type "protects"}) nil opts)]
+        (is (not (identical? (edge c1 0) (edge c2 0))))
+        (is (true? (.. (edge c2 0) -data -bidir)))
+        (is (identical? (edge c1 1) (edge c2 1)))))
+
+    (testing "changed opts rebuild every edge"
+      (let [c2 (adapter/update-edge-cache c1 rels nil {:viewed-ordinal 2})]
+        (is (not (identical? (edge c1 0) (edge c2 0))))))
+
+    (testing "removed Relationships leave the cache"
+      (is (= #{"r2"} (set (keys (:entries (adapter/update-edge-cache c1 [r2] nil opts)))))))
+
+    (testing "the bidirectional pairs are reused while the relationships are identical"
+      (is (identical? (:bidi-pairs c1) (:bidi-pairs (adapter/update-edge-cache c1 rels ["r1"] opts)))))))
+
 (deftest edge->relationship-test
   (testing "Converts edge to relationship with correct structure"
     (let [edge   #js {:id     "edge-123"
