@@ -1,7 +1,7 @@
 (ns aps.parts.frontend.components.map
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
-                            ReactFlow ReactFlowProvider useReactFlow]]
+                            ReactFlow ReactFlowProvider useReactFlow useStore]]
    ["lucide-react/dist/esm/icons/chevron-down" :default ChevronDown]
    ["lucide-react/dist/esm/icons/chevron-left" :default ChevronLeft]
    ["lucide-react/dist/esm/icons/chevron-right" :default ChevronRight]
@@ -99,6 +99,9 @@
 ;; and reconfiguring d3-zoom on every drag frame.
 (def ^:private middle-mouse-pan-buttons #js [1])
 (def ^:private multi-selection-key-codes #js ["Meta" "Shift"])
+
+(defn- connection-in-progress? [^js state]
+  (.. state -connection -inProgress))
 
 (def ^:private window-kinds
   {:body-location body-location-window
@@ -619,6 +622,8 @@
         ;; The read-only seam (ADR-0014): false until the Map's Sessions
         ;; load and one is active; demo Maps are always true.
         editable?             (uix.rf/use-subscribe [:canvas/editable?])
+        ;; Drives the `connecting` class; changes twice per connection.
+        connecting?           (useStore connection-in-progress?)
 
         ;; What a drag means under the active tool (ADR-0015) — feeds the
         ;; ReactFlow interaction props and the touch-marquee gate below.
@@ -1284,6 +1289,7 @@
                 :class             (str "map-view"
                                         (when minimal " minimal")
                                         (when time-travelling? " time-travelling")
+                                        (when connecting? " connecting")
                                         " mode-" (name tool-mode))
                 ;; The touch long-press marquee listens here, above
                 ;; ReactFlow, so the pane stays untouched; the handlers

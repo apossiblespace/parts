@@ -857,10 +857,10 @@ a.btn {
            - the target handle is the whole node, a forgiving drop zone,
              but only takes events while a connection is in progress so
              it never steals the interior's move-drag. "In progress" is
-             detected in pure CSS: the library mounts
-             .react-flow__connectionline exactly while a connection is
-             being dragged, so :has() on it costs no per-node React
-             subscription. */
+             the `connecting` class map-canvas sets from ReactFlow's
+             connection state. Not `.react-flow:has(.react-flow__connectionline)`:
+             a :has() on an ancestor makes the browser re-style the whole
+             Map on every DOM change inside it (TASK-128). */
         .connect-handle.react-flow__handle {
             position: absolute;
             inset: 0;
@@ -892,9 +892,7 @@ a.btn {
             opacity: 1;
         }
 
-        .react-flow:has(.react-flow__connectionline)
-            .node-wrapper
-            .connect-handle.react-flow__handle.target {
+        &.connecting .node-wrapper .connect-handle.react-flow__handle.target {
             pointer-events: auto;
         }
 
@@ -905,9 +903,7 @@ a.btn {
            removing that element from the DOM silently ends event
            delivery for the rest of the gesture (the connection freezes
            as a stub at the press point). */
-        .react-flow:has(.react-flow__connectionline)
-            .node-wrapper
-            .connect-handle.react-flow__handle.source {
+        &.connecting .node-wrapper .connect-handle.react-flow__handle.source {
             pointer-events: none;
             opacity: 0;
         }
@@ -918,7 +914,7 @@ a.btn {
            shrink the whole-node drop zone to the ring). The same ring is
            the hover affordance on every Part while the Connect tool is
            active: the whole body is a draggable connection source. */
-        .react-flow:has(.react-flow__connectionline) .node-wrapper:hover::after,
+        &.connecting .node-wrapper:hover::after,
         &.mode-connect .node-wrapper:hover::after {
             content: "";
             position: absolute;
