@@ -10,7 +10,8 @@
    [aps.parts.frontend.components.inline-edit :as inline-edit]
    [clojure.string :as str]
    [re-frame.core :as rf]
-   [uix.core :refer [$ defui use-effect use-ref use-state]]))
+   [uix.core :refer [$ defui use-effect use-ref use-state]]
+   [uix.re-frame :as uix.rf]))
 
 (defn use-autosave-form
   "State + handlers for an autosaving sidebar form.
@@ -158,14 +159,16 @@
   "The \"Notes:\" label and the button that opens the notes window. Same
    row shape as Body location's, so the textarea below stays a plain
    textarea with its scrollbar and grip where they belong. The button is
-   disabled when the window would edit another entity (a mixed selection)."
+   disabled when the window would edit another entity (a mixed selection),
+   and absent in the marketing hero demo, which has no floating windows."
   [{:keys [disabled?]}]
   ($ :div {:class "flex items-center justify-between mb-1"}
      ($ :label {:class "fieldset-label"} "Notes:")
-     ($ :button {:type       "button"
-                 :class      "btn btn-xs btn-square"
-                 :aria-label "Open notes in a window"
-                 :title      "Open notes in a window"
-                 :disabled   disabled?
-                 :on-click   #(rf/dispatch [:window/open :notes])}
-        ($ Maximize2 {:size 12}))))
+     (when-not (uix.rf/use-subscribe [:minimal-demo])
+       ($ :button {:type       "button"
+                   :class      "btn btn-xs btn-square"
+                   :aria-label "Open notes in a window"
+                   :title      "Open notes in a window"
+                   :disabled   disabled?
+                   :on-click   #(rf/dispatch [:window/open :notes])}
+          ($ Maximize2 {:size 12})))))

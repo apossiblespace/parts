@@ -47,6 +47,7 @@
         ;; open on them: the quick editor below is disabled.
         notes-scope?                                (= id (uix.rf/use-subscribe [:notes/scope-id]))
         notes-in-window?                            (and (uix.rf/use-subscribe [:ui/window-open? :notes]) notes-scope?)
+        minimal                                     (uix.rf/use-subscribe [:minimal-demo])
         ;; body_location is not a form field: it is edited in its
         ;; floating window (ADR-0017), which saves on its own. Keeping
         ;; it out of `fields` means a notes commit can never write a
@@ -101,7 +102,9 @@
                           :on-blur    text-blur
                           :onKeyDown  (text-keys :notes)})
 
-            ($ conversation-preview {:part part})
-
-            ($ location-field {:location body_location
-                               :on-open  #(rf/dispatch [:window/open :body-location])}))))))
+            ;; The marketing hero demo has no floating windows.
+            (when-not minimal
+              ($ :<>
+                 ($ conversation-preview {:part part})
+                 ($ location-field {:location body_location
+                                    :on-open  #(rf/dispatch [:window/open :body-location])}))))))))

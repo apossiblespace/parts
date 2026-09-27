@@ -1227,8 +1227,11 @@
                                              [:time-travel/exit]
                                              [:time-travel/enter]))
 
+                                          ;; The marketing hero demo has
+                                          ;; no floating windows.
                                           (#{"o" "O"} k)
-                                          (rf/dispatch [:conversation/toggle])
+                                          (when-not minimal
+                                            (rf/dispatch [:conversation/toggle]))
 
                                           tool
                                           (set-tool-mode tool)
@@ -1258,7 +1261,7 @@
            (.removeEventListener js/document "keydown" on-down)
            (.removeEventListener js/document "keyup" on-up)
            (.removeEventListener js/window "blur" on-blur))))
-     [set-tool-mode time-travelling?])
+     [set-tool-mode time-travelling? minimal])
 
     ($ :div {:class "map-container"}
        ($ save-error-banner)
