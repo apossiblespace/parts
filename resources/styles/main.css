@@ -88,6 +88,16 @@
     border-radius: var(--radius-field);
 }
 
+/* DaisyUI opts Chrome into the customizable select (base-select). There
+   the selected text ignores text-overflow and runs under the arrow when
+   the select is narrow. Keep the native list, as in Firefox and Safari. */
+@supports (appearance: base-select) {
+    .select,
+    .select select {
+        appearance: none;
+    }
+}
+
 /* Menu items: square hover/active background, app-wide — DaisyUI rounds
    each item with --radius-field; we want the highlight to run edge to
    edge like a flat band. */
