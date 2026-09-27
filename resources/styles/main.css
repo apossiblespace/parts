@@ -77,8 +77,18 @@
     text-box: trim-both cap alphabetic;
 }
 
-.input {
+.input,
+.textarea {
     padding-inline: calc(0.25rem * 2);
+}
+
+/* Put a textarea's first line where an input-sm puts its text: the
+   input centres one 1.5em line in its height (--size-field * 8) inside
+   the borders. */
+.textarea {
+    padding-block: calc(
+        (var(--size-field) * 8 - 2 * var(--border) - 1.5em) / 2
+    );
 }
 
 .checkbox {
@@ -314,7 +324,7 @@
     flex: 1;
     width: 100%;
     min-height: 0;
-    padding: 0.7rem;
+    padding: 0.2rem 0.7rem;
     border: 0;
     outline: none;
     resize: none;
