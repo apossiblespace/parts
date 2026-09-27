@@ -332,7 +332,7 @@
             ($ tooltip-content {:tip tip :shortcut glyph})
             ($ icon {:size 16}))))))
 
-(defui map-name-widgets
+(defui ^:memo map-name-widgets
   "Left group of the top chrome row for the authenticated single-map view:
    a back-to-list chevron, the Map's name, and a chevron-down dropdown
    trigger — all rendered as one `join` button group. The dropdown's menu
