@@ -665,7 +665,8 @@ a.btn {
                max-w-7xl (80rem) container with its lg:px-8 (2rem) gutter, which
                for a full-bleed canvas means insetting from the viewport edge.
                margin-right:0 cancels React Flow's default 15px panel margin so
-               the offset is exact. */
+               the offset is exact. The hero demo's defaultViewport in map.cljs
+               uses the same container offset. */
             .sidebar-container {
                 top: 5.5rem;
                 right: calc(max(0px, (100vw - 80rem) / 2) + 2rem);

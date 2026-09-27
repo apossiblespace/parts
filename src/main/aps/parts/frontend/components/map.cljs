@@ -1356,8 +1356,15 @@
                         ;; background with the headline overlaid on the left, so
                         ;; nudge the initial view right to keep it clear of the
                         ;; text. (Hidden below lg, so this only ever shows there.)
+                        ;; The headline sits in the centred max-w-7xl (1280px)
+                        ;; container, so on a wider window move the map by the
+                        ;; container's offset too, as .sidebar-container does in
+                        ;; main.css. Read once on mount; a later resize does not
+                        ;; move it.
                         :defaultViewport         (if minimal
-                                                   #js {:x 620 :y 90 :zoom 1}
+                                                   #js {:x    (+ 620 (max 0 (/ (- js/window.innerWidth 1280) 2)))
+                                                        :y    90
+                                                        :zoom 1}
                                                    js/undefined)}
              ;; No zoom buttons on a phone — pinch-zoom is native there,
              ;; and the chrome is pared down to name + back (TASK-105).
