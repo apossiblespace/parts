@@ -23,7 +23,8 @@
                       :on-click #(rf/dispatch [:conversation/show :part])}
              "Open"))
        (if (empty? latest)
-         ($ :p {:class "text-xs text-base-content/50 italic"} "Nothing recorded yet")
+         ($ :p {:class "text-xs text-base-content/50 italic"}
+            "Nothing recorded yet")
          ($ :ul {:class "space-y-1"}
             (for [e latest]
               ($ :li {:key (:id e) :class "text-xs line-clamp-2"}
@@ -42,16 +43,19 @@
      (confirmation included, same flow as the Delete key)
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save on-delete collapsed]}]
-  (let [{:keys [id type label notes body_location]} part
+  (let [{:keys [id type label notes body_location]}
+        part
+
         ;; The notes window (ADR-0017) owns this Part's notes while it is
         ;; open on them: the quick editor below is disabled.
-        notes-scope?                                (= id (uix.rf/use-subscribe [:notes/scope-id]))
-        notes-in-window?                            (and (uix.rf/use-subscribe [:ui/window-open? :notes]) notes-scope?)
-        minimal                                     (uix.rf/use-subscribe [:minimal-demo])
-        ;; body_location is not a form field: it is edited in its
-        ;; floating window (ADR-0017), which saves on its own. Keeping
-        ;; it out of `fields` means a notes commit can never write a
-        ;; stale point over the window's save.
+        notes-scope? (= id (uix.rf/use-subscribe [:notes/scope-id]))
+
+        notes-in-window?
+        (and (uix.rf/use-subscribe [:ui/window-open? :notes]) notes-scope?)
+
+        minimal
+        (uix.rf/use-subscribe [:minimal-demo])
+
         {:keys [values collapsed? update-field toggle-collapsed
                 commit-field! text-blur text-keys]}
         (form/use-autosave-form
@@ -97,8 +101,10 @@
                           :class      "textarea textarea-sm mb-1"
                           :value      (:notes values)
                           :disabled   notes-in-window?
-                          :title      (when notes-in-window? "Editing in the notes window")
-                          :onChange   #(update-field :notes (.. % -target -value))
+                          :title      (when notes-in-window?
+                                        "Editing in the notes window")
+                          :onChange   #(update-field :notes
+                                                     (.. % -target -value))
                           :on-blur    text-blur
                           :onKeyDown  (text-keys :notes)})
 
@@ -106,5 +112,7 @@
             (when-not minimal
               ($ :<>
                  ($ conversation-preview {:part part})
-                 ($ location-field {:location body_location
-                                    :on-open  #(rf/dispatch [:window/open :body-location])}))))))))
+                 ($ location-field
+                    {:location body_location
+                     :on-open  #(rf/dispatch
+                                 [:window/open :body-location])}))))))))

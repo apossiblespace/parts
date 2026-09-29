@@ -35,65 +35,85 @@
    field keyword and an optional `:blur-on-enter?` for single-line
    inputs (Enter in a textarea stays a newline)."
   [{:keys [entity-id fields collapsed on-save revert-blank]}]
-  (let [[form-state set-form-state]         (use-state {:values     fields
-                                                        :initial    fields
-                                                        :collapsed? collapsed})
-        {:keys [values initial collapsed?]} form-state
+  (let [[form-state set-form-state]
+        (use-state {:values     fields
+                    :initial    fields
+                    :collapsed? collapsed})
+
+        {:keys [values initial collapsed?]}
+        form-state
+
         ;; Set by Escape so the blur it triggers doesn't commit the
         ;; just-reverted draft.
-        skip-blur-commit?                   (use-ref false)
-        prev-fields                         (use-ref fields)
-        update-field                        (fn [field value]
-                                              (set-form-state
-                                               (fn [state]
-                                                 (assoc-in state [:values field] value))))
-        toggle-collapsed                    (fn []
-                                              (set-form-state
-                                               (fn [state]
-                                                 (update state :collapsed? not))))
+        skip-blur-commit?
+        (use-ref false)
+
+        prev-fields
+        (use-ref fields)
+
+        update-field
+        (fn [field value]
+          (set-form-state
+           (fn [state]
+             (assoc-in state [:values field] value))))
+
+        toggle-collapsed
+        (fn []
+          (set-form-state
+           (fn [state]
+             (update state :collapsed? not))))
+
         ;; Only the fields that changed go out: the update handlers
         ;; merge, and a field edited elsewhere (a floating window,
         ;; ADR-0017) must never be written back from this form's copy.
-        commit!                             (fn [vals]
-                                              (let [changed (into {}
-                                                                  (filter (fn [[k v]]
-                                                                            (not= v (get initial k))))
-                                                                  vals)]
-                                                (when (seq changed)
-                                                  (on-save changed)
-                                                  (set-form-state
-                                                   (fn [state]
-                                                     (assoc state :values vals :initial vals))))))
-        commit-field!                       (fn [field value]
-                                              (commit! (assoc values field value)))
-        text-blur                           (fn [_e]
-                                              (if @skip-blur-commit?
-                                                (reset! skip-blur-commit? false)
-                                                (let [final (if revert-blank
-                                                              (assoc values revert-blank
-                                                                     (or (inline-edit/commit-value
-                                                                          (get values revert-blank)
-                                                                          (get initial revert-blank)
-                                                                          (complement str/blank?))
-                                                                         (get initial revert-blank)))
-                                                              values)]
-                                                  ;; Snap a reverted field back on-screen even
-                                                  ;; when the commit itself no-ops.
-                                                  (when (not= final values)
-                                                    (set-form-state
-                                                     (fn [state] (assoc state :values final))))
-                                                  (commit! final))))
-        text-keys                           (fn [field & {:keys [blur-on-enter?]}]
-                                              (fn [^js e]
-                                                (case (.-key e)
-                                                  "Escape" (do (.preventDefault e)
-                                                               (reset! skip-blur-commit? true)
-                                                               (update-field field (get initial field))
-                                                               (.blur (.-target e)))
-                                                  "Enter"  (when blur-on-enter?
-                                                             (.preventDefault e)
-                                                             (.blur (.-target e)))
-                                                  nil)))]
+        commit!
+        (fn [vals]
+          (let [changed
+                (into {}
+                      (filter (fn [[k v]]
+                                (not= v (get initial k))))
+                      vals)]
+            (when (seq changed)
+              (on-save changed)
+              (set-form-state
+               (fn [state]
+                 (assoc state :values vals :initial vals))))))
+
+        commit-field!
+        (fn [field value]
+          (commit! (assoc values field value)))
+
+        text-blur
+        (fn [_e]
+          (if @skip-blur-commit?
+            (reset! skip-blur-commit? false)
+            (let [final (if revert-blank
+                          (assoc values revert-blank
+                                 (or (inline-edit/commit-value
+                                      (get values revert-blank)
+                                      (get initial revert-blank)
+                                      (complement str/blank?))
+                                     (get initial revert-blank)))
+                          values)]
+              ;; Snap a reverted field back on-screen even
+              ;; when the commit itself no-ops.
+              (when (not= final values)
+                (set-form-state
+                 (fn [state] (assoc state :values final))))
+              (commit! final))))
+
+        text-keys
+        (fn [field & {:keys [blur-on-enter?]}]
+          (fn [^js e]
+            (case (.-key e)
+              "Escape" (do (.preventDefault e)
+                           (reset! skip-blur-commit? true)
+                           (update-field field (get initial field))
+                           (.blur (.-target e)))
+              "Enter"  (when blur-on-enter?
+                         (.preventDefault e)
+                         (.blur (.-target e)))
+              nil)))]
     (use-effect
      (fn []
        (set-form-state
