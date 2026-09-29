@@ -147,7 +147,7 @@
              :on-click on-toggle}
         (if collapsed? chevron-right chevron-down)
         ($ :span title))
-     (when on-delete
+     (when (and on-delete (not collapsed?))
        ($ :button {:type       "button"
                    :class      "btn btn-xs btn-square text-gray-500"
                    :aria-label delete-label
