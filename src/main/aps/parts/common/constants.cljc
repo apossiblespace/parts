@@ -112,6 +112,22 @@
    :exile       "#62A294"
    :unknown     "#999999"})
 
+(def color-tags
+  "The Colour tag palette, in picker order: stored name → UI label and
+   the fill it paints on the canvas. Stored by name, never hex, so a
+   shade can be retuned without rewriting history. The names are also
+   pinned by the parts.color_tag CHECK constraint."
+  (array-map
+   "red"    {:label "Red" :hex "#E5484D"}
+   "green"  {:label "Green" :hex "#30A46C"}
+   "blue"   {:label "Blue" :hex "#3E7BFA"}
+   "purple" {:label "Purple" :hex "#8E4EC6"}
+   "pink"   {:label "Pink" :hex "#D6409F"}))
+
+(def color-tag-fill-opacity
+  "Fill opacity of a tagged Part's interior."
+  0.3)
+
 (defn part-toolbar-glyph
   "URL of a Part type's solid-fill toolbar glyph — the small-size variant
    of the node artwork (the canvas SVGs' 0.2-opacity fill washes out at

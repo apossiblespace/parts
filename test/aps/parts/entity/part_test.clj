@@ -1,6 +1,7 @@
 (ns aps.parts.entity.part-test
   (:require
    [aps.parts.db :as db]
+   [aps.parts.db.bitemporal :as bt]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.helpers.utils :refer [with-test-db create-test-user!]]
@@ -154,3 +155,53 @@
     (testing "the same write scoped to the correct Map succeeds"
       (is (= "ok" (:label (part/update! (:id part-b) {:label "ok"}
                                         (:id user) db/datasource (:id map-b))))))))
+
+(deftest test-part-unburdened
+  (let [user    (create-test-user!)
+        the-map (parts-map/create! {:title "Map" :owner_id (:id user)} (:id user))
+        created (part/create! {:map_id     (:id the-map)
+                               :type       "exile"
+                               :label      "Little one"
+                               :position_x 10
+                               :position_y 10}
+                              (:id user))]
+    (testing "a new Part is not unburdened"
+      (is (false? (:unburdened created)))
+      (is (false? (:unburdened (part/fetch (:id created))))))
+
+    (testing "it can be marked unburdened, and unmarked again"
+      (part/update! (:id created) {:unburdened true} (:id user))
+      (is (true? (:unburdened (part/fetch (:id created)))))
+      (part/update! (:id created) {:unburdened false} (:id user))
+      (is (false? (:unburdened (part/fetch (:id created))))))
+
+    (testing "each change is kept in the Part's history"
+      (is (= [false true false]
+             (mapv :unburdened
+                   (bt/history db/datasource :parts [:= :id (:id created)])))))))
+
+(deftest test-part-color-tag
+  (let [user    (create-test-user!)
+        the-map (parts-map/create! {:title "Map" :owner_id (:id user)} (:id user))
+        created (part/create! {:map_id     (:id the-map)
+                               :type       "manager"
+                               :label      "Critic"
+                               :position_x 10
+                               :position_y 10}
+                              (:id user))]
+    (testing "a new Part has no Colour tag"
+      (is (nil? (:color_tag (part/fetch (:id created))))))
+
+    (testing "a tag can be set, changed and cleared, and history keeps each"
+      (part/update! (:id created) {:color_tag "red"} (:id user))
+      (part/update! (:id created) {:color_tag "blue"} (:id user))
+      (part/update! (:id created) {:color_tag nil} (:id user))
+      (is (nil? (:color_tag (part/fetch (:id created)))))
+      (is (= [nil "red" "blue" nil]
+             (mapv :color_tag
+                   (bt/history db/datasource :parts [:= :id (:id created)])))))
+
+    (testing "the database refuses a value outside the palette"
+      (is (thrown? Exception
+                   (bt/update! db/datasource :parts (:id created)
+                               {:color_tag "orange"} {:actor-id (:id user)}))))))

@@ -1,6 +1,7 @@
 (ns aps.parts.frontend.components.toolbar.part-form
   (:require
-   [aps.parts.common.constants :refer [part-labels part-type-order max-text-length]]
+   [aps.parts.common.constants :refer [color-tags part-labels part-type-order
+                                       max-text-length]]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.body-location :refer [location-field]]
    [aps.parts.frontend.components.toolbar.form :as form]
@@ -32,6 +33,31 @@
                     (c/speaker-label (:speaker e) part) ": ")
                  (:text e))))))))
 
+(defui ^:private color-tag-picker
+  "The Colour tag row: \"No colour tag\" then the palette, as round
+   swatches. Native radios sharing one name per Part, so arrow keys move
+   between them and each is announced by its label."
+  [{:keys [part-id value on-change]}]
+  ($ :div {:class "mt-1 mb-3"}
+     ($ :span
+        {:class "fieldset-label" :id (str "color-tag-" part-id)}
+        "Colour tag:")
+     ($ :div {:class           "flex items-center gap-1.5 mt-1"
+              :role            "radiogroup"
+              :aria-labelledby (str "color-tag-" part-id)}
+        (for [[tag label hex] (cons [nil "No colour tag" nil]
+                                    (map (fn [[k {:keys [label hex]}]] [k label hex])
+                                         color-tags))]
+          ($ :input {:key        (or tag "none")
+                     :type       "radio"
+                     :name       (str "color-tag-" part-id)
+                     :class      (str "color-tag" (when-not tag " none"))
+                     :style      (when hex #js {"--tag" hex})
+                     :aria-label label
+                     :title      label
+                     :checked    (= tag value)
+                     :onChange   #(on-change tag)})))))
+
 (defui part-form
   "Form for viewing and editing part properties, to render in the sidebar.
    Autosaving — the commit semantics live in `form/use-autosave-form`;
@@ -43,12 +69,12 @@
      (confirmation included, same flow as the Delete key)
    - collapsed: Whether the form should start collapsed"
   [{:keys [part on-save on-delete collapsed]}]
-  (let [{:keys [id type label notes body_location]}
+  (let [{:keys [id type label notes unburdened color_tag body_location]}
         part
 
         ;; The notes window (ADR-0017) owns this Part's notes while it is
         ;; open on them: the quick editor below is disabled.
-        notes-scope? (= id (uix.rf/use-subscribe [:notes/scope-id]))
+        notes-scope?                                                     (= id (uix.rf/use-subscribe [:notes/scope-id]))
 
         notes-in-window?
         (and (uix.rf/use-subscribe [:ui/window-open? :notes]) notes-scope?)
@@ -60,9 +86,11 @@
                 commit-field! text-blur text-keys]}
         (form/use-autosave-form
          {:entity-id    id
-          :fields       {:type  type
-                         :label label
-                         :notes notes}
+          :fields       {:type       type
+                         :label      label
+                         :color_tag  color_tag
+                         :unburdened (boolean unburdened)
+                         :notes      notes}
           :collapsed    collapsed
           :revert-blank :label
           :on-save      #(on-save id %)})]
@@ -95,6 +123,20 @@
                        :onChange  #(update-field :label (.. % -target -value))
                        :on-blur   text-blur
                        :onKeyDown (text-keys :label :blur-on-enter? true)})
+
+            ($ color-tag-picker {:part-id   id
+                                 :value     (:color_tag values)
+                                 :on-change #(commit-field! :color_tag %)})
+
+            ($ :label {:class "fieldset-label"} "Burden:")
+            ($ :label
+               {:class "label text-sm text-base-content mt1 mb-2 cursor-pointer"}
+               ($ :input {:type     "checkbox"
+                          :class    "checkbox checkbox-xs"
+                          :checked  (:unburdened values)
+                          :onChange #(commit-field! :unburdened
+                                                    (.. % -target -checked))})
+               "Unburdened?")
 
             ($ form/notes-header {:disabled? (not notes-scope?)})
             ($ :textarea {:max-length max-text-length

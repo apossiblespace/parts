@@ -122,6 +122,23 @@
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (part/validate-update {:body_location "left shoulder"}))))
 
+  (testing "Accepts a boolean Unburdened state, rejects anything else"
+    (is (nil? (part/validate-update {:unburdened true})))
+    (is (nil? (part/validate-update {:unburdened false})))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo
+            :cljs cljs.core.ExceptionInfo) #"Validation failed"
+         (part/validate-update {:unburdened "yes"}))))
+
+  (testing "Accepts a palette Colour tag or nil, rejects anything else"
+    (is (nil? (part/validate-update {:color_tag "red"})))
+    (is (nil? (part/validate-update {:color_tag nil})))
+    (doseq [bad ["orange" "#E5484D" "Red" :red]]
+      (is (thrown-with-msg?
+           #?(:clj clojure.lang.ExceptionInfo
+              :cljs cljs.core.ExceptionInfo) #"Validation failed"
+           (part/validate-update {:color_tag bad})))))
+
   (testing "Rejects :id and :map_id — a Part's identity can't be updated"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo

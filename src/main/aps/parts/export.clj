@@ -28,7 +28,8 @@
    lands. The export's REQUIRED clinical fields (notes, body_location,
    trigger) are all present."
   {:parts                [:type :label :description :notes :position_x :position_y
-                          :width :height :body_location :valid_from :valid_to]
+                          :width :height :body_location :unburdened :color_tag
+                          :valid_from :valid_to]
    :relationships        [:type :source_id :target_id :notes :intensity
                           :valid_from :valid_to]
    :conversation_entries [:part_id :speaker :text :valid_from :valid_to]

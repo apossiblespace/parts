@@ -39,6 +39,37 @@
       (is (str/includes? svg "x=\"10\""))
       (is (str/includes? svg "x=\"200\"")))))
 
+(deftest render-unburdened-aura-test
+  (let [part {:type  "exile" :label  "Little one" :position_x 10 :position_y 20
+              :width 100     :height 100}
+        svg  (document/render
+              {:parts         [(assoc part :id "p1" :unburdened true)
+                               (assoc part :id "p2" :unburdened false)
+                               (assoc part :id "p3")]
+               :relationships []})]
+    (testing "the aura definitions are in <defs>"
+      (is (str/includes? svg "id=\"part-aura\""))
+      (is (str/includes? svg "id=\"part-solid\"")))
+    (testing "only the unburdened Part gets an aura, masked by its own shape"
+      (is (str/includes? svg "<mask id=\"aura-p1\""))
+      (is (str/includes? svg "mask=\"url(#aura-p1)\""))
+      (is (not (str/includes? svg "aura-p2")))
+      (is (not (str/includes? svg "aura-p3"))))
+    (testing "the aura is drawn before (under) the Part shapes"
+      (is (< (str/index-of svg "aura-p1")
+             (str/index-of svg "<use height="))))
+    (testing "the content viewBox leaves room for the aura (28% of 100 each side)"
+      (is (str/includes? svg "viewBox=\"-38 -28 196 196\"")))))
+
+(deftest render-ignores-color-tag-test
+  (testing "a Colour tag never reaches the hand-out: its meaning is the therapist's"
+    (let [part   {:id    "p1" :type   "exile" :label "Little one" :position_x 0 :position_y 0
+                  :width 100  :height 100}
+          plain  (document/render {:parts [part] :relationships []})
+          tagged (document/render {:parts [(assoc part :color_tag "red")] :relationships []})]
+      (is (= plain tagged))
+      (is (not (str/includes? tagged (get-in constants/color-tags ["red" :hex])))))))
+
 (deftest render-session-header-test
   (testing "a Session export carries one quiet top-right line — the
             Session and its date, not today's"

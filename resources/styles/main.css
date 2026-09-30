@@ -719,27 +719,56 @@ a.btn {
                 var(--ring) var(--ring)
             );
         }
+        /* The shape is inline SVG (a <use> of the shared symbol), so a
+           Colour tag can recolour its fill. `isolation` keeps the
+           z-index:-1 shape behind the label but inside the node. */
         .node {
+            position: relative;
+            isolation: isolate;
             display: flex;
             height: 100%;
             width: 100%;
-            background-repeat: no-repeat;
-            background-size: 100% 100%;
-            background-position: center center;
             padding: 1rem;
             justify-content: center;
             align-items: center;
             font-size: 14px;
-            background-image: url("/images/nodes/unknown.svg");
+        }
+        .part-shape {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            pointer-events: none;
+            z-index: -1;
+        }
 
-            &.manager {
-                background-image: url("/images/nodes/manager.svg");
+        /* Colour tag swatches (sidebar). The chosen one wears a ring,
+           kept in box-shadow so keyboard focus can still use outline. */
+        .color-tag {
+            appearance: none;
+            margin: 0;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--tag, transparent);
+            border: 1px solid rgb(0 0 0 / 0.18);
+            cursor: pointer;
+
+            &.none {
+                border: 1.5px solid rgb(0 0 0 / 0.4);
             }
-            &.exile {
-                background-image: url("/images/nodes/exile.svg");
+            &:checked {
+                box-shadow: 0 0 0 2px var(--color-base-100),
+                            0 0 0 3.5px var(--color-base-content);
             }
-            &.firefighter {
-                background-image: url("/images/nodes/firefighter.svg");
+            &:focus-visible {
+                outline: 2px solid var(--color-primary);
+                outline-offset: 4px;
+            }
+            &:disabled {
+                cursor: default;
+                opacity: 0.6;
             }
         }
 

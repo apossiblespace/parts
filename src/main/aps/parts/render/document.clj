@@ -8,8 +8,8 @@
    - `aps.parts.render.document.edges`   — bezier / bowed-quadratic edges + per-type arrowhead markers
    - `aps.parts.render.document.chrome`  — page constants, title/date header, footer
 
-   Renders **structure only** by default: shapes, labels, Relationship
-   lines. Clinical fields (`notes`, `body_location`) are excluded
+   Renders **structure only** by default: shapes, labels, the
+   Unburdened aura, Relationship lines. Clinical fields (`notes`, `body_location`) are excluded
    because the PDF is a client-facing hand-out (see ADR-0008).
 
    For the low-fidelity glanceable thumbnail used on the Maps list,
@@ -18,6 +18,7 @@
    output formats."
   (:require
    [aps.parts.common.geometry :as geometry]
+   [aps.parts.common.shapes :as common-shapes]
    [aps.parts.render.document.chrome :as chrome]
    [aps.parts.render.document.edges :as edges]
    [aps.parts.render.document.labels :as labels]
@@ -74,6 +75,7 @@
               :viewBox    (str "0 0 " pw " " ph)}
         [:defs
          (raw-string @shapes/shape-symbols)
+         (raw-string common-shapes/aura-defs)
          edges/edge-arrow-markers]
         (chrome/header-block title as-of subtitle)
         (chrome/footer-block)
@@ -84,6 +86,9 @@
                :width   inner-w
                :height  inner-h
                :viewBox (str vx " " vy " " vw " " vh)}
+         ;; Auras first, so the glow never washes over an edge or
+         ;; its arrowhead.
+         (keep shapes/part-aura parts)
          (keep (partial edges/relationship-path by-id bidi) relationships)
          (map shapes/part-use parts)
          (keep labels/part-label parts)]])))))

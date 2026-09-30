@@ -29,7 +29,7 @@
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
-   [aps.parts.frontend.components.nodes :refer [node-types]]
+   [aps.parts.frontend.components.nodes :refer [node-types part-symbols]]
    [aps.parts.frontend.components.notes-window :refer [notes-window]]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
@@ -1270,7 +1270,8 @@
        ;; the banner would.
        (when (and device/phone-primary? (not minimal))
          ($ phone-banner))
-       ;; Single SVG marker definition for every edge arrowhead.
+       ;; Shared SVG definitions: the Part shapes every node <use>s,
+       ;; and a single marker for every edge arrowhead.
        ;; fill="context-stroke" makes the marker fill inherit the
        ;; referencing path's stroke colour — so the .edge-<type> CSS
        ;; rules drive both the line and the arrowhead.
@@ -1278,6 +1279,7 @@
                 :height 0
                 :style  #js {:position "absolute"}}
           ($ :defs
+             ($ :g {:dangerouslySetInnerHTML #js {:__html part-symbols}})
              ($ :marker {:id           "edge-arrow"
                          :viewBox      "0 0 10 10"
                          :refX         9

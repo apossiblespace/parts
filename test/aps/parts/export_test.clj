@@ -87,7 +87,8 @@
         _       (session/set-activation! (:id s1) (:id the-map) (:id part) (:id user))
         result  (export/export-map db/datasource (:id the-map))]
     (is (= #{:type :label :description :notes :position_x :position_y
-             :width :height :body_location :valid_from :valid_to}
+             :width :height :body_location :unburdened :color_tag
+             :valid_from :valid_to}
            (set (keys (first (:versions (first (:parts result))))))))
     (is (= #{:type :source_id :target_id :notes :intensity
              :valid_from :valid_to}

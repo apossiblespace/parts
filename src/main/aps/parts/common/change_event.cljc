@@ -43,7 +43,7 @@
    audit/temporal one) would ride through `:data` into the update path as
    a mass-assignable column. Anything outside the set is rejected."
   #{:type :label :position_x :position_y :description :width :height
-    :notes :body_location})
+    :notes :body_location :unburdened :color_tag})
 
 (def ^:private relationship-attr-keys
   #{:type :source_id :target_id :notes :intensity})
@@ -61,13 +61,15 @@
 (s/def ::part-create-data
   (s/and (s/keys :req-un [::part/type ::part/label ::part/position_x ::part/position_y]
                  :opt-un [::part/description ::part/width ::part/height
-                          ::part/notes ::part/body_location])
+                          ::part/notes ::part/body_location ::part/unburdened
+                          ::part/color_tag])
          (attrs-only part-attr-keys)))
 
 (s/def ::part-update-data
   (s/and (s/keys :opt-un [::part/type ::part/label ::part/position_x ::part/position_y
                           ::part/description ::part/width ::part/height
-                          ::part/notes ::part/body_location])
+                          ::part/notes ::part/body_location ::part/unburdened
+                          ::part/color_tag])
          (attrs-only part-attr-keys)
          seq))
 

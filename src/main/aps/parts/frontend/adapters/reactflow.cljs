@@ -29,7 +29,7 @@
      `:session-badges?` — a single-Session Map can have an activation."
   ([part] (part->node part nil nil))
   ([part selected-ids] (part->node part selected-ids nil))
-  ([{:keys [id type label notes first_appeared_ordinal] :as part}
+  ([{:keys [id type label notes unburdened color_tag first_appeared_ordinal] :as part}
     selected-ids {:keys [resizable? session-badges? viewed-ordinal
                          activated-part-id activation-trigger]}]
    (let [{:keys [x y width height]} (geometry/part-rect part)]
@@ -48,6 +48,8 @@
                       #js {:label             label
                            :type              (name type)
                            :notes             notes
+                           :unburdened        (boolean unburdened)
+                           :colorTag          color_tag
                            :resizable         (boolean resizable?)
                            :firstAppeared     (when session-badges?
                                                 first_appeared_ordinal)

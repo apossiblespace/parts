@@ -102,6 +102,17 @@
     (is (not (s/valid? ::ce/change-event (assoc-in part-update [:data :map_id] "sneaky"))))
     (is (not (s/valid? ::ce/change-event (assoc-in relationship-update [:data :id] "sneaky"))))))
 
+(deftest unburdened-payload-test
+  (testing "a Part update may carry the Unburdened state, as a boolean only"
+    (is (s/valid? ::ce/change-event (assoc part-update :data {:unburdened true})))
+    (is (not (s/valid? ::ce/change-event (assoc part-update :data {:unburdened "true"}))))))
+
+(deftest color-tag-payload-test
+  (testing "a Part update may carry a palette Colour tag or clear it"
+    (is (s/valid? ::ce/change-event (assoc part-update :data {:color_tag "pink"})))
+    (is (s/valid? ::ce/change-event (assoc part-update :data {:color_tag nil})))
+    (is (not (s/valid? ::ce/change-event (assoc part-update :data {:color_tag "orange"}))))))
+
 (deftest data-spec-test
   (testing "data-spec resolves the right :data spec per [entity type]"
     (is (= ::ce/part-create-data         (ce/data-spec part-create)))

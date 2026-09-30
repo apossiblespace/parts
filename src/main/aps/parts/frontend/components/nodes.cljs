@@ -3,11 +3,28 @@
    ["@xyflow/react" :refer [Handle NodeResizer Position]]
    ["lucide-react/dist/esm/icons/zap" :default Zap]
    [aps.parts.common.constants :as constants]
+   [aps.parts.common.shapes :as shapes]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
+   [clojure.string :as str]
    [re-frame.core :as rf]
+   [shadow.resource :as rc]
    [uix.core :refer [$ as-react defui use-state]]
    [uix.re-frame :as uix.rf]))
+
+(def part-symbols
+  "The four Part-type `<symbol>`s and the aura definitions as one markup
+   string, for the canvas's shared `<defs>`. The artwork is read from
+   the shape files at compile time, so the canvas and the Render draw
+   from the same files."
+  (str/join
+   (cons
+    shapes/aura-defs
+    (map (fn [[type raw]] (shapes/->tintable-symbol type raw))
+         {"manager"     (rc/inline "public/images/nodes/manager.svg")
+          "firefighter" (rc/inline "public/images/nodes/firefighter.svg")
+          "exile"       (rc/inline "public/images/nodes/exile.svg")
+          "unknown"     (rc/inline "public/images/nodes/unknown.svg")}))))
 
 (defui parts-node [{:keys [id data selected]}]
   ;; Easy-connect pattern (https://reactflow.dev/examples/nodes/easy-connect),
@@ -45,6 +62,21 @@
                                    (.stopPropagation e)
                                    (when editable?
                                      (set-editing! true)))}
+          ;; A Colour tag recolours only the interior: the shape symbol's
+          ;; fill layer reads these variables, its outline does not.
+          ($ :svg {:class       "part-shape"
+                   :aria-hidden true
+                   :style       (when-let [{:keys [hex]} (get constants/color-tags
+                                                              (:colorTag data))]
+                                  #js {"--part-fill"         hex
+                                       "--part-fill-opacity" constants/color-tag-fill-opacity})}
+             (when (:unburdened data)
+               ($ :g {:dangerouslySetInnerHTML
+                      #js {:__html (shapes/aura-markup (str "aura-" id)
+                                                       (:type data))}}))
+             ($ :use {:href   (str "#" (shapes/symbol-id (:type data)))
+                      :width  "100%"
+                      :height "100%"}))
           ($ Handle {:type               "target"
                      :position           (.-Top Position)
                      :id                 adapter/target-handle-id

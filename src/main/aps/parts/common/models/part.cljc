@@ -1,6 +1,6 @@
 (ns aps.parts.common.models.part
   (:require
-   [aps.parts.common.constants :refer [max-label-length max-text-length
+   [aps.parts.common.constants :refer [color-tags max-label-length max-text-length
                                        part-labels part-max-size
                                        part-min-size part-types]]
    [aps.parts.common.observe :as o]
@@ -17,6 +17,8 @@
 (s/def ::width (s/nilable (s/and int? #(<= part-min-size % part-max-size))))
 (s/def ::height (s/nilable (s/and int? #(<= part-min-size % part-max-size))))
 (s/def ::notes (s/nilable (s/and string? #(<= (count %) max-text-length))))
+(s/def ::unburdened boolean?)
+(s/def ::color_tag (s/nilable (set (keys color-tags))))
 
 ;; Body location — where in the client's body a Part is felt (its somatic
 ;; locus). A structured point on a body silhouette, never free text (see
@@ -48,7 +50,9 @@
                    ::width
                    ::height
                    ::body_location
-                   ::notes]))
+                   ::notes
+                   ::unburdened
+                   ::color_tag]))
 
 (def spec
   "Part model spec for reuse outside of the namespace"
@@ -88,7 +92,9 @@
                           ::width
                           ::height
                           ::body_location
-                          ::notes])
+                          ::notes
+                          ::unburdened
+                          ::color_tag])
          no-identity-keys?))
 
 (defn validate-update
