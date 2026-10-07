@@ -137,7 +137,9 @@ PARTS__RENDER__FONT_DIR=/var/lib/parts/fonts
 
 # slf4j at warn: it is the catch-all sink for chatty libs (JDBC, FOP) whose
 # INFO lines can embed query fragments; structured logging goes via mulog.
-JAVA_OPTS=-server -Xms512m -Xmx512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn
+# The JVM exits on OutOfMemoryError and systemd restarts it. A JVM that
+# continues after an OOM can stay slow or broken for hours.
+JAVA_OPTS=-server -Xms512m -Xmx512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -XX:+ExitOnOutOfMemoryError
 
 # --- Optional: operator error-alert emails (stays off until all four are set;
 #     see docs/runbook.md "Error alerts"). On Hetzner use port 587 (25/465 blocked).
@@ -172,6 +174,12 @@ fi
 if ! grep -q 'simpleLogger.defaultLogLevel' /etc/$APP_NAME.env; then
     sed -i 's/^JAVA_OPTS=.*/& -Dorg.slf4j.simpleLogger.defaultLogLevel=warn/' /etc/$APP_NAME.env
     echo "✓ Appended slf4j defaultLogLevel=warn to JAVA_OPTS"
+fi
+
+# Boxes provisioned before the exit-on-OOM flag: append it once.
+if ! grep -q 'ExitOnOutOfMemoryError' /etc/$APP_NAME.env; then
+    sed -i 's/^JAVA_OPTS=.*/& -XX:+ExitOnOutOfMemoryError/' /etc/$APP_NAME.env
+    echo "✓ Appended -XX:+ExitOnOutOfMemoryError to JAVA_OPTS"
 fi
 
 # DB-role hardening — OUTSIDE the first-run guard so existing boxes pick it

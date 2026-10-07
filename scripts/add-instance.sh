@@ -191,7 +191,7 @@ PARTS__RENDER__FONT_DIR=$FONT_DIR
 # Per-instance nREPL socket — prod.edn's default path belongs to the prod
 # service; two instances must not race for one socket.
 PARTS__REPL__SOCKET=/run/$SERVICE/nrepl.sock
-JAVA_OPTS=-server -Xms256m -Xmx256m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn
+JAVA_OPTS=-server -Xms256m -Xmx256m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -XX:+ExitOnOutOfMemoryError
 
 # --- Optional: operator error-alert emails (stays off until all four are set;
 #     see docs/runbook.md "Error alerts"). On Hetzner use port 587 (25/465 blocked).
@@ -218,6 +218,12 @@ fi
 if ! grep -q 'simpleLogger.defaultLogLevel' "$ENV_FILE"; then
     sed -i 's/^JAVA_OPTS=.*/& -Dorg.slf4j.simpleLogger.defaultLogLevel=warn/' "$ENV_FILE"
     echo "✓ Appended slf4j defaultLogLevel=warn to JAVA_OPTS"
+fi
+
+# Instances provisioned before the exit-on-OOM flag: append it once.
+if ! grep -q 'ExitOnOutOfMemoryError' "$ENV_FILE"; then
+    sed -i 's/^JAVA_OPTS=.*/& -XX:+ExitOnOutOfMemoryError/' "$ENV_FILE"
+    echo "✓ Appended -XX:+ExitOnOutOfMemoryError to JAVA_OPTS"
 fi
 
 # Instances provisioned before the unix-socket nREPL: give each its own
