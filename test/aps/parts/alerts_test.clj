@@ -89,6 +89,41 @@
       (is (not (str/includes? body "CLINICAL SECRET")) "drops unknown fields")
       (is (not (str/includes? body "ALSO SECRET")) "drops :data"))))
 
+(deftest alert-body-diagnostics-test
+  (let [body (#'alerts/alert-body
+              {:mulog/event-name :aps.parts.errors/unhandled-exception
+               :mulog/timestamp  1
+               :version          "e40a328"
+               :env              :prod
+               :route            "GET /api/maps/:id"
+               :error-class      "java.lang.OutOfMemoryError"
+               :oom-message      "Java heap space"
+               :stack            [{:class  "java.lang.OutOfMemoryError"
+                                   :frames ["aps.parts.render.pdf$svg__GT_pdf.invoke(pdf.clj:79)"]}]
+               :app-name         "Parts"})]
+    (testing "includes the deploy, the route, the OOM message and the stack"
+      (doseq [s ["e40a328" ":prod" "GET /api/maps/:id" "Java heap space" "pdf.clj:79"]]
+        (is (str/includes? body s) s)))
+    (testing "leaves out fields that are not in the allowlist"
+      (is (not (str/includes? body "app-name")))))
+  (testing "leaves out fields that have no value"
+    (is (not (str/includes? (#'alerts/alert-body {:mulog/event-name :x :oom-message nil})
+                            "oom-message")))))
+
+(deftest alert-subject-test
+  (let [config {:smtp {:from "a@x" :to "b@x"} :domain "parts.ifs.tools"}]
+    (testing "names the short error class after the event"
+      (is (= "[parts-alert][parts.ifs.tools] unhandled-exception: OutOfMemoryError"
+             (:subject (#'alerts/alert-message
+                        config
+                        {:mulog/event-name :aps.parts.errors/unhandled-exception
+                         :error-class      "java.lang.OutOfMemoryError"})))))
+    (testing "has only the event name when the event has no error class"
+      (is (= "[parts-alert][parts.ifs.tools] signup"
+             (:subject (#'alerts/alert-message
+                        config
+                        {:mulog/event-name :aps.parts.api.account/signup})))))))
+
 (deftest alert-decision-error-class-signature-test
   (testing "events without a sql-state collapse on :error-class, not the message"
     (let [e1              (ev :aps.parts.errors/batch-failure 1000 :error-class "PSQLException")

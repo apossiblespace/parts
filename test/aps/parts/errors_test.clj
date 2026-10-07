@@ -1,6 +1,7 @@
 (ns aps.parts.errors-test
   (:require
    [aps.parts.errors :as errors]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [reitit.ring :as ring]
    [ring.mock.request :as mock])
@@ -95,12 +96,49 @@
 (deftest safe-error-fields-test
   (testing "non-postgres exception → class name only"
     (is (= {:error-class "clojure.lang.ExceptionInfo"}
-           (errors/safe-error-fields (ex-info "boom" {})))))
+           (dissoc (errors/safe-error-fields (ex-info "boom" {})) :stack))))
   (testing "PSQLException → class + sql-state, never the value-bearing message"
     (let [fields (errors/safe-error-fields
                   (PSQLException. "Detail: Key (notes)=(SECRET) already exists"
                                   PSQLState/CHECK_VIOLATION))]
-      (is (= {:error-class "PSQLException" :sql-state "23514"} fields)
-          "only schema metadata — no message, no offending value")))
+      (is (= {:error-class "PSQLException" :sql-state "23514"} (dissoc fields :stack))
+          "only schema metadata — no message, no offending value")
+      (is (not (str/includes? (pr-str fields) "SECRET")))))
   (testing "is nil-safe"
     (is (nil? (errors/safe-error-fields nil)))))
+
+(defn- frame [class-name]
+  (StackTraceElement. class-name "invoke" "x.clj" 1))
+
+(deftest safe-error-fields-stack-test
+  (let [cause (doto (RuntimeException. "CAUSE SECRET")
+                (.setStackTrace (into-array [(frame "aps.parts.db$q")])))
+        top   (doto (ex-info "TOP SECRET" {:notes "DATA SECRET"} cause)
+                (.setStackTrace (into-array (concat (repeat 30 (frame "clojure.lang.AFn"))
+                                                    [(frame "aps.parts.api.maps$get_map")]))))
+        stack (:stack (errors/safe-error-fields top))]
+    (testing "has the class of each throwable in the cause chain"
+      (is (= ["clojure.lang.ExceptionInfo" "java.lang.RuntimeException"]
+             (map :class stack))))
+    (testing "keeps the top frames and each app frame below the limit"
+      (is (= 26 (count (:frames (first stack)))))
+      (is (str/starts-with? (last (:frames (first stack))) "aps.parts.api.maps$get_map")))
+    (testing "has no exception message and no ex-data"
+      (is (not (str/includes? (pr-str stack) "SECRET"))))))
+
+(deftest safe-error-fields-oom-test
+  (testing "keeps the message of an OutOfMemoryError"
+    (is (= "Java heap space"
+           (:oom-message (errors/safe-error-fields (OutOfMemoryError. "Java heap space"))))))
+  (testing "has no message for other throwables"
+    (is (not (contains? (errors/safe-error-fields (RuntimeException. "SECRET"))
+                        :oom-message)))))
+
+(deftest route-label-test
+  (testing "is the method and the route template, not the URI"
+    (is (= "GET /api/maps/:id"
+           (#'errors/route-label {:request-method    :get
+                                  :uri               "/api/maps/123"
+                                  :reitit.core/match {:template "/api/maps/:id"}}))))
+  (testing "is nil when no route matched"
+    (is (nil? (#'errors/route-label {:request-method :get :uri "/x"})))))

@@ -3,6 +3,7 @@
    middleware and its handlers, including the PostgreSQL constraint-error
    mapping."
   (:require
+   [clojure.string :as str]
    [com.brunobonacci.mulog :as mulog]
    [reitit.ring.middleware.exception :as exception])
   (:import
@@ -46,23 +47,65 @@
    "23502" "A required field was missing" ; not null violation
    "23503" "The referenced resource does not exist"}) ; foreign key violation
 
+(def ^:private max-frames
+  "The number of top stack frames that `stack` keeps for each throwable."
+  25)
+
+(defn- frames
+  "Returns the top `max-frames` frames of `t` as strings, and each frame
+   below them from an `aps.parts` class."
+  [^Throwable t]
+  (into []
+        (keep-indexed (fn [i ^StackTraceElement f]
+                        (when (or (< i max-frames)
+                                  (str/starts-with? (.getClassName f) "aps.parts"))
+                          (str f))))
+        (.getStackTrace t)))
+
+(defn- stack
+  "Returns `{:class :frames}` for `t` and for each of its causes. A frame
+   gives a code location only, so the result has no input values."
+  [^Throwable t]
+  (->> (iterate #(.getCause ^Throwable %) t)
+       (take-while some?)
+       ;; Two exceptions can be the cause of each other. The limit stops
+       ;; that loop.
+       (take 5)
+       (mapv (fn [^Throwable c] {:class (.getName (class c)) :frames (frames c)}))))
+
 (defn safe-error-fields
   "Non-clinical diagnostics for an exception, safe to log and alert. Returns a
-   flat map: always an `:error-class`; for a PSQLException also `:sql-state` and
-   the constraint/table/column NAMES (schema metadata, never row values). Never
-   the exception message or a constraint Detail, which embed the offending
-   value. nil-safe."
+   flat map: always an `:error-class` and a `:stack` (classes and frames of the
+   cause chain); for a PSQLException also `:sql-state` and the
+   constraint/table/column NAMES (schema metadata, never row values); for an
+   OutOfMemoryError also its `:oom-message`. Never any other exception message
+   or a constraint Detail, which embed the offending value. nil-safe."
   [^Throwable t]
   (when t
-    (if (instance? PSQLException t)
-      (let [^PSQLException e t
-            sem              (.getServerErrorMessage e)]
-        (cond-> {:error-class "PSQLException"
-                 :sql-state   (.getSQLState e)}
-          sem (assoc :constraint (.getConstraint sem)
-                     :table      (.getTable sem)
-                     :column     (.getColumn sem))))
-      {:error-class (.getName (class t))})))
+    (cond-> (if (instance? PSQLException t)
+              (let [^PSQLException e t
+                    sem              (.getServerErrorMessage e)]
+                (cond-> {:error-class "PSQLException"
+                         :sql-state   (.getSQLState e)}
+                  sem (assoc :constraint (.getConstraint sem)
+                             :table      (.getTable sem)
+                             :column     (.getColumn sem))))
+              {:error-class (.getName (class t))})
+      true
+      (assoc :stack (stack t))
+
+      ;; The JVM writes this message, for example "Java heap space". It tells
+      ;; which memory area is full, and it has no input values.
+      (instance? OutOfMemoryError t)
+      (assoc :oom-message (.getMessage t)))))
+
+(defn- route-label
+  "Returns the method and the route template of `request`, for example
+   \"GET /api/maps/:id\", or nil when no route matched. The template has
+   no ids, so it is safe to log."
+  [request]
+  (when-let [template (-> request :reitit.core/match :template)]
+    (str (str/upper-case (name (:request-method request))) " " template)))
 
 (defn postgres-constraint-violation-handler
   "Handler for PostgreSQL-specific exceptions.
@@ -150,12 +193,16 @@
      PSQLException
      postgres-constraint-violation-handler
 
-     ;; Default. Logs class only, like the PSQL/batch handlers: an
-     ;; exception message can interpolate input values, and this event
-     ;; feeds the operator alert email.
+     ;; Default. Logs only `safe-error-fields` and the route, like the
+     ;; PSQL/batch handlers. An exception message can contain input values,
+     ;; and this event goes into the operator alert email.
      ::exception/default
-     (fn [^Exception e _request]
-       (mulog/log ::unhandled-exception
-                  :error-class (.getName (class e)))
+     (fn [^Exception e request]
+       (let [{:keys [error-class oom-message stack]} (safe-error-fields e)]
+         (mulog/log ::unhandled-exception
+                    :error-class error-class
+                    :oom-message oom-message
+                    :stack       stack
+                    :route       (route-label request)))
        {:status 500
         :body   {:error "Internal server error"}})})))

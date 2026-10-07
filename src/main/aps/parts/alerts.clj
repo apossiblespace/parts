@@ -111,23 +111,30 @@
   "Allowlist of event fields included in an alert email. Deliberately small: an
    alert must never carry clinical content into an operator inbox, so the body is
    built from these structural fields only — never a full-event dump."
-  [:mulog/event-name :mulog/timestamp :mulog/namespace
-   :error :error-class :cause-type :sql-state :diagnostics :failing-change
-   :user-id :email :display-name])
+  [:mulog/event-name :mulog/timestamp :mulog/namespace :version :env :route
+   :error :error-class :oom-message :cause-type :sql-state :diagnostics
+   :failing-change :stack :user-id :email :display-name])
 
 (defn- alert-body
-  "The alert email body: the allowlisted structural fields of `event`,
-   pretty-printed — never the whole event."
+  "The alert email body: the allowlisted structural fields of `event` that
+   have a value, pretty-printed — never the whole event."
   [event]
-  (with-out-str (pprint/pprint (select-keys event alert-body-keys))))
+  (with-out-str
+    (pprint/pprint (into {}
+                         (remove (comp nil? val))
+                         (select-keys event alert-body-keys)))))
 
 (defn- alert-message
   "The postal message map for `event`. Subject carries the deployment domain so
-   a staging test error is unmistakable from a prod incident in the inbox."
+   a staging test error is unmistakable from a prod incident in the inbox. It
+   also has the short error class, when the event has one."
   [{:keys [smtp domain]} event]
   {:from    (:from smtp)
    :to      (:to smtp)
-   :subject (str "[parts-alert][" domain "] " (name (:mulog/event-name event)))
+   :subject (str "[parts-alert][" domain "] " (name (:mulog/event-name event))
+                 (some->> (:error-class event)
+                          (re-find #"[^.]+$")
+                          (str ": ")))
    :body    (alert-body event)})
 
 (defn- send-alert!
