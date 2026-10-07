@@ -2,6 +2,7 @@
   (:require
    [aps.parts.middleware :as middleware]
    [aps.parts.server :as server]
+   [clojure.spec.alpha :as s]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [ring.mock.request :as mock]))
@@ -14,6 +15,14 @@
         (is (nil? (:body response)) "HEAD response carries no body"))
       (testing "GET still works as the baseline"
         (is (= 200 (:status (app (mock/request :get "/up")))))))))
+
+(deftest requests-do-not-grow-the-spec-registry-test
+  (testing "repeated requests leave the global spec registry the same size"
+    (let [app    (server/app)
+          _      (app (mock/request :get "/up"))
+          before (count (s/registry))]
+      (dotimes [_ 3] (app (mock/request :get "/up")))
+      (is (= before (count (s/registry)))))))
 
 (defn- csp [app path]
   (get-in (app (mock/request :get path)) [:headers "Content-Security-Policy"]))

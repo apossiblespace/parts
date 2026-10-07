@@ -24,37 +24,28 @@
    [java.nio.file.attribute PosixFilePermissions])
   (:gen-class))
 
+(defn- handler []
+  (-> (ring/router (r/routes)
+                   {:data {:middleware [middleware/logging
+                                        errors/exception]}})
+      (ring/ring-handler (ring/create-default-handler))
+      middleware/wrap-core-middlewares
+      ;; Treat HEAD like GET (body stripped) on every route. Reitit does not
+      ;; synthesize HEAD, so without this a HEAD probe gets 405. Health
+      ;; monitors (and the free UptimeRobot tier) only do HEAD.
+      head/wrap-head))
+
 (defn app
-  "Constructs the Ring handler function for the entire application.
-
-  Returns a function that processes HTTP requests through the middleware stack:
-
-  1. Core middlewares (static resources, etc.) - outermost layer
-  2. Router matching and parameter extraction
-  3. Global middleware (logging, exception handling) - applied to all routes
-  4. Route-specific middleware (defined in routes config)
-  5. Request handlers (defined in routes config) - innermost layer
-
-  This is defined as a function rather than a value to:
-  - Allow for lazy initialization at server startup
-  - Support route reloading during development
-  - Maintain separation between configuration and initialization
-
-  The handler processes requests by matching routes, applying appropriate
-  middleware, and falling back to the default handler for unmatched routes."
+  "Returns the Ring handler for the whole application. In the dev
+   environment, the handler builds the router again for each request, so
+   that changes made at the REPL take effect."
   []
-  (fn [req]
-    (let [handler
-          (-> (ring/router (r/routes)
-                           {:data {:middleware [middleware/logging
-                                                errors/exception]}})
-              (ring/ring-handler (ring/create-default-handler))
-              middleware/wrap-core-middlewares
-              ;; Treat HEAD like GET (body stripped) on every route — reitit
-              ;; doesn't synthesize HEAD, so without this a HEAD probe gets 405.
-              ;; Health monitors (and the free UptimeRobot tier) only do HEAD.
-              head/wrap-head)]
-      (handler req))))
+  ;; Build the router only once outside dev. Each build gives the route
+  ;; parameter specs new names and adds them to the global spec registry.
+  ;; The registry never removes them, so the heap fills up.
+  (if (conf/dev?)
+    (ring/reloading-ring-handler handler)
+    (handler)))
 
 (defn start-log-publisher
   "Starts a mulog console-json publisher in prod, sending one JSON event per
