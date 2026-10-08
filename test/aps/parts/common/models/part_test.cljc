@@ -133,7 +133,7 @@
   (testing "Accepts a palette Colour tag or nil, rejects anything else"
     (is (nil? (part/validate-update {:color_tag "red"})))
     (is (nil? (part/validate-update {:color_tag nil})))
-    (doseq [bad ["orange" "#E5484D" "Red" :red]]
+    (doseq [bad ["pink" "#FF3B30" "Red" :red]]
       (is (thrown-with-msg?
            #?(:clj clojure.lang.ExceptionInfo
               :cljs cljs.core.ExceptionInfo) #"Validation failed"

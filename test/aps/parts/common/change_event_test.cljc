@@ -109,9 +109,9 @@
 
 (deftest color-tag-payload-test
   (testing "a Part update may carry a palette Colour tag or clear it"
-    (is (s/valid? ::ce/change-event (assoc part-update :data {:color_tag "pink"})))
+    (is (s/valid? ::ce/change-event (assoc part-update :data {:color_tag "orange"})))
     (is (s/valid? ::ce/change-event (assoc part-update :data {:color_tag nil})))
-    (is (not (s/valid? ::ce/change-event (assoc part-update :data {:color_tag "orange"}))))))
+    (is (not (s/valid? ::ce/change-event (assoc part-update :data {:color_tag "pink"}))))))
 
 (deftest data-spec-test
   (testing "data-spec resolves the right :data spec per [entity type]"

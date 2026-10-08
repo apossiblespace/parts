@@ -204,4 +204,4 @@
     (testing "the database refuses a value outside the palette"
       (is (thrown? Exception
                    (bt/update! db/datasource :parts (:id created)
-                               {:color_tag "orange"} {:actor-id (:id user)}))))))
+                               {:color_tag "pink"} {:actor-id (:id user)}))))))

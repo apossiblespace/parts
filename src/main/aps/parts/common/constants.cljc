@@ -114,19 +114,21 @@
 
 (def color-tags
   "The Colour tag palette, in picker order: stored name → UI label and
-   the fill it paints on the canvas. Stored by name, never hex, so a
-   shade can be retuned without rewriting history. The names are also
-   pinned by the parts.color_tag CHECK constraint."
+   the fill it paints on the canvas. The colours and order are the macOS
+   Finder tags, with the HIG system colour values. Stored by name, never
+   hex, so a shade can be retuned without rewriting history. The names
+   are also pinned by the parts.color_tag CHECK constraint."
   (array-map
-   "red"    {:label "Red" :hex "#E5484D"}
-   "green"  {:label "Green" :hex "#30A46C"}
-   "blue"   {:label "Blue" :hex "#3E7BFA"}
-   "purple" {:label "Purple" :hex "#8E4EC6"}
-   "pink"   {:label "Pink" :hex "#D6409F"}))
+   "red"    {:label "Red" :hex "#FF3B30"}
+   "orange" {:label "Orange" :hex "#FF9500"}
+   "yellow" {:label "Yellow" :hex "#FFCC00"}
+   "green"  {:label "Green" :hex "#28CD41"}
+   "blue"   {:label "Blue" :hex "#007AFF"}
+   "purple" {:label "Purple" :hex "#AF52DE"}))
 
 (def color-tag-fill-opacity
   "Fill opacity of a tagged Part's interior."
-  0.3)
+  0.6)
 
 (defn part-toolbar-glyph
   "URL of a Part type's solid-fill toolbar glyph — the small-size variant
