@@ -21,14 +21,15 @@
    follows the submission port: 587 is STARTTLS (`:tls`), 465 (and anything
    else) is implicit SSL from connect (`:ssl`). Connect/IO timeouts are set
    because JavaMail's defaults are infinite — a hung relay must fail the
-   send, not pin the sending thread until restart."
+   send, not pin the sending thread until restart. They are strings
+   because JavaMail ignores a Long property value."
   [{:keys [host port user pass]}]
   (assoc {:host              host
           :port              port
           :user              user
           :pass              pass
-          :connectiontimeout 10000
-          :timeout           30000}
+          :connectiontimeout "10000"
+          :timeout           "30000"}
          (if (= 587 port) :tls :ssl) true))
 
 (defn send!

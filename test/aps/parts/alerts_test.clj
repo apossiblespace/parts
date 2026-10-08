@@ -2,7 +2,17 @@
   (:require
    [aps.parts.alerts :as alerts]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing]]))
+   [clojure.test :refer [deftest is testing]]
+   [postal.support :as postal-support])
+  (:import
+   (com.sun.mail.util PropUtil)))
+
+(defn- javamail-ms
+  "The timeout JavaMail will actually use for `prop` on postal connection
+   `conn` (-1 is no timeout): through postal's own property building, so a
+   value JavaMail cannot read fails here."
+  [conn prop]
+  (PropUtil/getIntProperty (postal-support/make-props "from" conn) prop -1))
 
 (def ^:private cooldown
   "15 minutes in milliseconds — the production throttle window."
@@ -21,7 +31,11 @@
       (is (nil? (:ssl conn)))))
   (testing "port 465 (and any other) selects implicit SSL (:ssl)"
     (is (true? (:ssl (#'alerts/postal-connection {:host "h" :port 465 :user "u" :pass "p"}))))
-    (is (true? (:ssl (#'alerts/postal-connection {:host "h" :port 25 :user "u" :pass "p"}))))))
+    (is (true? (:ssl (#'alerts/postal-connection {:host "h" :port 25 :user "u" :pass "p"})))))
+  (testing "a hung relay fails the send instead of blocking the publisher"
+    (let [conn (#'alerts/postal-connection {:host "h" :port 587 :user "u" :pass "p"})]
+      (is (= 10000 (javamail-ms conn "mail.smtp.connectiontimeout")))
+      (is (= 30000 (javamail-ms conn "mail.smtp.timeout"))))))
 
 (deftest alert-decision-allowlist-test
   (testing "an allowlisted event with empty state sends and records its signature"

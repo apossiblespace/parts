@@ -10,10 +10,8 @@
      request path and, when it says send, dispatches one email over SMTP.
 
    Deliberately NOT a general mailer. It sends to a single operator address
-   using the operator's own SMTP credentials, and must never grow into the
-   foundation for user-facing transactional email (password resets et al. —
-   that is a separate, future module, TASK-014). Keeping the seam here means a
-   password-reset path never depends on the operator's personal mail account."
+   over the shared SMTP relay, but keeps its own transport instead of using
+   `aps.parts.mail`, so alerting keeps working even if that layer breaks."
   (:require
    [clojure.pprint :as pprint]
    [com.brunobonacci.mulog :as mulog]
@@ -102,9 +100,17 @@
    465 (and anything else) is implicit SSL from connect (`:ssl`). Pairing the
    wrong flag with a port yields a plaintext attempt the server rejects. This
    rule lives here, beside `postal/send-message`, rather than in config — it's
-   postal's vocabulary, not the operator's."
+   postal's vocabulary, not the operator's. Connect/IO timeouts are set
+   because JavaMail's defaults are infinite: a hung relay would otherwise
+   block the publisher thread, and every later alert with it. They are
+   strings because JavaMail ignores a Long property value."
   [{:keys [host port user pass]}]
-  (assoc {:host host :port port :user user :pass pass}
+  (assoc {:host              host
+          :port              port
+          :user              user
+          :pass              pass
+          :connectiontimeout "10000"
+          :timeout           "30000"}
          (if (= 587 port) :tls :ssl) true))
 
 (def ^:private alert-body-keys

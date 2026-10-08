@@ -3,7 +3,17 @@
    [aps.parts.config :as conf]
    [aps.parts.mail :as mail]
    [clojure.test :refer [deftest is testing]]
-   [postal.core :as postal]))
+   [postal.core :as postal]
+   [postal.support :as postal-support])
+  (:import
+   (com.sun.mail.util PropUtil)))
+
+(defn- javamail-ms
+  "The timeout JavaMail will actually use for `prop` on postal connection
+   `conn` (-1 is no timeout): through postal's own property building, so a
+   value JavaMail cannot read fails here."
+  [conn prop]
+  (PropUtil/getIntProperty (postal-support/make-props "from" conn) prop -1))
 
 (def ^:private smtp
   {:host "smtp.tem.scw.cloud" :port 465 :user "project-id" :pass "api-key"})
@@ -57,7 +67,10 @@
       (testing "port 587 connects with STARTTLS"
         (mail/send! message)
         (is (true? (get-in @sent [:conn :tls])))
-        (is (nil? (get-in @sent [:conn :ssl])))))))
+        (is (nil? (get-in @sent [:conn :ssl]))))
+      (testing "a hung relay fails the send instead of pinning the thread"
+        (is (= 10000 (javamail-ms (:conn @sent) "mail.smtp.connectiontimeout")))
+        (is (= 30000 (javamail-ms (:conn @sent) "mail.smtp.timeout")))))))
 
 (deftest test-send-surfaces-relay-failure
   (testing "a non-SUCCESS postal result throws :smtp-error rather than
