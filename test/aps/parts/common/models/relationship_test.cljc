@@ -97,6 +97,15 @@
             :cljs cljs.core.ExceptionInfo) #"Validation failed"
          (relationship/validate-update {:notes "x" :map_id "sneaky"})))))
 
+(deftest test-remove-part-relationships
+  (testing "a Part's removal drops its Relationships at either end, and no others"
+    (is (= ["r3"]
+           (mapv :id (relationship/remove-part-relationships
+                      [{:id "r1" :source_id "a" :target_id "b"}
+                       {:id "r2" :source_id "c" :target_id "a"}
+                       {:id "r3" :source_id "b" :target_id "c"}]
+                      "a"))))))
+
 (deftest can-connect?-test
   (let [a   "part-a"
         b   "part-b"

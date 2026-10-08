@@ -239,15 +239,20 @@
                      parts))))
 
 (defn- remove-part
-  "Drop the part with `part-id`, its conversation, and clear it from
-   selection."
+  "Drop the part with `part-id`, its Relationships and conversation, and
+   clear them from selection."
   [db part-id]
-  (-> db
-      (update-in [:map :conversation_entries] conversations/remove-part-entries part-id)
-      (update-in [:map :parts]
-                 (fn [parts] (filterv #(not= (:id %) part-id) parts)))
-      (update-in [:ui :selected-node-ids]
-                 (fn [ids] (filterv #(not= % part-id) (or ids []))))))
+  (let [db       (-> db
+                     (update-in [:map :conversation_entries] conversations/remove-part-entries part-id)
+                     (update-in [:map :relationships] relationship/remove-part-relationships part-id)
+                     (update-in [:map :parts]
+                                (fn [parts] (filterv #(not= (:id %) part-id) parts))))
+        live-rel (set (map :id (get-in db [:map :relationships])))]
+    (-> db
+        (update-in [:ui :selected-node-ids]
+                   (fn [ids] (filterv #(not= % part-id) (or ids []))))
+        (update-in [:ui :selected-edge-ids]
+                   (fn [ids] (filterv live-rel (or ids [])))))))
 
 (defn- add-relationship
   "Append `new-relationship` to the Map."

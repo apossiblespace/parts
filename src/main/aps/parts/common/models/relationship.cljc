@@ -58,6 +58,13 @@
   [attrs]
   (validate-spec ::relationship-update attrs))
 
+(defn remove-part-relationships
+  "A deleted Part takes its Relationships with it, at either end (the
+   server cascades the same way)."
+  [relationships part-id]
+  (filterv #(not (or (= (:source_id %) part-id) (= (:target_id %) part-id)))
+           relationships))
+
 (defn can-connect?
   "Return true if a new Relationship from `source-id` to `target-id` can be
    added to `relationships`. Blocks self-loops (A->A) — a Part cannot

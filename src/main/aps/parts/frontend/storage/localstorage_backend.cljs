@@ -2,6 +2,7 @@
   "LocalStorage storage backend implementation with single-tab editing enforcement."
   (:require
    [aps.parts.common.models.map :as map-model]
+   [aps.parts.common.models.relationship :as relationship]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.state.conversations :as conversations]
    [aps.parts.frontend.storage.protocol :refer [StorageBackend]]
@@ -78,7 +79,9 @@
       [:part :remove]
       (-> map-data
           (update :parts (fn [parts] (filterv #(not= (:id %) id) parts)))
-          ;; The server cascades a Part's conversation; mirror it here.
+          ;; The server cascades a Part's Relationships and conversation;
+          ;; mirror it here.
+          (update :relationships relationship/remove-part-relationships id)
           (update :conversation_entries conversations/remove-part-entries id))
 
       [:conversation-entry :create]
