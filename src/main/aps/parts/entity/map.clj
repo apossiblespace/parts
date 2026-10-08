@@ -22,24 +22,46 @@
   [ds map-uuid]
   (first (bt/as-of-now ds :map_metadata [:= :map_id map-uuid])))
 
-(defn version
-  "Most recent change time across this Map's parts, relationships, and
-   metadata — monotonic across all three tables. Increases on every
-   change to any of them; doesn't change otherwise. Returns nil only if
-   the Map has no rows at all (which should be impossible post-`create!`).
-   Suitable as an HTTP ETag for the Render — see ADR-0008.
+(def ^:private render-tables
+  "The tables whose rows the Render draws. Conversation entries are
+   clinical and never drawn (ADR-0018), so editing one updates the Map
+   but leaves its Render fresh."
+  [:parts :relationships :map_metadata])
 
-   Three queries, one per table — composing them in SQL would let the
-   query DB do the GREATEST but would also pull `sys_period` vocabulary
-   into this namespace, which the architecture-fitness test forbids.
-   Three indexed lookups on `map_id` are cheap."
+(def ^:private content-tables
+  (conj render-tables :conversation_entries))
+
+(defn- change-times
+  "Most recent change time per table in `tables` for this Map: table ->
+   instant, tables with no rows left out.
+
+   One query per table — composing them in SQL would let the query DB do
+   the GREATEST but would also pull `sys_period` vocabulary into this
+   namespace, which the architecture-fitness test forbids. Indexed
+   lookups on `map_id` are cheap."
+  [id tables]
+  (let [where [:= :map_id (db/->uuid id)]]
+    (into {}
+          (keep (fn [table]
+                  (when-let [t (bt/latest-change-at db/datasource table where)]
+                    [table t])))
+          tables)))
+
+(defn- latest
+  [times]
+  (when (seq times)
+    (reduce #(if (pos? (compare %2 %1)) %2 %1) times)))
+
+(defn- render-version*
+  [times]
+  (latest (vals (select-keys times render-tables))))
+
+(defn render-version
+  "The most recent change to anything the Render draws: the Map's
+   updated time without Conversation entries. Monotonic. Suitable as an
+   HTTP ETag for the Render, see ADR-0008."
   [id]
-  (let [uuid-id (db/->uuid id)
-        where   [:= :map_id uuid-id]
-        times   (keep #(bt/latest-change-at db/datasource % where)
-                      [:parts :relationships :conversation_entries :map_metadata])]
-    (when (seq times)
-      (reduce #(if (pos? (compare %2 %1)) %2 %1) times))))
+  (render-version* (change-times id render-tables)))
 
 (defn create!
   "Create a new map: an identity row in `maps` plus an initial metadata
@@ -102,8 +124,10 @@
 
 (defn index
   "List a user's alive maps. Each row carries `:title` (from the
-   bitemporal `map_metadata`), `:updated_at` (the same monotonic
-   change-time used as the Render ETag — see `version`), and `:stats`:
+   bitemporal `map_metadata`), `:updated_at` (the most recent change to
+   any of its content, Conversation entries included),
+   `:render_version` (see `render-version`; the thumbnail's cache key),
+   and `:stats`:
    `:parts_by_type` (keyword type -> count, from the current bitemporal
    slice, so a Part edited many times still counts once) and
    `:last_session` (`:ordinal` + `:anchor_valid_at`, nil for a Map with
@@ -111,7 +135,7 @@
    a consumer appears, not before.
 
    Query shape: one for maps, one per child table across all of them,
-   and `version` per map. For a small cohort (dozens of Maps per
+   and the change times per map. For a small cohort (dozens of Maps per
    therapist) the per-map calls are cheap; if N grows, the obvious win
    is grouped aggregate queries — a fixed count, regardless of N."
   [owner-id]
@@ -134,10 +158,12 @@
             sessions     (session/latest-by-map ids)]
         (->> maps
              (mapv (fn [m]
-                     (let [parts (get parts-by-map (:id m) [])]
+                     (let [parts (get parts-by-map (:id m) [])
+                           times (change-times (:id m) content-tables)]
                        (assoc m
-                              :title      (-> meta-by-map (get (:id m)) first :title)
-                              :updated_at (version (:id m))
+                              :title          (-> meta-by-map (get (:id m)) first :title)
+                              :updated_at     (latest (vals times))
+                              :render_version (render-version* times)
                               :stats      {:parts_by_type (frequencies
                                                            (map (comp keyword :type) parts))
                                            :last_session  (some-> (get sessions (:id m))

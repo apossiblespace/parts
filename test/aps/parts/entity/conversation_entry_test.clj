@@ -133,3 +133,22 @@
                           (session/index (:map-id ctx)))]
         (is (apply distinct? anchors))
         (is (= anchors (sort anchors)))))))
+
+(deftest test-entry-updates-map-but-not-render
+  (let [ctx       (setup!)
+        map-id    (:map-id ctx)
+        index-row #(first (filter (comp #{(str map-id)} str :id) (parts-map/index (:user-id ctx))))
+        updated-0 (:updated_at (index-row))
+        render-0  (parts-map/render-version map-id)]
+    (Thread/sleep 5)
+    (add-entry! ctx "self" "I see it")
+    (testing "an entry updates the Map"
+      (is (pos? (compare (:updated_at (index-row)) updated-0))))
+    (testing "an entry leaves the Render fresh"
+      (is (= render-0 (parts-map/render-version map-id)))
+      (is (= render-0 (:render_version (index-row)))))
+    (testing "a drawn change makes the Render stale"
+      (Thread/sleep 5)
+      (apply! ctx [{:entity "part"             :type "update" :id (:part-id ctx)
+                    :data   {:label "Renamed"}}])
+      (is (pos? (compare (parts-map/render-version map-id) render-0))))))

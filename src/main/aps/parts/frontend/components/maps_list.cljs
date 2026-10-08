@@ -62,10 +62,11 @@
    image loads, without disturbing previews that didn't change."
   [{:keys [the-map]}]
   (let [;; `?v=` is a cache-bust fingerprint, not a server param — the handler
-        ;; ignores it. As `:updated_at` advances after an edit, the URL changes
-        ;; and the browser fetches fresh instead of serving its cached copy.
+        ;; ignores it. As `:render_version` advances after an edit the Render
+        ;; draws, the URL changes and the browser fetches fresh instead of
+        ;; serving its cached copy.
         src                   (str "/api/maps/" (:id the-map) "/preview.svg"
-                                   (when-let [^js u (:updated_at the-map)]
+                                   (when-let [^js u (:render_version the-map)]
                                      (str "?v=" (.getTime u))))
         [loaded? set-loaded!] (use-state false)
         img-ref               (use-ref nil)]

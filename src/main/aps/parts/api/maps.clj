@@ -22,12 +22,12 @@
   (format "\"%d\"" (inst-ms inst)))
 
 (defn- etag-for-map
-  "Quoted ETag string derived from a Map's version timestamp. nil when
+  "Quoted ETag string derived from a Map's render version. nil when
    the map has no version (shouldn't happen post-`create!`). Used by
    both Render handlers — the ETag value is the same regardless of
    output format; the browser keys cache entries by URL anyway."
   [map-id]
-  (when-let [v (parts-map/version map-id)]
+  (when-let [v (parts-map/render-version map-id)]
     (quoted-etag v)))
 
 (defn- not-modified
