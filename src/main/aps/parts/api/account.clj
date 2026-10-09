@@ -1,7 +1,9 @@
 (ns aps.parts.api.account
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.auth.session-store :as session-store]
    [aps.parts.billing :as billing]
+   [aps.parts.common.constants :as c]
    [aps.parts.common.demo :as demo]
    [aps.parts.config :as config]
    [aps.parts.db :as db]
@@ -13,6 +15,7 @@
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
    [aps.parts.mail :as mail]
+   [aps.parts.password-notice :as password-notice]
    [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
@@ -57,22 +60,26 @@
                                   :billing  (billing-info user-id)))
         (response/status 200))))
 
-(defn- credential-change?
-  "True when the update touches a login credential (:email or :password)."
-  [body]
-  (boolean (some #{:email :password} (keys body))))
-
 (defn update-account
-  "Update own account info. Changing a login credential additionally requires
-   the caller's current password, so a captured session alone cannot take
-   over the account. `:current_password` is a transient input — it is not in
-   `user/allowed-update-fields`, so it never reaches the database."
+  "Update own account info. Changing the password additionally requires the
+   caller's current password, so a captured session alone cannot take over
+   the account. A password change also logs out every other session and
+   emails the password-changed notice. `:current_password` is a transient
+   input. It is not in `user/allowed-update-fields`, so it never reaches
+   the database.
+
+   The email cannot change here: Parts has no way to confirm a new address
+   yet, so an email change is a concierge request."
   [request]
-  (let [user-id  (auth/current-user-id request)
-        body     (:body-params request)
-        updates? (contains? body :product_updates)
-        attrs    (dissoc body :current_password :product_updates)]
-    (when (and (credential-change? body)
+  (let [user-id   (auth/current-user-id request)
+        body      (:body-params request)
+        updates?  (contains? body :product_updates)
+        attrs     (dissoc body :current_password :product_updates)
+        password? (some? (:password attrs))]
+    (when (contains? body :email)
+      (throw (ex-info (str "To change your email address, please email " c/support-email ".")
+                      {:type :validation})))
+    (when (and (contains? body :password)
                (not (auth/current-password-valid? user-id (:current_password body))))
       (throw (ex-info "Current password is incorrect" {:type :validation})))
     (when (and updates? (not (boolean? (:product_updates body))))
@@ -83,12 +90,18 @@
                          (fn [tx]
                            (let [user (when (or (seq attrs) (not updates?))
                                         (user/update! user-id attrs tx))]
+                             (when password? (session-store/revoke-for-user! tx user-id))
                              (if updates?
                                (user/set-product-updates! user-id (:product_updates body) tx)
                                user))))]
       (mulog/log ::update-account-success :user-id user-id)
-      (-> (response/response updated-user)
-          (response/status 200)))))
+      (when password? (password-notice/send! user-id (:email updated-user)))
+      ;; The transaction deleted this session too. A new session id keeps the
+      ;; User signed in, and a copy of the old cookie no longer works.
+      (cond-> (-> (response/response updated-user)
+                  (response/status 200))
+        password? (-> (auth/establish-session request user-id)
+                      (update :session vary-meta assoc :recreate true))))))
 
 (defn- populate-initial-map!
   "Populates a new map with demo parts and relationships.

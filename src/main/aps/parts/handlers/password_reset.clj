@@ -14,6 +14,7 @@
    [aps.parts.email-layout :as layout]
    [aps.parts.entity.user :as user]
    [aps.parts.mail :as mail]
+   [aps.parts.password-notice :as password-notice]
    [aps.parts.password-resets :as resets]
    [aps.parts.ratelimit :as ratelimit]
    [aps.parts.views.layouts :as layouts]
@@ -133,20 +134,21 @@ The Parts team")
   (let [token (get-in request [:path-params :token])
         form  (:form-params request)]
     (try
-      (let [user-id
+      (let [{user-id :id email :email}
             (db/with-transaction
               (fn [tx]
                 (let [claimed (resets/claim! token tx)]
                   (when-not claimed
                     (throw (ex-info "Reset token unknown, used, or expired"
                                     {:type :reset-unavailable})))
-                  (user/update! (:user_id claimed)
-                                {:password              (get form "password" "")
-                                 :password_confirmation (get form "password_confirmation" "")}
-                                tx)
-                  (session-store/revoke-for-user! tx (:user_id claimed))
-                  (:user_id claimed))))]
+                  (let [user (user/update! (:user_id claimed)
+                                           {:password              (get form "password" "")
+                                            :password_confirmation (get form "password_confirmation" "")}
+                                           tx)]
+                    (session-store/revoke-for-user! tx (:user_id claimed))
+                    user))))]
         (mulog/log ::password-reset-completed :user-id (str user-id))
+        (password-notice/send! user-id email)
         ;; 303 See Other — POST-redirect-GET, signed in via a fresh auth
         ;; session (ADR-0007).
         (-> (response/redirect "/app")

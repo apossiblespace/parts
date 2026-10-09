@@ -8,12 +8,29 @@
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [aps.parts.mail :as mail]
    [aps.parts.middleware :as middleware]
+   [aps.parts.password-notice :as password-notice]
    [aps.parts.password-resets :as resets]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [ring.middleware.session.store :as store]))
 
 (use-fixtures :once with-test-db)
+
+(defn- without-password-notice
+  "Stops these tests from sending a real password-changed notice."
+  [f]
+  (with-redefs [password-notice/send! (constantly nil)] (f)))
+
+(use-fixtures :each without-password-notice)
+
+(defn- notices-during
+  "Runs `f` and returns the addresses that would get a password-changed
+   notice."
+  [f]
+  (let [sent (atom [])]
+    (with-redefs [password-notice/send! (fn [_ email] (swap! sent conj email))]
+      (f))
+    @sent))
 
 (def ^:private GET-form (middleware/wrap-html-response reset/request-form))
 (def ^:private POST-request (middleware/wrap-html-response reset/request-submit))
@@ -226,3 +243,18 @@
           response        (POST-token {:path-params {:token token} :form-params form})]
       (is (= 404 (:status response)))
       (is (str/includes? (:body response) "no longer valid")))))
+
+(deftest test-redeem-password-notice
+  (testing "a redeemed reset sends one password-changed notice to the account"
+    (create-test-user! {:email "reset-notice@example.com" :password "old-password-1" :password_confirmation "old-password-1"})
+    (let [{:keys [token]} (resets/create-reset! "reset-notice@example.com")
+          form            {"password" "brand-new-pass-9" "password_confirmation" "brand-new-pass-9"}]
+      (is (= ["reset-notice@example.com"]
+             (notices-during #(POST-token {:path-params {:token token} :form-params form}))))
+      (testing "and a spent token sends none"
+        (is (empty? (notices-during #(POST-token {:path-params {:token token} :form-params form})))))))
+
+  (testing "a failed validation sends no notice"
+    (is (empty? (notices-during
+                 #(attempt-redeem! "reset-notice-short@example.com"
+                                   {"password" "short" "password_confirmation" "short"}))))))

@@ -2,26 +2,33 @@
   (:require
    [aps.parts.api.account :as account]
    [aps.parts.auth :as auth]
+   [aps.parts.auth.session-store :as session-store]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
+   [aps.parts.entity.user :as user]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
                                     with-test-db without-stripe]]
    [aps.parts.mail :as mail]
+   [aps.parts.password-notice :as password-notice]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing use-fixtures]]))
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [ring.middleware.session.store :as store]))
 
 (use-fixtures :once with-test-db)
 (def ^:private real-send-welcome! @#'account/send-welcome!)
 
-(defn- without-welcome-email
-  "Stops the register tests from sending a real welcome email."
+(defn- without-account-emails
+  "Stops these tests from sending a real welcome email or password-changed
+   notice."
   [f]
-  (with-redefs-fn {#'account/send-welcome! (constantly nil)} f))
+  (with-redefs-fn {#'account/send-welcome! (constantly nil)
+                   #'password-notice/send! (constantly nil)}
+    f))
 
-(use-fixtures :each without-stripe without-welcome-email)
+(use-fixtures :each without-stripe without-account-emails)
 
 (def ^:private acceptance
   "The onboarding acceptances the server now requires (ADR-0009); merged into a
@@ -103,13 +110,12 @@
           user           (create-test-user! {:password              pw
                                              :password_confirmation pw})
           mock-request   {:identity    {:sub (:id user)}
-                          :body-params {:email            (str "added" (:email user))
-                                        :display_name     "Updated"
+                          :body-params {:display_name     "Updated"
                                         :current_password pw}}
           response       (account/update-account mock-request)
           updated-fields (select-keys (:body response) [:email :display_name])]
       (is (= 200 (:status response)))
-      (is (= {:email        (str "added" (:email user))
+      (is (= {:email        (:email user)
               :display_name "Updated"}
              updated-fields))
       (is (not (contains? (:body response) :password_hash)))))
@@ -154,19 +160,13 @@
         (is (nil? (auth/authenticate {:email (:email user) :password pw}))
             "the old password no longer authenticates")))
 
-    (testing "email change without the current password is rejected"
+    (testing "an email change is rejected, even with the current password"
       (let [user (mk-user)]
-        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Current password is incorrect"
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"please email help@ifs.tools"
                               (account/update-account
-                               (req user {:email "new@example.com"}))))))
-
-    (testing "email change with the correct current password succeeds"
-      (let [user     (mk-user)
-            response (account/update-account
-                      (req user {:email            (str "changed" (:email user))
-                                 :current_password pw}))]
-        (is (= 200 (:status response)))
-        (is (= (str "changed" (:email user)) (:email (:body response))))))
+                               (req user {:email            (str "changed" (:email user))
+                                          :current_password pw}))))
+        (is (= (:email user) (:email (user/fetch (:id user)))) "the address is unchanged")))
 
     (testing "display-name-only change needs no current password"
       (let [user     (mk-user)
@@ -401,3 +401,46 @@
       (is (str/starts-with? (:content plain) "Hello,\n"))
       (is (not (str/includes? (:content plain) "evil.example")))
       (is (not (str/includes? (:content html) "evil.example"))))))
+
+(deftest test-update-account-password-notice
+  (let [pw      "correct horse battery"
+        notices (fn [user body]
+                  (let [sent (atom [])]
+                    (with-redefs [password-notice/send! (fn [_ email] (swap! sent conj email))]
+                      (try
+                        (account/update-account {:identity    {:sub (:id user)}
+                                                 :body-params (merge {:current_password pw} body)})
+                        (catch clojure.lang.ExceptionInfo _)))
+                    @sent))
+        mk-user #(create-test-user! {:password pw :password_confirmation pw})]
+    (testing "a password change sends one notice to the account's address"
+      (let [user (mk-user)]
+        (is (= [(:email user)]
+               (notices user {:password "a new password 9" :password_confirmation "a new password 9"})))))
+    (testing "no notice when the password does not change"
+      (let [user (mk-user)]
+        (is (empty? (notices user {:display_name "Renamed"})) "no password in the request")
+        (is (empty? (notices user {:display_name "Renamed" :password nil})) "a nil password")
+        (is (empty? (notices user {:password              "a new password 9"
+                                   :password_confirmation "a new password 9"
+                                   :current_password      "not the password"}))
+            "a wrong current password")
+        (is (empty? (notices user {:password "short" :password_confirmation "short"}))
+            "a password that fails validation")))))
+
+(deftest test-update-account-password-logs-out-other-sessions
+  (let [pw       "correct horse battery"
+        user     (create-test-user! {:password pw :password_confirmation pw})
+        other    (store/write-session (session-store/db-store db/datasource 3600) nil
+                                      {:identity {:sub (str (:id user))}})
+        response (account/update-account
+                  {:identity    {:sub (:id user)}
+                   :session     {:identity {:sub (str (:id user))}}
+                   :body-params {:password              "a new password 9"
+                                 :password_confirmation "a new password 9"
+                                 :current_password      pw}})]
+    (testing "the other session is deleted"
+      (is (nil? (:identity (store/read-session (session-store/db-store db/datasource 3600) other)))))
+    (testing "this request gets a new session id, still signed in"
+      (is (= {:sub (str (:id user))} (get-in response [:session :identity])))
+      (is (:recreate (meta (:session response)))))))
