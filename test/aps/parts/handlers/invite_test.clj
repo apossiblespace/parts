@@ -24,7 +24,8 @@
    "password"              "supersecret"
    "password_confirmation" "supersecret"
    "accept_medical"        "on"
-   "accept_legal"          "on"})
+   "accept_legal"          "on"
+   "product_updates"       "on"})
 
 (defn- revoke! [email]
   (binding [*out* (java.io.StringWriter.)]
@@ -117,3 +118,23 @@
       (is (nil? (user-by-email email)) "no account was created")
       (is (nil? (:redeemed_at (invitation-by-email email)))
           "the invitation is still usable"))))
+
+(deftest redeem-product-updates-opt-out-test
+  (testing "the form shows the product updates checkbox ticked"
+    (let [{:keys [token]} (inv/generate-invitation! "show-updates@example.com")
+          body            (:body (GET {:path-params {:token token}}))]
+      (is (re-find #"<input[^>]*checked[^>]*name=\"product_updates\"|<input[^>]*name=\"product_updates\"[^>]*checked"
+                   body))))
+
+  (testing "an unticked product updates checkbox creates the account opted out"
+    (let [email           "redeem-optout@example.com"
+          {:keys [token]} (inv/generate-invitation! email)]
+      (POST {:path-params {:token token}
+             :form-params (dissoc (valid-form) "product_updates")})
+      (is (some? (:product_updates_opted_out_at (user-by-email email))))))
+
+  (testing "the ticked checkbox creates the account subscribed"
+    (let [email           "redeem-subscribed@example.com"
+          {:keys [token]} (inv/generate-invitation! email)]
+      (POST {:path-params {:token token} :form-params (valid-form)})
+      (is (nil? (:product_updates_opted_out_at (user-by-email email)))))))

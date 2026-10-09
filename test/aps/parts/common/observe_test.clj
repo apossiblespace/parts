@@ -26,6 +26,12 @@
               :info             {:uri "/invite/3b1f-secret-token-9c2a"}})]
       (is (= "/invite/[REDACTED]" (get-in e [:info :uri])))))
 
+  (testing "the unsubscribe token in a URI path is scrubbed"
+    (let [e (observe/redact-event
+             {:mulog/event-name ::request
+              :info             {:uri "/unsubscribe/3b1f-secret-token-9c2a"}})]
+      (is (= "/unsubscribe/[REDACTED]" (get-in e [:info :uri])))))
+
   (testing "technical fields pass through"
     (let [e (observe/redact-event
              {:mulog/event-name ::request

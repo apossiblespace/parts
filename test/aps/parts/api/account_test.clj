@@ -26,22 +26,23 @@
           mock-request {:identity {:sub (:id user)}}
           response     (account/get-account mock-request)]
       (is (= 200 (:status response)))
-      (is (= {:email             (:email user)
-              :display_name      (:display_name user)
-              :role              (:role user)
-              :id                (:id user)
-              :paid_through_date nil
-              :map_id            nil
+      (is (= {:email                        (:email user)
+              :display_name                 (:display_name user)
+              :role                         (:role user)
+              :id                           (:id user)
+              :paid_through_date            nil
+              :map_id                       nil
+              :product_updates_opted_out_at nil
               ;; A fresh account has never paid, so good standing is unset.
-              :standing          {:status            :never-paid
-                                  :paid_through_date nil
-                                  :days_remaining    nil}
+              :standing                     {:status            :never-paid
+                                             :paid_through_date nil
+                                             :days_remaining    nil}
               ;; Test env has no Stripe config and no linked customer.
-              :billing           {:self_serve_enabled      false
-                                  :subscription_active     false
-                                  :subscription_cancelled  false
-                                  :subscription_cancelling false
-                                  :subscription_plan       nil}} (:body response)))
+              :billing                      {:self_serve_enabled      false
+                                             :subscription_active     false
+                                             :subscription_cancelled  false
+                                             :subscription_cancelling false
+                                             :subscription_plan       nil}} (:body response)))
       (is (not (contains? response :password_hash)))))
 
   (testing "reports the portal usable and the subscription live once Stripe
@@ -280,3 +281,63 @@
                       :password (:password user-data)})]
       (is (some? result)
           "Uppercased email should still find the (lowercased) stored row"))))
+
+;;; Product updates
+
+(defn- opt-out-row [user-id]
+  (db/query-one (db/sql-format {:select [:product_updates_opted_out_at :unsubscribe_token]
+                                :from   [:users]
+                                :where  [:= :id user-id]})))
+
+(defn- patch! [user-id body]
+  (account/update-account {:identity {:sub user-id} :body-params body}))
+
+(deftest test-product-updates
+  (let [user (create-test-user!)
+        id   (:id user)]
+    (testing "a new account is subscribed and has an unsubscribe token"
+      (is (nil? (:product_updates_opted_out_at (opt-out-row id))))
+      (is (uuid? (:unsubscribe_token (opt-out-row id)))))
+
+    (testing "patching product_updates alone opts the user out"
+      (let [response (patch! id {:product_updates false})]
+        (is (= 200 (:status response)))
+        (is (some? (-> response :body :product_updates_opted_out_at)))
+        (is (some? (:product_updates_opted_out_at (opt-out-row id))))))
+
+    (testing "opting out again keeps the first opt-out time"
+      (let [first-time (:product_updates_opted_out_at (opt-out-row id))]
+        (patch! id {:product_updates false})
+        (is (= first-time (:product_updates_opted_out_at (opt-out-row id))))))
+
+    (testing "patching product_updates true opts the user back in"
+      (patch! id {:product_updates true})
+      (is (nil? (:product_updates_opted_out_at (opt-out-row id)))))
+
+    (testing "patches product_updates together with other fields"
+      (let [response (patch! id {:product_updates false :display_name "Both"})]
+        (is (= "Both" (-> response :body :display_name)))
+        (is (some? (:product_updates_opted_out_at (opt-out-row id))))))
+
+    (testing "rejects a value that is not a boolean"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"true or false"
+                            (patch! id {:product_updates "no"}))))
+
+    (testing "never returns the unsubscribe token"
+      (is (not (contains? (:body (patch! id {:product_updates true})) :unsubscribe_token)))
+      (is (not (contains? (:body (account/get-account {:identity {:sub id}}))
+                          :unsubscribe_token))))))
+
+(deftest test-register-product-updates-opt-out
+  (testing "registers an opted out account when the opt-out is ticked"
+    (let [response (account/register-account
+                    {:body-params (merge (factory/build-test-user) acceptance
+                                         {:product-updates-opt-out? true})})]
+      (is (= 201 (:status response)))
+      (is (some? (:product_updates_opted_out_at (opt-out-row (-> response :body :id)))))
+      (is (not (contains? (:body response) :unsubscribe_token)))))
+
+  (testing "registers a subscribed account by default"
+    (let [response (account/register-account
+                    {:body-params (merge (factory/build-test-user) acceptance)})]
+      (is (nil? (:product_updates_opted_out_at (opt-out-row (-> response :body :id))))))))

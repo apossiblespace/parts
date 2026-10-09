@@ -163,6 +163,16 @@
    of Service warranty accepted via the legal-documents checkbox (see ADR-0009)."
   "I understand that mental-health information is processed in Parts, as described in the Privacy Policy.")
 
+(def product-updates-label
+  "Label for the signup checkbox that subscribes a new user to Product
+   updates. The checkbox is ticked by default, and a user who unticks it
+   opts out. See ADR-0020."
+  "Send me product updates.")
+
+(def product-updates-hint
+  "Hint under `product-updates-label`."
+  "News about new features. You can change this on your Account page.")
+
 (def subscription-plans
   "The self-serve subscription plans, in display order — annual first,
    because pricing decision 6 steers to annual. The one definition both

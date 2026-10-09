@@ -19,7 +19,7 @@
    invitation row; the registration boundary (`api/account`) is what keeps it
    out of a request body."
   #{:email :display_name :password :password_confirmation :role :is_founding_circle})
-(def sensitive-fields #{:password_hash})
+(def sensitive-fields #{:password_hash :unsubscribe_token})
 (def valid-roles #{"client" "therapist"})
 
 (defn- normalize-attrs
@@ -91,6 +91,7 @@
                                [:u.display_name :display_name]
                                [:u.role :role]
                                [:u.paid_through_date :paid_through_date]
+                               [:u.product_updates_opted_out_at :product_updates_opted_out_at]
                                [:m.id :map_id]]
                    :from      [[:users :u]]
                    :left-join [[:maps :m] [:= :m.owner_id :u.id]]
@@ -112,6 +113,45 @@
                              set-password-hash)]
      (remove-sensitive-data
       (first (db/update! :users sanitized-attrs [:= :id (db/->uuid id)] tx))))))
+
+;;; Product updates
+
+;; Keep the first opt-out time when a user opts out again. It records when
+;; the user refused Product updates.
+(def ^:private opted-out-now
+  [:coalesce :product_updates_opted_out_at [:now]])
+
+(defn set-product-updates!
+  "Subscribes the user `id` to Product updates when `subscribed?` is true,
+   and opts the user out otherwise. Returns the user."
+  ([id subscribed?] (set-product-updates! id subscribed? db/datasource))
+  ([id subscribed? tx]
+   (remove-sensitive-data
+    (first (db/update! :users
+                       {:product_updates_opted_out_at (when-not subscribed? opted-out-now)}
+                       [:= :id (db/->uuid id)]
+                       tx)))))
+
+(defn find-by-unsubscribe-token
+  "Returns `{:product_updates_opted_out_at}` for the user whose unsubscribe
+   token is `token`, or nil. A malformed `token` gives nil."
+  [token]
+  (when-let [token (parse-uuid (str token))]
+    (db/query-one
+     (db/sql-format
+      {:select [:product_updates_opted_out_at]
+       :from   [:users]
+       :where  [:= :unsubscribe_token token]}))))
+
+(defn unsubscribe!
+  "Opts out the user whose unsubscribe token is `token`. Returns true when
+   such a user exists."
+  [token]
+  (boolean
+   (when-let [token (parse-uuid (str token))]
+     (seq (db/update! :users
+                      {:product_updates_opted_out_at opted-out-now}
+                      [:= :unsubscribe_token token])))))
 
 (defn create!
   "Create a new user record with the provided attributes.

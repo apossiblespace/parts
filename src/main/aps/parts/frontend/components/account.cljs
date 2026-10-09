@@ -185,6 +185,21 @@
                      "Signed in as " (:email user) "."))
                ($ :p {:class "text-sm text-gray-400"} "Checking…")))
 
+          ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Email")
+          ($ :label {:class "flex items-start gap-3 cursor-pointer"}
+             ($ :input
+                {:type      "checkbox"
+                 :id        "product-updates"
+                 :class     "checkbox checkbox-sm shrink-0 mt-0.5"
+                 :checked   (nil? (:product_updates_opted_out_at user))
+                 :disabled  (nil? user)
+                 :on-change #(rf/dispatch [:account/update
+                                           {:product_updates (.. % -target -checked)}])})
+             ($ :span {:class "text-sm"}
+                "Send me product updates"
+                ($ :span {:class "block text-gray-400"}
+                   "You always get service notices about your account, such as changes to the Terms.")))
+
           ($ :h2 {:class "text-md font-semibold mb-2 mt-8"} "Billing")
           ($ banner {:variant :info :class "mb-2"}
              ($ :p

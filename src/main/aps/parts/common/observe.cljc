@@ -34,22 +34,22 @@
        node)) v))
 
 #?(:clj
-   (defn- scrub-invite-tokens
-     "Replace the token in any `/invite/<token>` string (e.g. a request :uri),
-      which key-based redaction can't reach."
+   (defn- scrub-link-tokens
+     "Replace the token in any `/invite/<token>` or `/unsubscribe/<token>`
+      string, such as a request `:uri`. Key-based redaction cannot reach it."
      [v]
      (walk/postwalk
       (fn [node]
         (if (string? node)
-          (cstr/replace node #"(/invite/)[^/?\s]+" (str "$1" redacted-placeholder))
+          (cstr/replace node #"(/(?:invite|unsubscribe)/)[^/?\s]+" (str "$1" redacted-placeholder))
           node))
       v)))
 
 #?(:clj
    (defn redact-event
-     "Redact sensitive keys and scrub invite tokens from one mulog event map."
+     "Redact sensitive keys and scrub link tokens from one mulog event map."
      [event]
-     (-> event redact-sensitive scrub-invite-tokens)))
+     (-> event redact-sensitive scrub-link-tokens)))
 
 #?(:clj
    (defn mulog-transform

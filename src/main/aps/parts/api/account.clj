@@ -66,12 +66,24 @@
    over the account. `:current_password` is a transient input — it is not in
    `user/allowed-update-fields`, so it never reaches the database."
   [request]
-  (let [user-id (auth/current-user-id request)
-        body    (:body-params request)]
+  (let [user-id  (auth/current-user-id request)
+        body     (:body-params request)
+        updates? (contains? body :product_updates)
+        attrs    (dissoc body :current_password :product_updates)]
     (when (and (credential-change? body)
                (not (auth/current-password-valid? user-id (:current_password body))))
       (throw (ex-info "Current password is incorrect" {:type :validation})))
-    (let [updated-user (user/update! user-id (dissoc body :current_password))]
+    (when (and updates? (not (boolean? (:product_updates body))))
+      (throw (ex-info "product_updates must be true or false" {:type :validation})))
+    ;; `:product_updates` is not a column. It sets or clears the opt-out
+    ;; timestamp, which `user/update!` cannot set to NULL.
+    (let [updated-user (db/with-transaction
+                         (fn [tx]
+                           (let [user (when (or (seq attrs) (not updates?))
+                                        (user/update! user-id attrs tx))]
+                             (if updates?
+                               (user/set-product-updates! user-id (:product_updates body) tx)
+                               user))))]
       (mulog/log ::update-account-success :user-id user-id)
       (-> (response/response updated-user)
           (response/status 200)))))
@@ -102,13 +114,19 @@
 
    `params` carries the two acceptance booleans (`:accepted-legal?`,
    `:accepted-medical?`) alongside the user fields; they are validated, then
-   stripped before the user is created.
+   stripped before the user is created. A true `:product-updates-opt-out?`
+   creates the account opted out of Product updates.
 
    Public so the invite-redemption handler (`handlers/invite`) can reuse
    the exact same provisioning path as `/api/account/register`."
   [params tx]
   (validate-acceptance! params)
-  (let [account (user/create! (dissoc params :accepted-legal? :accepted-medical?) tx)
+  (let [account (user/create! (dissoc params :accepted-legal? :accepted-medical?
+                                      :product-updates-opt-out?)
+                              tx)
+        account (if (true? (:product-updates-opt-out? params))
+                  (user/set-product-updates! (:id account) false tx)
+                  account)
         title   "Example Map"
         the-map (parts-map/create! {:title title :owner_id (:id account)} (:id account) tx)]
     ;; Session 1 must exist before any content so the seeded demo Parts land
@@ -129,7 +147,8 @@
   ;; `validate-acceptance!`, which strips them before the user is created.
   (let [params (-> (:body-params request)
                    (select-keys [:email :display_name :password :password_confirmation
-                                 :accepted-legal? :accepted-medical?])
+                                 :accepted-legal? :accepted-medical?
+                                 :product-updates-opt-out?])
                    (assoc :role "therapist"))]
     (try
       (let [{:keys [account map-id]} (db/with-transaction

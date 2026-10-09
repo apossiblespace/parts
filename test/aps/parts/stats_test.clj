@@ -6,6 +6,7 @@
    [aps.parts.entity.map :as emap]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.relationship :as relationship]
+   [aps.parts.entity.user :as user]
    [aps.parts.helpers.utils :refer [create-test-map! create-test-user!
                                     silently with-test-db]]
    [aps.parts.stats :as stats]
@@ -258,3 +259,13 @@
       (is (= 0 (-> result :users :total)))
       (is (= 0 (-> result :active :last_24h :count)))
       (is (= 0.0 (-> result :active :last_24h :pct))))))
+
+(deftest test-product-updates-figures
+  (let [out (create-test-user!)
+        sub (create-test-user!)]
+    (user/set-product-updates! (:id out) false)
+    (testing "fleet counts subscribed and opted out users"
+      (is (= {:subscribed 1 :opted_out 1} (:product_updates (stats/fleet today)))))
+    (testing "user activity marks the opted out user"
+      (is (= {(:id out) true (:id sub) false}
+             (into {} (map (juxt :id :product_updates_opted_out)) (stats/user-activity today)))))))

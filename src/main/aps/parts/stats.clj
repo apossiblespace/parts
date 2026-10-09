@@ -152,7 +152,8 @@
   []
   (db/query
    (db/sql-format
-    {:select [:paid_through_date :is_founding_circle :deletion_requested_at]
+    {:select [:paid_through_date :is_founding_circle :deletion_requested_at
+              :product_updates_opted_out_at]
      :from   [:users]
      :where  (erasure/exclude-tombstone :id)})))
 
@@ -231,6 +232,7 @@
                 :last_30d {:count :pct}}          ; the `user-activity` window
       :totals  {:maps :parts :relationships}      ; current rows across all owners
       :founding_circle <n>
+      :product_updates {:subscribed :opted_out}
       :billing {:paid :overdue :never_paid}}      ; reuses billing/account-standing
 
    'Active' means *made a change* in the window (see CONTEXT.md, 'Active
@@ -254,6 +256,8 @@
                         :parts         (bt/count-current db/datasource :parts)
                         :relationships (bt/count-current db/datasource :relationships)}
       :founding_circle (count (filter :is_founding_circle users))
+      :product_updates (let [out (count (filter :product_updates_opted_out_at users))]
+                         {:subscribed (- total out) :opted_out out})
       :billing         (billing-breakdown users today)})))
 
 (defn fleet-stats!
@@ -333,7 +337,7 @@
    activity of the `activity-days` UTC days that end on `today`.
 
      {:id :email :display_name :created_at :is_founding_circle
-      :pending_deletion <bool>
+      :pending_deletion <bool>  :product_updates_opted_out <bool>
       :billing     {:status :paid_through_date :days_remaining}
       :last_active <OffsetDateTime or nil>   ; latest change, all time
       :active_days #{LocalDate}               ; inside the window only
@@ -355,7 +359,7 @@
                    (db/sql-format
                     {:select [:id :email :display_name :created_at
                               :is_founding_circle :paid_through_date
-                              :deletion_requested_at]
+                              :deletion_requested_at :product_updates_opted_out_at]
                      :from   [:users]
                      :where  (erasure/exclude-tombstone :id)}))]
      (->> users
@@ -363,6 +367,7 @@
                  (-> (select-keys u [:id :email :display_name :created_at
                                      :is_founding_circle])
                      (assoc :pending_deletion (some? (:deletion_requested_at u))
+                            :product_updates_opted_out (some? (:product_updates_opted_out_at u))
                             :billing          (billing/account-standing u today)
                             :last_active      (last-at id)
                             :active_days      (get dates id #{})

@@ -19,6 +19,7 @@
         [password-confirm set-password-confirm] (use-state "")
         [accepted-medical set-accepted-medical] (use-state false)
         [accepted-legal set-accepted-legal]     (use-state false)
+        [product-updates set-product-updates]   (use-state true)
         [error set-error]                       (use-state nil)
         [loading set-loading]                   (use-state false)
 
@@ -32,12 +33,13 @@
               (set-error nil)
               (rf/dispatch
                [:auth/register
-                {:email                 email
-                 :display_name          display-name
-                 :password              password
-                 :password_confirmation password-confirm
-                 :accepted-medical?     accepted-medical
-                 :accepted-legal?       accepted-legal
+                {:email                    email
+                 :display_name             display-name
+                 :password                 password
+                 :password_confirmation    password-confirm
+                 :accepted-medical?        accepted-medical
+                 :accepted-legal?          accepted-legal
+                 :product-updates-opt-out? (not product-updates)
                  :callback
                  (fn [result]
                    (set-loading false)
@@ -146,6 +148,21 @@
                                        :class  "link"}
                                    label)))
                    "."))
+
+             ($ :hr {:class "border-base-300 mt-4"})
+
+             ($ :label {:class "flex items-start gap-3 mt-4 cursor-pointer"}
+                ($ :input
+                   {:type      "checkbox"
+                    :id        "signup-product-updates"
+                    :class     "checkbox checkbox-sm shrink-0 mt-0.5"
+                    :checked   product-updates
+                    :disabled  loading
+                    :on-change #(set-product-updates (.. % -target -checked))})
+                ($ :span {:class "text-sm text-left"}
+                   constants/product-updates-label
+                   ($ :span {:class "block opacity-60"}
+                      constants/product-updates-hint)))
 
              ($ :div {:class "modal-action mt-4"}
                 ($ :button

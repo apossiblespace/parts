@@ -53,20 +53,22 @@
    [:span {:class "text-xs opacity-60 tabular-nums"} detail]])
 
 (defn- tiles
-  [{:keys [users active billing founding_circle]}]
+  [{:keys [users active billing founding_circle product_updates]}]
   (let [window (fn [k] (format "%.0f%% of users" (-> active k :pct)))]
-    [:div {:class "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-base-300 border border-base-300 rounded-box overflow-hidden"}
+    [:div {:class "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-base-300 border border-base-300 rounded-box overflow-hidden"}
      (tile "Users" (:total users)
            (str founding_circle " founding · " (:pending_deletion users) " pending deletion"))
      (tile "Active 24 h" (-> active :last_24h :count) (window :last_24h))
      (tile "Active 7 d" (-> active :last_7d :count) (window :last_7d))
      (tile "Active 30 d" (-> active :last_30d :count) (window :last_30d))
      (tile "Paid" (:paid billing)
-           (str (:overdue billing) " overdue · " (:never_paid billing) " never paid"))]))
+           (str (:overdue billing) " overdue · " (:never_paid billing) " never paid"))
+     (tile "Product updates" (:subscribed product_updates)
+           (str (:opted_out product_updates) " opted out"))]))
 
 (defn- user-row
-  [today now {:keys [display_name email created_at is_founding_circle
-                     pending_deletion billing last_active active_days counts]}]
+  [today now {:keys [display_name email created_at is_founding_circle pending_deletion
+                     product_updates_opted_out billing last_active active_days counts]}]
   [:tr
    [:td
     [:div {:class "flex flex-col"}
@@ -75,7 +77,12 @@
         [:span {:class "badge badge-xs badge-ghost" :title "Founding Circle"} "FC"])
       " "
       (when pending_deletion
-        [:span {:class "badge badge-xs badge-soft badge-error"} "pending deletion"])]
+        [:span {:class "badge badge-xs badge-soft badge-error"} "pending deletion"])
+      " "
+      (when product_updates_opted_out
+        [:span {:class "badge badge-xs badge-outline opacity-60"
+                :title "Opted out of product updates"}
+         "no updates"])]
      [:span {:class "text-xs opacity-60"} email]]]
    [:td {:class "opacity-70"}
     (str (-> ^java.sql.Timestamp created_at .toInstant (.atOffset ZoneOffset/UTC) .toLocalDate))]

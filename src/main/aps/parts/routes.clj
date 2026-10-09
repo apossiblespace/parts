@@ -11,6 +11,7 @@
    [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
    [aps.parts.handlers.password-reset :as password-reset]
+   [aps.parts.handlers.unsubscribe :as unsubscribe]
 
    [aps.parts.handlers.waitlist :as waitlist]
    [aps.parts.middleware :as middleware]
@@ -170,6 +171,16 @@
                                   middleware/wrap-html-response]
                      :get        {:handler password-reset/show}
                      :post       {:handler password-reset/redeem}}]
+
+   ;; The unsubscribe link of Product updates (ADR-0020). The POST has no
+   ;; anti-forgery middleware, because the token in the path is the
+   ;; credential and a one-click mail client (RFC 8058) sends no cookie.
+   ["/unsubscribe/:token" {:middleware [(ratelimit/limiter :unsubscribe {})
+                                        middleware/wrap-csp]
+                           :get        {:middleware [middleware/wrap-html-defaults
+                                                     middleware/wrap-html-response]
+                                        :handler    unsubscribe/show}
+                           :post       {:handler unsubscribe/confirm}}]
 
    ;; Legal documents — Privacy Policy, Terms of Service, DPA. Server-rendered
    ;; and public (no auth, no launch gate). Content is operator-supplied at

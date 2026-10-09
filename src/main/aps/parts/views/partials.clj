@@ -415,6 +415,15 @@
                         :rel    "noreferrer noopener"}
                     label]))
       "."]]
+    [:hr {:class "border-base-300 mb-4"}]
+    [:label {:class "flex items-start gap-3 mb-4 cursor-pointer"}
+     [:input {:type    "checkbox"
+              :name    "product_updates"
+              :class   "checkbox checkbox-sm shrink-0 mt-0.5"
+              :checked true}]
+     [:span {:class "text-sm text-left"}
+      c/product-updates-label
+      [:span {:class "block opacity-60"} c/product-updates-hint]]]
     [:button {:class "btn btn-primary w-full" :type "submit"}
      "Create my account"]]))
 
@@ -494,6 +503,40 @@
              :required true}]
     [:button {:class "btn btn-primary w-full" :type "submit"}
      "Save new password"]]))
+
+(defn unsubscribe-content
+  "The page body for a valid unsubscribe link. It shows a confirm button
+   while the user gets Product updates, and the result after the user opts
+   out. The form has no anti-forgery field, because the token is the
+   credential."
+  [{:keys [token opted-out?]}]
+  (if opted-out?
+    (auth-card
+     [:h1 {:class "text-2xl font-bold mb-2"} "You are unsubscribed"]
+     [:p {:class "text-gray-600 mb-2"}
+      "You will not get product updates. You will still get service notices
+       about your account."]
+     [:p {:class "text-gray-600"}
+      "To subscribe again, go to your " (text-link "/app/account" "Account page") "."])
+    (auth-card
+     [:h1 {:class "text-2xl font-bold mb-2"} "Unsubscribe from product updates"]
+     [:p {:class "text-gray-600 mb-6"}
+      "Product updates are occasional emails about new features in Parts.
+       You will still get service notices about your account."]
+     [:form {:method "post" :action (str "/unsubscribe/" token)}
+      [:button {:class "btn btn-primary w-full" :type "submit"}
+       "Unsubscribe"]])))
+
+(defn unsubscribe-unavailable-content
+  "The page body for an unsubscribe link with an unknown token."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "This link is not valid"]
+   [:p {:class "text-gray-600"}
+    "Check that you opened the complete link from the email. You can also
+     change your email settings on your "
+    (text-link "/app/account" "Account page")
+    "."]))
 
 (defn password-reset-unavailable-content
   "The calm error page body, shown for any unusable reset token — unknown,

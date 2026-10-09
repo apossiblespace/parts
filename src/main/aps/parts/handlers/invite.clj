@@ -75,14 +75,16 @@
                       (throw (ex-info "Invitation already redeemed"
                                       {:type :invitation-spent})))
                     (account/provision-account!
-                     {:email                 (:email claimed)
-                      :display_name          (get form "display_name")
-                      :password              (get form "password")
-                      :password_confirmation (get form "password_confirmation")
-                      :role                  "therapist"
-                      :is_founding_circle    (:is_founding_circle claimed)
-                      :accepted-legal?       (some? (get form "accept_legal"))
-                      :accepted-medical?     (some? (get form "accept_medical"))}
+                     {:email                    (:email claimed)
+                      :display_name             (get form "display_name")
+                      :password                 (get form "password")
+                      :password_confirmation    (get form "password_confirmation")
+                      :role                     "therapist"
+                      :is_founding_circle       (:is_founding_circle claimed)
+                      :accepted-legal?          (some? (get form "accept_legal"))
+                      :accepted-medical?        (some? (get form "accept_medical"))
+                      ;; A browser omits an unticked checkbox from the form.
+                      :product-updates-opt-out? (nil? (get form "product_updates"))}
                      tx))))]
           (mulog/log ::invitation-redeemed :email (:email invitation))
           (mulog/log ::account/signup
