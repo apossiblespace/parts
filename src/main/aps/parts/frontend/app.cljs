@@ -1,6 +1,5 @@
 (ns aps.parts.frontend.app
   (:require
-   ["htmx.org" :default htmx]
    [aps.parts.common.constants :as c]
    [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.account :refer [account]]
@@ -20,7 +19,6 @@
 
 (def initial-db
   {:demo-mode false
-   :launched  false
    ;; Seeded into app-db so `sessions/read-only-reason` (pure, takes db)
    ;; can gate on it — the interceptors' guard of record for the phone's
    ;; view-only canvas (TASK-105).
@@ -114,17 +112,16 @@
 
 (defui app-root
   "SPA root. Decides what to show from the current route + auth state:
-   - auth check in flight                  → spinner
-   - /app/signup (launched, not logged in) → signup screen
-   - not logged in                         → login screen. Covers
-       /app/login, a protected route hit while unauthed (gate-in-place —
-       the URL stays put), and /app/signup pre-launch (degrades to login).
-   - logged in on an auth route            → redirected into the app
-   - logged in on a protected route        → the client-side router."
+   - auth check in flight            → spinner
+   - /app/signup, not logged in      → signup screen
+   - not logged in                   → login screen. Covers /app/login and
+       a protected route hit while unauthed (gate-in-place — the URL stays
+       put).
+   - logged in on an auth route      → redirected into the app
+   - logged in on a protected route  → the client-side router."
   []
   (let [auth-loading (uix.rf/use-subscribe [:auth/loading])
         logged-in    (uix.rf/use-subscribe [:auth/logged-in])
-        launched     (uix.rf/use-subscribe [:launched])
         route-name   (uix.rf/use-subscribe [:router/route-name])
         auth-route?  (contains? #{::router/login ::router/signup} route-name)]
     ;; A logged-in user who lands on an auth route belongs in the app.
@@ -138,7 +135,7 @@
       auth-loading
       (spinner)
 
-      (and (= route-name ::router/signup) launched (not logged-in))
+      (and (= route-name ::router/signup) (not logged-in))
       ($ auth-screen {:mode :signup})
 
       (not logged-in)
@@ -162,29 +159,21 @@
         (= mode "true")    true
         :else              false))))
 
-(defn get-launched
-  "Read the runtime launch toggle from the root element. Mirrors the
-   server-side `aps.parts.launch/launched?` flag."
-  [root-el]
-  (= "true" (some-> root-el (.getAttribute "data-launched"))))
-
 (defn- setup-demo
   "Playground boot path: localStorage storage, no router, no auth gate —
    mount the canvas directly."
-  [demo-mode launched]
+  [demo-mode]
   (storage-registry/init-localstorage-backend!)
-  (rf/dispatch-sync [:app/init-db (assoc initial-db
-                                         :demo-mode demo-mode
-                                         :launched  launched)])
+  (rf/dispatch-sync [:app/init-db (assoc initial-db :demo-mode demo-mode)])
   (rf/dispatch [:app/init-demo-map])
   ($ map-view))
 
 (defn- setup-spa
   "App boot path (/app/*): HTTP storage, start the client-side router and
    the auth gate."
-  [launched]
+  []
   (storage-registry/init-http-backend!)
-  (rf/dispatch-sync [:app/init-db (assoc initial-db :launched launched)])
+  (rf/dispatch-sync [:app/init-db initial-db])
   (router/start!)
   ($ app-root))
 
@@ -195,10 +184,9 @@
   [root-el]
   (let [root      (uix.dom/create-root root-el)
         demo-mode (get-demo-settings root-el)
-        launched  (get-launched root-el)
         element   (if demo-mode
-                    (setup-demo demo-mode launched)
-                    (setup-spa launched))]
+                    (setup-demo demo-mode)
+                    (setup-spa))]
     (uix.dom/render-root element root)
     {:root      root
      :demo-mode demo-mode}))
@@ -212,25 +200,11 @@
     (reset! app-state (setup-app root-el))))
 
 (defn ^:export init []
-  ;; Configure HTMX response handling for validation errors. HTMX still
-  ;; drives the marketing page's server-rendered forms (waitlist signup).
-  (set! (.-responseHandling (.-config htmx))
-        #js [#js {:code "204" :swap false} ; 204 - No Content by default does nothing, but is not an error
-             #js {:code "400" :swap true :error false} ; 400 - Bad Request (validation errors) should swap content
-             #js {:code "409" :swap true :error false} ; 409 - Conflict (duplicate email) should swap content
-             #js {:code "[23].." :swap true} ; 200 & 300 responses are non-errors and are swapped
-             #js {:code "[45].." :swap false :error true} ; Other 400 & 500 responses are not swapped and are errors
-             #js {:code "..." :swap false}]) ; catch all for any other response code
-
-  ;; The /app shell has no htmx, so boot the React app once the DOM is
-  ;; ready. The landing page still loads htmx; its forms work the same.
   ;; If the document already finished parsing (script at end of body),
   ;; boot immediately rather than waiting for an event that already fired.
   (if (= "loading" (.-readyState js/document))
     (.addEventListener js/document "DOMContentLoaded" boot!)
-    (boot!))
-  (let [version (.-version htmx)]
-    (o/info "app.init" "HTMX loaded! Version:" version)))
+    (boot!)))
 
 (defn- render-root!
   "Re-render whichever boot path is active. Used by hot-reload."

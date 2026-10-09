@@ -66,7 +66,7 @@
   "Coerce a config value to a boolean.
 
    Like `parse-port`, this exists because lambdaisland/config does no type
-   coercion. A value set via an env var (e.g. PARTS__LAUNCH__LAUNCHED_QMARK_)
+   coercion. A value set via an env var (e.g. PARTS__DB__SSL)
    arrives as a string, while a config.edn default arrives as a real
    boolean. Without coercion the string \"false\" is truthy — so a flag
    meant to be off reads as on."
@@ -297,7 +297,6 @@
     :console/socket :console/port
     :mail/sender-identity
     :ratelimit/client-ip-header
-    :launch/launched?
     :smtp/host :smtp/port
     :alert/to :alert/from
     :stripe/price-monthly :stripe/price-yearly})

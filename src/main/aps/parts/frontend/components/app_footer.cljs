@@ -9,8 +9,7 @@
 (defn- app-version
   "Read the app version from the `<meta name=\"version\">` tag stamped on
    first page load by the server's shared head (see
-   `aps.parts.views.partials/head`). Same channel `data-launched` uses to
-   flow build-time facts from server to client. Returns nil if the tag
+   `aps.parts.views.partials/head`). Returns nil if the tag
    isn't present (e.g. in tests that bypass the server shell)."
   []
   (some-> (.querySelector js/document "meta[name=\"version\"]")

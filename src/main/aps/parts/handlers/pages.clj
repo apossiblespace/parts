@@ -1,8 +1,6 @@
 (ns aps.parts.handlers.pages
   (:require
    [aps.parts.auth :as auth]
-   [aps.parts.handlers.waitlist :refer [signups-count]]
-   [aps.parts.launch :as launch]
    [aps.parts.views.layouts :as layouts]
    [aps.parts.views.partials :as partials]
    [hiccup2.core :refer [html]]
@@ -18,8 +16,7 @@
        {:title      "Map"
         :analytics? true
         :styles     ["/css/flow.css" "/css/style.css"]}
-       [:div#root {:data-demo-mode demo-mode
-                   :data-launched  (str (launch/launched?))}])))))
+       [:div#root {:data-demo-mode demo-mode}])))))
 
 (defn playground
   "Page rendering a playground map graph in demo mode"
@@ -38,7 +35,7 @@
     (layouts/fullscreen
      {:title  "Map"
       :styles ["/css/flow.css" "/css/style.css"]}
-     [:div#root {:data-launched (str (launch/launched?))}]))))
+     [:div#root]))))
 
 (defn- feature-video
   "Muted looping clip for a feature card. Video, not GIF: same frames at
@@ -65,10 +62,8 @@
    in map.cljs) so the text only ever covers empty canvas.
 
    Below lg: the demo is hidden and the hero is just text on the page
-   background. The highlight and click-through are lg-only to match.
-
-   `cta` is the call-to-action markup, which differs per launch state."
-  [{:keys [waitlist-count cta]}]
+   background. The highlight and click-through are lg-only to match."
+  []
   ;; The white text highlight only makes sense over the canvas (lg overlay);
   ;; on mobile the text sits on the page background, so keep it plain.
   (let [highlight ["lg:box-decoration-clone" "lg:bg-white" "lg:px-3" "lg:py-1"]]
@@ -94,209 +89,111 @@
          " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts, across sessions."]]
        [:div {:class ["grid" "grid-cols-1" "sm:grid-cols-2" "gap-2"
                       "max-w-lg" "pointer-events-auto"]}
-        cta]
-       (when (not (launch/launched?))
-         [:p {:class ["mt-6" "text-sm" "lg:-ml-3"]}
-          [:span {:class (conj highlight "text-gray-500")}
-           "Current founding members: "
-           [:span#counter waitlist-count]
-           " practitioners."]])]]
+        [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
+         {:role                  "button"
+          :href                  "/app/signup"
+          :data-analytics        "Create Account Click"
+          :data-analytics-source "homepage-hero"}
+         "Create an account"]
+        [:a.btn.btn-lg {:role "button"
+                        :href "/playground"}
+         "Expand the playground"]]]]
      ;; The demo: hidden on mobile; a full-bleed background behind the text on lg.
      [:div#root {:data-demo-mode "minimal"
                  :class          ["demo" "minimal" "bg-white"
                                   "hidden" "lg:block"
                                   "lg:absolute" "lg:inset-0"]}]]))
 
-(defn home-page-signup
-  "Post-launch landing page: header and hero CTAs link to the /app SPA."
-  [_]
-  (let [waitlist-count (signups-count)]
-    (response/response
-     (html
-      (layouts/marketing
-       {:title  nil
-        :styles ["/css/flow.css" "/css/style.css"]}
-       (hero
-        {:waitlist-count waitlist-count
-         :cta            (list
-                          [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
-                           {:role                  "button"
-                            :href                  "/app/signup"
-                            :data-analytics        "Create Account Click"
-                            :data-analytics-source "homepage-hero"}
-                           "Create an account"]
-                          [:a.btn.btn-lg {:role "button"
-                                          :href "/playground"}
-                           "Expand the playground"])})
-       [:section#features.text-white
-        {:style {:background-color "#4eb48a"}}
-        [:div.container.max-w-7xl.mx-auto.py-8.px-4.sm:px-6.lg:px-8
-         [:h2.text-4xl.font-bold.mb-12.mt-8 "Built for the work between sessions."]
-         (let [card-class "aspect-square flex flex-col"]
-           [:ul.grid.gap-12.grid-cols-1.md:grid-cols-2.lg:grid-cols-3
-            [:li {:class card-class}
-             (feature-video "parts" "A Manager part being placed on the map")
-             [:h3.text-lg.font-bold "Map your clients’ Parts"]
-             [:p
-              "Place Managers, Firefighters, and Exiles on a freeform canvas and arrange them as the work progresses."]]
-            [:li {:class card-class}
-             (feature-video "relationships" "A relationship being drawn between two parts")
-             [:h3.text-lg.font-bold "Define the relationships"]
-             [:p
-              "Connect Parts with relationships of varying intensities"]]
-            [:li {:class card-class}
-             (feature-video "timetravel" "Stepping back through past sessions of a map")
-             [:h3.text-lg.font-bold "Time Travel"]
-             [:p
-              "Explore a Map’s evolution across sessions with our Time Travel tool"]]
-            [:li {:class card-class}
-             (feature-video "notes" "Adding a note to a part")
-             [:h3.text-lg.font-bold "Capture clinical detail"]
-             [:p
-              "Keep notes on Parts and relationships, including where in the body a Part is felt"]]
-            [:li {:class card-class}
-             (feature-video "pdf" "Exporting a map as a PDF")
-             [:h3.text-lg.font-bold "Share a client’s map with them"]
-             [:p
-              "A Map can be downloaded as a PDF to share with your client, as homework support or for shared context"]]
-            [:li {:class card-class}
-             [:div {:class       "aspect-[8/5] rounded-lg mb-4 border-2 border-dashed border-white/60 flex items-center justify-center"
-                    :aria-hidden true}
-              [:span.text-6xl.font-light "+"]]
-             [:h3.text-lg.font-bold "And more coming soon"]
-             [:p
-              "Parts is in active development, shaped by the practitioners who use it"]]])]]
-       [:section.py-20.bg-gray-100
-        [:div.container.max-w-5xl.mx-auto.px-4.sm:px-6.lg:px-8
-         [:iframe.w-full.rounded-lg.shadow-lg
-          {:class           "aspect-[16/10]"
-           :src             "https://www.youtube-nocookie.com/embed/72YCRfGvcjU"
-           :title           "Parts demonstration video"
-           :loading         "lazy"
-           :allow           "encrypted-media; fullscreen; picture-in-picture"
-           :referrerpolicy  "strict-origin-when-cross-origin"
-           :allowfullscreen true}]]]
-       (partials/pricing-section)
-       [:section.py-16
-        [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
-         [:h2.text-3xl.font-bold.text-center.mb-12
-          "Who made this?"]
-         [:div.grid.grid-cols-1.md:grid-cols-2.gap-12.max-w-4xl.mx-auto
-          [:div.flex
-           [:img.w-20.h-20.rounded-full
-            {:src "/images/avatars/gosha.svg"
-             :alt "Gosha Tcherednitchenko"}]
-           [:div.ml-6
-            [:h3.text-xl.font-semibold "Gosha Tcherednitchenko"]
-            [:p.text-gray-600.mt-1
-             "Software engineer with 20 years experience building for the Web."]
-            [:div.mt-2
-             [:a.text-ifs-green.mr-3
-              {:href "https://gosha.net"}
-              "Website"]]]]
-          [:div.flex
-           [:img.w-20.h-20.rounded-full
-            {:src "/images/avatars/tingyi.svg"
-             :alt "Ting-yi Lai"}]
-           [:div.ml-6
-            [:h3.text-xl.font-semibold "Ting-yi Lai"]
-            [:p.text-gray-600.mt-1
-             "IFS Level 1 trained art psychotherapist, focusing on trauma."]
-            [:div.mt-2
-             [:a.text-ifs-yellow
-              {:href "https://tingyilai.com"}
-              "Website"]]]]]]])))))
-
-(defn home-page-waitlist
-  "Pre-launch landing page: hero CTA anchors down to the waitlist email form."
-  [_]
-  (let [waitlist-count (signups-count)]
-    (response/response
-     (html
-      (layouts/marketing
-       {:title  nil
-        :styles ["/css/flow.css" "/css/style.css"]}
-       (hero
-        {:waitlist-count waitlist-count
-         :cta            (list
-                          [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
-                           {:role "button"
-                            :href "#signup"}
-                           "Join the Founding Circle"]
-                          [:a.btn.btn-lg {:role "button"
-                                          :href "/playground"}
-                           "Expand the playground"])})
-       [:section#signup.py-20.text-white
-        {:style {:background-color "#4eb48a"}}
-        [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
-         [:h2.text-3xl.font-bold.mb-6.text-center
-          "Join the Founding Practitioners Circle"]
-         [:p.text-xl.mb-8.text-center
-          "Parts is being actively developed — be among the first IFS practitioners to help shape its future."]
-         [:div.grid.grid-cols-1.md:grid-cols-3.gap-4.md:gap-8.max-w-5xl.mx-auto.my-12
-          [:div.flex
-           [:img.w-20.h-20
-            {:src "/images/icons/build.png"
-             :alt "An icon representing a toolbox with some tools in it"}]
-           [:div.ml-4
-            [:h3.text-lg.font-bold "Help shape Parts"]
-            [:p
-             "Your feedback will make Parts better for clients & therapists"]]]
-          [:div.flex
-           [:img.w-20.h-20
-            {:src "/images/icons/key.png"
-             :alt "An icon representing a key on a keychain"}]
-           [:div.ml-4
-            [:h3.text-lg.font-bold "Early access"]
-            [:p
-             "Start using Parts and new features before general availability"]]]
-          [:div.flex
-           [:img.w-20.h-20
-            {:src "/images/icons/concierge.png"
-             :alt "An icon representing a concierge's bell"}]
-           [:div.ml-4
-            [:h3.text-lg.font-bold "Concierge support"]
-            [:p
-             "Help getting setup and started, straight from the developer"]]]]
-         [:div.mx-auto.text-center
-          (partials/waitlist-signup-form {})]]]
-       [:section.py-16
-        [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
-         [:h2.text-3xl.font-bold.text-center.mb-12
-          "Who made this?"]
-         [:div.grid.grid-cols-1.md:grid-cols-2.gap-12.max-w-4xl.mx-auto
-          [:div.flex
-           [:img.w-20.h-20.rounded-full
-            {:src "/images/avatars/gosha.svg"
-             :alt "Gosha Tcherednitchenko"}]
-           [:div.ml-6
-            [:h3.text-xl.font-semibold "Gosha Tcherednitchenko"]
-            [:p.text-gray-600.mt-1
-             "Software engineer with 20 years experience building for the Web."]
-            [:div.mt-2
-             [:a.text-ifs-green.mr-3
-              {:href "https://gosha.net"}
-              "Website"]]]]
-          [:div.flex
-           [:img.w-20.h-20.rounded-full
-            {:src "/images/avatars/tingyi.svg"
-             :alt "Ting-yi Lai"}]
-           [:div.ml-6
-            [:h3.text-xl.font-semibold "Ting-yi Lai"]
-            [:p.text-gray-600.mt-1
-             "IFS Level 1 trained art psychotherapist, focusing on trauma."]
-            [:div.mt-2
-             [:a.text-ifs-yellow
-              {:href "https://tingyilai.com"}
-              "Website"]]]]]]])))))
+(defn- landing-page
+  []
+  (response/response
+   (html
+    (layouts/marketing
+     {:title  nil
+      :styles ["/css/flow.css" "/css/style.css"]}
+     (hero)
+     [:section#features.text-white
+      {:style {:background-color "#4eb48a"}}
+      [:div.container.max-w-7xl.mx-auto.py-8.px-4.sm:px-6.lg:px-8
+       [:h2.text-4xl.font-bold.mb-12.mt-8 "Built for the work between sessions."]
+       (let [card-class "aspect-square flex flex-col"]
+         [:ul.grid.gap-12.grid-cols-1.md:grid-cols-2.lg:grid-cols-3
+          [:li {:class card-class}
+           (feature-video "parts" "A Manager part being placed on the map")
+           [:h3.text-lg.font-bold "Map your clients’ Parts"]
+           [:p
+            "Place Managers, Firefighters, and Exiles on a freeform canvas and arrange them as the work progresses."]]
+          [:li {:class card-class}
+           (feature-video "relationships" "A relationship being drawn between two parts")
+           [:h3.text-lg.font-bold "Define the relationships"]
+           [:p
+            "Connect Parts with relationships of varying intensities"]]
+          [:li {:class card-class}
+           (feature-video "timetravel" "Stepping back through past sessions of a map")
+           [:h3.text-lg.font-bold "Time Travel"]
+           [:p
+            "Explore a Map’s evolution across sessions with our Time Travel tool"]]
+          [:li {:class card-class}
+           (feature-video "notes" "Adding a note to a part")
+           [:h3.text-lg.font-bold "Capture clinical detail"]
+           [:p
+            "Keep notes on Parts and relationships, including where in the body a Part is felt"]]
+          [:li {:class card-class}
+           (feature-video "pdf" "Exporting a map as a PDF")
+           [:h3.text-lg.font-bold "Share a client’s map with them"]
+           [:p
+            "A Map can be downloaded as a PDF to share with your client, as homework support or for shared context"]]
+          [:li {:class card-class}
+           [:div {:class       "aspect-[8/5] rounded-lg mb-4 border-2 border-dashed border-white/60 flex items-center justify-center"
+                  :aria-hidden true}
+            [:span.text-6xl.font-light "+"]]
+           [:h3.text-lg.font-bold "And more coming soon"]
+           [:p
+            "Parts is in active development, shaped by the practitioners who use it"]]])]]
+     [:section.py-20.bg-gray-100
+      [:div.container.max-w-5xl.mx-auto.px-4.sm:px-6.lg:px-8
+       [:iframe.w-full.rounded-lg.shadow-lg
+        {:class           "aspect-[16/10]"
+         :src             "https://www.youtube-nocookie.com/embed/72YCRfGvcjU"
+         :title           "Parts demonstration video"
+         :loading         "lazy"
+         :allow           "encrypted-media; fullscreen; picture-in-picture"
+         :referrerpolicy  "strict-origin-when-cross-origin"
+         :allowfullscreen true}]]]
+     (partials/pricing-section)
+     [:section.py-16
+      [:div.container.max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8
+       [:h2.text-3xl.font-bold.text-center.mb-12
+        "Who made this?"]
+       [:div.grid.grid-cols-1.md:grid-cols-2.gap-12.max-w-4xl.mx-auto
+        [:div.flex
+         [:img.w-20.h-20.rounded-full
+          {:src "/images/avatars/gosha.svg"
+           :alt "Gosha Tcherednitchenko"}]
+         [:div.ml-6
+          [:h3.text-xl.font-semibold "Gosha Tcherednitchenko"]
+          [:p.text-gray-600.mt-1
+           "Software engineer with 20 years experience building for the Web."]
+          [:div.mt-2
+           [:a.text-ifs-green.mr-3
+            {:href "https://gosha.net"}
+            "Website"]]]]
+        [:div.flex
+         [:img.w-20.h-20.rounded-full
+          {:src "/images/avatars/tingyi.svg"
+           :alt "Ting-yi Lai"}]
+         [:div.ml-6
+          [:h3.text-xl.font-semibold "Ting-yi Lai"]
+          [:p.text-gray-600.mt-1
+           "IFS Level 1 trained art psychotherapist, focusing on trauma."]
+          [:div.mt-2
+           [:a.text-ifs-yellow
+            {:href "https://tingyilai.com"}
+            "Website"]]]]]]]))))
 
 (defn home-page
-  "Page rendered for GET /. Logged-in users are redirected into the app;
-   otherwise picks the signup or waitlist variant from the runtime launch
-   toggle (see `aps.parts.launch`)."
+  "Page rendered for GET /. Logged-in users are redirected into the app."
   [request]
   (if (auth/current-user-id request)
     (response/redirect "/app")
-    (if (launch/launched?)
-      (home-page-signup request)
-      (home-page-waitlist request))))
+    (landing-page)))

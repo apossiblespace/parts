@@ -4,8 +4,7 @@
    [aps.parts.frontend.components.toolbar.parts-tools :refer [parts-tools]]
    [aps.parts.frontend.components.toolbar.relationships-tools :refer [relationships-tools]]
    [aps.parts.frontend.components.toolbar.session-card :refer [session-card]]
-   [aps.parts.frontend.components.waitlist-modal :refer [waitlist-modal]]
-   [uix.core :refer [$ defui use-state]]
+   [uix.core :refer [$ defui]]
    [uix.re-frame :as uix.rf]))
 
 (defui ^:memo sidebar
@@ -19,18 +18,16 @@
    confirmation state lives in the map canvas alongside the Delete-key
    flow it shares."
   [{:keys [on-delete-part on-delete-relationship]}]
-  (let [demo                                          (uix.rf/use-subscribe [:demo])
-        minimal                                       (uix.rf/use-subscribe [:minimal-demo])
-        launched                                      (uix.rf/use-subscribe [:launched])
-        selected-parts                                (uix.rf/use-subscribe [:map/selected-parts])
-        selected-rels                                 (uix.rf/use-subscribe [:map/selected-relationships])
-        the-sessions                                  (uix.rf/use-subscribe [:map/sessions])
-        has-demo-cta                                  (and demo (not minimal))
-        has-selection                                 (or (seq selected-parts) (seq selected-rels))
+  (let [demo             (uix.rf/use-subscribe [:demo])
+        minimal          (uix.rf/use-subscribe [:minimal-demo])
+        selected-parts   (uix.rf/use-subscribe [:map/selected-parts])
+        selected-rels    (uix.rf/use-subscribe [:map/selected-relationships])
+        the-sessions     (uix.rf/use-subscribe [:map/sessions])
+        has-demo-cta     (and demo (not minimal))
+        has-selection    (or (seq selected-parts) (seq selected-rels))
         ;; The Session card is a permanent fixture once Sessions are
         ;; loaded — the sidebar is no longer selection-only.
-        has-session-card                              (some? the-sessions)
-        [show-waitlist-modal set-show-waitlist-modal] (use-state false)]
+        has-session-card (some? the-sessions)]
     (when (or has-demo-cta has-selection has-session-card)
       ;; dvh, not vh: on iOS Safari 100vh overshoots the visible viewport
       ;; (see .map-view in main.css), which would let the sidebar run
@@ -38,30 +35,17 @@
       ($ :div {:class "sidebar max-h-[calc(100dvh-200px)] flex flex-col rounded-sm border-base-300 border bg-base-100 shadow-sm"}
          (when has-demo-cta
            ($ :div {:class "p-2 space-y-2"}
-              (if launched
-                ($ :a
-                   {:class    "btn btn-sm btn-primary w-full"
-                    :href     "/app/signup"
-                    :on-click #(o/track "Create Account Click" {:source "playground"})}
-                   "Create an account")
-                ($ :button
-                   {:class    "btn btn-sm btn-primary w-full"
-                    :on-click #(do
-                                 (o/track "Waitlist Modal Open" {:source "playground"})
-                                 (set-show-waitlist-modal true))}
-                   "Sign up"))
-              (when launched
-                ($ :a
-                   {:class    "btn btn-sm btn-ghost w-full"
-                    :href     "/app/login"
-                    :on-click #(o/track "Login Click" {:source "playground"})}
-                   "Log in"))))
+              ($ :a
+                 {:class    "btn btn-sm btn-primary w-full"
+                  :href     "/app/signup"
+                  :on-click #(o/track "Create Account Click" {:source "playground"})}
+                 "Create an account")
+              ($ :a
+                 {:class    "btn btn-sm btn-ghost w-full"
+                  :href     "/app/login"
+                  :on-click #(o/track "Login Click" {:source "playground"})}
+                 "Log in")))
          ($ :div {:class "overflow-auto"}
             ($ session-card)
             ($ parts-tools {:on-delete on-delete-part})
-            ($ relationships-tools {:on-delete on-delete-relationship}))
-         ($ waitlist-modal
-            {:show     show-waitlist-modal
-             :on-close #(do
-                          (o/track "Waitlist Modal Close" {:source "playground"})
-                          (set-show-waitlist-modal false))})))))
+            ($ relationships-tools {:on-delete on-delete-relationship}))))))

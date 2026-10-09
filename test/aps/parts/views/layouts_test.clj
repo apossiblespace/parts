@@ -1,6 +1,6 @@
 (ns aps.parts.views.layouts-test
   "Which layouts load the app bundle, and how asset URLs are versioned.
-   Pages with no #root and no htmx forms must not make slow devices
+   Pages with no #root must not make slow devices
    download and parse the bundle (TASK-122)."
   (:require
    [aps.parts.config :as conf]

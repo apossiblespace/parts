@@ -87,21 +87,12 @@
 
 (defn- on-navigate
   "Called by reitit on every route change. A matched route stores its
-   match for views to subscribe to. Two cases redirect instead:
-   - an unmatched /app/* URL falls back to the maps list at /app;
-   - /app/signup before launch falls back to /app/login — signup is
-     invite-only (via /invite/:token) until the app has launched.
-   Both use `replace-state` so the bounced URL leaves no history entry."
+   match for views to subscribe to. An unmatched /app/* URL falls back to
+   the maps list at /app, with `replace-state` so the bounced URL leaves
+   no history entry."
   [match _history]
-  (cond
-    (nil? match)
+  (if (nil? match)
     (rfe/replace-state ::maps-list)
-
-    (and (= ::signup (get-in match [:data :name]))
-         (not @(rf/subscribe [:launched])))
-    (rfe/replace-state ::login)
-
-    :else
     (rf/dispatch [:router/match match])))
 
 (defn start!

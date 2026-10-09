@@ -7,9 +7,6 @@
  *   data-analytics         event name sent to plausible()
  *   data-analytics-source  becomes {props: {source: ...}}
  *   data-analytics-on      "click" (default) | "focus" | "submit"
- *
- * A waitlist-success fragment swapped in by htmx may carry
- * data-counter-increment to bump the visible #counter once.
  */
 
 window.plausible = window.plausible || function () {
@@ -35,13 +32,4 @@ window.plausible = window.plausible || function () {
   document.addEventListener('click', on('click'));
   document.addEventListener('focusin', on('focus'));
   document.addEventListener('submit', on('submit'), true);
-
-  document.addEventListener('htmx:afterSwap', function () {
-    var el = document.querySelector('[data-counter-increment]:not([data-counted])');
-    var counter = document.getElementById('counter');
-    if (el && counter) {
-      el.setAttribute('data-counted', '');
-      counter.textContent = (parseInt(counter.textContent, 10) || 0) + 1;
-    }
-  });
 })();

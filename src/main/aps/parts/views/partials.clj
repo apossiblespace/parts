@@ -2,7 +2,6 @@
   (:require
    [aps.parts.common.constants :as c]
    [aps.parts.config :as conf]
-   [aps.parts.launch :as launch]
    [aps.parts.version :as version]
    [clojure.java.io :as io]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]))
@@ -37,8 +36,8 @@
 (defn scripts
   "Render script tags at the bottom of the main body tag: main.js (the app
    bundle) unless `:main-js?` is false, plus any additional scripts from
-   options. Pages with no #root and no htmx forms pass `:main-js? false`,
-   so slow devices do not parse the bundle for nothing."
+   options. Pages with no #root pass `:main-js? false`, so slow devices do
+   not parse the bundle for nothing."
   [{:keys [scripts main-js?] :or {main-js? true}}]
   (for [src (concat (when main-js? ["/js/main.js"]) scripts)]
     [:script {:src (asset-url src)}]))
@@ -109,8 +108,8 @@
          ;; output (gitignored); this file is a tracked static asset.
          [:script {:src (asset-url "/marketing.js") :defer true}]))])))
 
-(defn header-signup
-  "Post-launch site header: Log in + Create an account buttons."
+(defn header
+  "Site header: Log in + Create an account buttons."
   []
   [:header
    ;; Overlays the hero so the demo canvas shows through behind it.
@@ -125,8 +124,10 @@
              :src   "/images/parts-logo-horizontal.svg"}]]
      [:div {:class "flex items-center space-x-4"}
       [:a
-       {:class "text-gray-600 hover:text-gray-900 font-medium"
-        :href  "/app/login"}
+       {:class                 "text-gray-600 hover:text-gray-900 font-medium"
+        :href                  "/app/login"
+        :data-analytics        "Login Click"
+        :data-analytics-source "homepage"}
        "Log in"]
       [:a
        {:class                 "btn btn-primary"
@@ -135,45 +136,8 @@
         :data-analytics-source "homepage-header"}
        "Create an account"]]]]])
 
-(defn header-waitlist
-  "Pre-launch site header: a jump to the founding-circle form, plus a
-   Log in link for already-onboarded Circle members."
-  []
-  [:header
-   ;; Overlays the hero so the demo canvas shows through behind it.
-   {:class "absolute top-0 left-0 right-0 z-20 py-6"}
-   [:div
-    {:class "container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}
-    [:div
-     {:class "flex justify-between items-center"}
-     [:a
-      {:href "/", :class "flex items-center"}
-      [:img {:class "w-50"
-             :src   "/images/parts-logo-horizontal.svg"}]]
-     [:div {:class "flex items-center space-x-4"}
-      [:a
-       {:href                  "#signup",
-        :class                 "text-ifs-green font-semibold hover:underline"
-        :data-analytics        "Join Founding Circle Click"
-        :data-analytics-source "homepage"}
-       "Join Founding Circle"]
-      [:a
-       {:href                  "/app/login"
-        :class                 "btn btn-soft"
-        :data-analytics        "Login Click"
-        :data-analytics-source "homepage"}
-       "Log in"]]]]])
-
-(defn header
-  "Site header. Picks the signup or waitlist variant based on the runtime
-   launch toggle (see `aps.parts.launch`)."
-  []
-  (if (launch/launched?)
-    (header-signup)
-    (header-waitlist)))
-
 (defn pricing-section
-  "Homepage pricing section, launched variant only. Cards render from the
+  "Homepage pricing section. Cards render from the
    shared `subscription-plans` constant — the same definition the account
    page's checkout buttons use — so the marketing price cannot drift from
    the price actually charged."
@@ -214,17 +178,6 @@
     [:p.text-center.text-sm.text-gray-600.mt-8
      "Prices include VAT where applicable. Cancel at any time; access continues to the end of the period you’ve paid for. Pick a plan after you sign up."]]])
 
-(defn- homepage-anchor-link
-  "Footer link to a section of the launched homepage. Pre-launch shows a
-   Coming-soon stub, so the footer never links to a missing anchor."
-  [anchor label]
-  (if (launch/launched?)
-    [:a {:href (str "/#" anchor) :class "text-gray-600 hover:text-ifs-green"}
-     label]
-    [:div {:class "tooltip tooltip-right cursor-not-allowed" :data-tip "Coming soon!"}
-     [:span {:class "underline underline-offset-4 text-gray-600 hover:text-ifs-green"}
-      label]]))
-
 (defn footer
   "Site footer"
   []
@@ -246,8 +199,8 @@
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Quick Links"]
       [:ul
        {:class "space-y-2"}
-       [:li (homepage-anchor-link "features" "Features")]
-       [:li (homepage-anchor-link "pricing" "Pricing")]
+       [:li [:a {:href "/#features" :class "text-gray-600 hover:text-ifs-green"} "Features"]]
+       [:li [:a {:href "/#pricing" :class "text-gray-600 hover:text-ifs-green"} "Pricing"]]
        [:li
         [:a
          {:href "https://github.com/apossiblespace/parts?tab=readme-ov-file#readme", :class "text-gray-600 hover:text-ifs-green"}
@@ -304,40 +257,6 @@
     [:p "© 2026 "
      [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]]
     [:span {:class "badge badge-xs text-gray-300 font-mono"} (version/current)]]])
-
-(defn waitlist-signup-form
-  "Form for signing up for the waiting list"
-  [{:keys [message value]}]
-  [:div#signup-form
-   [:form
-    {:hx-post               "/waitlist-signup"
-     :hx-target             "#signup-form"
-     :hx-swap               "outerHTML"
-     :data-analytics        "Waitlist Signup"
-     :data-analytics-on     "submit"
-     :data-analytics-source "homepage"}
-    [:div.join.rounded-xl
-     [:input.join-item.input.input-xl.text-gray-800
-      {:type                  "email"
-       :id                    "email"
-       :name                  "email"
-       :placeholder           "self@you.com"
-       :value                 value
-       :data-analytics        "Email Field Focus"
-       :data-analytics-on     "focus"
-       :data-analytics-source "homepage"}]
-     (anti-forgery-field)
-     [:input.join-item.btn.btn-xl.btn-primary
-      {:type "submit" :value "Sign me up!"}]]]
-   [:div.relative.mt-1.ml-6.inline-block
-    [:p.relative.mt-3.text-sm
-     {:style {:opacity "0.8"}}
-     (if message
-       [:span
-        {:class "before:content-['⤴︎'] before:absolute before:-left-5 before:-top-1 before:scale-x-[-1]"}
-        message]
-       [:span
-        "No credit card required."])]]])
 
 (defn- auth-card
   "Shared centered-card chrome for the server-rendered auth pages (invite

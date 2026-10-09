@@ -12,8 +12,6 @@
    [aps.parts.handlers.pages :as pages]
    [aps.parts.handlers.password-reset :as password-reset]
    [aps.parts.handlers.unsubscribe :as unsubscribe]
-
-   [aps.parts.handlers.waitlist :as waitlist]
    [aps.parts.middleware :as middleware]
    [aps.parts.ratelimit :as ratelimit]
    [muuntaja.core :as muuntaja]
@@ -93,7 +91,7 @@
    ;; - Ring's site-defaults (with the shared auth session)
    ;; - Proper HTML content-type and string conversion
 
-   ;; A form is present on the homepage, so we apply CSRF protection
+   ;; The homepage reads the auth session to send a signed-in User to /app.
    ["/" {:middleware [middleware/wrap-public-csp
                       middleware/wrap-html-defaults
                       auth-mw/wrap-session-auth
@@ -136,15 +134,9 @@
    ;; neither auth nor CSRF — the signature is the authentication).
    ["/stripe/webhook" {:post {:handler api.billing/webhook}}]
 
-   ;; Form submission endpoint with CSRF protection
-   ["/waitlist-signup" {:middleware [middleware/wrap-html-defaults
-                                     middleware/wrap-html-response]
-                        :post       {:handler waitlist/signup}}]
-
    ;; Founding Circle invitation redemption. Server-rendered and top-level
    ;; (never under /app — a Circle member redeeming an invite must not
-   ;; depend on the SPA bundle loading first). Gated by token validity,
-   ;; not the launch flag: no wrap-launch-gated.
+   ;; depend on the SPA bundle loading first). Gated by token validity.
    ["/invite/:token" {:middleware [(ratelimit/limiter :invite {})
                                    middleware/wrap-csp
                                    middleware/wrap-html-defaults
@@ -154,7 +146,7 @@
 
    ;; Self-serve password reset. Server-rendered and top-level like /invite
    ;; — recovering access must not depend on the SPA bundle loading first.
-   ;; Public by design: no auth, no launch gate. Request and redemption get
+   ;; Public by design: no auth. Request and redemption get
    ;; separate per-IP buckets so a burst of requests behind a shared NAT
    ;; cannot 429 someone opening a valid link. The per-address email cap
    ;; lives inside the handler (`ratelimit/allow?`), not here: a 429 keyed
@@ -183,7 +175,7 @@
                            :post       {:handler unsubscribe/confirm}}]
 
    ;; Legal documents — Privacy Policy, Terms of Service, DPA. Server-rendered
-   ;; and public (no auth, no launch gate). Content is operator-supplied at
+   ;; and public (no auth). Content is operator-supplied at
    ;; runtime (see aps.parts.legal); the repo ships only example templates.
    ["/privacy" {:middleware [middleware/wrap-public-csp
                              middleware/wrap-html-defaults
@@ -230,8 +222,7 @@
                                    :handler    api.auth/logout-everywhere}}]]
 
     ["/account"
-     ["/register" {:middleware [(ratelimit/limiter :register {})
-                                middleware/wrap-launch-gated]
+     ["/register" {:middleware [(ratelimit/limiter :register {})]
                    :post       {:handler api.account/register-account}}]
      ["" {:middleware [auth-mw/require-auth]
           :get        {:handler api.account/get-account}

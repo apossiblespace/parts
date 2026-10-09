@@ -30,6 +30,4 @@
  ;; a pinned derivation; production hosts install the same two files (see
  ;; runbook) and set the variable. No fallback — the render namespaces fail
  ;; fast when it is missing.
- :render/font-dir nil
-
- :launch/launched? true}
+ :render/font-dir nil}

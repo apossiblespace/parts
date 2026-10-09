@@ -1,7 +1,6 @@
 (ns aps.parts.middleware
-  "Request-pipeline middleware: request logging, the launch gate, the
-   ring-defaults wrappers, static-resource serving, and HTML response
-   formatting.
+  "Request-pipeline middleware: request logging, the ring-defaults
+   wrappers, static-resource serving, and HTML response formatting.
 
    Authentication/authorization middleware lives in
    `aps.parts.auth.middleware`; exception→response handling in
@@ -9,7 +8,6 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.config :as conf]
-   [aps.parts.launch :as launch]
    [com.brunobonacci.mulog :as mulog]
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.defaults :refer [api-defaults wrap-defaults site-defaults]]
@@ -34,16 +32,6 @@
           authenticated? (boolean user-id)]
       (mulog/log ::request :info request-info :authenticated? authenticated? :user-id user-id)
       (handler request))))
-
-(defn wrap-launch-gated
-  "Middleware that hides a route behind the `aps.parts.launch/launched?` flag.
-   When the toggle is off, throws a `:not-found` ex-info so the standard
-   exception handler renders the same 404 shape as other not-found errors."
-  [handler]
-  (fn [request]
-    (if (launch/launched?)
-      (handler request)
-      (throw (ex-info "Not found" {:type :not-found})))))
 
 (defn wrap-html-defaults
   "Middleware that applies a set of Ring defaults for HTML routes.
