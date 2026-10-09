@@ -1,39 +1,44 @@
 (ns aps.parts.frontend.api.batch
   "Batching of change events for the save queue (`api/queue`).
 
-   Dependency-free apart from core.async, so the kaocha cljs suite (which
-   loads no re-frame) can test it."
-  (:require
-   [cljs.core.async :refer [>! alts! chan close! go-loop timeout]]))
+   The pending events live in an atom with plain timers, not inside a
+   go-loop, so that a page-hide handler can take them synchronously.
 
-(def flush-signal
-  "Put this on the input channel to send the pending batch now."
-  ::flush)
+   Dependency-free, so the kaocha cljs suite (which loads no re-frame) can
+   test it.")
 
-(defn debounce-batch
-  "Batch the values from `input-chan` onto the returned channel, as vectors.
-   A batch goes out `idle-ms` after its last value, or `max-ms` after its
-   first, whichever comes first, so continuous input cannot hold changes
-   back for ever. `flush-signal` sends the batch at once. When
-   `input-chan` closes, the remaining batch goes out and the returned
-   channel closes. While nothing is pending, no timer runs."
-  [input-chan {:keys [idle-ms max-ms]}]
-  (let [output-chan (chan)]
-    (go-loop [batch [] max-timer nil]
-      (let [[value source] (alts! (if (seq batch)
-                                    [input-chan (timeout idle-ms) max-timer]
-                                    [input-chan]))]
-        (cond
-          (and (= source input-chan) (nil? value))
-          (do (when (seq batch)
-                (>! output-chan batch))
-              (close! output-chan))
+(defn batcher
+  "Returns a batcher that gives each batch, a vector of events, to
+   `on-batch`. A batch goes `idle-ms` after its last event or `max-ms`
+   after its first event, whichever is sooner. While nothing is pending, no
+   timer runs."
+  [{:keys [idle-ms max-ms on-batch]}]
+  (atom {:events  []      :idle   nil    :max      nil
+         :idle-ms idle-ms :max-ms max-ms :on-batch on-batch}))
 
-          (and (= source input-chan) (not= value flush-signal))
-          (recur (conj batch value) (or max-timer (timeout max-ms)))
+(defn take!
+  "Removes and returns the pending events, or nil when there are none. The
+   timers stop, so no other code sends these events."
+  [b]
+  (let [{:keys [events idle max]} @b]
+    (js/clearTimeout idle)
+    (js/clearTimeout max)
+    (swap! b assoc :events [] :idle nil :max nil)
+    (not-empty events)))
 
-          :else
-          (do (when (seq batch)
-                (>! output-chan batch))
-              (recur [] nil)))))
-    output-chan))
+(defn flush!
+  "Gives the pending batch to `on-batch` now, if there is one."
+  [b]
+  (when-let [events (take! b)]
+    ((:on-batch @b) events)))
+
+(defn add!
+  "Adds `event` to the pending batch and restarts the idle timer."
+  [b event]
+  (let [{:keys [idle max idle-ms max-ms]} @b]
+    (js/clearTimeout idle)
+    (swap! b #(-> %
+                  (update :events conj event)
+                  (assoc :idle (js/setTimeout (fn [] (flush! b)) idle-ms))
+                  (cond-> (nil? max)
+                    (assoc :max (js/setTimeout (fn [] (flush! b)) max-ms)))))))

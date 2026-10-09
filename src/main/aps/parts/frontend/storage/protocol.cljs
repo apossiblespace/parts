@@ -27,4 +27,10 @@
      Returns a channel that will contain the processing result: a map with
      `:success true` when the whole batch applied. Anything else (including
      nil) is treated as a failed batch by the queue, which surfaces the
-     save-error banner."))
+     save-error banner.")
+
+  (send-now [this map-id batch]
+    "Starts to send `batch` synchronously, in a way that survives the page
+     going away. Returns a channel with the result of
+     `process-batched-changes`, or nil when it cannot send. The queue then
+     uses `process-batched-changes`."))

@@ -83,7 +83,17 @@
           (:body response)
           (do
             (o/error "http-backend.process-batch" "failed to process batch" map-id response)
-            nil))))))
+            nil)))))
+
+  (send-now [_this map-id batch]
+    "Sends the request of `process-batched-changes` with `http/POST-keepalive`.
+     Returns nil when the body is too large for a keepalive request."
+    (when-let [response (http/POST-keepalive (str "/maps/" map-id "/changes") batch)]
+      (go
+        (let [{:keys [status]} (<! response)]
+          (when-not (= 200 status)
+            (o/error "http-backend.send-now" "failed to process batch" map-id status))
+          {:success (= 200 status)})))))
 
 (defn create-http-backend
   "Creates a new HTTP API storage backend instance."

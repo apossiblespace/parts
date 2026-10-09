@@ -120,6 +120,17 @@
       (o/error "localstorage-backend.apply-change" "failed to apply change" event e)
       map-data)))
 
+(defn- apply-batch!
+  "Applies `batch` to the stored Map in order and stores the result.
+   Returns nil when no Map with `map-id` is stored."
+  [map-id batch]
+  (o/debug "localstorage-backend.process-batch" "processing batch for map" map-id "changes:" (count batch))
+  (when-let [current-map (get-map-from-storage map-id)]
+    (let [updated-map            (reduce apply-change-to-map current-map batch)
+          updated-with-timestamp (assoc updated-map :last_modified (js/Date.now))]
+      (save-map-to-storage map-id updated-with-timestamp)
+      {:success true :result updated-with-timestamp})))
+
 (defrecord LocalStorageBackend []
   StorageBackend
 
@@ -175,14 +186,13 @@
 
   (process-batched-changes [_this map-id batch]
     "Processes batched changes in localStorage"
-    (go
-      (o/debug "localstorage-backend.process-batch" "processing batch for map" map-id "changes:" batch)
-      (when-let [current-map (get-map-from-storage map-id)]
-        ;; Apply all changes sequentially
-        (let [updated-map            (reduce apply-change-to-map current-map batch)
-              updated-with-timestamp (assoc updated-map :last_modified (js/Date.now))]
-          (save-map-to-storage map-id updated-with-timestamp)
-          {:success true :result updated-with-timestamp})))))
+    (go (apply-batch! map-id batch)))
+
+  (send-now [_this map-id batch]
+    "Stores `batch` before it returns, because localStorage writes are
+     synchronous."
+    (let [result (apply-batch! map-id batch)]
+      (go result))))
 
 (defn create-localstorage-backend
   "Creates a new localStorage storage backend instance"
