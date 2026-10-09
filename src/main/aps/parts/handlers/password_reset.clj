@@ -10,8 +10,8 @@
   (:require
    [aps.parts.auth :as auth]
    [aps.parts.auth.session-store :as session-store]
-   [aps.parts.config :as conf]
    [aps.parts.db :as db]
+   [aps.parts.email-layout :as layout]
    [aps.parts.entity.user :as user]
    [aps.parts.mail :as mail]
    [aps.parts.password-resets :as resets]
@@ -40,19 +40,21 @@
   [{:keys [email url]}]
   {:to      email
    :subject reset-subject
-   :body    (str "Hello,
+   :body    (layout/alternative
+             (layout/content
+              (str "Hello,
 
 Someone asked to reset the password for the Parts account registered to this
 email address. If that was you, use this link to choose a new password:
 
-" url "
+[Choose a new password](" url ")
 
 The link can be used once, and expires an hour after it was first requested —
 if it has already expired, just request a new one. If you didn’t request
 this, you can safely ignore this email — your password is unchanged.
 
-The Parts team
-" (conf/base-url))})
+The Parts team")
+              (layout/transactional-footer email)))})
 
 (defn request-form
   "GET /reset-password — the request-a-link form."

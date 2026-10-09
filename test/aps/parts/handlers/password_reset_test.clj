@@ -67,10 +67,44 @@
       (is (= (:body known) (:body unknown))
           "account existence must not be inferable from the response")
       (is (= 1 (count sent-known)) "the account holder is emailed a link")
-      (is (str/includes? (:body (first sent-known)) "/reset/")
+      (is (str/includes? (:content (second (:body (first sent-known)))) "/reset/")
           "the email carries the magic link")
       (is (= "reset-req@example.com" (:to (first sent-known))))
       (is (empty? sent-unknown) "no email goes to an address without an account"))))
+
+(deftest request-submit-email-layout-test
+  (testing "the reset email has a plain-text and an HTML part, both with
+            the transactional footer"
+    (create-test-user! {:email "reset-layout@example.com"})
+    (let [[_ [sent]]
+          (with-redefs [conf/base-url             (constantly "https://parts.example")
+                        conf/mail-sender-identity (constantly "Example Ltd · Company no. 123")]
+            (with-captured-mail
+              #(POST-request {:form-params {"email" "reset-layout@example.com"}})))
+          [subtype plain html] (:body sent)]
+      (is (= :alternative subtype))
+      (is (str/starts-with? (:type plain) "text/plain"))
+      (is (str/starts-with? (:type html) "text/html"))
+      (is (re-find #"Choose a new password \(https://parts\.example/reset/[^)\s]+\)" (:content plain))
+          "the plain-text link stays usable")
+      (is (re-find #"href=\"https://parts\.example/reset/" (:content html)))
+      (doseq [part [(:content plain) (:content html)]]
+        (is (str/includes? part "This email was sent to reset-layout@example.com about your Parts account."))
+        (is (str/includes? part "https://parts.example/privacy"))
+        (is (str/includes? part "Example Ltd · Company no. 123")))
+      (is (not (str/includes? (:content plain) "Unsubscribe"))
+          "a transactional email has no unsubscribe link")))
+  (testing "the footer leaves the company line out when it is not configured"
+    (create-test-user! {:email "reset-layout-nil@example.com"})
+    (let [[_ [sent]]
+          (with-redefs [conf/base-url             (constantly "https://parts.example")
+                        conf/mail-sender-identity (constantly nil)]
+            (with-captured-mail
+              #(POST-request {:form-params {"email" "reset-layout-nil@example.com"}})))
+          [_ plain html] (:body sent)]
+      (is (str/ends-with? (:content plain) "Privacy Policy: https://parts.example/privacy"))
+      (is (not (re-find #"<p[^>]*></p>" (:content html)))
+          "no empty footer line"))))
 
 (deftest request-submit-system-sender-test
   (testing "the reset email travels the system-sender path (fallback

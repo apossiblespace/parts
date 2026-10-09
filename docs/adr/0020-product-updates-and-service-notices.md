@@ -76,3 +76,16 @@ deletes a User's delivery rows.
   table. The privacy policy (parts-ops) should mention Product updates and the
   opt-out.
 - No saved drafts, scheduled sends, or audiences. Add when missed.
+
+## Addendum (2026-10-09): shared layout for transactional emails
+
+The layout, the HTML document and the footer rendering moved from
+`aps.parts.operator-email` to `aps.parts.email-layout`, so transactional emails
+to Users use the same rendering path as Operator emails (TASK-142.01). The
+password reset email now has the same HTML and plain-text parts, and a footer
+with the recipient's address ("This email was sent to … about your Parts
+account."), the Privacy Policy link and the company line. A transactional
+email has no unsubscribe link and no `List-Unsubscribe` headers. Operator
+email output did not change. Operator alerts stay plain text without a footer:
+they go to the operator, not to Users. The subscription thank-you email is not
+moved yet, by the project owner's decision.
