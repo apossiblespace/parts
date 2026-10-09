@@ -17,4 +17,7 @@
  ;; default (nREPL has no auth). /run/parts is systemd's RuntimeDirectory.
  :repl/socket "/run/parts/nrepl.sock"
 
+ ;; Operator console over a unix socket, 0600, like the nREPL (ADR-0019).
+ :console/socket "/run/parts/console.sock"
+
  :launch/launched? false}

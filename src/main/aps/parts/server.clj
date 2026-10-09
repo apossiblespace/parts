@@ -5,6 +5,7 @@
    [aps.parts.alerts :as alerts]
    [aps.parts.common.observe :as observe]
    [aps.parts.config :as conf]
+   [aps.parts.console :as console]
    [aps.parts.db :as db]
    [aps.parts.errors :as errors]
    [aps.parts.jobs.deletion-purge :as deletion-purge]
@@ -20,6 +21,8 @@
    [reitit.ring :as ring]
    [ring.middleware.head :as head])
   (:import
+   [java.net StandardProtocolFamily UnixDomainSocketAddress]
+   [java.nio.channels ServerSocketChannel]
    [java.nio.file Files Path]
    [java.nio.file.attribute PosixFilePermissions])
   (:gen-class))
@@ -133,6 +136,38 @@
         (println "Failed to start nREPL server:" (.getMessage e))
         nil))))
 
+(defn start-console
+  "Starts the Operator console on the `:console/socket` unix socket, or on
+   the `:console/port` port of `127.0.0.1`. Returns a stop function, or nil
+   when neither is configured or the start fails. See ADR-0019."
+  []
+  (try
+    (if-let [path (conf/console-socket)]
+      ;; Do not delete a file that is already at `path`. systemd removes
+      ;; the runtime directory when the service stops, so an existing file
+      ;; belongs to a running instance, and the bind must fail.
+      (let [stop (server/run-server
+                  (console/handler)
+                  {:address-finder  #(UnixDomainSocketAddress/of ^String path)
+                   :channel-factory (fn [_] (ServerSocketChannel/open StandardProtocolFamily/UNIX))})]
+        ;; A socket that is not 0600 must not stay open.
+        (try
+          (owner-only! path)
+          (catch Exception e
+            (stop)
+            (throw e)))
+        (mulog/log ::console-started :socket path)
+        stop)
+      (when-let [port (conf/console-port)]
+        (let [stop (server/run-server (console/handler) {:ip "127.0.0.1" :port port})]
+          (mulog/log ::console-started :port port)
+          stop)))
+    (catch Exception e
+      (mulog/log ::console-start-error
+                 :error (.getMessage e)
+                 :error_type (.getName (class e)))
+      nil)))
+
 (defn start-server
   "Starts the web server with the configured application handler.
    Returns a function that can be called to stop the server."
@@ -165,6 +200,7 @@
           nrepl-server     (start-nrepl)
           ;; Start server and background processes
           stop-fn          (start-server port)
+          stop-console     (start-console)
           deletion-stop-ch (deletion-purge/schedule!)
           sessions-stop-ch (session-cleanup/schedule!)]
       (println "Parts: Server started on port" port)
@@ -176,6 +212,7 @@
       ;; Return shutdown function
       (fn []
         (stop-fn)
+        (when stop-console (stop-console))
         (async/close! deletion-stop-ch)
         (async/close! sessions-stop-ch)
         (when nrepl-server

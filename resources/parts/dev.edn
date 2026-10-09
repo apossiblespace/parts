@@ -1,1 +1,2 @@
-{}
+{;; Operator console on 127.0.0.1 (ADR-0019). Production uses a unix socket.
+ :console/port 3100}

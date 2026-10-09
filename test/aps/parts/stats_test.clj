@@ -12,7 +12,7 @@
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc])
   (:import
-   (java.time OffsetDateTime)))
+   (java.time LocalDate OffsetDateTime ZoneOffset)))
 
 (use-fixtures :each with-test-db)
 
@@ -142,7 +142,92 @@
         (is (= 33.3 (-> result :active :last_24h :pct))))
       (testing "active in last 7d"
         (is (= 2 (-> result :active :last_7d :count)))
-        (is (= 66.7 (-> result :active :last_7d :pct)))))))
+        (is (= 66.7 (-> result :active :last_7d :pct))))
+      (testing "active in last 30d"
+        (is (= 3 (-> result :active :last_30d :count)))
+        (is (= 100.0 (-> result :active :last_30d :pct)))))))
+
+;;; user-activity
+
+(def ^:private today
+  "A fixed date in the future. The fixtures also write audit rows at the
+   current time, and these rows must fall outside the window."
+  (LocalDate/of 2030 1 15))
+
+(defn- at-noon
+  "Returns noon UTC on the day `days-ago` days before `today`."
+  [days-ago]
+  (-> today (.minusDays days-ago) (.atTime 12 0) (.atOffset ZoneOffset/UTC)))
+
+(defn- change!
+  "Inserts an audit_log row for a change by `actor-id` to a row of `table`
+   that carries `map-id`."
+  [actor-id days-ago table op map-id]
+  (jdbc/execute!
+   db/datasource
+   ["INSERT INTO audit_log (actor_id, occurred_at, table_name, operation, row_pk, after_row)
+     VALUES (?::uuid, ?, ?, ?, '{}'::jsonb, ?::jsonb)"
+    (str actor-id) (at-noon days-ago) table op
+    (str "{\"map_id\": \"" map-id "\", \"notes\": \"clinical\"}")]))
+
+(deftest test-user-activity-counts-the-window
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))
+        m1      (random-uuid)
+        m2      (random-uuid)]
+    (jdbc/execute! db/datasource
+                   ["INSERT INTO sessions (map_id, ordinal) VALUES (?, 1), (?, 2)"
+                    (:id the-map) (:id the-map)])
+    (change! (:id user) 0 "parts" "I" m1)
+    (change! (:id user) 0 "relationships" "U" m1)
+    (change! (:id user) 3 "conversation_entries" "I" m2)
+    (change! (:id user) 3 "sessions" "I" m2)
+    (change! (:id user) 3 "sessions" "U" m2)
+    (change! (:id user) 29 "parts" "D" m2)
+    (change! (:id user) 30 "parts" "U" (random-uuid))
+    (change! erasure/tombstone-id 0 "parts" "U" m1)
+    (let [[row & more] (stats/user-activity today)]
+      (testing "returns one row per real user"
+        (is (= (:id user) (:id row)))
+        (is (empty? more)))
+      (testing "active days are the UTC dates with a change inside the window"
+        (is (= #{today (.minusDays today 3) (.minusDays today 29)}
+               (:active_days row))))
+      (testing "counts changes per kind inside the window only"
+        (is (= {:parts            2 :relationships 1 :conversation_entries 1
+                :sessions_started 1 :maps_edited   2}
+               (select-keys (:counts row) [:parts :relationships :conversation_entries
+                                           :sessions_started :maps_edited]))))
+      (testing "counts current maps and all their sessions"
+        (is (= 1 (-> row :counts :maps)))
+        (is (= 2 (-> row :counts :sessions))))
+      (testing "last active is the latest change of all time"
+        (is (= (at-noon 0) (:last_active row))))
+      (testing "returns no row content"
+        (is (not (re-find #"clinical" (pr-str row))))))))
+
+(deftest test-fleet-30-days-is-the-activity-window
+  (let [inside  (create-test-user!)
+        outside (create-test-user!)]
+    (change! (:id inside) 29 "parts" "I" (random-uuid))
+    (change! (:id outside) 30 "parts" "I" (random-uuid))
+    (testing "counts the users active in the 30 utc days that end on today"
+      (is (= 1 (-> (stats/fleet today) :active :last_30d :count))))))
+
+(deftest test-user-activity-orders-and-zero-fills
+  (let [idle   (create-test-user!)
+        older  (create-test-user!)
+        recent (create-test-user!)]
+    (change! (:id older) 5 "parts" "I" (random-uuid))
+    (change! (:id recent) 1 "parts" "I" (random-uuid))
+    (let [rows (stats/user-activity today)]
+      (testing "sorts the most recently active first and the never active last"
+        (is (= (map :id [recent older idle]) (map :id rows))))
+      (testing "gives an inactive user zero counts and no active days"
+        (let [row (last rows)]
+          (is (nil? (:last_active row)))
+          (is (= #{} (:active_days row)))
+          (is (every? zero? (vals (:counts row)))))))))
 
 (deftest test-fleet-totals
   (let [a      (create-test-user!)

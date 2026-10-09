@@ -1,5 +1,6 @@
 (ns aps.parts.server-test
   (:require
+   [aps.parts.config :as conf]
    [aps.parts.middleware :as middleware]
    [aps.parts.server :as server]
    [clojure.spec.alpha :as s]
@@ -52,3 +53,15 @@
     (is (str/includes? (#'middleware/content-security-policy false) "'unsafe-eval'"))
     (is (= "script-src 'self' https://plausible.io; frame-ancestors 'none'"
            (#'middleware/public-content-security-policy true)))))
+
+(deftest test-console-socket-closes-when-chmod-fails
+  (let [dir  (java.nio.file.Files/createTempDirectory
+              "console" (make-array java.nio.file.attribute.FileAttribute 0))
+        path (str dir "/console.sock")]
+    (with-redefs [conf/console-socket (constantly path)
+                  server/owner-only!  (fn [_] (throw (ex-info "chmod failed" {})))]
+      (testing "returns nil and leaves no socket that accepts connections"
+        (is (nil? (server/start-console)))
+        (is (thrown? java.io.IOException
+                     (with-open [_ (java.nio.channels.SocketChannel/open
+                                    (java.net.UnixDomainSocketAddress/of ^String path))])))))))

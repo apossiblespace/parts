@@ -191,6 +191,8 @@ PARTS__RENDER__FONT_DIR=$FONT_DIR
 # Per-instance nREPL socket — prod.edn's default path belongs to the prod
 # service; two instances must not race for one socket.
 PARTS__REPL__SOCKET=/run/$SERVICE/nrepl.sock
+# Per-instance Operator console socket, for the same reason (ADR-0019).
+PARTS__CONSOLE__SOCKET=/run/$SERVICE/console.sock
 JAVA_OPTS=-server -Xms256m -Xmx256m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -XX:+ExitOnOutOfMemoryError
 
 # --- Optional: operator error-alert emails (stays off until all four are set;
@@ -231,6 +233,12 @@ fi
 if ! grep -q '^PARTS__REPL__SOCKET=' "$ENV_FILE"; then
     printf 'PARTS__REPL__SOCKET=/run/%s/nrepl.sock\n' "$SERVICE" >>"$ENV_FILE"
     echo "✓ Appended PARTS__REPL__SOCKET to $ENV_FILE"
+fi
+
+# Instances provisioned before the Operator console: the same, once.
+if ! grep -q '^PARTS__CONSOLE__SOCKET=' "$ENV_FILE"; then
+    printf 'PARTS__CONSOLE__SOCKET=/run/%s/console.sock\n' "$SERVICE" >>"$ENV_FILE"
+    echo "✓ Appended PARTS__CONSOLE__SOCKET to $ENV_FILE"
 fi
 
 # 4. app systemd unit — mirrors parts.service but with its own env file,

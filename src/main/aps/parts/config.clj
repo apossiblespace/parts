@@ -50,6 +50,18 @@
   []
   (parse-port (l-config/get config :http/port)))
 
+(defn console-socket
+  "Returns the unix socket path for the Operator console, or nil. Production
+   sets it. See ADR-0019."
+  []
+  (l-config/get config :console/socket))
+
+(defn console-port
+  "Returns the `127.0.0.1` port for the Operator console, or nil. Dev sets
+   it, because a browser cannot open a unix socket without an SSH tunnel."
+  []
+  (some-> (l-config/get config :console/port) parse-port))
+
 (defn parse-bool
   "Coerce a config value to a boolean.
 
@@ -273,6 +285,7 @@
     :app/base-url
     :legal/content-dir :render/font-dir
     :repl/socket :repl/port :repl/host
+    :console/socket :console/port
     :ratelimit/client-ip-header
     :launch/launched?
     :smtp/host :smtp/port

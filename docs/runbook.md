@@ -603,6 +603,33 @@ Residual risk, deliberately accepted: code already running *as* `parts` (an
 app RCE) can use the socket — but it can already do everything the REPL
 offers.
 
+## Operator console
+
+The Operator console (fleet stats; emails to Users) is a web page on a 0600
+unix socket, gated exactly like the REPL (ADR-0019). There is no login: the
+tunnel is the authentication.
+
+```sh
+# on the box — same grant as for the REPL, on the console socket
+sudo setfacl -m u:$USER:x  /run/parts
+sudo setfacl -m u:$USER:rw /run/parts/console.sock
+
+# from the laptop
+ssh -L 9100:/run/parts/console.sock parts
+# then open http://localhost:9100
+#   (staging: /run/parts-dev/console.sock — add-instance.sh sets
+#    PARTS__CONSOLE__SOCKET; re-run it once on instances created before the console)
+```
+
+As with the REPL, the grant dies when the service restarts. Open the console
+as `localhost` or `127.0.0.1`: any other host name gets 403, which blocks DNS
+rebinding from a page in your browser. Close the tunnel when you are done —
+while it is open, every tab in your browser can reach `localhost:9100`, and
+only the CSRF token stands between a hostile page and a send form.
+
+In dev the console listens on `http://localhost:3100` (`dev.edn
+:console/port`).
+
 ## Rate limiting & the trusted client IP (`X-Real-IP`)
 
 The per-IP rate limiter (`aps.parts.ratelimit`, on login / register / invite)
