@@ -53,6 +53,9 @@
             # Database
             postgresql_16
 
+            # Local mail catcher for testing emails (make mailpit)
+            mailpit
+
             # Build tools
             gnumake
 
@@ -104,6 +107,7 @@
             echo "  make help     - Show all available make targets"
             echo "  make repl     - Start development REPL"
             echo "  make test     - Run tests"
+            echo "  make mailpit  - Catch outgoing mail locally (http://127.0.0.1:8025)"
             echo "  nix flake update - Update all dependencies"
             echo ""
             echo "Java:       $(java -version 2>&1 | head -n 1)"

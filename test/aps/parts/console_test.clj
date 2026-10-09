@@ -2,6 +2,7 @@
   (:require
    [aps.parts.config :as conf]
    [aps.parts.console :as console]
+   [aps.parts.db :as db]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [aps.parts.operator-email :as operator-email]
    [aps.parts.server :as server]
@@ -154,3 +155,123 @@
       (testing "the textarea adds the newline that the html parser drops"
         (is (str/includes? (:body (send (mock/request :get "/")))
                            ">\n\nStarts with a newline</textarea>"))))))
+
+;;; Sending to Users
+
+(defn- tested-session
+  "Returns `[send form]` with a test sent of the default draft."
+  []
+  (let [[send form] (composer-session)]
+    (send (mock/request :post "/test" (form {})))
+    [send form]))
+
+(deftest test-send-refusals
+  (with-redefs [conf/mail-reply-to         (constantly "op@example.com")
+                operator-email/send-test!  (fn [_] "op@example.com")
+                operator-email/send-draft! (fn [_] (throw (ex-info "must not send" {})))
+                conf/mail-sender-identity  (constantly "Example Ltd")]
+    (testing "a draft that was not tested is refused"
+      (let [[send form] (composer-session)]
+        (send (mock/request :post "/send" (form {"ack" "on"})))
+        (is (str/includes? (:body (send (mock/request :get "/"))) "Send a test of this exact draft first."))))
+    (testing "an edit after the test is refused"
+      (let [[send form] (tested-session)]
+        (send (mock/request :post "/send" (form {"ack" "on" "body" "Changed"})))
+        (is (str/includes? (:body (send (mock/request :get "/"))) "Send a test of this exact draft first."))))
+    (testing "a send without the confirmation is refused"
+      (let [[send form] (tested-session)]
+        (send (mock/request :post "/send" (form {})))
+        (is (str/includes? (:body (send (mock/request :get "/"))) "Confirm that you checked the test email."))))))
+
+(deftest test-send-starts-and-clears-the-draft
+  (let [started (atom nil)]
+    (with-redefs [conf/mail-reply-to         (constantly "op@example.com")
+                  operator-email/send-test!  (fn [_] "op@example.com")
+                  operator-email/send-draft! (fn [draft] (reset! started draft) (random-uuid))
+                  conf/mail-sender-identity  (constantly "Example Ltd")]
+      (let [[send form] (tested-session)
+            response    (send (mock/request :post "/send" (form {"ack" "on"})))]
+        (testing "starts the send of the tested draft"
+          (is (= 303 (:status response)))
+          (is (= {:kind "product-update" :subject "News" :body "Hello **there**"} @started)))
+        (testing "clears the composer"
+          (is (str/includes? (:body (send (mock/request :get "/"))) "name=\"subject\" type=\"text\" value=\"\"")))))))
+
+(deftest test-send-while-another-sends
+  (with-redefs [conf/mail-reply-to         (constantly "op@example.com")
+                operator-email/send-test!  (fn [_] "op@example.com")
+                operator-email/send-draft! (constantly nil)
+                conf/mail-sender-identity  (constantly "Example Ltd")]
+    (let [[send form] (tested-session)]
+      (send (mock/request :post "/send" (form {"ack" "on"})))
+      (testing "shows that another email is sending and keeps the draft"
+        (let [body (:body (send (mock/request :get "/")))]
+          (is (str/includes? body "Another email is still sending."))
+          (is (str/includes? body "value=\"News\"")))))))
+
+(deftest test-current-send
+  (testing "reports idle when no email sends"
+    (with-redefs [operator-email/current-send (constantly nil)]
+      (is (= {:state "idle"} (json ((console/handler) (mock/request :get "/sends/current")))))))
+  (testing "reports the progress of the email that sends"
+    (let [id (random-uuid)]
+      (with-redefs [operator-email/current-send
+                    (constantly {:id id :subject "News" :sent 3 :failed 1 :total 9 :state :sending})]
+        (is (= {:id (str id) :subject "News" :sent 3 :failed 1 :total 9 :state "sending"}
+               (json ((console/handler) (mock/request :get "/sends/current")))))))))
+
+(defn- store-email! [subject completed?]
+  (:id (db/insert! :operator_emails (cond-> {:kind "service-notice" :subject subject :body "B"}
+                                      completed? (assoc :completed_at [:now])))))
+
+(deftest test-sent-list
+  (let [ok  (create-test-user! {:email "ok@example.com"})
+        bad (create-test-user! {:email "bad@example.com"})
+        id  (store-email! "Terms update" true)]
+    (db/insert! :operator_email_deliveries {:email_id id :user_id (:id ok) :sent_at [:now]})
+    (db/insert! :operator_email_deliveries {:email_id id :user_id (:id bad) :error "550 Mailbox unavailable"})
+    (let [body (:body ((console/handler) (mock/request :get "/")))]
+      (testing "lists the email with its failed addresses and a retry"
+        (is (str/includes? body "Terms update"))
+        (is (str/includes? body "bad@example.com"))
+        (is (str/includes? body "Retry failed")))
+      (testing "shows the result in the banner after the send"
+        (is (str/includes? body "<b>Sent</b> to 1 of 2 · 1 failed")))))
+  (testing "an email that stopped before the end offers to resume"
+    (store-email! "Stopped one" false)
+    (let [body (:body ((console/handler) (mock/request :get "/")))]
+      (is (str/includes? body "Resume"))
+      (is (str/includes? body "<b>Stopped</b>")))))
+
+(deftest test-banner-follows-the-sending-email
+  (let [older (random-uuid)
+        email (fn [id state subject]
+                {:id         id                      :kind         "service-notice" :subject subject :state state
+                 :created_at (java.sql.Timestamp. 0) :completed_at nil
+                 :sent       1                       :failed       0                :waiting 1       :total 2     :failures []})]
+    (with-redefs [operator-email/sent-emails
+                  (constantly [(email (random-uuid) :stopped "Newer") (email older :sending "Older")])]
+      (let [body (:body ((console/handler) (mock/request :get "/")))]
+        (testing "the banner shows the resumed older email and asks for polling"
+          (is (str/includes? body (str "data-sending=\"" older "\"")))
+          (is (str/includes? body "<b>Sending</b> “Older”")))))))
+
+(deftest test-send-requires-the-company-line
+  (with-redefs [conf/mail-reply-to         (constantly "op@example.com")
+                operator-email/send-test!  (fn [_] "op@example.com")
+                operator-email/send-draft! (fn [_] (throw (ex-info "must not send" {})))
+                conf/mail-sender-identity  (constantly nil)]
+    (let [[send form] (tested-session)]
+      (send (mock/request :post "/send" (form {"ack" "on"})))
+      (testing "refuses to send to users without the company line"
+        (is (str/includes? (:body (send (mock/request :get "/")))
+                           "Set PARTS__MAIL__SENDER_IDENTITY, the company line, before sending to Users."))))))
+
+(deftest test-subject-is-one-line
+  (let [tested (atom nil)]
+    (with-redefs [conf/mail-reply-to        (constantly "op@example.com")
+                  operator-email/send-test! (fn [draft] (reset! tested draft) "op@example.com")]
+      (let [[send form] (composer-session)]
+        (send (mock/request :post "/test" (form {"subject" "News\r\nBcc: x@example.com"})))
+        (testing "turns line breaks in the subject into spaces"
+          (is (= "News Bcc: x@example.com" (:subject @tested))))))))

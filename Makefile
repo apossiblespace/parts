@@ -12,7 +12,7 @@
 .PHONY: help repl css-watch test test-watch test-config test-profile \
 		dist build-css build-frontend build-config build-uberjar \
 		run-dist upload deploy deploy-dev clean deps npm-deps \
-		pg-start pg-stop pg-status pg-console pg-console-test
+		pg-start pg-stop pg-status pg-console pg-console-test mailpit
 
 .DEFAULT_GOAL := help
 
@@ -49,6 +49,10 @@ pg-console: ## Open psql console (dev DB)
 
 pg-console-test: ## Open psql console (test DB)
 	@psql -d parts_test
+
+mailpit: ## Catch outgoing mail locally: SMTP 127.0.0.1:1025, inbox http://127.0.0.1:8025
+	mailpit --smtp 127.0.0.1:1025 --listen 127.0.0.1:8025 \
+		--smtp-auth-accept-any --smtp-auth-allow-insecure
 
 repl: deps ## Start a Clojure REPL
 	clojure -M:dev -m shadow.cljs.devtools.cli clj-repl

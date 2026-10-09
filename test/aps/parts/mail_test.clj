@@ -72,6 +72,18 @@
         (is (= 10000 (javamail-ms (:conn @sent) "mail.smtp.connectiontimeout")))
         (is (= 30000 (javamail-ms (:conn @sent) "mail.smtp.timeout")))))))
 
+(deftest test-send-to-a-local-mail-catcher
+  (let [sent (atom nil)]
+    (with-redefs [conf/smtp-config    (constantly (assoc smtp :host "127.0.0.1" :port 1025))
+                  conf/mail-from      (constantly "Gosha <gosha@ifs.tools>")
+                  postal/send-message (fn [conn msg]
+                                        (reset! sent {:conn conn :msg msg})
+                                        {:code 0 :error :SUCCESS})]
+      (testing "a relay on the loopback address connects without tls or ssl"
+        (mail/send! message)
+        (is (nil? (get-in @sent [:conn :tls])))
+        (is (nil? (get-in @sent [:conn :ssl])))))))
+
 (deftest test-send-surfaces-relay-failure
   (testing "a non-SUCCESS postal result throws :smtp-error rather than
             returning normally — callers must see a failed send"

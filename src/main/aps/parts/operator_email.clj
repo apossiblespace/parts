@@ -10,12 +10,21 @@
    \"product-update\" or \"service-notice\", and the body is Markdown. The
    email has an HTML part and a plain-text part, both made from the same
    sanitised HTML. The plain text writes a link as \"text (url)\". A footer
-   that the operator cannot edit ends both parts."
+   that the operator cannot edit ends both parts.
+
+   A sent email is a row of `operator_emails`, and each recipient gets a
+   row of `operator_email_deliveries` after the relay accepts the message.
+   One email sends at a time, in the background. A send that stops, for
+   example at a restart, can resume, and a resumed send skips every User
+   who already has a sent row."
   (:require
    [aps.parts.config :as conf]
+   [aps.parts.db :as db]
+   [aps.parts.db.erasure :as erasure]
    [aps.parts.legal :as legal]
    [aps.parts.mail :as mail]
    [clojure.string :as str]
+   [com.brunobonacci.mulog :as mulog]
    [hiccup2.core :as h])
   (:import
    (java.nio.charset StandardCharsets)
@@ -45,23 +54,40 @@
 
 (defn- product-update? [kind] (= kind "product-update"))
 
+;; The footer names the recipient, links the unsubscribe page and the
+;; Privacy Policy, and identifies the company. UK company law requires the
+;; company line in business emails. See ADR-0020.
+(defn- footer
+  "Returns the footer lines of an email of `kind` to `to`. A line is a
+   string, or a vector of `[label url]` links."
+  [kind {:keys [to unsubscribe-url]}]
+  (remove nil?
+          [(str (if (product-update? kind)
+                  "You get product updates because you have a Parts account"
+                  "This is a service notice about your Parts account")
+                " (sent to " to ").")
+           (cond-> []
+             (product-update? kind) (conj ["Unsubscribe" unsubscribe-url])
+             :always                (conj ["Privacy Policy" (str (conf/base-url) "/privacy")]))
+           (conf/mail-sender-identity)]))
+
 (defn- footer-text
-  [kind unsubscribe-url]
-  (if (product-update? kind)
-    (str "You get product updates because you have a Parts account.\n"
-         "Unsubscribe: " unsubscribe-url)
-    "This is a service notice about your Parts account."))
+  [lines]
+  (str/join "\n" (mapcat #(if (string? %) [%] (for [[label url] %] (str label ": " url)))
+                         lines)))
 
 (defn- footer-html
-  [kind unsubscribe-url]
-  (if (product-update? kind)
-    (list "You get product updates because you have a Parts account. "
-          [:a {:href unsubscribe-url :style "color:#6b6b6b"} "Unsubscribe"] ".")
-    "This is a service notice about your Parts account."))
+  [lines]
+  (for [line lines]
+    [:p {:style "font-size:13px;line-height:1.5;color:#6b6b6b;margin:0 0 4px"}
+     (if (string? line)
+       line
+       (interpose " · " (for [[label url] line]
+                          [:a {:href url :style "color:#6b6b6b"} label])))]))
 
 ;; Mail clients ignore style sheets in many cases, so every style is inline.
 (defn- html-document
-  [kind body unsubscribe-url]
+  [body lines]
   (str
    (h/html
     (h/raw "<!DOCTYPE html>")
@@ -69,27 +95,32 @@
      [:head
       [:meta {:charset "utf-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]]
-     [:body {:style "margin:0;padding:0;background:#ffffff"}
-      [:div {:style (str "max-width:560px;margin:0 auto;padding:24px;"
-                         "font:16px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',"
-                         "Helvetica,Arial,sans-serif;color:#1f1f1f")}
+     ;; Many clients drop the styles of <body>, so it has none. Outlook for
+     ;; Windows ignores max-width. Only Outlook reads the [if mso]
+     ;; comments, which give it a fixed-width table instead.
+     [:body
+      (h/raw "<!--[if mso]><table role=\"presentation\" width=\"560\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td><![endif]-->")
+      [:div {:style (str "max-width:560px;margin:0 auto;padding:24px;color:#1f1f1f;"
+                         "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;"
+                         "font-size:16px;line-height:1.55")}
        (h/raw (legal/render-html body))
-       [:hr {:style "border:0;border-top:1px solid #e5e5e5;margin:32px 0 12px"}]
-       [:p {:style "font-size:13px;line-height:1.5;color:#6b6b6b;margin:0"}
-        (footer-html kind unsubscribe-url)]]]])))
+       [:div {:style "border-top:1px solid #e5e5e5;margin-top:32px;padding-top:12px"}
+        (footer-html lines)]]
+      (h/raw "<!--[if mso]></td></tr></table><![endif]-->")]])))
 
 (defn content
-  "Returns the `{:text :html}` parts of the email for `draft`, with
-   `unsubscribe-url` in the footer of a Product update."
-  [{:keys [kind body]} unsubscribe-url]
-  {:text (str (legal/render-text body) "\n\n-- \n" (footer-text kind unsubscribe-url))
-   :html (html-document kind body unsubscribe-url)})
+  "Returns the `{:text :html}` parts of the email for `draft` to the
+   recipient `to`. A Product update links `unsubscribe-url` in its footer."
+  [{:keys [kind body]} recipient]
+  (let [lines (footer kind recipient)]
+    {:text (str (legal/render-text body) "\n\n-- \n" (footer-text lines))
+     :html (html-document body lines)}))
 
 (defn message
   "Returns the postal message map of `draft` for the recipient `to`. A
    Product update carries the one-click unsubscribe headers of RFC 8058."
-  [{:keys [kind subject] :as draft} {:keys [to unsubscribe-url]}]
-  (let [{:keys [text html]} (content draft unsubscribe-url)]
+  [{:keys [kind subject] :as draft} {:keys [to unsubscribe-url] :as recipient}]
+  (let [{:keys [text html]} (content draft recipient)]
     (cond-> {:to      to
              :subject subject
              :body    [:alternative
@@ -101,11 +132,22 @@
 
 ;;; Test send
 
+(defn- unsubscribe-url
+  "Returns the unsubscribe link for the unsubscribe token `token`."
+  [token]
+  (str (conf/base-url) "/unsubscribe/" token))
+
 (defn test-unsubscribe-url
   "Returns the unsubscribe link of a test email. Its token is malformed, so
    the link opens the neutral 'not valid' page and unsubscribes nobody."
   []
-  (str (conf/base-url) "/unsubscribe/test"))
+  (unsubscribe-url "test"))
+
+(defn preview
+  "Returns the `{:text :html}` parts of `draft` for the console preview,
+   with a placeholder recipient and the test unsubscribe link."
+  [draft]
+  (content draft {:to "name@example.com" :unsubscribe-url (test-unsubscribe-url)}))
 
 (defn send-test!
   "Sends `draft` to the operator with a \"[Test] \" subject prefix. Returns
@@ -119,3 +161,245 @@
      (update (message draft {:to to :unsubscribe-url (test-unsubscribe-url)})
              :subject #(str "[Test] " %)))
     to))
+
+;;; Sending to Users
+
+(defn- count-where [where]
+  [:filter [:count :*] {:where where}])
+
+(defn- audience-where
+  [kind]
+  (cond-> [:and
+           (erasure/exclude-tombstone :users.id)
+           [:= :users.deletion_requested_at nil]]
+    (product-update? kind) (conj [:= :users.product_updates_opted_out_at nil])))
+
+;; The recipient count uses `audience-where`, the condition of the send,
+;; so the count in the page is the number of Users who get the email.
+(defn audience
+  "Returns how many Users a new email of `kind` goes to, as
+   `{:users :pending :opted-out :recipients}`. Opted-out Users count only
+   for a Product update."
+  [kind]
+  (let [{:keys [users pending opted_out recipients]}
+        (db/query-one
+         (db/sql-format
+          {:select [[[:count :*] :users]
+                    [(count-where [:<> :users.deletion_requested_at nil]) :pending]
+                    [(count-where [:and [:= :users.deletion_requested_at nil]
+                                   [:<> :users.product_updates_opted_out_at nil]])
+                     :opted_out]
+                    [(count-where (audience-where kind)) :recipients]]
+           :from   [:users]
+           :where  (erasure/exclude-tombstone :users.id)}))]
+    {:users      users
+     :pending    pending
+     :opted-out  (if (product-update? kind) opted_out 0)
+     :recipients recipients}))
+
+(defn- delivered
+  "A condition that is true when the User has a delivery row for the email
+   `id` that matches `where`."
+  [id where]
+  [:exists {:select [1]
+            :from   [:operator_email_deliveries]
+            :where  [:and
+                     [:= :operator_email_deliveries.email_id id]
+                     [:= :operator_email_deliveries.user_id :users.id]
+                     where]}])
+
+(defn- recipients
+  "Returns the Users in the audience of `email` who have no sent delivery,
+   with the Users whose delivery failed last. With `only-failed?`, returns
+   only those whose delivery failed."
+  [{:keys [id kind]} only-failed?]
+  (let [failed (delivered id [:<> :operator_email_deliveries.error nil])]
+    (db/query
+     (db/sql-format
+      {:select   [:users.id :users.email :users.unsubscribe_token]
+       :from     [:users]
+       :where    (cond-> (conj (audience-where kind)
+                               [:not (delivered id [:<> :operator_email_deliveries.sent_at nil])])
+                   only-failed? (conj failed))
+       :order-by [[failed :asc] [:users.created_at :asc]]}))))
+
+(defn- still-in-audience?
+  "Returns true when the User `user-id` is still in the audience of an
+   email of `kind`. A User can leave it during a send by opting out or by
+   asking for deletion."
+  [kind user-id]
+  (some? (db/query-one
+          (db/sql-format
+           {:select [1]
+            :from   [:users]
+            :where  (conj (audience-where kind) [:= :users.id user-id])}))))
+
+(defn- waiting-count
+  "Returns how many Users in the audience of `email` have no delivery row."
+  [{:keys [id kind]}]
+  (:c (db/query-one
+       (db/sql-format
+        {:select [[[:count :*] :c]]
+         :from   [:users]
+         :where  (conj (audience-where kind) [:not (delivered id true)])}))))
+
+(defn- record-delivery!
+  "Records the delivery of the email `email-id` to `user-id`. A nil `error`
+   means that the relay accepted the message. A retry replaces the row."
+  [email-id user-id error]
+  (db/query
+   (db/sql-format
+    {:insert-into   :operator_email_deliveries
+     :values        [{:email_id email-id
+                      :user_id  user-id
+                      :sent_at  (when-not error [:now])
+                      :error    error}]
+     :on-conflict   [:email_id :user_id]
+     :do-update-set [:sent_at :error]})))
+
+(defn- email-row [id]
+  (db/query-one (db/sql-format {:select [:*] :from [:operator_emails] :where [:= :id id]})))
+
+(def ^:private max-failures-in-a-row
+  "Failures in a row after which a send stops, because the relay, not the
+   addresses, is then the likely cause."
+  5)
+
+(defn- deliver!
+  "Sends `email` to `user` and records the delivery. Returns the error, or
+   nil when the relay accepted the message. Rethrows a `:config-error`,
+   because no other User can get the email either."
+  [email user]
+  (let [error (try
+                (mail/send-personal!
+                 (message email {:to              (:email user)
+                                 :unsubscribe-url (unsubscribe-url (:unsubscribe_token user))}))
+                nil
+                (catch Exception e
+                  (when (= :config-error (:type (ex-data e)))
+                    (throw e))
+                  (or (get-in (ex-data e) [:result :message])
+                      (ex-message e)
+                      (.getName (class e)))))]
+    (when error
+      (mulog/log ::delivery-failed :email-id (:id email) :user-id (:id user) :error error))
+    (record-delivery! (:id email) (:id user) error)
+    error))
+
+;; The row is written after the relay accepts the message. A crash between
+;; the two can send one email twice, but it never skips a User.
+(defn send-email!
+  "Sends the email `id` to every User who must still get it, one at a
+   time, and records each delivery. With `only-failed?`, sends only to the
+   Users whose delivery failed. Sets `completed_at` at the end. Does
+   nothing when there is no email `id`.
+
+   Throws, and leaves the email stopped, on a `:config-error`, or after
+   `max-failures-in-a-row` failures in a row when not `only-failed?`."
+  ([id] (send-email! id false))
+  ([id only-failed?]
+   (when-let [email (email-row id)]
+     (reduce (fn [streak user]
+               (cond
+                 (not (still-in-audience? (:kind email) (:id user))) streak
+                 (nil? (deliver! email user))                       0
+                 ;; A retry of failures expects failures, so it does not stop.
+                 (or only-failed? (< (inc streak) max-failures-in-a-row)) (inc streak)
+                 :else (throw (ex-info "Too many deliveries failed in a row"
+                                       {:type :relay-failing :email-id id}))))
+             0
+             (recipients email only-failed?))
+     ;; The first finish is kept, so a retry does not change when the
+     ;; email was first sent to its audience.
+     (db/update! :operator_emails
+                 {:completed_at [:coalesce :completed_at [:now]]}
+                 [:= :id id]))))
+
+;; The id of the email that is sending, or ::starting while a new email is
+;; stored. It is nil when no email is sending.
+(defonce ^:private running (atom nil))
+
+(defn- start!
+  [id only-failed?]
+  (future
+    (try
+      (send-email! id only-failed?)
+      (catch Throwable e
+        (mulog/log ::send-stopped :email-id id :error (ex-message e)))
+      (finally
+        (reset! running nil)))))
+
+(defn send-draft!
+  "Stores `draft` as an email and starts to send it in the background.
+   Returns the email id, or nil when another email is sending."
+  [draft]
+  (when (compare-and-set! running nil ::starting)
+    (try
+      (let [id (:id (db/insert! :operator_emails (select-keys draft [:kind :subject :body])))]
+        (reset! running id)
+        (start! id false)
+        id)
+      (catch Exception e
+        (reset! running nil)
+        (throw e)))))
+
+;; A finished email retries only its failed deliveries, so a User who
+;; signed up later does not get an old email. A stopped email goes to its
+;; whole audience as it is now.
+(defn resume!
+  "Starts to send the email `id` again. A stopped email goes to the Users
+   in its audience who did not get it. A finished email goes to the Users
+   whose delivery failed. Returns `id`, or nil when there is no such email
+   or another email is sending."
+  [id]
+  (when-let [{:keys [completed_at]} (email-row id)]
+    (when (compare-and-set! running nil id)
+      (start! id (some? completed_at))
+      id)))
+
+(defn- email-rows
+  []
+  (db/query
+   (db/sql-format
+    {:select    [:e.id :e.kind :e.subject :e.created_at :e.completed_at
+                 [[:count :d.sent_at] :sent]
+                 [(count-where [:and [:<> :d.error nil] [:= :d.sent_at nil]]) :failed]]
+     :from      [[:operator_emails :e]]
+     :left-join [[:operator_email_deliveries :d] [:= :d.email_id :e.id]]
+     :group-by  [:e.id]
+     :order-by  [[:e.created_at :desc]]})))
+
+(defn- summarize
+  "Adds `:state` (`:sending`, `:done` or `:stopped`), `:waiting` and
+   `:total` to an email row. An email that finished once, also during a
+   retry, has no waiting Users, so a User who signed up later does not
+   change its total."
+  [{:keys [id completed_at sent failed] :as row}]
+  (let [state   (cond (= @running id) :sending
+                      completed_at    :done
+                      :else           :stopped)
+        waiting (if completed_at 0 (waiting-count row))]
+    (assoc row :state state :waiting waiting :total (+ sent failed waiting))))
+
+(defn sent-emails
+  "Returns the summary of every email, newest first. Each has `:failures`,
+   the `{:email :error}` of each User whose delivery failed, and
+   `:retryable`, how many of those Users are still in the audience."
+  []
+  (let [failures (group-by :email_id
+                           (db/query
+                            (db/sql-format
+                             {:select [:d.email_id :u.email :d.error]
+                              :from   [[:operator_email_deliveries :d]]
+                              :join   [[:users :u] [:= :u.id :d.user_id]]
+                              :where  [:and [:<> :d.error nil] [:= :d.sent_at nil]]})))]
+    (for [row (email-rows)]
+      (assoc (summarize row)
+             :failures  (get failures (:id row) [])
+             :retryable (if (pos? (:failed row)) (count (recipients row true)) 0)))))
+
+(defn current-send
+  "Returns the summary of the email that is sending, or nil."
+  []
+  (when (uuid? @running)
+    (first (filter #(= :sending (:state %)) (sent-emails)))))

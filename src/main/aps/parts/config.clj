@@ -197,6 +197,15 @@
   []
   (l-config/get config :mail/reply-to))
 
+(defn mail-sender-identity
+  "Returns the line that identifies the company behind Parts in the footer
+   of operator emails (`PARTS__MAIL__SENDER_IDENTITY`), or nil. It holds
+   the registered name, number, registered office and VAT number, which UK
+   company law requires in business emails. The operator sets it, so the
+   repository holds no company details."
+  []
+  (l-config/get config :mail/sender-identity))
+
 (defn mail-system-from
   "The From for impersonal system notifications — password resets and other
    machine-sent mail (`PARTS__MAIL__SYSTEM_FROM`), e.g. `Parts <help@ifs.tools>`,
@@ -286,6 +295,7 @@
     :legal/content-dir :render/font-dir
     :repl/socket :repl/port :repl/host
     :console/socket :console/port
+    :mail/sender-identity
     :ratelimit/client-ip-header
     :launch/launched?
     :smtp/host :smtp/port

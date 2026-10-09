@@ -43,7 +43,7 @@
   (let [message              (email/message (draft "service-notice") {:to "a@example.com" :unsubscribe-url url})
         {:keys [plain html]} (parts message)]
     (testing "carries the service notice footer and no unsubscribe"
-      (is (str/includes? (:content plain) "This is a service notice about your Parts account."))
+      (is (str/includes? (:content plain) "This is a service notice about your Parts account (sent to a@example.com)."))
       (is (not (str/includes? (:content plain) url)))
       (is (not (str/includes? (:content html) url)))
       (is (not (contains? message "List-Unsubscribe"))))))
@@ -79,3 +79,24 @@
       (testing "refuses when no operator address is configured"
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No operator address"
                               (email/send-test! (draft "product-update"))))))))
+
+(deftest test-footer
+  (testing "names the recipient and links the privacy policy in both parts"
+    (with-redefs [conf/base-url             (constantly "https://parts.example")
+                  conf/mail-sender-identity (constantly nil)]
+      (let [{:keys [text html]} (email/content (draft "product-update")
+                                               {:to "a@example.com" :unsubscribe-url url})]
+        (is (str/includes? text "(sent to a@example.com)."))
+        (is (str/includes? text "Privacy Policy: https://parts.example/privacy"))
+        (is (str/includes? html "https://parts.example/privacy")))))
+  (testing "ends with the company line when it is configured"
+    (with-redefs [conf/mail-sender-identity (constantly "Example Ltd · 1 High St · Company no. 123")]
+      (let [{:keys [text html]} (email/content (draft "service-notice")
+                                               {:to "a@example.com" :unsubscribe-url url})]
+        (is (str/ends-with? text "Example Ltd · 1 High St · Company no. 123"))
+        (is (str/includes? html "Example Ltd · 1 High St · Company no. 123")))))
+  (testing "leaves the company line out when it is not configured"
+    (with-redefs [conf/mail-sender-identity (constantly nil)]
+      (is (str/ends-with? (:text (email/content (draft "service-notice")
+                                                {:to "a@example.com" :unsubscribe-url url}))
+                          "/privacy")))))

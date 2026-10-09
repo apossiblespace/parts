@@ -39,9 +39,13 @@ in `legal.clj`) in a minimal inline-CSS template as `text/html`, and the same
 sanitised content as `text/plain` (`legal/render-text`): no Markdown markers,
 links written inline as "text (url)" rather than as footnotes, because these
 emails are short and carry few links. Sent with `send-personal!`. No template variables. No
-open or click tracking. A fixed footer is appended: an unsubscribe line on
-Product updates, a "service notice about your Parts account" line on Service
-notices.
+open or click tracking. A fixed footer is appended: why the User gets the email
+and their address ("sent to …"), an unsubscribe link on Product updates, a
+Privacy Policy link, and the company line. Parts is run by a UK limited
+company, so UK company law requires its registered name, number, registered
+office and VAT number in business emails; the line comes from
+`PARTS__MAIL__SENDER_IDENTITY`, so the open-source repository holds no company
+details.
 
 **Sending.** A test send goes to the operator with a `[Test]` subject prefix and
 a dummy unsubscribe link. Send-to-all is enabled only for the exact draft (hash

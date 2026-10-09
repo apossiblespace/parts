@@ -96,7 +96,8 @@
   [request]
   (let [{:strs [kind subject body]} (:form-params request)]
     {:kind    (if (operator-email/kinds kind) kind (:kind empty-draft))
-     :subject (lf subject)
+     ;; A subject is one header line, so line breaks become spaces.
+     :subject (str/replace (lf subject) #"\s*\n\s*" " ")
      :body    (lf body)}))
 
 (defn- composer [request] (get-in request [:session :composer]))
@@ -127,7 +128,8 @@
 (defn- page
   [request]
   (let [today (LocalDate/now ZoneOffset/UTC)
-        draft (or (:draft (composer request)) empty-draft)]
+        draft (or (:draft (composer request)) empty-draft)
+        sent  (operator-email/sent-emails)]
     {:status 200
      :body   (views/page
               {:fleet    (stats/fleet today)
@@ -136,30 +138,39 @@
                :now      (OffsetDateTime/now ZoneOffset/UTC)
                :env      (conf/get-environment)
                :draft    draft
-               :preview  (operator-email/content draft (operator-email/test-unsubscribe-url))
+               :preview  (operator-email/preview draft)
                :status   (test-status (composer request) draft)
                :operator (conf/mail-reply-to)
+               :audience (operator-email/audience (:kind draft))
+               :sent     sent
+               :sending  (some #(when (= :sending (:state %)) %) sent)
+               :identity (conf/mail-sender-identity)
                :error    (get-in request [:flash :error])})}))
 
 ;; Each preview also stores the draft, so a reload of the page keeps it.
 (defn- preview
   [request]
   (let [draft   (form-draft request)
-        content (operator-email/content draft (operator-email/test-unsubscribe-url))
+        content (operator-email/preview draft)
         status  (test-status (composer request) draft)]
     {:status  200
      :headers {"Content-Type" "application/json; charset=utf-8"}
-     :body    (json/write-value-as-string {:html   (:html content)
-                                           :text   (:text content)
-                                           :status (:text status)
-                                           :tested (:tested? status)})
+     :body    (json/write-value-as-string {:html     (:html content)
+                                           :text     (:text content)
+                                           :status   (:text status)
+                                           :tested   (:tested? status)
+                                           :audience (operator-email/audience (:kind draft))})
      :session (assoc-in (:session request) [:composer :draft] draft)}))
+
+(defn- redirect-home [session flash]
+  (cond-> (-> (response/redirect "/") (response/status 303) (assoc :session session))
+    flash (assoc :flash flash)))
 
 (defn- send-test
   [request]
   (let [draft    (form-draft request)
         session  (assoc-in (:session request) [:composer :draft] draft)
-        redirect (-> (response/redirect "/") (response/status 303) (assoc :session session))]
+        redirect (redirect-home session nil)]
     (if-let [problem (operator-email/validate draft)]
       (assoc redirect :flash {:error problem})
       (try
@@ -173,6 +184,43 @@
           (assoc redirect :flash {:error (str "The test email was not sent. "
                                               (or (ex-message e) (.getName (class e))))}))))))
 
+;;; Sending to Users
+
+;; The tested hash is checked again here, because the Send button state in
+;; the page is only a hint.
+(defn- send-to-users
+  [request]
+  (let [draft   (form-draft request)
+        session (assoc-in (:session request) [:composer :draft] draft)
+        problem (or (operator-email/validate draft)
+                    (when-not (conf/mail-sender-identity)
+                      "Set PARTS__MAIL__SENDER_IDENTITY, the company line, before sending to Users.")
+                    (when-not (= (get-in request [:session :composer :tested :hash])
+                                 (operator-email/draft-hash draft))
+                      "Send a test of this exact draft first.")
+                    (when-not (get-in request [:form-params "ack"])
+                      "Confirm that you checked the test email."))]
+    (cond
+      problem                          (redirect-home session {:error problem})
+      (operator-email/send-draft! draft) (redirect-home (dissoc (:session request) :composer) nil)
+      :else                            (redirect-home session {:error "Another email is still sending. Wait until it ends."}))))
+
+(defn- resume-send
+  [request]
+  (let [id (parse-uuid (get-in request [:path-params :id] ""))]
+    (redirect-home (:session request)
+                   (when-not (and id (operator-email/resume! id))
+                     {:error "The email was not resumed. Another email is sending, or the email does not exist."}))))
+
+(defn- current-send
+  [_request]
+  {:status  200
+   :headers {"Content-Type" "application/json; charset=utf-8"}
+   :body    (json/write-value-as-string
+             (if-let [send (operator-email/current-send)]
+               (select-keys send [:id :subject :sent :failed :total :state])
+               {:state :idle}))})
+
 ;;; Handler
 
 (defn handler
@@ -181,7 +229,10 @@
   (-> (ring/ring-handler
        (ring/router [["/" {:get #'page}]
                      ["/preview" {:post #'preview}]
-                     ["/test" {:post #'send-test}]]
+                     ["/test" {:post #'send-test}]
+                     ["/send" {:post #'send-to-users}]
+                     ["/sends/current" {:get #'current-send}]
+                     ["/sends/:id/resume" {:post #'resume-send}]]
                     {:data {:middleware [errors/exception]}})
        (ring/create-default-handler))
       wrap-content-type

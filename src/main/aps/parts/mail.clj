@@ -16,6 +16,8 @@
    [com.brunobonacci.mulog :as mulog]
    [postal.core :as postal]))
 
+(def ^:private loopback-hosts #{"127.0.0.1" "localhost" "::1"})
+
 (defn- postal-connection
   "The postal connection map for the relay credentials. The transport flag
    follows the submission port: 587 is STARTTLS (`:tls`), 465 (and anything
@@ -24,13 +26,15 @@
    send, not pin the sending thread until restart. They are strings
    because JavaMail ignores a Long property value."
   [{:keys [host port user pass]}]
-  (assoc {:host              host
-          :port              port
-          :user              user
-          :pass              pass
-          :connectiontimeout "10000"
-          :timeout           "30000"}
-         (if (= 587 port) :tls :ssl) true))
+  (cond-> {:host              host
+           :port              port
+           :user              user
+           :pass              pass
+           :connectiontimeout "10000"
+           :timeout           "30000"}
+    ;; A relay on this machine is a local mail catcher (`make mailpit`),
+    ;; which speaks plain SMTP. TLS to the loopback address protects nothing.
+    (not (loopback-hosts host)) (assoc (if (= 587 port) :tls :ssl) true)))
 
 (defn send!
   "Send `message` — a postal-style map (`:to`, `:subject`, `:body`, and

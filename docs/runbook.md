@@ -630,6 +630,54 @@ only the CSRF token stands between a hostile page and a send form.
 In dev the console listens on `http://localhost:3100` (`dev.edn
 :console/port`).
 
+### Testing email locally (Mailpit)
+
+`make mailpit` runs a local mail catcher from the dev shell: SMTP on
+`127.0.0.1:1025`, inbox at http://127.0.0.1:8025. Point the app at it in your
+untracked `.envrc.local`, then reload direnv and restart the REPL:
+
+```sh
+export PARTS__SMTP__HOST=127.0.0.1
+export PARTS__SMTP__PORT=1025
+export PARTS__SMTP__USER=dev        # Mailpit accepts any login
+export PARTS__SMTP__PASSWORD=dev
+export PARTS__MAIL__FROM="Gosha <gosha@ifs.tools>"
+export PARTS__MAIL__SYSTEM_FROM="Parts <help@ifs.tools>"
+export PARTS__MAIL__REPLY_TO=you@example.com
+export PARTS__MAIL__SENDER_IDENTITY="Example Ltd · … · Company no. 00000000 · VAT GB000000000"
+```
+
+A relay on the loopback address gets plain SMTP (`aps.parts.mail`); every
+other relay keeps STARTTLS (587) or implicit SSL. Mailpit's **HTML check** tab
+grades an email against real mail clients; Outlook for Windows warnings about
+spacing are expected.
+
+### Sending to Users
+
+Set `PARTS__MAIL__SENDER_IDENTITY` in the environment file before the first
+send: one line with the company's registered name, registered office address,
+Companies House number and VAT number, e.g.
+`Example Ltd · 1 High St, London AB1 2CD · Company no. 12345678 · VAT GB123456789`.
+UK company law requires it in business emails, and every operator email ends
+with it. Without it the console refuses "Send to N Users"; previews and test
+sends still work, without the line.
+
+"Send to N Users" works only for the exact draft that was test-sent. The send
+runs in the background, one recipient at a time (about a second each), so
+closing the browser or the tunnel does not stop it; the banner and the Sent
+list show progress while the page is open. Only one email sends at a time.
+
+A deploy or restart stops a running send, and so does a broken relay: a
+configuration error, or 5 failed deliveries in a row (fix the relay first).
+The Sent list then marks the email **Stopped** with a **Resume** button. Resume
+sends to the email's audience as it is now, minus everyone who already got it:
+a User who opted out since is skipped, one who signed up since gets it.
+
+A finished send with failures offers **Retry failed**, which sends only to the
+addresses that failed — never to Users who signed up later. Failed addresses
+and the relay's error are listed under the email. Nobody gets an email twice,
+and a User who opts out or asks for deletion during a send is skipped.
+
 ## Rate limiting & the trusted client IP (`X-Real-IP`)
 
 The per-IP rate limiter (`aps.parts.ratelimit`, on login / register / invite)

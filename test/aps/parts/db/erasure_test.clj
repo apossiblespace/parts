@@ -289,3 +289,14 @@
          clojure.lang.ExceptionInfo
          #"Refusing to purge the tombstone user"
          (erasure/purge-account! db/datasource erasure/tombstone-id)))))
+
+(deftest test-purge-deletes-operator-email-deliveries
+  (let [user     (create-test-user!)
+        email-id (:id (db/insert! :operator_emails {:kind "service-notice" :subject "S" :body "B"}))]
+    (db/insert! :operator_email_deliveries {:email_id email-id :user_id (:id user) :sent_at [:now]})
+    (erasure/purge-account! db/datasource (:id user))
+    (testing "no delivery row of the user survives the purge"
+      (is (zero? (:c (jdbc/execute-one!
+                      db/datasource
+                      ["SELECT count(*) AS c FROM operator_email_deliveries WHERE email_id = ?" email-id]
+                      {:builder-fn rs/as-unqualified-maps})))))))
