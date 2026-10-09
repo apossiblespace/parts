@@ -83,6 +83,12 @@
   []
   (l-config/get config :app/base-url))
 
+(defn walkthrough-url
+  "Returns the URL of the video walkthrough of Parts, which the welcome
+   email links (`PARTS__APP__WALKTHROUGH_URL`)."
+  []
+  (l-config/get config :app/walkthrough-url))
+
 (defn app-domain
   "Just the host portion of `base-url`, without scheme, port, or path —
    e.g. `parts.ifs.tools` (prod) or `parts-dev.ifs.tools` (the dev
@@ -291,7 +297,7 @@
   #{:env
     :db/type :db/host :db/port :db/name :db/user :db/ssl
     :http/host :http/port :http/protocol
-    :app/base-url
+    :app/base-url :app/walkthrough-url
     :legal/content-dir :render/font-dir
     :repl/socket :repl/port :repl/host
     :console/socket :console/port

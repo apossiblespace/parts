@@ -165,6 +165,10 @@ PARTS__MAIL__FROM='Gosha <gosha@ifs.tools>'   # must be on the verified domain
 PARTS__MAIL__REPLY_TO=<personal address>      # optional; personal mail carries it so replies reach a human
 ```
 
+The welcome email links the video walkthrough. To point it at a new video,
+set `PARTS__APP__WALKTHROUGH_URL` and restart the service; no deploy is
+needed. The default is in `resources/parts/config.edn`.
+
 Sending fails loudly (`:config-error`) until `PARTS__MAIL__FROM` is set —
 there is no silent fallback. Bounce/suppression handling is provider-side
 (deliberate, ADR-0016) — check the TEM console if a recipient reports nothing

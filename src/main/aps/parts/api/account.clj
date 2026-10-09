@@ -5,12 +5,14 @@
    [aps.parts.common.demo :as demo]
    [aps.parts.config :as config]
    [aps.parts.db :as db]
+   [aps.parts.email-layout :as layout]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
    [aps.parts.entity.policy-acceptance :as policy-acceptance]
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
+   [aps.parts.mail :as mail]
    [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog]
    [ring.util.response :as response]))
@@ -133,6 +135,61 @@
     (policy-acceptance/record-onboarding! (:id account) tx)
     {:account account :map-id (:id the-map)}))
 
+(defn- welcome-message
+  "The postal message map of the welcome email to a new account. Pure
+   content: `mail/send-personal!` adds the sender identity."
+  [{:keys [email]}]
+  {:to      email
+   :subject "Welcome to Parts"
+   :body    (layout/alternative
+             (layout/content
+              (str "Hello,
+
+My name is Gosha, one of the creators of Parts, the IFS parts mapping tool.
+
+On behalf of the team, welcome, and thank you for signing up!
+
+Before you dive in, you may want to watch our
+[video walkthrough of Parts](" (config/walkthrough-url) "). It shows the basic
+features and how to start building maps for your clients.
+
+Your account already has an Example Map with a first Session, so you can try
+things out straight away. When you’re ready, [open Parts](" (config/base-url) "/app)
+and create a map for each of your clients.
+
+---
+
+**Please note:** Parts is currently in beta, and is free to use during this time.
+You can purchase an optional subscription to help support development (see
+the Account page), but it is not required to use all the features at the
+moment.
+
+I will email you two weeks before we start requiring payment to continue using
+Parts.
+
+---
+
+If you have questions, thoughts, ideas, feature requests, bug reports, or
+anything else, just hit reply. Replies come straight to my personal inbox, so
+I will see your message and get back to you quickly.
+
+Thank you for joining us!
+
+Gosha")
+              (layout/transactional-footer email)))})
+
+(defn- send-welcome!
+  "Sends the welcome email to `account` on another thread, so the signup
+   does not wait for the mail relay. A failed send is logged and does not
+   reach the signup. Returns the future."
+  [account]
+  (future
+    (try
+      (mail/send-personal! (welcome-message account))
+      (mulog/log ::welcome-email-sent :user-id (:id account))
+      (catch Throwable e
+        (mulog/log ::welcome-email-failed :user-id (:id account) :error (ex-message e))))))
+
 (defn register-account
   "Register a new user (role hardcoded to 'therapist'), provision their starter
    map atomically, and establish the auth session for auto-login."
@@ -155,9 +212,11 @@
                    :email (:email account)
                    :display-name (:display_name account)
                    :map-id map-id)
-        (-> (response/response (merge account {:map_id map-id}))
-            (response/status 201)
-            (auth/establish-session request (:id account))))
+        (let [response (-> (response/response (merge account {:map_id map-id}))
+                           (response/status 201)
+                           (auth/establish-session request (:id account)))]
+          (send-welcome! account)
+          response))
       (catch Exception e
         ;; NOTE: log only safe fields. `params` contains :password and is NOT
         ;; redacted by mulog (the redaction in observe.cljc only covers the o/*

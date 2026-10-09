@@ -9,11 +9,19 @@
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
                                     with-test-db without-stripe]]
+   [aps.parts.mail :as mail]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]))
 
 (use-fixtures :once with-test-db)
-(use-fixtures :each without-stripe)
+(def ^:private real-send-welcome! @#'account/send-welcome!)
+
+(defn- without-welcome-email
+  "Stops the register tests from sending a real welcome email."
+  [f]
+  (with-redefs-fn {#'account/send-welcome! (constantly nil)} f))
+
+(use-fixtures :each without-stripe without-welcome-email)
 
 (def ^:private acceptance
   "The onboarding acceptances the server now requires (ADR-0009); merged into a
@@ -341,3 +349,55 @@
     (let [response (account/register-account
                     {:body-params (merge (factory/build-test-user) acceptance)})]
       (is (nil? (:product_updates_opted_out_at (opt-out-row (-> response :body :id))))))))
+
+(defn- register-capturing-welcome
+  "Calls `register` with the welcome send replaced by a stub. Returns the
+   accounts that would get a welcome email."
+  [register]
+  (let [welcomed (atom [])]
+    (with-redefs-fn {#'account/send-welcome! #(swap! welcomed conj %)}
+      #(try (register) (catch Exception _)))
+    @welcomed))
+
+(deftest test-register-sends-welcome-email
+  (testing "a new account gets one welcome email"
+    (let [user-data (factory/build-test-user)
+          welcomed  (register-capturing-welcome
+                     #(account/register-account {:body-params (merge user-data acceptance)}))]
+      (is (= [(:email user-data)] (map :email welcomed)))))
+
+  (testing "a failed signup sends no welcome email"
+    (let [user-data (factory/build-test-user)]
+      (create-test-user! {:email (:email user-data)})
+      (is (empty? (register-capturing-welcome
+                   #(account/register-account {:body-params (merge user-data acceptance)})))))))
+
+(deftest test-welcome-email-send-failure
+  (testing "a mail failure is caught, so it cannot fail the signup"
+    (with-redefs [mail/send! (fn [_] (throw (ex-info "relay down" {})))]
+      (is (nil? @(real-send-welcome! {:id "u1" :email "a@example.com" :display_name "A"}))))))
+
+(deftest test-welcome-message
+  (with-redefs [conf/base-url             (constantly "https://parts.example")
+                conf/walkthrough-url      (constantly "https://video.example/walkthrough")
+                conf/mail-sender-identity (constantly "Example Ltd · Company no. 123")]
+    (let [message              (#'account/welcome-message {:email "jane@example.com" :display_name "Jane"})
+          [subtype plain html] (:body message)]
+      (testing "is multipart, to the new account"
+        (is (= "jane@example.com" (:to message)))
+        (is (= "Welcome to Parts" (:subject message)))
+        (is (= :alternative subtype)))
+      (testing "links the configured walkthrough video and the app"
+        (is (str/includes? (:content plain)
+                           "video walkthrough of Parts (https://video.example/walkthrough)"))
+        (is (str/includes? (:content html) "href=\"https://video.example/walkthrough\""))
+        (is (str/includes? (:content plain) "open Parts (https://parts.example/app)")))
+      (testing "ends with the transactional footer"
+        (is (str/includes? (:content plain) "This email was sent to jane@example.com about your Parts account."))
+        (is (str/includes? (:content html) "Example Ltd · Company no. 123")))))
+  (testing "does not show the display name, which the signup does not check"
+    (let [[_ plain html] (:body (#'account/welcome-message
+                                 {:email "jane@example.com" :display_name "Visit evil.example now"}))]
+      (is (str/starts-with? (:content plain) "Hello,\n"))
+      (is (not (str/includes? (:content plain) "evil.example")))
+      (is (not (str/includes? (:content html) "evil.example"))))))

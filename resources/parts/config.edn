@@ -10,9 +10,13 @@
  :http/port 3000
  :http/protocol "http"
 
- ;; Canonical public origin for links sent to users (e.g. invite magic
+ ;; Canonical public origin for links sent to users (e.g. password reset
  ;; links). Overridden per-environment; see prod.edn.
  :app/base-url "http://localhost:3000"
+
+ ;; The video walkthrough of Parts, linked from the welcome email. The
+ ;; operator can change it with PARTS__APP__WALKTHROUGH_URL and a restart.
+ :app/walkthrough-url "https://www.youtube.com/watch?v=72YCRfGvcjU"
 
  ;; 16-byte key that encrypts the auth-session cookie (ADR-0007). Dev
  ;; default only — production MUST override via PARTS__SESSION__KEY with a
