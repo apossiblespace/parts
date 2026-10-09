@@ -26,3 +26,28 @@
       (is (not (str/includes? html "onerror")))
       (is (not (str/includes? html "javascript:")))
       (is (str/includes? html "Title")))))
+
+(deftest test-render-text
+  (testing "renders headings and paragraphs as plain lines and writes links as text (url)"
+    (is (= "Hello world!\n\nThis is a test of the notification (https://gosha.net)"
+           (legal/render-text "# Hello world!\n\nThis is a test of the [notification](https://gosha.net)"))))
+  (testing "writes a link whose text is the url once"
+    (is (= "See https://ifs.tools" (legal/render-text "See <https://ifs.tools>"))))
+  (testing "drops emphasis markers and decodes entities"
+    (is (= "Bold & italic" (legal/render-text "**Bold** &amp; *italic*"))))
+  (testing "renders bullet and numbered lists"
+    (is (= "Intro\n\n- one\n- two\n\nNext\n\n1. first\n2. second"
+           (legal/render-text "Intro\n\n- one\n- two\n\nNext\n\n1. first\n2. second"))))
+  (testing "drops script, like the html rendering"
+    (is (= "Hi" (legal/render-text "Hi\n\n<script>alert(1)</script>"))))
+  (testing "indents a nested list under its item"
+    (is (= "- a\n  - b\n  - c\n- d" (legal/render-text "- a\n    - b\n    - c\n- d"))))
+  (testing "starts the line after a hard break without a space"
+    (is (= "a\nb" (legal/render-text "a  \nb"))))
+  (testing "marks quoted lines"
+    (is (= "> one\n>\n> two\n\nafter" (legal/render-text "> one\n>\n> two\n\nafter"))))
+  (testing "writes a mailto address once"
+    (is (= "Text a@b.com" (legal/render-text "Text <a@b.com>"))))
+  (testing "keeps the line breaks and indentation of code"
+    (is (= "Intro\n\ncode\n\n\n\n  more\n\nAfter"
+           (legal/render-text "Intro\n\n```\ncode\n\n\n\n  more\n```\n\nAfter")))))

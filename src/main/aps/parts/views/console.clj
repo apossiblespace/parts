@@ -1,13 +1,17 @@
 (ns aps.parts.views.console
   "HTML of the Operator console page. `aps.parts.console` calls it with
-   figures from `aps.parts.stats`.
+   figures from `aps.parts.stats` and with the email draft.
 
-   The page shows counts and timestamps only. It never shows Map titles or
-   other Map content. See 'Operator console' in `CONTEXT.md`."
+   The stats show counts and timestamps only. They never show Map titles
+   or other Map content. See 'Operator console' in `CONTEXT.md`.
+
+   `/console.js` updates the email preview while the operator types. The
+   page works without it, but the preview then changes only on a reload."
   (:require
    [aps.parts.stats :as stats]
    [aps.parts.views.partials :as partials]
-   [hiccup2.core :refer [html raw]])
+   [hiccup2.core :refer [html raw]]
+   [ring.middleware.anti-forgery :refer [*anti-forgery-token*]])
   (:import
    (java.time Duration LocalDate OffsetDateTime ZoneOffset)))
 
@@ -133,13 +137,93 @@
        "Δ is the number of changes in the last 30 UTC days. Activity counts "
        "changes only, not visits. The console shows counts and timestamps only."]]]))
 
+;;; Email
+
+(defn- step
+  "A numbered step of the email flow."
+  [n title & body]
+  [:div {:class "grid grid-cols-[2rem_1fr] gap-3"}
+   [:span {:class "w-7 h-7 rounded-full bg-base-300 grid place-items-center text-sm font-bold"} n]
+   [:div {:class "flex flex-col gap-3 min-w-0"}
+    [:h3 {:class "font-semibold leading-7"} title]
+    body]])
+
+(defn- preview-pane
+  [{:keys [html text]}]
+  [:div {:class "flex flex-col gap-2 min-w-0"}
+   [:div {:class "flex items-center justify-between gap-2"}
+    [:span {:class "text-xs font-semibold uppercase tracking-wide opacity-60"} "Preview"]
+    [:div {:class "join"}
+     [:button {:type         "button" :class "join-item btn btn-xs btn-active" :data-preview "html"
+               :aria-pressed "true"}
+      "HTML"]
+     [:button {:type         "button" :class "join-item btn btn-xs" :data-preview "text"
+               :aria-pressed "false"}
+      "Plain text"]]]
+   [:iframe {:id      "preview-html"
+             :title   "Email preview"
+             :sandbox ""
+             :srcdoc  html
+             :class   "w-full h-[28rem] bg-white border border-base-300 rounded-box"}]
+   [:pre {:id     "preview-text"
+          :hidden true
+          :class  "w-full h-[28rem] overflow-auto whitespace-pre-wrap p-3 text-sm bg-base-100 border border-base-300 rounded-box"}
+    text]])
+
+(defn- email-section
+  [{:keys [draft preview status operator error]}]
+  [:section {:class "flex flex-col gap-4"}
+   [:h2 {:class "font-semibold"} "Send an email"]
+   (when error
+     [:div {:role "alert" :class "alert alert-error alert-soft text-sm"} error])
+   [:form {:id "composer" :method "post" :action "/test" :class "flex flex-col gap-6"}
+    [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}]
+    ;; Enter in a text field submits with the first submit button. This
+    ;; button is disabled, so Enter in the subject does not send a test.
+    [:button {:type "submit" :disabled true :hidden true :aria-hidden "true"}]
+    (step 1 "Write"
+          [:div {:class "join"}
+           (for [[kind label] [["product-update" "Product update"]
+                               ["service-notice" "Service notice"]]]
+             [:input {:type       "radio"
+                      :name       "kind"
+                      :value      kind
+                      :aria-label label
+                      :class      "join-item btn btn-sm"
+                      :checked    (= kind (:kind draft))}])]
+          [:label {:class "flex flex-col gap-1"}
+           [:span {:class "text-xs font-semibold opacity-60"} "Subject"]
+           [:input {:type  "text"                  :name         "subject" :value (:subject draft)
+                    :class "input input-sm w-full" :autocomplete "off"}]]
+          [:div {:class "grid md:grid-cols-2 gap-4"}
+           [:label {:class "flex flex-col gap-2 min-w-0"}
+            [:span {:class "flex items-center justify-between gap-2 min-h-6"}
+             [:span {:class "text-xs font-semibold uppercase tracking-wide opacity-60"} "Markdown"]
+             [:span {:class "text-xs opacity-60"} "The footer is added for you."]]
+            [:textarea {:name  "body"
+                        :class "textarea w-full h-[28rem] font-mono text-sm"}
+             ;; The HTML parser drops a newline right after <textarea>, so
+             ;; one is added to keep a body that starts with a newline.
+             (str "\n" (:body draft))]]
+           (preview-pane preview)])
+    (step 2 "Test"
+          [:div {:class "flex flex-wrap items-center gap-3"}
+           [:button {:type "submit" :class "btn btn-sm"}
+            "Send test" (when operator (str " to " operator))]
+           [:span {:id    "test-status"
+                   :class (if (:tested? status) "text-sm text-success" "text-sm opacity-70")}
+            (:text status)]])]])
+
 ;;; Page
 
 (defn page
   "The console page for `data`.
 
-     {:fleet <stats/fleet>  :users <stats/user-activity>
-      :env   <environment>  :today <LocalDate>  :now <OffsetDateTime>}"
+     {:fleet    <stats/fleet>  :users   <stats/user-activity>
+      :env      <environment>  :today   <LocalDate>  :now <OffsetDateTime>
+      :draft    {:kind :subject :body}  :preview {:text :html}
+      :status   {:tested? :text}        :operator <test address or nil>
+      :error    <message or nil>}"
   [{:keys [env] :as data}]
   (str
    (html
@@ -150,7 +234,8 @@
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
       [:meta {:name "robots" :content "noindex, nofollow"}]
       [:title "Operator console – Parts"]
-      [:link {:rel "stylesheet" :href (partials/asset-url "/css/style.css")}]]
+      [:link {:rel "stylesheet" :href (partials/asset-url "/css/style.css")}]
+      [:script {:src (partials/asset-url "/console.js") :defer true}]]
      [:body {:class "bg-base-200 text-base-content min-h-screen"}
       [:header {:class "bg-base-100 border-b border-base-300 px-4 py-2 flex flex-wrap items-center gap-3"}
        [:span {:class "font-bold"} "Parts " [:span {:class "font-normal opacity-60"} "Operator console"]]
@@ -159,4 +244,5 @@
                         "badge badge-sm badge-ghost")}
         (name env)]]
       [:main {:class "max-w-6xl mx-auto px-4 py-6 flex flex-col gap-6"}
-       (stats-section data)]]])))
+       (stats-section data)
+       (email-section data)]]])))

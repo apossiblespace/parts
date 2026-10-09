@@ -13,10 +13,11 @@
    [aps.parts.common.constants :as c]
    [aps.parts.config :as conf]
    [clojure.java.io :as io]
+   [clojure.string :as str]
    [markdown.core :as md])
   (:import
    (java.io File)
-   (org.owasp.html PolicyFactory Sanitizers)))
+   (org.owasp.html HtmlSanitizer HtmlStreamEventReceiver PolicyFactory Sanitizers)))
 
 (def documents
   "Slug -> display title, from the shared legal-documents list."
@@ -34,6 +35,102 @@
    removed)."
   [markdown]
   (.sanitize html-policy (md/md-to-html-string markdown)))
+
+;;; Plain text
+
+(def ^:private block-tags
+  #{"p" "div" "blockquote" "ul" "ol" "h1" "h2" "h3" "h4" "h5" "h6"})
+
+(defn- line-start?
+  [^StringBuilder out]
+  (or (zero? (.length out)) (= \newline (.charAt out (dec (.length out))))))
+
+(defn- break!
+  "Ends the text in `out` with at least `n` line breaks. Does nothing at
+   the start of the text."
+  [^StringBuilder out n]
+  (while (and (pos? (.length out))
+              (#{\space \tab} (.charAt out (dec (.length out)))))
+    (.setLength out (dec (.length out))))
+  (when (pos? (.length out))
+    (let [found (loop [i (dec (.length out)) found 0]
+                  (if (and (>= i 0) (= \newline (.charAt out i)))
+                    (recur (dec i) (inc found))
+                    found))]
+      (dotimes [_ (- n found)] (.append out "\n")))))
+
+(defn- quote-lines
+  "Returns `text` with each line marked as quoted."
+  [text]
+  (->> (str/split-lines (str/trimr text))
+       (map #(if (str/blank? %) ">" (str "> " %)))
+       (str/join "\n")))
+
+(defn- attribute [attrs attr-name]
+  (some (fn [[k v]] (when (= k attr-name) v)) (partition 2 attrs)))
+
+(defn render-text
+  "Renders a Markdown string to plain text, through the same allowlist as
+   `render-html`, so both renderings carry the same content. A link is
+   written as \"text (url)\", or as the bare URL when the text is the URL.
+   Code keeps its line breaks and indentation."
+  [markdown]
+  (let [out        (StringBuilder.)
+        links      (atom ())
+        lists      (atom ())
+        quotes     (atom ())
+        code-depth (atom 0)
+        marker-end (atom nil)
+        list-break (fn [] (break! out (if (seq @lists) 1 2)))]
+    (HtmlSanitizer/sanitize
+     (md/md-to-html-string markdown)
+     (.apply html-policy
+             (reify HtmlStreamEventReceiver
+               (openDocument [_])
+               (closeDocument [_])
+               (openTag [_ tag attrs]
+                 (cond
+                   (#{"ul" "ol"} tag) (do (list-break)
+                                          (swap! lists conj (when (= tag "ol") 0)))
+                   ;; A paragraph in a list item starts on the marker line.
+                   (block-tags tag)   (do (when-not (= (.length out) @marker-end)
+                                            (break! out 2))
+                                          (when (= tag "blockquote")
+                                            (swap! quotes conj (.length out))))
+                   (= tag "li")       (let [n      (first @lists)
+                                            indent (apply str (repeat (* 2 (dec (count @lists))) " "))]
+                                        (break! out 1)
+                                        (when n (swap! lists #(conj (rest %) (inc n))))
+                                        (.append out (str indent (if n (str (inc n) ". ") "- ")))
+                                        (reset! marker-end (.length out)))
+                   (= tag "br")       (.append out "\n")
+                   (= tag "code")     (swap! code-depth inc)
+                   (= tag "a")        (swap! links conj [(attribute attrs "href") (.length out)])))
+               (closeTag [_ tag]
+                 (cond
+                   (#{"ul" "ol"} tag)    (do (swap! lists rest) (list-break))
+                   (= tag "blockquote")  (let [start (first @quotes)
+                                               text  (subs (str out) start)]
+                                           (swap! quotes rest)
+                                           (.setLength out start)
+                                           (.append out (quote-lines text))
+                                           (break! out 2))
+                   (block-tags tag)      (break! out 2)
+                   (= tag "code")        (swap! code-depth dec)
+                   (= tag "a")           (let [[href start] (first @links)
+                                               text         (str/trim (subs (str out) start))]
+                                           (swap! links rest)
+                                           (when (and href (not (#{text (str "mailto:" text)} href)))
+                                             (.append out (str " (" href ")"))))))
+               ;; Outside code, whitespace between blocks is dropped, and a
+               ;; new line does not start with the space that markdown-clj
+               ;; writes after a line break.
+               (text [_ text]
+                 (cond
+                   (pos? @code-depth) (.append out text)
+                   (line-start? out)  (.append out (str/triml text))
+                   :else              (.append out text))))))
+    (str/trim (str out))))
 
 (defn- source
   "Raw Markdown for `slug`: the operator's file under `:legal/content-dir` if it
