@@ -26,6 +26,18 @@
               :info             {:uri "/invite/3b1f-secret-token-9c2a"}})]
       (is (= "/invite/[REDACTED]" (get-in e [:info :uri])))))
 
+  (testing "the password reset token in a URI path is scrubbed"
+    (let [e (observe/redact-event
+             {:mulog/event-name ::request
+              :info             {:uri "/reset/3b1f-secret-token-9c2a"}})]
+      (is (= "/reset/[REDACTED]" (get-in e [:info :uri])))))
+
+  (testing "the reset request form has no token and is unchanged"
+    (let [e (observe/redact-event
+             {:mulog/event-name ::request
+              :info             {:uri "/reset-password"}})]
+      (is (= "/reset-password" (get-in e [:info :uri])))))
+
   (testing "the unsubscribe token in a URI path is scrubbed"
     (let [e (observe/redact-event
              {:mulog/event-name ::request
