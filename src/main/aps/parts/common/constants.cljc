@@ -142,9 +142,9 @@
   "Parts: IFS parts mapping for therapists and their clients")
 
 (def support-email
-  "The monitored concierge-support address. Shared FE/BE: the maps-list
-   footer (cljs), the marketing footer (hiccup), and the invite-error page
-   (hiccup) all render it as a mailto link."
+  "The monitored concierge-support address. Shared FE/BE: the app footer
+   and the Account page (cljs), and the marketing footer (hiccup) all render
+   it as a mailto link."
   "help@ifs.tools")
 
 (def legal-documents

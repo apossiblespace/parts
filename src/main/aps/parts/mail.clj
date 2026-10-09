@@ -65,7 +65,7 @@
 ;; builders stay pure content (:to/:subject/:body).
 
 (defn send-personal!
-  "Send `message` in the operator's personal voice — invites, thank-yous,
+  "Send `message` in the operator's personal voice — thank-yous,
    anything a human signs. From stays the default sender (`:mail/from`);
    Reply-To is the operator's personal address (`:mail/reply-to`) when
    configured, keeping the concierge reply promise."

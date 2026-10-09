@@ -38,17 +38,17 @@
         (partials/document-footer)))
 
 (defn fullscreen
-  "Full-screen layout with no chrome (the SPA shell, invite pages).
+  "Full-screen layout with no chrome (the SPA shell, password-reset pages).
    Tags the html element as the app shell so app-only adaptations
    (touch-device scaling, tooltip suppression, edge-to-edge viewport)
    can target it without leaking into other layouts. Callers that are
-   content pages rather than the canvas app — the invite pages — pass
+   content pages rather than the canvas app — the password-reset pages — pass
    `:html-class nil` to opt out."
   [options & content]
   (page (merge {:html-class "app"} options) content))
 
 (defn content-page
-  "A server-rendered content page in the fullscreen shell — the invite and
+  "A server-rendered content page in the fullscreen shell — the
    password-reset pages. Opts out of the app-shell adaptations (these are
    content pages, not the canvas app) and carries the app stylesheet.
    Returns the complete rendered document."

@@ -28,11 +28,19 @@
      VALUES (?::uuid, ?, 'parts', 'U', '{}'::jsonb)"
     (str actor-id) occurred-at]))
 
+(defn- founder!
+  "A test user marked Founding Circle. Only the operator sets the flag, so
+   it is written after the user is created."
+  []
+  (let [user (create-test-user!)]
+    (db/update! :users {:is_founding_circle true} [:= :id (:id user)])
+    user))
+
 (defn- add-part! [map-id user-id]
   (part/create! {:map_id map-id} user-id))
 
 (deftest test-user-stats-basics-and-counts
-  (let [user    (create-test-user! {:is_founding_circle true})
+  (let [user    (founder!)
         the-map (create-test-map! (:id user))
         p1      (add-part! (:id the-map) (:id user))
         p2      (add-part! (:id the-map) (:id user))
@@ -111,9 +119,9 @@
                         user-id))
 
 (deftest test-fleet-users-and-flags
-  (create-test-user! {:is_founding_circle true})
-  (create-test-user! {:is_founding_circle true})
-  (let [pending (create-test-user! {:is_founding_circle false})
+  (founder!)
+  (founder!)
+  (let [pending (create-test-user!)
         _       (erasure/request-deletion! db/datasource (:id pending))
         result  (silently #(stats/fleet-stats!))]
     (testing "total counts every non-tombstone account (pending-deletion included)"

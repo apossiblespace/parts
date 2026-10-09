@@ -7,7 +7,6 @@
    [aps.parts.api.maps :as api.maps]
    [aps.parts.api.sessions :as api.sessions]
    [aps.parts.auth.middleware :as auth-mw]
-   [aps.parts.handlers.invite :as invite]
    [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
    [aps.parts.handlers.password-reset :as password-reset]
@@ -134,17 +133,11 @@
    ;; neither auth nor CSRF — the signature is the authentication).
    ["/stripe/webhook" {:post {:handler api.billing/webhook}}]
 
-   ;; Founding Circle invitation redemption. Server-rendered and top-level
-   ;; (never under /app — a Circle member redeeming an invite must not
-   ;; depend on the SPA bundle loading first). Gated by token validity.
-   ["/invite/:token" {:middleware [(ratelimit/limiter :invite {})
-                                   middleware/wrap-csp
-                                   middleware/wrap-html-defaults
-                                   middleware/wrap-html-response]
-                      :get        {:handler invite/show}
-                      :post       {:handler invite/redeem}}]
+   ;; Invitation emails sent before self-serve signup still carry this
+   ;; link. Any token goes to the signup screen; the token is not checked.
+   ["/invite/:token" {:get {:handler (fn [_] (response/redirect "/app/signup"))}}]
 
-   ;; Self-serve password reset. Server-rendered and top-level like /invite
+   ;; Self-serve password reset. Server-rendered and top-level
    ;; — recovering access must not depend on the SPA bundle loading first.
    ;; Public by design: no auth. Request and redemption get
    ;; separate per-IP buckets so a burst of requests behind a shared NAT

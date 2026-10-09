@@ -49,10 +49,10 @@
    :description - meta description
    :styles      - additional stylesheets
    :analytics?  - load the Plausible collector. Public marketing pages only —
-                  never the signed-in app or invite pages, where the URL would
-                  carry a Map id or invite token. Pages without it are also
-                  marked noindex, so token URLs and the app shell stay out of
-                  search results."
+                  never the signed-in app or password-reset pages, where
+                  the URL would carry a Map id or reset token. Pages without
+                  it are also marked noindex, so token URLs and the app shell
+                  stay out of search results."
   ([] (head {}))
   ([{:keys [title description styles analytics? html-class]}]
    (let [full-title (if title
@@ -259,8 +259,8 @@
     [:span {:class "badge badge-xs text-gray-300 font-mono"} (version/current)]]])
 
 (defn- auth-card
-  "Shared centered-card chrome for the server-rendered auth pages (invite
-   redemption, password reset): logo above a white card wrapping the given
+  "Shared centered-card chrome for the server-rendered auth pages
+   (password reset): logo above a white card wrapping the given
    `body` elements."
   [& body]
   [:div {:class "min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12"}
@@ -269,103 +269,6 @@
      [:img {:class "w-44" :src "/images/parts-logo-horizontal.svg"}]]
     [:div {:class "card bg-white shadow-sm"}
      [:div {:class "card-body"} body]]]])
-
-(defn invite-signup-content
-  "The Founding Circle signup page body, rendered for a valid invitation
-   token. Email is pre-filled and read-only (it comes from the invitation,
-   not the form); on a validation error, `error` is shown and the typed
-   `values` (a form-params map with string keys) are kept."
-  [{:keys [token email error values]}]
-  (auth-card
-   [:h1 {:class "text-2xl font-bold mb-1"}
-    "You’re invited!"]
-   [:p {:class "text-gray-600 mb-6"}
-    "Create your account to start using Parts."]
-   (when error
-     [:div {:class "alert alert-error text-sm mb-4"} error])
-   [:form {:id "invite-form" :method "post" :action (str "/invite/" token)}
-    (anti-forgery-field)
-    ;; Display-only: the account's email is fixed by the invitation token,
-    ;; never taken from this form. No `name`, so it is not submitted at all
-    ;; — there is no attacker-controllable email in the request.
-    [:label {:class "fieldset-label"} "Email"]
-    [:input {:class    "input input-bordered w-full mb-3"
-             :type     "email"
-             :value    email
-             :disabled true}]
-    [:label {:class "fieldset-label"} "Display name"]
-    [:input {:class       "input input-bordered w-full mb-3"
-             :type        "text"
-             :name        "display_name"
-             :value       (get values "display_name" "")
-             :placeholder "How your name appears in Parts"
-             :required    true}]
-    [:label {:class "fieldset-label"} "Password"]
-    [:input {:class    "input input-bordered w-full mb-3"
-             :type     "password"
-             :name     "password"
-             :required true}]
-    [:label {:class "fieldset-label"} "Confirm password"]
-    [:input {:class    "input input-bordered w-full mb-4"
-             :type     "password"
-             :name     "password_confirmation"
-             :required true}]
-    [:label {:class "flex items-start gap-3 mb-2 cursor-pointer"}
-     [:input {:type     "checkbox"
-              :name     "accept_medical"
-              :class    "checkbox checkbox-sm shrink-0 mt-0.5"
-              :required true}]
-     [:span {:class "text-sm text-left"}
-      c/medical-data-notice]]
-    [:label {:class "flex items-start gap-3 mb-4 cursor-pointer"}
-     [:input {:type     "checkbox"
-              :name     "accept_legal"
-              :class    "checkbox checkbox-sm shrink-0 mt-0.5"
-              :required true}]
-     [:span {:class "text-sm text-left"}
-      "I have read and agree to the "
-      ;; noreferrer: this form renders on the invite page, whose URL carries
-      ;; the invite token — the legal pages load analytics, and a default
-      ;; same-origin Referer would hand them the token.
-      (interpose ", "
-                 (for [{:keys [slug label]} c/legal-documents]
-                   [:a {:href   (str "/" slug)
-                        :target "_blank"
-                        :rel    "noreferrer noopener"}
-                    label]))
-      "."]]
-    [:hr {:class "border-base-300 mb-4"}]
-    [:label {:class "flex items-start gap-3 mb-4 cursor-pointer"}
-     [:input {:type    "checkbox"
-              :name    "product_updates"
-              :class   "checkbox checkbox-sm shrink-0 mt-0.5"
-              :checked true}]
-     [:span {:class "text-sm text-left"}
-      c/product-updates-label
-      [:span {:class "block opacity-60"} c/product-updates-hint]]]
-    [:button {:class "btn btn-primary w-full" :type "submit"}
-     "Create my account"]]))
-
-(defn invite-unavailable-content
-  "The calm error page body, shown for any unusable invitation token —
-   unknown, already redeemed, or revoked. Deliberately one message for all
-   three: it does not reveal which failure mode occurred."
-  []
-  (auth-card
-   [:h1 {:class "text-2xl font-bold mb-2"} "This invite link isn’t available"]
-   [:p {:class "text-gray-600 mb-4"}
-    "This invitation link is no longer valid — it may already have been used.
-     If you think this is a mistake, please reach out to us at "
-    (text-link (str "mailto:" c/support-email) c/support-email)
-    " and we’ll sort it out."]
-   ;; The most common way here: someone created their account, forgot, and
-   ;; clicked the invite email again — point them back into the app.
-   [:p {:class "text-gray-600"}
-    "Already used this invite to create your account? You can "
-    (text-link "/app/login" "log in")
-    ", or "
-    (text-link "/reset-password" "reset your password")
-    " if you’ve forgotten it."]))
 
 ;; -- password reset pages (TASK-109) ---------------------------------------
 

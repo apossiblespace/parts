@@ -155,27 +155,20 @@ an occasional historical grep, is the right signal.
 
 ## Transactional email
 
-`aps.parts.mail` sends user-facing mail (invites today; future self-serve
-flows) over the same `PARTS__SMTP__*` relay — Scaleway TEM, with `ifs.tools`
+`aps.parts.mail` sends user-facing mail (password resets, thank-you notes,
+Operator emails) over the same `PARTS__SMTP__*` relay — Scaleway TEM, with `ifs.tools`
 as the verified sending domain (SPF/DKIM/DMARC; ADR-0016). Two further
 variables identify the sender:
 
 ```sh
 PARTS__MAIL__FROM='Gosha <gosha@ifs.tools>'   # must be on the verified domain
-PARTS__MAIL__REPLY_TO=<personal address>      # optional; invites carry it so replies reach a human
+PARTS__MAIL__REPLY_TO=<personal address>      # optional; personal mail carries it so replies reach a human
 ```
 
 Sending fails loudly (`:config-error`) until `PARTS__MAIL__FROM` is set —
 there is no silent fallback. Bounce/suppression handling is provider-side
 (deliberate, ADR-0016) — check the TEM console if a recipient reports nothing
 arrived.
-
-Invites from the production REPL:
-
-```clojure
-(require '[aps.parts.ops :as ops])
-(ops/send-invitation-email! (ops/generate-invitation! "jane@example.com"))
-```
 
 ## Billing
 
@@ -680,7 +673,7 @@ and a User who opts out or asks for deletion during a send is skipped.
 
 ## Rate limiting & the trusted client IP (`X-Real-IP`)
 
-The per-IP rate limiter (`aps.parts.ratelimit`, on login / register / invite)
+The per-IP rate limiter (`aps.parts.ratelimit`, on login / register / password reset)
 buckets clients by a **single proxy-set header, `X-Real-IP`** — never by
 `X-Forwarded-For`. The invariant:
 
@@ -689,11 +682,12 @@ buckets clients by a **single proxy-set header, `X-Real-IP`** — never by
 > nothing about the X-Forwarded-For chain.**
 
 Why not X-Forwarded-For: it is client-appendable, and its length varies by
-route — `/api/*` reaches the app one hop from Caddy, while `/invite` sits
-behind an extra oauth2-proxy hop. No fixed position in that chain is reliably
-the client, so trusting it let an attacker rotate the value to dodge the
-limiter (the original TASK-088 bug). Caddy sets `X-Real-IP` via `header_up` in
-the generated Caddyfiles (`bootstrap-prod.sh`, `add-instance.sh`).
+route — `/api/*` reaches the app one hop from Caddy, while on staging the
+pages (such as `/reset-password`) sit behind an extra oauth2-proxy hop. No
+fixed position in that chain is reliably the client, so trusting it let an
+attacker rotate the value to dodge the limiter (the original TASK-088 bug).
+Caddy sets `X-Real-IP` via `header_up` in the generated Caddyfiles
+(`bootstrap-prod.sh`, `add-instance.sh`).
 
 **Verify on a live box** (after provisioning, and any time the proxy chain
 changes). Both must show the *real* client IP, not `127.0.0.1`:
@@ -701,12 +695,13 @@ changes). Both must show the *real* client IP, not `127.0.0.1`:
 ```sh
 # 1-hop path (login/register) — Caddy → app
 curl -s https://$DOMAIN/api/... ; journalctl -u parts -n1 | grep -o '"remote_addr[^,]*'
-# 2-hop path (invite) — Caddy → oauth2-proxy → app; proves oauth2-proxy
-# (OAUTH2_PROXY_REVERSE_PROXY=true) forwards X-Real-IP rather than clobbering it
-curl -s https://$DOMAIN/invite/<token> ; journalctl -u parts -n1
+# 2-hop path (staging only: password reset) — Caddy → oauth2-proxy → app;
+# proves oauth2-proxy (OAUTH2_PROXY_REVERSE_PROXY=true) forwards X-Real-IP
+# rather than clobbering it. In production this route is 1-hop.
+curl -s https://$DOMAIN/reset-password ; journalctl -u parts -n1
 ```
 
-If the 2-hop path shows `127.0.0.1`, invite rate limiting is coarse (all
+If the 2-hop path shows `127.0.0.1`, password-reset rate limiting is coarse (all
 clients share one bucket) — safe (over-throttling), but fix by configuring
 oauth2-proxy to forward the client IP.
 

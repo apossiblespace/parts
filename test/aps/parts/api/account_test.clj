@@ -250,8 +250,8 @@
 (deftest test-register-rejects-privilege-mass-assignment
   (testing "a registration body cannot self-grant Founding Circle"
     ;; Mass-assignment guard: register-account must not let request-body keys
-    ;; reach privilege/billing columns. is_founding_circle is server-controlled
-    ;; — the invite path sets it from the trusted invitation row, never a form.
+    ;; reach privilege/billing columns. is_founding_circle is set only by
+    ;; the operator, never by a form.
     (let [user-data    (factory/build-test-user)
           mock-request {:body-params (merge user-data acceptance
                                             {:is_founding_circle true})}

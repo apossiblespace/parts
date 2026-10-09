@@ -17,7 +17,7 @@
     (is (loads-main-js? (layouts/fullscreen {} "body")))
     (is (loads-main-js? (layouts/marketing {} "body"))))
 
-  (testing "the legal, invite and password-reset layouts do not"
+  (testing "the legal and password-reset layouts do not"
     (is (not (loads-main-js? (layouts/document {} "body"))))
     (is (not (loads-main-js? (layouts/content-page "Title" "body"))))))
 

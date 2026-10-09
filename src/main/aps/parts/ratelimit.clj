@@ -1,6 +1,6 @@
 (ns aps.parts.ratelimit
   "In-process rate limiting: per client IP on the unauthenticated,
-   abuse-prone endpoints (login, register, invite redemption), per user id
+   abuse-prone endpoints (login, register, password reset), per user id
    on the authenticated write endpoints (map creation, change batches).
 
    A token bucket per [route-key, identity]: `capacity` is the burst a single

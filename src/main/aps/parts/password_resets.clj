@@ -2,10 +2,8 @@
   "Self-serve password reset — the magic-link token schema behind
    /reset-password and /reset/:token (TASK-109).
 
-   A reset is a single-use bearer credential like an invitation
-   (`aps.parts.invitations`), with two deliberate differences: it is minted
-   by the account holder rather than the operator, and it expires after one
-   hour rather than 180 days — redeeming it grants access to an existing
+   A reset is a single-use bearer credential minted by the account holder.
+   It expires after one hour: redeeming it grants access to an existing
    account holding clinical data, so a lost link must die quickly.
    Lifecycle: issued -> used (`used_at`) | expired (`expires_at`)."
   (:require

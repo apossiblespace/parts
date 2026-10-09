@@ -107,7 +107,7 @@
     (throw (ex-info "Please accept the medical-data notice and the legal documents to continue."
                     {:type :validation}))))
 
-(defn provision-account!
+(defn- provision-account!
   "Creates a user, their default map, seeds it with demo content, and records
    the user's onboarding policy acceptances. All writes share `tx` so they
    commit or roll back as one unit. Returns {:account ... :map-id ...}.
@@ -115,10 +115,7 @@
    `params` carries the two acceptance booleans (`:accepted-legal?`,
    `:accepted-medical?`) alongside the user fields; they are validated, then
    stripped before the user is created. A true `:product-updates-opt-out?`
-   creates the account opted out of Product updates.
-
-   Public so the invite-redemption handler (`handlers/invite`) can reuse
-   the exact same provisioning path as `/api/account/register`."
+   creates the account opted out of Product updates."
   [params tx]
   (validate-acceptance! params)
   (let [account (user/create! (dissoc params :accepted-legal? :accepted-medical?

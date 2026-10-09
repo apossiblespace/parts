@@ -114,9 +114,8 @@
                     :on-change #(set-password-confirm (.. % -target -value))
                     :required  true}))
 
-             ;; Acceptance checkboxes mirror the invite-redemption form
-             ;; (views/partials). `required` is UX only — the server
-             ;; enforces acceptance before an account can exist (ADR-0009).
+             ;; `required` is UX only — the server enforces acceptance before an
+             ;; account can exist (ADR-0009).
              ($ :label {:class "flex items-start gap-3 mt-4 cursor-pointer"}
                 ($ :input
                    {:type      "checkbox"

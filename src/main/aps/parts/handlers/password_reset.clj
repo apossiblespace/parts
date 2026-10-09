@@ -2,7 +2,7 @@
   "Server-rendered self-serve password reset — GET/POST /reset-password
    (request a link) and GET/POST /reset/:token (set a new password).
 
-   Top-level on purpose, like /invite: recovering access must not depend
+   Top-level on purpose: recovering access must not depend
    on the SPA bundle loading first. Two privacy rules shape the handlers:
    the request endpoint responds identically whether or not the email has
    an account, and the token error page is one message for every failure
@@ -36,8 +36,7 @@
 
 (defn- reset-message
   "The postal message map for a reset link — pure content; the sender
-   identity is stamped by `mail/send-system!` (a machine notification,
-   unlike the operator-signed invite)."
+   identity is stamped by `mail/send-system!` (a machine notification)."
   [{:keys [email url]}]
   {:to      email
    :subject reset-subject
@@ -147,7 +146,7 @@ The Parts team
                   (:user_id claimed))))]
         (mulog/log ::password-reset-completed :user-id (str user-id))
         ;; 303 See Other — POST-redirect-GET, signed in via a fresh auth
-        ;; session (ADR-0007), same as invite redemption.
+        ;; session (ADR-0007).
         (-> (response/redirect "/app")
             (response/status 303)
             (auth/establish-session request user-id)))

@@ -53,7 +53,7 @@
        (assoc :session (auth/session-config))
        ;; Replace site-defaults' anti-forgery map (which carries an
        ;; `X-Ring-Anti-Forgery` safe-header bypass) with plain `true` — no
-       ;; header bypass on session-establishing endpoints like /invite/:token.
+       ;; header bypass on session-establishing endpoints.
        (assoc-in [:security :anti-forgery] true))))
 
 (defn wrap-api-defaults

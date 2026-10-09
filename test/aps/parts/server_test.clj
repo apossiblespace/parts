@@ -28,10 +28,17 @@
 (defn- csp [app path]
   (get-in (app (mock/request :get path)) [:headers "Content-Security-Policy"]))
 
+(deftest invite-link-redirects-to-signup
+  (testing "an Invitation link from an old email opens the signup screen,
+            whatever the token"
+    (let [response ((server/app) (mock/request :get "/invite/any-token"))]
+      (is (= 302 (:status response)))
+      (is (= "/app/signup" (get-in response [:headers "Location"]))))))
+
 (deftest content-security-policy-scoping-test
   (let [app (server/app)]
     (testing "authed surfaces carry a CSP with the core directives"
-      (doseq [path ["/app" "/app/maps/whatever" "/invite/bogus-token"]]
+      (doseq [path ["/app" "/app/maps/whatever"]]
         (let [v (csp app path)]
           (is (some? v) path)
           (is (str/includes? v "script-src 'self'") path)

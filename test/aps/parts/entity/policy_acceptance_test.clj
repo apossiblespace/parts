@@ -22,7 +22,7 @@
 
 (defn- provision! [extra]
   (db/with-transaction
-    #(account/provision-account! (merge (factory/build-test-user) extra) %)))
+    #(#'account/provision-account! (merge (factory/build-test-user) extra) %)))
 
 (deftest records-a-versioned-row-per-document
   (testing "a completed signup writes one row per legal document, stamped with the current server-side version"

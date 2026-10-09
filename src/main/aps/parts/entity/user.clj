@@ -14,11 +14,8 @@
   "Fields a `create!` caller may set. Anything else in the attrs map — a
    privilege/billing column like `:is_founding_circle` or `:paid_through_date`,
    or any other column — is dropped before insert, so a caller that spreads an
-   untrusted request body cannot mass-assign. `:is_founding_circle` is allowed
-   here because the invite path legitimately sets it from the trusted
-   invitation row; the registration boundary (`api/account`) is what keeps it
-   out of a request body."
-  #{:email :display_name :password :password_confirmation :role :is_founding_circle})
+   untrusted request body cannot mass-assign."
+  #{:email :display_name :password :password_confirmation :role})
 (def sensitive-fields #{:password_hash :unsubscribe_token})
 (def valid-roles #{"client" "therapist"})
 

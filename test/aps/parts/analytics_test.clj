@@ -1,7 +1,7 @@
 (ns aps.parts.analytics-test
   "Where the Plausible collector is allowed to load. It must appear on the
-   public marketing surfaces and never on the signed-in app or the invite
-   pages, whose URLs carry a Map id or an invite token (task-048)."
+   public marketing surfaces and never on the signed-in app or the
+   password-reset pages, whose URLs carry a Map id or a reset token (task-048)."
   (:require
    [aps.parts.handlers.pages :as pages]
    [aps.parts.views.layouts :as layouts]
@@ -24,10 +24,10 @@
   [handler]
   (str (:body (handler {}))))
 
-(deftest collector-suppressed-on-app-and-invite
+(deftest collector-suppressed-on-app-and-reset
   (testing "the signed-in app shell does not load the collector — no Map id leaks"
     (is (not (loads-plausible? (page-html pages/app-shell)))))
-  (testing "fullscreen without :analytics? omits it — this is what the invite pages use"
+  (testing "fullscreen without :analytics? omits it — this is what the password-reset pages use"
     (is (not (loads-plausible? (str (layouts/fullscreen {} "body")))))))
 
 (deftest collector-present-on-public-surfaces

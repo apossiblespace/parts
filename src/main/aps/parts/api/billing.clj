@@ -166,7 +166,7 @@
   "The postal message for a first-time subscriber — Parts' voice, not the
    receipt (Stripe's customer emails carry the VAT invoice). Pure and
    public for its test; the identity headers are stamped by
-   `mail/send-personal!`, as for `ops/invite-message`."
+   `mail/send-personal!`."
   [email plan]
   {:to      email
    :subject "Thank you for subscribing to Parts"
