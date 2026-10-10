@@ -104,10 +104,17 @@
 
    Merges `:identity` into the request's *existing* session rather than
    replacing it — a bare `{:identity ...}` would drop ring's anti-forgery
-   token (which lives in the same session) and break the SPA's CSRF check."
+   token (which lives in the same session) and break the SPA's CSRF check.
+
+   The `:recreate` metadata makes ring's session middleware delete the old
+   session and save this one under a new id. Without it, an attacker who
+   puts a known session cookie in a browser would be signed in when the
+   User signs in there (session fixation)."
   [response request user-id]
   (assoc response :session
-         (assoc (:session request) :identity (session-identity user-id))))
+         (-> (:session request)
+             (assoc :identity (session-identity user-id))
+             (vary-meta assoc :recreate true))))
 
 (defn clear-session
   "Drop the auth session from `response` and expire its cookie immediately,
