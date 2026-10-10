@@ -55,7 +55,10 @@
           response (auth/establish-session {:status 200} request "user-7")]
       (is (= "kept" (get-in response [:session :existing]))
           "a bare {:identity ...} would drop ring's anti-forgery token")
-      (is (= {:sub "user-7"} (get-in response [:session :identity]))))))
+      (is (= {:sub "user-7"} (get-in response [:session :identity])))))
+
+  (testing "asks ring for a new session id, against session fixation"
+    (is (:recreate (meta (:session (auth/establish-session {:status 200} {} "user-7")))))))
 
 (deftest clear-session-test
   (testing "drops the session and expires the cookie immediately"

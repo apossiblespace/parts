@@ -96,12 +96,11 @@
                                user))))]
       (mulog/log ::update-account-success :user-id user-id)
       (when password? (password-notice/send! user-id (:email updated-user)))
-      ;; The transaction deleted this session too. A new session id keeps the
-      ;; User signed in, and a copy of the old cookie no longer works.
+      ;; The transaction deleted this session too. `establish-session` keeps
+      ;; the User signed in under a new session id.
       (cond-> (-> (response/response updated-user)
                   (response/status 200))
-        password? (-> (auth/establish-session request user-id)
-                      (update :session vary-meta assoc :recreate true))))))
+        password? (auth/establish-session request user-id)))))
 
 (defn- populate-initial-map!
   "Populates a new map with demo parts and relationships.
