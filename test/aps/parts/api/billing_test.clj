@@ -9,6 +9,7 @@
    [aps.parts.mail :as mail]
    [aps.parts.server :as server]
    [aps.parts.stripe :as stripe]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [jsonista.core :as json]
    [ring.mock.request :as mock])
@@ -473,3 +474,28 @@
         (is (thrown-with-msg? clojure.lang.ExceptionInfo #"[Nn]o subscription"
                               (billing-api/create-portal-session
                                {:identity {:sub (str (:id user))}})))))))
+
+(deftest test-thank-you-message
+  (with-redefs [conf/base-url             (constantly "https://parts.example")
+                conf/mail-sender-identity (constantly "Example Ltd · Company no. 123")]
+    (let [message              (billing-api/thank-you-message "buyer@example.com" :monthly)
+          [subtype plain html] (:body message)]
+      (testing "is a multipart email to the subscriber"
+        (is (= "buyer@example.com" (:to message)))
+        (is (= "Thank you for subscribing to Parts" (:subject message)))
+        (is (= :alternative subtype)))
+      (testing "keeps the wording and links the account page"
+        (doseq [sentence ["Thank you for subscribing to Parts and for supporting the development! It means a great deal to us."
+                          "Your monthly subscription is active, and it simply carries on when Parts launches."
+                          "Stripe emails your receipt for each payment separately."
+                          "If you have any questions at all, or any feedback about Parts, just reply to this email."]]
+          (is (str/includes? (:content plain) sentence))
+          (is (str/includes? (:content html) sentence)))
+        (is (str/includes? (:content plain) "\nhttps://parts.example/app/account\n"))
+        (is (str/includes? (:content html) "href=\"https://parts.example/app/account\"")))
+      (testing "signs off on two lines"
+        (is (str/includes? (:content plain) "Warmly,\nGosha and Tingyi, creators of Parts"))
+        (is (str/includes? (:content html) "Warmly,<br />")))
+      (testing "ends with the transactional footer"
+        (is (str/includes? (:content plain) "This email was sent to buyer@example.com about your Parts account."))
+        (is (str/includes? (:content html) "Example Ltd · Company no. 123"))))))

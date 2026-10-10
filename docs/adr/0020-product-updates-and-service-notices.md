@@ -87,5 +87,6 @@ with the recipient's address ("This email was sent to … about your Parts
 account."), the Privacy Policy link and the company line. A transactional
 email has no unsubscribe link and no `List-Unsubscribe` headers. Operator
 email output did not change. Operator alerts stay plain text without a footer:
-they go to the operator, not to Users. The subscription thank-you email is not
-moved yet, by the project owner's decision.
+they go to the operator, not to Users. The welcome email, the password-changed
+notice and the subscription thank-you email use the same layout and footer
+(TASK-142).

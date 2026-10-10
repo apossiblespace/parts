@@ -20,6 +20,7 @@
    [aps.parts.billing :as billing]
    [aps.parts.common.constants :as c]
    [aps.parts.config :as config]
+   [aps.parts.email-layout :as layout]
    [aps.parts.mail :as mail]
    [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog]
@@ -164,30 +165,35 @@
 
 (defn thank-you-message
   "The postal message for a first-time subscriber — Parts' voice, not the
-   receipt (Stripe's customer emails carry the VAT invoice). Pure and
-   public for its test; the identity headers are stamped by
-   `mail/send-personal!`."
+   receipt (Stripe's customer emails carry the VAT invoice). Public for
+   its test. `mail/send-personal!` adds the identity headers. The body is
+   Markdown in the shared layout. Two spaces before a newline keep the
+   sign-off on two lines."
   [email plan]
-  {:to      email
-   :subject "Thank you for subscribing to Parts"
-   :body    (str "Hello,\n"
-                 "\n"
-                 "Thank you for subscribing to Parts and for supporting the development! It means\n"
-                 "a great deal to us.\n"
-                 "\n"
-                 "Your " (name plan) " subscription is active, and it simply carries\n"
-                 "on when Parts launches. You can update your payment details,\n"
-                 "switch plans, or cancel at any time from your account page:\n"
-                 "\n"
-                 (config/base-url) "/app/account\n"
-                 "\n"
-                 "Stripe emails your receipt for each payment separately.\n"
-                 "\n"
-                 "If you have any questions at all, or any feedback about Parts,\n"
-                 "just reply to this email.\n"
-                 "\n"
-                 "Warmly,\n"
-                 "Gosha and Tingyi, creators of Parts")})
+  (let [account-url (str (config/base-url) "/app/account")]
+    {:to      email
+     :subject "Thank you for subscribing to Parts"
+     :body    (layout/alternative
+               (layout/content
+                (str "Hello,\n"
+                     "\n"
+                     "Thank you for subscribing to Parts and for supporting the development! It means\n"
+                     "a great deal to us.\n"
+                     "\n"
+                     "Your " (name plan) " subscription is active, and it simply carries\n"
+                     "on when Parts launches. You can update your payment details,\n"
+                     "switch plans, or cancel at any time from your account page:\n"
+                     "\n"
+                     "[" account-url "](" account-url ")\n"
+                     "\n"
+                     "Stripe emails your receipt for each payment separately.\n"
+                     "\n"
+                     "If you have any questions at all, or any feedback about Parts,\n"
+                     "just reply to this email.\n"
+                     "\n"
+                     "Warmly,  \n"
+                     "Gosha and Tingyi, creators of Parts")
+                (layout/transactional-footer email)))}))
 
 (defn- send-thank-you!
   "Send the first-subscription thank-you, insulated from the webhook's
