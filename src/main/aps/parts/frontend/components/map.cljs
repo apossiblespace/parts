@@ -22,6 +22,7 @@
    [aps.parts.common.utils :refer [plural]]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
+   [aps.parts.frontend.components.archive-prototype :as archive-proto]
    [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.components.body-location :refer [body-location-window]]
    [aps.parts.frontend.components.conversation-window :refer [conversation-window]]
@@ -31,6 +32,7 @@
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types part-symbols]]
    [aps.parts.frontend.components.notes-window :refer [notes-window]]
+   [aps.parts.frontend.components.prototype-switcher :as proto]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
    [aps.parts.frontend.components.toolbar.session-card :refer [trigger-window]]
@@ -389,7 +391,8 @@
                                        map-name-width-classes
                                        (when time-travelling? " cursor-default"))
               :display-text-class map-name-text-class
-              :display-prefix     ($ save-status-indicator)
+              :display-prefix     (when-not (archive-proto/map-proto? (proto/variant-from-url))
+                                    ($ save-status-indicator))
               :input-class        "input input-sm join-item w-48"
               :editing?           editing?
               :edit-on            (if time-travelling? :none :click)
@@ -491,7 +494,10 @@
                                        (o/track "Map data exported" {})
                                        (close-dropdown!)))}
                       ($ :span {:class "w-4 shrink-0"})
-                      "Export map data")))))
+                      "Export map data"))
+                ;; PROTOTYPE (archive)
+                (when (archive-proto/map-proto? (proto/variant-from-url))
+                  ($ :li ($ :a ($ :span {:class "w-4 shrink-0"}) "Unarchive Map"))))))
        ;; The conversation is a view of the whole Map (All mode, opened at
        ;; the viewed Session), so it opens from here, not the Session card.
        ($ :div {:class "shadow-xs shrink-0"}
@@ -1263,8 +1269,19 @@
            (.removeEventListener js/window "blur" on-blur))))
      [set-tool-mode time-travelling? minimal])
 
-    ($ :div {:class "map-container"}
+    ($ :div {:class (str "map-container"
+                         (when (archive-proto/strip? (proto/variant-from-url)) " flex-col"))
+             ;; PROTOTYPE (archive): the strip takes 2rem; the map view's
+             ;; flex: 1 fills the rest of the window.
+             :style (when (archive-proto/strip? (proto/variant-from-url)) {:height "100dvh"})}
        ($ save-error-banner)
+       ;; PROTOTYPE (archive)
+       (when (archive-proto/strip? (proto/variant-from-url))
+         ($ archive-proto/archived-strip))
+       (when (archive-proto/map-proto? (proto/variant-from-url))
+         ($ proto/prototype-switcher {:variants  archive-proto/map-variants
+                                      :current   (proto/variant-from-url)
+                                      :on-change #(.reload js/location)}))
        ;; Not in the minimal hero demo — that background canvas is
        ;; hidden on small screens anyway, and the headline sits where
        ;; the banner would.
@@ -1291,6 +1308,11 @@
                 ($ :path {:d    "M 0 0 L 10 5 L 0 10 z"
                           :fill "context-stroke"}))))
        ($ :div {:ref               map-view-ref
+                ;; PROTOTYPE (archive)
+                :style             (let [v (proto/variant-from-url)]
+                                     (cond-> {}
+                                       (archive-proto/strip? v) (assoc :minHeight 0)
+                                       (archive-proto/tint? v)  (assoc :backgroundColor archive-proto/tint-color)))
                 :class             (str "map-view"
                                         (when minimal " minimal")
                                         (when time-travelling? " time-travelling")

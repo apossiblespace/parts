@@ -11,8 +11,10 @@
    [aps.parts.common.utils :refer [plural]]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
+   [aps.parts.frontend.components.archive-prototype :as archive-proto]
    [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.components.product-updates-view :as product-updates]
+   [aps.parts.frontend.components.prototype-switcher :as proto]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
@@ -98,33 +100,42 @@
   "One card in the Maps grid: the preview on top, then the title, the
    part-type strip, and a two-line footer — the latest Session with its
    anchor date, and the relative last-update time."
-  [{:keys [the-map on-select]}]
+  [{:keys [the-map on-select archived-at menu]}]
   (let [{:keys [parts_by_type last_session]} (:stats the-map)]
-    ($ :button
-       ;; No overflow-hidden here — it would clip the strip's tooltip at
-       ;; the card edges. The preview clips its own corners instead.
-       {:class    (str "cursor-pointer bg-white border border-base-300 rounded-lg "
-                       "shadow-sm hover:shadow-md transition-shadow "
-                       "text-left p-0 flex flex-col")
-        :on-click #(on-select the-map)}
-       ($ map-preview {:the-map the-map})
-       ($ :div {:class "p-3 flex flex-col gap-1.5 w-full min-w-0"}
-          ($ :h2 {:class "text-sm font-medium truncate"}
-             (:title the-map))
-          ($ type-strip {:by-type parts_by_type})
-          ($ :div {:class "text-xs text-gray-500 flex flex-col gap-0.5"}
+    ;; PROTOTYPE (archive): the card frame is the wrapper. The button's
+    ;; ::after covers the whole card, so a click anywhere opens the Map;
+    ;; the menu sits above it, in the footer row.
+    ;; No overflow-hidden here — it would clip the strip's tooltip at the
+    ;; card edges. The preview clips its own corners instead.
+    ($ :div {:class (str "relative bg-white border border-base-300 rounded-lg "
+                         "shadow-sm hover:shadow-md transition-shadow flex flex-col"
+                         (when archived-at " [&_img]:grayscale [&_img]:opacity-60"))}
+       ($ :button
+          {:class    (str "cursor-pointer text-left p-0 flex flex-col w-full "
+                          "after:absolute after:inset-0 after:content-['']")
+           :on-click #(on-select the-map)}
+          ($ map-preview {:the-map the-map})
+          ($ :div {:class "p-3 pb-0 flex flex-col gap-1.5 w-full min-w-0"}
+             ($ :h2 {:class "text-sm font-medium truncate"}
+                (:title the-map))
+             ($ type-strip {:by-type parts_by_type})
              (when last_session
-               ($ :span {:class "flex items-baseline"}
+               ($ :span {:class "flex items-baseline text-xs text-gray-500"}
                   ($ :span {:class "whitespace-nowrap"}
                      (str "Session " (:ordinal last_session)))
                   ($ :span {:class (str "flex-1 mx-1.5 self-center "
                                         "border-b border-dotted border-gray-300")})
                   ($ :span {:class "whitespace-nowrap"}
                      (dates/format-date dates/long-date-format
-                                        (:anchor_valid_at last_session)))))
-             (when-let [updated (dates/relative-past (:updated_at the-map))]
-               ($ :span {:class "mt-3"}
-                  (str "Updated " updated))))))))
+                                        (:anchor_valid_at last_session)))))))
+       ($ :div {:class "px-3 pb-4 pt-3.5 mt-auto flex flex-col gap-0.5 text-xs text-gray-500"}
+          (when archived-at
+            ($ :span (str "Archived " (dates/format-date dates/long-date-format archived-at))))
+          ($ :div {:class "flex items-center gap-2"}
+             ($ :span {:class "flex-1 min-w-0 truncate"}
+                (when-let [updated (dates/relative-past (:updated_at the-map))]
+                  (str "Updated " updated)))
+             menu)))))
 
 ;; Accounts from before 2026-10-10 are not subscribed to Product updates
 ;; until the User says yes. The question is a banner here, not a modal, so
@@ -162,22 +173,32 @@
       nil)))
 
 (defui maps-list []
-  (let [maps              (uix.rf/use-subscribe [:maps/list])
-        loading           (uix.rf/use-subscribe [:maps/loading])
-        [query set-query] (use-state "")
+  (let [maps                    (uix.rf/use-subscribe [:maps/list])
+        loading                 (uix.rf/use-subscribe [:maps/loading])
+        [query set-query]       (use-state "")
+        ;; PROTOTYPE (archive): in-memory archive state.
+        [variant set-variant]   (use-state (proto/variant-from-url))
+        proto?                  (#{"D1" "D2" "D3"} variant)
+        [archived set-archived] (use-state {})
+        [view set-view]         (use-state :active)
+        [confirm set-confirm]   (use-state nil)
+        all-maps                maps
+        maps                    (if proto?
+                                  (filter #(= (= view :archived) (contains? archived (:id %))) maps)
+                                  maps)
         ;; Normalise the query once per render, not once per map.
-        filtered          (let [q (str/lower-case (str/trim query))]
-                            (if (str/blank? q)
-                              maps
-                              (filter (partial title-matches? q) maps)))
+        filtered                (let [q (str/lower-case (str/trim query))]
+                                  (if (str/blank? q)
+                                    maps
+                                    (filter (partial title-matches? q) maps)))
 
-        handle-create     (fn []
-                            (rf/dispatch [:map/create]))
+        handle-create           (fn []
+                                  (rf/dispatch [:map/create]))
 
-        handle-select     (fn [the-map]
-                            (rf/dispatch [:router/navigate
-                                          ::router/map
-                                          {:id (:id the-map)}]))]
+        handle-select           (fn [the-map]
+                                  (rf/dispatch [:router/navigate
+                                                ::router/map
+                                                {:id (:id the-map)}]))]
 
     ;; Fetch the list when the route mounts.
     (use-effect
@@ -202,7 +223,11 @@
           ($ product-updates-question)
 
           ($ :div {:class "flex flex-wrap items-center justify-between gap-3 mb-4"}
-             ($ :h1 {:class "text-lg font-bold"} "Your Maps")
+             ($ :div {:class "flex items-center gap-3"}
+                ($ :h1 {:class "text-lg font-bold"} "Your Maps")
+                (when (and (= variant "D1") (seq archived))
+                  ($ archive-proto/segmented {:view           view             :on-view set-view
+                                              :archived-count (count archived)})))
              ;; w-full below sm gives the input's w-full a real width to
              ;; resolve against — a shrink-wrapped flex parent would make
              ;; the percentage a no-op.
@@ -215,12 +240,23 @@
                 ;; Hide the search until there's a list to filter — pointless
                 ;; chrome on an empty account. Stays put during a background
                 ;; refresh (we have maps), so it doesn't flicker.
-                (when (seq maps)
+                ;; PROTOTYPE (archive): any Map, active or archived, so switching
+                ;; views never shows or hides the filter.
+                (when (seq all-maps)
                   ($ :input {:type        "search"
                              :placeholder "Filter by title"
                              :class       "input input-bordered input-sm w-full sm:w-56"
                              :value       query
                              :on-change   #(set-query (.. % -target -value))}))))
+
+          ;; PROTOTYPE (archive): other placements of the view switch.
+          (when (and (= variant "D2") (seq archived))
+            ($ :div {:class "flex justify-center mb-4"}
+               ($ archive-proto/segmented {:view           view             :on-view set-view
+                                           :archived-count (count archived)})))
+          (when (and (= variant "D3") (seq archived))
+            ($ archive-proto/view-tabs {:view           view             :on-view set-view
+                                        :archived-count (count archived)}))
 
           (cond
             ;; Full spinner only on the FIRST load (nothing to show yet). A
@@ -241,8 +277,29 @@
             :else
             ($ :div {:class "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"}
                (for [the-map filtered]
-                 ($ map-card {:key       (:id the-map)
-                              :the-map   the-map
-                              :on-select handle-select}))))
+                 ($ map-card {:key         (:id the-map)
+                              :the-map     the-map
+                              :on-select   handle-select
+                              :archived-at (get archived (:id the-map))
+                              :menu        (when proto?
+                                             ($ archive-proto/more-menu
+                                                {:archived?    (contains? archived (:id the-map))
+                                                 :on-archive   #(set-confirm the-map)
+                                                 :on-unarchive #(set-archived (fn [a]
+                                                                                (let [a (dissoc a (:id the-map))]
+                                                                                  (when (empty? a) (set-view :active))
+                                                                                  a)))}))}))))
 
-          ($ app-footer)))))
+          ($ app-footer)
+
+          (when proto?
+            ($ :<>
+               ($ archive-proto/confirm-archive
+                  {:the-map    confirm
+                   :on-cancel  #(set-confirm nil)
+                   :on-confirm (fn []
+                                 (set-archived #(assoc % (:id confirm) (js/Date.)))
+                                 (set-confirm nil))})
+               ($ proto/prototype-switcher {:variants  archive-proto/list-variants
+                                            :current   variant
+                                            :on-change set-variant})))))))

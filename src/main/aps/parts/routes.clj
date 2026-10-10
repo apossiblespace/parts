@@ -249,10 +249,12 @@
      ;; namespace.
      ["/:id" {:parameters {:path {:id string?}}
               :middleware [auth-mw/wrap-map-access]}
-      ["" {:get    {:parameters {:query {(ds/opt :at) string?}}
-                    :handler    api.maps/get-map}
-           :put    {:handler api.maps/update-map}
-           :delete {:handler api.maps/delete-map}}]
+      ["" {:get {:parameters {:query {(ds/opt :at) string?}}
+                 :handler    api.maps/get-map}
+           :put {:handler api.maps/update-map}
+           ;; Disabled: deleting a Map is not a feature Parts provides at the
+           ;; moment. The handler is kept for possible future use.
+           #_#_:delete {:handler api.maps/delete-map}}]
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
       ["/render.pdf"  {:get {:parameters {:query {(ds/opt :at) string?}}
                              :handler    api.maps/render-pdf}}]

@@ -11,6 +11,7 @@
                                     create-test-map!]]
    [aps.parts.render.document :as document]
    [aps.parts.routes :as routes]
+   [aps.parts.server :as server]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [muuntaja.core :as m]))
@@ -169,14 +170,21 @@
       (is (= 200 (:status response)))
       (is (= "Updated" (-> response :body :title))))))
 
-(deftest test-delete-map
-  (testing "deletes the map (non-owner case is `wrap-map-access`'s job)"
-    (let [user     (create-test-user!)
-          the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
-          request  (make-request user :params {:id (:id the-map)})
-          response (api/delete-map request)]
-      (is (= 204 (:status response)))
-      (is (nil? (:body response))))))
+(deftest test-map-delete-endpoint-is-disabled
+  (testing "the API has no way to delete a Map"
+    (is (= 405 (:status ((server/app) {:request-method :delete
+                                       :uri            "/api/maps/some-id"})))
+        "DELETE on a Map is not allowed")))
+
+;; Disabled with its route (see routes.clj).
+#_(deftest test-delete-map
+    (testing "deletes the map (non-owner case is `wrap-map-access`'s job)"
+      (let [user     (create-test-user!)
+            the-map  (parts-map/create! {:title "Test" :owner_id (:id user)} (:id user))
+            request  (make-request user :params {:id (:id the-map)})
+            response (api/delete-map request)]
+        (is (= 204 (:status response)))
+        (is (nil? (:body response))))))
 
 (deftest test-batch-rollback-when-one-change-fails
   (testing "all-or-nothing batch: one bad change rolls back the rest"

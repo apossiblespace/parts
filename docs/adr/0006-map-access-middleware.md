@@ -6,6 +6,8 @@ Accepted — 2026-05-15.
 
 > Terminology: 'System' renamed to 'Map' (2026-05, TASK-015) — the decision below is unchanged, only the noun.
 
+> 2026-10-10: `delete-map` is no longer routed. Deleting a Map is not a feature Parts provides at the moment; the handler is kept, disabled, for possible future use. The decision below is unchanged.
+
 ## Context
 
 Four single-Map handlers — `get-map`, `update-map`, `delete-map`, `process-changes` — each repeated the same beat: extract the JWT subject, fetch the Map, check ownership, return 200 or 403. Three inlined the check; one used `user-can-modify-map?`. The access rule was copy-pasted, untested as a unit, and inconsistent.

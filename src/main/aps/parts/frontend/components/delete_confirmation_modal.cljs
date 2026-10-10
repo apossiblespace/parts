@@ -37,7 +37,7 @@
         :on-close on-close}
        ($ :<>
           ($ :p {:class "text-xs text-gray-700 mb-6"} body)
-          ($ :div {:class "modal-action space-x-2 flex"}
+          ($ :div {:class "modal-action flex gap-2"}
              ($ :button
                 {:type     "button"
                  :class    "btn btn-sm flex-1"

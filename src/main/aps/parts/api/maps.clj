@@ -111,13 +111,14 @@
     (-> (response/response updated)
         (response/status 200))))
 
-(defn delete-map
-  "Delete a map. Access is gated by `wrap-map-access` middleware."
-  [{:keys [identity parameters] :as _request}]
-  (let [user-id (:sub identity)
-        map-id  (get-in parameters [:path :id])]
-    (parts-map/delete! map-id user-id)
-    (response/status 204)))
+;; Disabled with its route (see routes.clj).
+#_(defn delete-map
+    "Delete a map. Access is gated by `wrap-map-access` middleware."
+    [{:keys [identity parameters] :as _request}]
+    (let [user-id (:sub identity)
+          map-id  (get-in parameters [:path :id])]
+      (parts-map/delete! map-id user-id)
+      (response/status 204)))
 
 (defn process-changes
   "Apply a batch of changes for a map atomically. Access is gated by
