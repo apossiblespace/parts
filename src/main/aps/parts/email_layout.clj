@@ -5,7 +5,7 @@
    The body is Markdown. The HTML part and the plain-text part are both
    made from the same sanitised HTML. The plain text writes a link as
    \"text (url)\". A footer ends both parts. A footer line is a string, or
-   a vector of `[label url]` links."
+   a vector of strings and `[label url]` links."
   (:require
    [aps.parts.config :as conf]
    [aps.parts.legal :as legal]
@@ -28,18 +28,29 @@
            (conf/mail-sender-identity)]))
 
 (defn- footer-text
+  "Plain text puts each part of a line on its own line, so a URL is never
+   cut by the text around it."
   [lines]
-  (str/join "\n" (mapcat #(if (string? %) [%] (for [[label url] %] (str label ": " url)))
+  (str/join "\n" (mapcat #(if (string? %)
+                            [%]
+                            (for [item %]
+                              (if (string? item) item (let [[label url] item] (str label ": " url)))))
                          lines)))
 
 (defn- footer-html
+  "Two links next to each other are separated by a dot, and text and a
+   link by a space."
   [lines]
   (for [line lines]
     [:p {:style "font-size:13px;line-height:1.5;color:#6b6b6b;margin:0 0 4px"}
      (if (string? line)
        line
-       (interpose " · " (for [[label url] line]
-                          [:a {:href url :style "color:#6b6b6b"} label])))]))
+       (rest (mapcat (fn [prev item]
+                       [(if (and (vector? prev) (vector? item)) " · " " ")
+                        (if (string? item)
+                          item
+                          (let [[label url] item] [:a {:href url :style "color:#6b6b6b"} label]))])
+                     (cons nil line) line)))]))
 
 ;; Mail clients ignore style sheets in many cases, so every style is inline.
 (defn- html-document

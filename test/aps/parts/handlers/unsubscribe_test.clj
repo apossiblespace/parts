@@ -10,7 +10,8 @@
 (use-fixtures :each with-test-db)
 
 (defn- user-row [id]
-  (db/query-one (db/sql-format {:select [:product_updates_opted_out_at :unsubscribe_token]
+  (db/query-one (db/sql-format {:select [:product_updates_opted_out_at :product_updates_chosen_at
+                                         :unsubscribe_token]
                                 :from   [:users]
                                 :where  [:= :id id]})))
 
@@ -30,11 +31,23 @@
       (let [response (app (mock/request :post (url token)))]
         (is (= 303 (:status response)))
         (is (= (url token) (get-in response [:headers "Location"])))
-        (is (some? (:product_updates_opted_out_at (user-row id))))))
+        (is (some? (:product_updates_opted_out_at (user-row id))))
+        (is (some? (:product_updates_chosen_at (user-row id))) "the link records a choice")))
 
     (testing "get then shows the result"
       (is (str/includes? (:body (app (mock/request :get (url token))))
                          "You are unsubscribed")))))
+
+(deftest test-repeated-unsubscribe-keeps-the-choice-time
+  (let [app   (server/app)
+        id    (:id (create-test-user!))
+        token (:unsubscribe_token (user-row id))]
+    (app (mock/request :post (url token)))
+    (let [first-choice (:product_updates_chosen_at (user-row id))]
+      (Thread/sleep 5)
+      (app (mock/request :post (url token)))
+      (is (= first-choice (:product_updates_chosen_at (user-row id)))
+          "a resent one-click POST does not move the time of the real choice"))))
 
 (deftest test-one-click-unsubscribe
   (let [app   (server/app)

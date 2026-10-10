@@ -90,3 +90,28 @@ email output did not change. Operator alerts stay plain text without a footer:
 they go to the operator, not to Users. The welcome email, the password-changed
 notice and the subscription thank-you email use the same layout and footer
 (TASK-142).
+
+## Addendum (2026-10-10): existing Users opt in, in the app
+
+This reverses the rejected option "Unsubscribed by default for existing Users".
+Product updates are marketing under PECR. The privacy policy that existing Users
+accepted promised that any marketing email would be opt-in, and they had no way
+to refuse at sign-up, so the soft opt-in does not cover them. A policy update and
+a notice cannot create their consent, and an email that asks for consent is
+itself marketing.
+
+So a User now gets Product updates only after an explicit choice. A new column,
+`users.product_updates_chosen_at`, records the time of the User's latest choice:
+the sign-up box, the Account toggle, the unsubscribe link, or the in-app
+question. Subscribed means a choice is recorded and `product_updates_opted_out_at`
+is NULL; NULL in both means the User never chose and is not subscribed. The
+migration added the column and gave Users who had already opted out their
+opt-out time as their choice; every other existing account has no choice, so
+it is not subscribed. `product_updates_opted_out_at` still records only real
+refusals. The Maps list asks Users who never
+chose with a banner (Subscribe / No, thanks). It never interrupts as a modal,
+it stays until the User answers, and "No, thanks" is final. While a User is
+subscribed, the choice time is the record of the choice: consent for a yes in
+Parts, the soft opt-in for a kept sign-up box. New accounts keep the pre-ticked
+sign-up box under the soft opt-in (privacy policy 2026-10-10, sections 3 and
+11).

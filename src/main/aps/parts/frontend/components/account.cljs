@@ -191,7 +191,8 @@
                 {:type      "checkbox"
                  :id        "product-updates"
                  :class     "checkbox checkbox-sm shrink-0 mt-0.5"
-                 :checked   (nil? (:product_updates_opted_out_at user))
+                 :checked   (and (some? (:product_updates_chosen_at user))
+                                 (nil? (:product_updates_opted_out_at user)))
                  :disabled  (nil? user)
                  :on-change #(rf/dispatch [:account/update
                                            {:product_updates (.. % -target -checked)}])})

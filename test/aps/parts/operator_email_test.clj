@@ -86,7 +86,10 @@
                   conf/mail-sender-identity (constantly nil)]
       (let [{:keys [text html]} (email/content (draft "product-update")
                                                {:to "a@example.com" :unsubscribe-url url})]
-        (is (str/includes? text "(sent to a@example.com)."))
+        (is (str/includes? text (str "This email was sent to a@example.com; you are receiving it because"
+                                     " you are subscribed to Parts product updates.\nUnsubscribe: " url)))
+        (is (re-find #"product updates\. <a href=\"[^\"]+\"[^>]*>Unsubscribe</a>" html)
+            "the unsubscribe link ends the sentence")
         (is (str/includes? text "Privacy Policy: https://parts.example/privacy"))
         (is (str/includes? html "https://parts.example/privacy")))))
   (testing "ends with the company line when it is configured"

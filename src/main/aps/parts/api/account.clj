@@ -135,8 +135,13 @@
   (let [account (user/create! (dissoc params :accepted-legal? :accepted-medical?
                                       :product-updates-opt-out?)
                               tx)
-        account (if (true? (:product-updates-opt-out? params))
-                  (user/set-product-updates! (:id account) false tx)
+        ;; The sign-up box is the User's choice, so a new account never
+        ;; sees the in-app question. Without the box value, nothing is
+        ;; chosen and the app asks later.
+        account (if (contains? params :product-updates-opt-out?)
+                  (user/set-product-updates! (:id account)
+                                             (not (true? (:product-updates-opt-out? params)))
+                                             tx)
                   account)
         title   "Example Map"
         the-map (parts-map/create! {:title title :owner_id (:id account)} (:id account) tx)]

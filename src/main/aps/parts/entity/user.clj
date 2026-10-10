@@ -89,6 +89,7 @@
                                [:u.role :role]
                                [:u.paid_through_date :paid_through_date]
                                [:u.product_updates_opted_out_at :product_updates_opted_out_at]
+                               [:u.product_updates_chosen_at :product_updates_chosen_at]
                                [:m.id :map_id]]
                    :from      [[:users :u]]
                    :left-join [[:maps :m] [:= :m.owner_id :u.id]]
@@ -120,12 +121,14 @@
 
 (defn set-product-updates!
   "Subscribes the user `id` to Product updates when `subscribed?` is true,
-   and opts the user out otherwise. Returns the user."
+   and opts the user out otherwise. Records the time of this choice: for a
+   yes in Parts it is the time of the User's consent. Returns the user."
   ([id subscribed?] (set-product-updates! id subscribed? db/datasource))
   ([id subscribed? tx]
    (remove-sensitive-data
     (first (db/update! :users
-                       {:product_updates_opted_out_at (when-not subscribed? opted-out-now)}
+                       {:product_updates_opted_out_at (when-not subscribed? opted-out-now)
+                        :product_updates_chosen_at    [:now]}
                        [:= :id (db/->uuid id)]
                        tx)))))
 
@@ -146,8 +149,13 @@
   [token]
   (boolean
    (when-let [token (parse-uuid (str token))]
+     ;; A repeated unsubscribe (a mail client can resend the one-click
+     ;; POST) keeps the time of the real choice.
      (seq (db/update! :users
-                      {:product_updates_opted_out_at opted-out-now}
+                      {:product_updates_opted_out_at opted-out-now
+                       :product_updates_chosen_at    [:case [:= :product_updates_opted_out_at nil]
+                                                      [:now]
+                                                      :else :product_updates_chosen_at]}
                       [:= :unsubscribe_token token])))))
 
 (defn create!

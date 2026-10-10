@@ -59,14 +59,15 @@
   "Returns the footer lines of an email of `kind` to `to`."
   [kind {:keys [to unsubscribe-url]}]
   (remove nil?
-          [(str (if (product-update? kind)
-                  "You get product updates because you have a Parts account"
-                  "This is a service notice about your Parts account")
-                " (sent to " to ").")
-           (cond-> []
-             (product-update? kind) (conj ["Unsubscribe" unsubscribe-url])
-             :always                (conj (layout/privacy-link)))
-           (conf/mail-sender-identity)]))
+          (if (product-update? kind)
+            [[(str "This email was sent to " to "; you are receiving it because you are"
+                   " subscribed to Parts product updates.")
+              ["Unsubscribe" unsubscribe-url]]
+             [(layout/privacy-link)]
+             (conf/mail-sender-identity)]
+            [(str "This is a service notice about your Parts account (sent to " to ").")
+             [(layout/privacy-link)]
+             (conf/mail-sender-identity)])))
 
 (defn content
   "Returns the `{:text :html}` parts of the email for `draft` to the
@@ -127,30 +128,32 @@
   (cond-> [:and
            (erasure/exclude-tombstone :users.id)
            [:= :users.deletion_requested_at nil]]
-    (product-update? kind) (conj [:= :users.product_updates_opted_out_at nil])))
+    (product-update? kind) (conj [:= :users.product_updates_opted_out_at nil]
+                                 [:<> :users.product_updates_chosen_at nil])))
 
 ;; The recipient count uses `audience-where`, the condition of the send,
 ;; so the count in the page is the number of Users who get the email.
 (defn audience
   "Returns how many Users a new email of `kind` goes to, as
-   `{:users :pending :opted-out :recipients}`. Opted-out Users count only
-   for a Product update."
+   `{:users :pending :not-subscribed :recipients}`. Users who are not
+   subscribed (opted out, or never chose) count only for a Product update."
   [kind]
-  (let [{:keys [users pending opted_out recipients]}
+  (let [{:keys [users pending not_subscribed recipients]}
         (db/query-one
          (db/sql-format
           {:select [[[:count :*] :users]
                     [(count-where [:<> :users.deletion_requested_at nil]) :pending]
                     [(count-where [:and [:= :users.deletion_requested_at nil]
-                                   [:<> :users.product_updates_opted_out_at nil]])
-                     :opted_out]
+                                   [:or [:<> :users.product_updates_opted_out_at nil]
+                                    [:= :users.product_updates_chosen_at nil]]])
+                     :not_subscribed]
                     [(count-where (audience-where kind)) :recipients]]
            :from   [:users]
            :where  (erasure/exclude-tombstone :users.id)}))]
-    {:users      users
-     :pending    pending
-     :opted-out  (if (product-update? kind) opted_out 0)
-     :recipients recipients}))
+    {:users          users
+     :pending        pending
+     :not-subscribed (if (product-update? kind) not_subscribed 0)
+     :recipients     recipients}))
 
 (defn- delivered
   "A condition that is true when the User has a delivery row for the email

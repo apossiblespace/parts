@@ -11,13 +11,20 @@
 
 (use-fixtures :each with-test-db)
 
+(defn- subscriber!
+  "A user who chose to get product updates."
+  []
+  (let [u (create-test-user!)]
+    (user/set-product-updates! (:id u) true)
+    u))
+
 (defn- users
   "Creates a subscribed user, an opted-out user and a user pending
    deletion."
   []
-  (let [subscribed (create-test-user!)
-        opted-out  (create-test-user!)
-        pending    (create-test-user!)]
+  (let [subscribed (subscriber!)
+        opted-out  (subscriber!)
+        pending    (subscriber!)]
     (user/set-product-updates! (:id opted-out) false)
     (binding [*out* (java.io.StringWriter.)]
       (erasure/request-deletion! db/datasource (:id pending)))
@@ -47,10 +54,13 @@
 
 (deftest test-audience
   (users)
-  (testing "a product update skips pending deletion and opted-out users"
-    (is (= {:users 3 :pending 1 :opted-out 1 :recipients 1} (email/audience "product-update"))))
+  (testing "a product update skips pending deletion and users who are not subscribed"
+    (is (= {:users 3 :pending 1 :not-subscribed 1 :recipients 1} (email/audience "product-update"))))
   (testing "a service notice skips only pending deletion"
-    (is (= {:users 3 :pending 1 :opted-out 0 :recipients 2} (email/audience "service-notice")))))
+    (is (= {:users 3 :pending 1 :not-subscribed 0 :recipients 2} (email/audience "service-notice"))))
+  (testing "a user who never chose is not subscribed"
+    (create-test-user!)
+    (is (= {:users 4 :pending 1 :not-subscribed 2 :recipients 1} (email/audience "product-update")))))
 
 (deftest test-recipients-per-kind
   (let [{:keys [subscribed opted-out]} (users)
@@ -65,8 +75,8 @@
         (is (= #{(:email subscribed) (:email opted-out)} (set (map :to @sent))))))))
 
 (deftest test-send-records-each-delivery
-  (let [ok   (create-test-user!)
-        bad  (create-test-user!)
+  (let [ok   (subscriber!)
+        bad  (subscriber!)
         id   (store! "service-notice")
         sent (atom [])]
     (with-mailer sent #{(:email bad)}
@@ -83,7 +93,7 @@
                                                               :where  [:= :id id]}))))))))
 
 (deftest test-unsubscribe-link-per-user
-  (let [subscribed (create-test-user!)
+  (let [subscribed (subscriber!)
         token      (:unsubscribe_token (db/query-one (db/sql-format {:select [:unsubscribe_token]
                                                                      :from   [:users]
                                                                      :where  [:= :id (:id subscribed)]})))
@@ -95,8 +105,8 @@
              (get (first @sent) "List-Unsubscribe"))))))
 
 (deftest test-resume-skips-delivered-users
-  (let [ok   (create-test-user!)
-        bad  (create-test-user!)
+  (let [ok   (subscriber!)
+        bad  (subscriber!)
         id   (store! "service-notice")
         sent (atom [])]
     (with-mailer sent #{(:email bad)}
@@ -110,8 +120,8 @@
       (is (nil? (:error (delivery id (:id bad))))))))
 
 (deftest test-summaries
-  (let [ok      (create-test-user!)
-        bad     (create-test-user!)
+  (let [ok      (subscriber!)
+        bad     (subscriber!)
         done-id (store! "service-notice")]
     (with-mailer (atom []) #{(:email bad)}
       (email/send-email! done-id))
@@ -149,13 +159,13 @@
           (is (nil? (email/current-send))))))))
 
 (deftest test-retry-of-a-finished-email
-  (let [ok   (create-test-user!)
-        bad  (create-test-user!)
+  (let [ok   (subscriber!)
+        bad  (subscriber!)
         id   (store! "service-notice")
         sent (atom [])]
     (with-mailer sent #{(:email bad)}
       (email/send-email! id))
-    (let [later (create-test-user!)]
+    (let [later (subscriber!)]
       (reset! sent [])
       (with-mailer sent #{}
         (email/send-email! id true))
@@ -185,8 +195,8 @@
       (is (= {done-id true stopped-id false} @modes)))))
 
 (deftest test-user-who-leaves-during-a-send
-  (let [first-user  (create-test-user!)
-        second-user (create-test-user!)
+  (let [first-user  (subscriber!)
+        second-user (subscriber!)
         id          (store! "product-update")
         sent        (atom [])]
     (with-redefs [conf/base-url (constantly "https://parts.example")
@@ -200,7 +210,7 @@
 
 (deftest test-unknown-email
   (let [sent (atom [])]
-    (create-test-user!)
+    (subscriber!)
     (with-mailer sent #{}
       (testing "sending an email that does not exist sends nothing"
         (is (nil? (email/send-email! (random-uuid))))
@@ -210,8 +220,8 @@
 
 (deftest test-send-stops-on-a-broken-relay
   (testing "a configuration error stops the send and leaves the email stopped"
-    (create-test-user!)
-    (create-test-user!)
+    (subscriber!)
+    (subscriber!)
     (let [id    (store! "service-notice")
           tries (atom 0)]
       (with-redefs [mail/send! (fn [_]
@@ -221,7 +231,7 @@
       (is (= 1 @tries))
       (is (= :stopped (:state (first (email/sent-emails)))))))
   (testing "five failures in a row stop the send"
-    (dotimes [_ 5] (create-test-user!))
+    (dotimes [_ 5] (subscriber!))
     (let [id    (store! "service-notice")
           tries (atom 0)]
       (with-redefs [mail/send! (fn [_]
@@ -239,7 +249,7 @@
 
 (deftest test-failed-users-go-last
   (let [dead (doall (repeatedly 5 create-test-user!))
-        late (create-test-user!)
+        late (subscriber!)
         id   (store! "service-notice")
         sent (atom [])]
     (doseq [u dead] (fail-row! id (:id u)))
@@ -262,7 +272,7 @@
         (is (= 6 @tries))))))
 
 (deftest test-first-finish-is-kept
-  (create-test-user!)
+  (subscriber!)
   (let [id       (store! "service-notice")
         finished #(:completed_at (db/query-one (db/sql-format {:select [:completed_at]
                                                                :from   [:operator_emails]
@@ -276,8 +286,8 @@
           (is (= first-finish (finished))))))))
 
 (deftest test-retryable-failures
-  (let [subscribed (create-test-user!)
-        leaving    (create-test-user!)
+  (let [subscribed (subscriber!)
+        leaving    (subscriber!)
         id         (:id (db/insert! :operator_emails {:kind         "product-update" :subject "S" :body "B"
                                                       :completed_at [:now]}))]
     (fail-row! id (:id subscribed))

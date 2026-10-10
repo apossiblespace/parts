@@ -153,7 +153,7 @@
   (db/query
    (db/sql-format
     {:select [:paid_through_date :is_founding_circle :deletion_requested_at
-              :product_updates_opted_out_at]
+              :product_updates_opted_out_at :product_updates_chosen_at]
      :from   [:users]
      :where  (erasure/exclude-tombstone :id)})))
 
@@ -232,7 +232,7 @@
                 :last_30d {:count :pct}}          ; the `user-activity` window
       :totals  {:maps :parts :relationships}      ; current rows across all owners
       :founding_circle <n>
-      :product_updates {:subscribed :opted_out}
+      :product_updates {:subscribed :opted_out :not_asked}
       :billing {:paid :overdue :never_paid}}      ; reuses billing/account-standing
 
    'Active' means *made a change* in the window (see CONTEXT.md, 'Active
@@ -256,8 +256,9 @@
                         :parts         (bt/count-current db/datasource :parts)
                         :relationships (bt/count-current db/datasource :relationships)}
       :founding_circle (count (filter :is_founding_circle users))
-      :product_updates (let [out (count (filter :product_updates_opted_out_at users))]
-                         {:subscribed (- total out) :opted_out out})
+      :product_updates (let [out   (count (filter :product_updates_opted_out_at users))
+                             asked (count (filter :product_updates_chosen_at users))]
+                         {:subscribed (- asked out) :opted_out out :not_asked (- total asked)})
       :billing         (billing-breakdown users today)})))
 
 (defn fleet-stats!

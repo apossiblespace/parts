@@ -1,5 +1,5 @@
 (ns aps.parts.frontend.components.maps-list
-  "Full-page Maps list route (/app/maps). Fetches the list on mount and
+  "Full-page Maps list route (/app). Fetches the list on mount and
    lets the user open or create a Map. Each Map is a card in a grid:
    the server-side SVG preview (see ADR-0008) on top, then the Map's
    title, a proportional part-type strip, and the latest Session plus
@@ -12,6 +12,7 @@
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.components.banner :refer [banner]]
+   [aps.parts.frontend.components.product-updates-view :as product-updates]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
@@ -125,6 +126,41 @@
                ($ :span {:class "mt-3"}
                   (str "Updated " updated))))))))
 
+;; Accounts from before 2026-10-10 are not subscribed to Product updates
+;; until the User says yes. The question is a banner here, not a modal, so
+;; it never interrupts work. It stays until the User answers. See ADR-0020.
+(defui ^:private product-updates-question
+  "The one-time question about Product updates, and a confirmation after
+   the User subscribes."
+  []
+  (let [user                  (uix.rf/use-subscribe [:auth/user])
+        [answered set-answer] (use-state nil)
+        answer!               (fn [subscribe?]
+                                (set-answer (if subscribe? :yes :no))
+                                (rf/dispatch
+                                 [:account/update
+                                  {:product_updates subscribe?}]))]
+    (case (product-updates/prompt user answered)
+      :ask
+      ($ banner {:variant :info :class "mb-4"}
+         ($ :div {:class "flex flex-1 flex-wrap items-center gap-x-3 gap-y-2"}
+            ($ :p {:class "flex-1 min-w-48"}
+               ($ :span {:class "font-bold"} "Get product updates by email?")
+               (str " We would like to occasionally email you about new"
+                    " features added to Parts. You will always be able to"
+                    " unsubscribe in one click."))
+            ($ :div {:class "flex items-center gap-2 self-stretch sm:border-l sm:border-sky-200 sm:pl-3"}
+               ($ :button {:class    "btn btn-sm"
+                           :on-click #(answer! false)} "No, thanks")
+               ($ :button {:class    "btn btn-sm btn-primary"
+                           :on-click #(answer! true)} "Subscribe"))))
+
+      :subscribed
+      ($ banner {:variant :success :class "mb-4"}
+         ($ :p "Subscribed. You can change this on your Account page."))
+
+      nil)))
+
 (defui maps-list []
   (let [maps              (uix.rf/use-subscribe [:maps/list])
         loading           (uix.rf/use-subscribe [:maps/loading])
@@ -162,6 +198,8 @@
           (when device/phone-primary?
             ($ banner {:variant :warning :class "mb-4"}
                ($ :p "To create and edit Maps, use a tablet or computer.")))
+
+          ($ product-updates-question)
 
           ($ :div {:class "flex flex-wrap items-center justify-between gap-3 mb-4"}
              ($ :h1 {:class "text-lg font-bold"} "Your Maps")

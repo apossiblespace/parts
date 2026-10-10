@@ -48,6 +48,7 @@
               :paid_through_date            nil
               :map_id                       nil
               :product_updates_opted_out_at nil
+              :product_updates_chosen_at    nil
               ;; A fresh account has never paid, so good standing is unset.
               :standing                     {:status            :never-paid
                                              :paid_through_date nil
@@ -293,7 +294,8 @@
 ;;; Product updates
 
 (defn- opt-out-row [user-id]
-  (db/query-one (db/sql-format {:select [:product_updates_opted_out_at :unsubscribe_token]
+  (db/query-one (db/sql-format {:select [:product_updates_opted_out_at :product_updates_chosen_at
+                                         :unsubscribe_token]
                                 :from   [:users]
                                 :where  [:= :id user-id]})))
 
@@ -303,14 +305,20 @@
 (deftest test-product-updates
   (let [user (create-test-user!)
         id   (:id user)]
-    (testing "a new account is subscribed and has an unsubscribe token"
+    (testing "a user created without a choice is not opted out, and has an unsubscribe token"
       (is (nil? (:product_updates_opted_out_at (opt-out-row id))))
       (is (uuid? (:unsubscribe_token (opt-out-row id)))))
 
-    (testing "patching product_updates alone opts the user out"
+    (testing "an account that never chose has no choice time, and the API says so"
+      (is (nil? (:product_updates_chosen_at (opt-out-row id))))
+      (is (contains? (:body (account/get-account {:identity {:sub id}}))
+                     :product_updates_chosen_at)))
+
+    (testing "patching product_updates alone opts the user out and records the choice"
       (let [response (patch! id {:product_updates false})]
         (is (= 200 (:status response)))
         (is (some? (-> response :body :product_updates_opted_out_at)))
+        (is (some? (-> response :body :product_updates_chosen_at)))
         (is (some? (:product_updates_opted_out_at (opt-out-row id))))))
 
     (testing "opting out again keeps the first opt-out time"
@@ -318,9 +326,13 @@
         (patch! id {:product_updates false})
         (is (= first-time (:product_updates_opted_out_at (opt-out-row id))))))
 
-    (testing "patching product_updates true opts the user back in"
-      (patch! id {:product_updates true})
-      (is (nil? (:product_updates_opted_out_at (opt-out-row id)))))
+    (testing "patching product_updates true opts the user back in, at a new choice time"
+      (let [before (:product_updates_chosen_at (opt-out-row id))]
+        (Thread/sleep 5)
+        (patch! id {:product_updates true})
+        (is (nil? (:product_updates_opted_out_at (opt-out-row id))))
+        (is (pos? (compare (:product_updates_chosen_at (opt-out-row id)) before))
+            "the choice time is the time of consent")))
 
     (testing "patches product_updates together with other fields"
       (let [response (patch! id {:product_updates false :display_name "Both"})]
@@ -343,12 +355,22 @@
                                          {:product-updates-opt-out? true})})]
       (is (= 201 (:status response)))
       (is (some? (:product_updates_opted_out_at (opt-out-row (-> response :body :id)))))
+      (is (some? (:product_updates_chosen_at (opt-out-row (-> response :body :id))))
+          "the sign-up box is a choice, so a new account is never asked in the app")
       (is (not (contains? (:body response) :unsubscribe_token)))))
 
-  (testing "registers a subscribed account by default"
+  (testing "records no choice when the request has no sign-up box value"
     (let [response (account/register-account
                     {:body-params (merge (factory/build-test-user) acceptance)})]
-      (is (nil? (:product_updates_opted_out_at (opt-out-row (-> response :body :id))))))))
+      (is (nil? (:product_updates_chosen_at (opt-out-row (-> response :body :id)))))))
+
+  (testing "registers a subscribed account when the box is left ticked"
+    (let [response (account/register-account
+                    {:body-params (merge (factory/build-test-user) acceptance
+                                         {:product-updates-opt-out? false})})
+          row      (opt-out-row (-> response :body :id))]
+      (is (nil? (:product_updates_opted_out_at row)))
+      (is (some? (:product_updates_chosen_at row))))))
 
 (defn- register-capturing-welcome
   "Calls `register` with the welcome send replaced by a stub. Returns the

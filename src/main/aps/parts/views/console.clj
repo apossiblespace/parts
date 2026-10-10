@@ -69,7 +69,8 @@
      (tile "Paid" (:paid billing)
            (str (:overdue billing) " overdue · " (:never_paid billing) " never paid"))
      (tile "Product updates" (:subscribed product_updates)
-           (str (:opted_out product_updates) " opted out"))]))
+           (str (:opted_out product_updates) " opted out · "
+                (:not_asked product_updates) " not asked"))]))
 
 (defn- user-row
   [today now {:keys [display_name email created_at is_founding_circle pending_deletion
@@ -145,13 +146,13 @@
 
 (defn- audience-math
   "The recipient count of step 3, written as a subtraction."
-  [{:keys [users pending opted-out recipients]}]
+  [{:keys [users pending not-subscribed recipients]}]
   (let [line (fn [label k n]
                (list [:span label] [:span [:span {:data-audience k} n]]))]
     [:div {:class "grid grid-cols-[auto_auto] justify-start gap-x-4 text-sm tabular-nums"}
      (line "Users" "users" users)
      (line "− Pending deletion" "pending" pending)
-     (line "− Opted out of product updates" "opted-out" opted-out)
+     (line "− Not subscribed to product updates" "not-subscribed" not-subscribed)
      [:span {:class "font-semibold border-t border-base-300"} "Recipients"]
      [:span {:class "font-semibold border-t border-base-300"}
       [:span {:data-audience "recipients"} recipients]]]))

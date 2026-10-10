@@ -272,8 +272,11 @@
   (let [out (create-test-user!)
         sub (create-test-user!)]
     (user/set-product-updates! (:id out) false)
-    (testing "fleet counts subscribed and opted out users"
-      (is (= {:subscribed 1 :opted_out 1} (:product_updates (stats/fleet today)))))
+    (user/set-product-updates! (:id sub) true)
+    (create-test-user!)
+    (testing "fleet counts subscribed, opted out and never-asked users"
+      (is (= {:subscribed 1 :opted_out 1 :not_asked 1} (:product_updates (stats/fleet today)))))
     (testing "user activity marks the opted out user"
       (is (= {(:id out) true (:id sub) false}
-             (into {} (map (juxt :id :product_updates_opted_out)) (stats/user-activity today)))))))
+             (-> (into {} (map (juxt :id :product_updates_opted_out)) (stats/user-activity today))
+                 (select-keys [(:id out) (:id sub)])))))))
