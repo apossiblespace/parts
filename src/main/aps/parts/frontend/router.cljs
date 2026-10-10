@@ -64,13 +64,13 @@
 
 (rf/reg-fx
  :router/navigate
- (fn [{:keys [name path-params]}]
-   (rfe/push-state name (or path-params {}))))
+ (fn [{:keys [name path-params query-params]}]
+   (rfe/push-state name (or path-params {}) query-params)))
 
 (rf/reg-event-fx
  :router/navigate
- (fn [_ [_ name path-params]]
-   {:router/navigate {:name name :path-params path-params}}))
+ (fn [_ [_ name path-params query-params]]
+   {:router/navigate {:name name :path-params path-params :query-params query-params}}))
 
 ;; Like :router/navigate but replacing the current entry, leaving no
 ;; history behind — used to drop one-shot query params such as

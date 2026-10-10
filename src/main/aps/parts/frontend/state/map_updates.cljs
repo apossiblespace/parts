@@ -62,3 +62,19 @@
         (cond-> previous (assoc-in [:map :title] previous))
         (update :maps dissoc :rename-rollback)
         (assoc-in [:maps :error] error))))
+
+(defn set-archived
+  "Records the archive time `archived-at` (nil after unarchiving) of the
+   Map `map-id`, in the open Map and in the Maps list, whichever holds it."
+  [db map-id archived-at]
+  (let [same? #(= (str map-id) (str %))]
+    (cond-> db
+      ;; A list that was never loaded stays nil, not an empty list.
+      (get-in db [:maps :list])
+      (update-in [:maps :list]
+                 (fn [maps]
+                   (mapv #(cond-> % (same? (:id %)) (assoc :archived_at archived-at))
+                         maps)))
+
+      (same? (get-in db [:map :id]))
+      (assoc-in [:map :archived_at] archived-at))))

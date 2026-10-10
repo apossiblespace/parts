@@ -255,6 +255,10 @@
            ;; Disabled: deleting a Map is not a feature Parts provides at the
            ;; moment. The handler is kept for possible future use.
            #_#_:delete {:handler api.maps/delete-map}}]
+      ;; The one write an archived Map accepts (see `wrap-map-access`).
+      ["/archive" {:allow-when-archived? true
+                   :put                  {:handler api.maps/set-archived}
+                   :delete               {:handler api.maps/set-archived}}]
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
       ["/render.pdf"  {:get {:parameters {:query {(ds/opt :at) string?}}
                              :handler    api.maps/render-pdf}}]

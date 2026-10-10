@@ -138,6 +138,21 @@
                        (error-message resp "Could not load that session")]))))))
 
 (rf/reg-fx
+ :map/set-archived-fx
+ (fn [{:keys [map-id archived?]}]
+   (go
+     ;; Edits made just before archiving must reach the server first: an
+     ;; archived Map refuses them.
+     (<! (queue/settled 10000))
+     (let [resp (<! (api/set-map-archived map-id archived?))]
+       (if (= 200 (:status resp))
+         (rf/dispatch [:map/set-archived-success map-id (:archived_at (:body resp))])
+         (rf/dispatch [:map/set-archived-failure
+                       (error-message resp (if archived?
+                                             "Could not archive the Map"
+                                             "Could not unarchive the Map"))]))))))
+
+(rf/reg-fx
  :session/create-fx
  (fn [{:keys [map-id]}]
    (go

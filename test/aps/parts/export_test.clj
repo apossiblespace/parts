@@ -5,6 +5,7 @@
   (:require
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
+   [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
    [aps.parts.export :as export]
    [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
@@ -150,3 +151,14 @@
       (is (= [{:part_id (:id part) :speaker "part" :text "[turns away]" :valid_to nil}]
              (mapv #(dissoc % :valid_from)
                    (:versions (first (:conversation_entries out)))))))))
+
+(deftest test-export-includes-archive-time
+  (let [user    (create-test-user!)
+        the-map (create-test-map! (:id user))]
+    (testing "an active Map exports no archive time"
+      (let [m (:map (export/export-map db/datasource (:id the-map)))]
+        (is (contains? m :archived_at))
+        (is (nil? (:archived_at m)))))
+    (testing "an archived Map exports when it was archived"
+      (parts-map/set-archived! (:id the-map) true (:id user))
+      (is (some? (:archived_at (:map (export/export-map db/datasource (:id the-map)))))))))

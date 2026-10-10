@@ -74,6 +74,14 @@
   [map-id session-id]
   (http/DELETE (str "/maps/" map-id "/sessions/" session-id "/activation")))
 
+(defn set-map-archived
+  "Archive the Map when `archived?` is true, and unarchive it otherwise.
+   A 200 carries {:id :archived_at}."
+  [map-id archived?]
+  (if archived?
+    (http/PUT (str "/maps/" map-id "/archive") {})
+    (http/DELETE (str "/maps/" map-id "/archive"))))
+
 ;; Account-related functions
 (defn update-account
   "Update own account fields — e.g. {:display_name \"…\"}. The server

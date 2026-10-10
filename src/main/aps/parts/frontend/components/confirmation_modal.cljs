@@ -1,13 +1,16 @@
-(ns aps.parts.frontend.components.delete-confirmation-modal
+(ns aps.parts.frontend.components.confirmation-modal
+  "A confirm/cancel dialog, for deletions and other actions that need a
+   confirmation."
   (:require
    [aps.parts.frontend.components.modal :refer [modal]]
    [uix.core :refer [defui $ use-effect use-ref]]))
 
-(defui delete-confirmation-modal
-  "A confirm/cancel modal for destructive deletions. Enter confirms regardless
-   of which button currently has focus; Escape (and backdrop click) cancel via
-   the underlying <dialog>."
-  [{:keys [show title body confirm-label on-confirm on-close]}]
+(defui confirmation-modal
+  "A confirm/cancel modal. Enter confirms regardless of which button
+   currently has focus; Escape (and backdrop click) cancel via the
+   underlying <dialog>. The confirm button is primary unless
+   `confirm-class` says otherwise, e.g. \"btn-error\" for a deletion."
+  [{:keys [show title body confirm-label confirm-class on-confirm on-close]}]
   (let [confirm-ref (use-ref nil)]
 
     ;; Pull focus onto Confirm whenever the modal opens, so Enter on a freshly
@@ -46,6 +49,6 @@
              ($ :button
                 {:ref      confirm-ref
                  :type     "button"
-                 :class    "btn btn-sm btn-error flex-1"
+                 :class    (str "btn btn-sm flex-1 " (or confirm-class "btn-primary"))
                  :on-click on-confirm}
-                (or confirm-label "Delete")))))))
+                (or confirm-label "OK")))))))

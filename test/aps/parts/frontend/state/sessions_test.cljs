@@ -67,6 +67,19 @@
     (is (nil? (sessions/read-only-reason
                {:phone? false :map {:id "m" :sessions [s1]}})))))
 
+(deftest test-archived-read-only
+  (testing "an archived Map is read-only, even with an active Session"
+    (is (= :archived (sessions/read-only-reason
+                      {:map {:id "m" :sessions [s1] :archived_at "2026-10-10"}})))
+    (is (false? (sessions/editable?
+                 {:map {:id "m" :sessions [s1] :archived_at "2026-10-10"}}))))
+  (testing "time-travel on an archived Map still reports the archive"
+    (is (= :archived (sessions/read-only-reason
+                      {:time-travel {:active? true}
+                       :map         {:id "m" :sessions [s1] :archived_at "2026-10-10"}}))))
+  (testing "an unarchived Map is editable again"
+    (is (nil? (sessions/read-only-reason {:map {:id "m" :sessions [s1] :archived_at nil}})))))
+
 (deftest add-session-test
   (testing "a started Session appends and becomes the active one"
     (let [db (sessions/add-session {:map {:id "m" :sessions [s1]}} s2)]

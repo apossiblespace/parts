@@ -150,6 +150,11 @@
      :not-found
      (exception-handler "Resource not found" 404)
 
+     ;; A change to an archived Map. The user-facing text is the message
+     ;; of the ex-info (`auth.middleware/wrap-map-access`).
+     :map-archived
+     (exception-handler "This Map is archived." 409)
+
      ;; db/->uuid on a malformed id — client input, not a server fault.
      :invalid-uuid
      (exception-handler "Invalid identifier" 400)

@@ -75,3 +75,21 @@
       (testing "the canvas state is left untouched — reload is the user's call"
         (is (= [{:id "p1"}] (get-in result [:map :parts])))
         (is (= "Anxious thoughts" (get-in result [:map :title])))))))
+
+(deftest test-set-archived
+  (let [db {:map  {:id "map-1" :title "Open Map"}
+            :maps {:list [{:id "map-1"} {:id "map-2"}]}}]
+    (testing "archiving records the time in the open Map and in the list"
+      (let [db (map-updates/set-archived db "map-1" "2026-10-10")]
+        (is (= "2026-10-10" (get-in db [:map :archived_at])))
+        (is (= ["2026-10-10" nil] (mapv :archived_at (get-in db [:maps :list]))))))
+    (testing "a Map that is not open changes only in the list"
+      (let [db (map-updates/set-archived db "map-2" "2026-10-10")]
+        (is (nil? (get-in db [:map :archived_at])))
+        (is (= [nil "2026-10-10"] (mapv :archived_at (get-in db [:maps :list]))))))
+    (testing "unarchiving clears the time"
+      (let [db (-> db
+                   (map-updates/set-archived "map-1" "2026-10-10")
+                   (map-updates/set-archived "map-1" nil))]
+        (is (nil? (get-in db [:map :archived_at])))
+        (is (nil? (:archived_at (first (get-in db [:maps :list])))))))))

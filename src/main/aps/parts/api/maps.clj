@@ -111,6 +111,16 @@
     (-> (response/response updated)
         (response/status 200))))
 
+(defn set-archived
+  "PUT /api/maps/:id/archive archives the Map; DELETE unarchives it.
+   Access is gated by `wrap-map-access`, which lets this route through for
+   an archived Map. A Map deleted since that check is not found."
+  [{:keys [request-method identity parameters]}]
+  (let [map-id (get-in parameters [:path :id])]
+    (if-let [the-map (parts-map/set-archived! map-id (= :put request-method) (:sub identity))]
+      (response/response (select-keys the-map [:id :archived_at]))
+      (throw (ex-info "Map not found" {:type :not-found :id map-id})))))
+
 ;; Disabled with its route (see routes.clj).
 #_(defn delete-map
     "Delete a map. Access is gated by `wrap-map-access` middleware."

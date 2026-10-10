@@ -35,18 +35,21 @@
    carries the full Session identity, the one place it appears in the
    sidebar's flow."
   []
-  (let [session     (uix.rf/use-subscribe [:canvas/viewed-session])
-        travelling? (uix.rf/use-subscribe [:time-travel/active?])
-        session-id  (:id session)
-        saved       (or (:trigger session) "")
-        draft       (uix.rf/use-subscribe [:ui/window-draft :trigger session-id])
-        text        (or draft saved)
-        dirty?      (and (some? draft) (not= draft saved))
-        text-ref    (use-ref nil)
-        cancel!     #(rf/dispatch [:window/clear-draft :trigger session-id])
-        save!       (fn []
-                      (rf/dispatch [:session/set-trigger session-id (str/trim text)])
-                      (cancel!))]
+  (let [session    (uix.rf/use-subscribe [:canvas/viewed-session])
+        past?      (uix.rf/use-subscribe [:time-travel/active?])
+        archived?  (uix.rf/use-subscribe [:map/archived?])
+        ;; Read-only while viewing the past, and on an archived Map.
+        read-only? (or past? archived?)
+        session-id (:id session)
+        saved      (or (:trigger session) "")
+        draft      (uix.rf/use-subscribe [:ui/window-draft :trigger session-id])
+        text       (or draft saved)
+        dirty?     (and (some? draft) (not= draft saved))
+        text-ref   (use-ref nil)
+        cancel!    #(rf/dispatch [:window/clear-draft :trigger session-id])
+        save!      (fn []
+                     (rf/dispatch [:session/set-trigger session-id (str/trim text)])
+                     (cancel!))]
     ;; Focus the textarea once it exists, caret at the end.
     (use-effect
      (fn []
@@ -54,14 +57,14 @@
          (let [end (.-length (.-value t))]
            (.focus t)
            (.setSelectionRange t end end))))
-     [session-id travelling?])
+     [session-id read-only?])
     (when session
       ($ window {:kind  :trigger
                  :class "text-window"
                  :title (str "Session " (:ordinal session) ", "
                              (dates/format-date dates/medium-date-format
                                                 (:anchor_valid_at session)))}
-         (if travelling?
+         (if read-only?
            (if (seq saved)
              ($ :p {:class "text-sm whitespace-pre-wrap"} saved)
              ($ :p {:class "text-sm text-base-content/50 italic"}
@@ -141,6 +144,7 @@
   (let [the-sessions   (uix.rf/use-subscribe [:map/sessions])
         active         (uix.rf/use-subscribe [:session/active])
         travelling?    (uix.rf/use-subscribe [:time-travel/active?])
+        archived?      (uix.rf/use-subscribe [:map/archived?])
         viewing        (uix.rf/use-subscribe [:time-travel/viewing])
         ;; The activation row rides the same seams as the canvas
         ;; marker — the SHOWN Session joined against the Parts on
@@ -156,7 +160,7 @@
         has-trigger?   (seq (:trigger session))
         ;; The band-height compensation (-my-1) keeps this card's header
         ;; the same height as the button-less bands of the other cards.
-        edit-button    (when (and active (not travelling?))
+        edit-button    (when (and active (not travelling?) (not archived?))
                          ($ :button
                             {:class      "btn btn-xs -my-1"
                              :aria-label (if has-trigger?
@@ -178,7 +182,7 @@
             (when viewed-session
               ($ activation-row {:session    viewed-session
                                  :parts      part-options
-                                 :read-only? travelling?}))
+                                 :read-only? (or travelling? archived?)}))
             (for [msg (remove nil? [error tt-error])]
               ($ :p {:key   msg
                      :class "text-error text-xs"

@@ -16,7 +16,7 @@
    [aps.parts.frontend.state.save-status :as save-status]
    [aps.parts.frontend.storage.protocol :refer [process-batched-changes send-now]]
    [aps.parts.frontend.storage.registry :as storage-registry]
-   [cljs.core.async :refer [<! chan close! go go-loop put!]]
+   [cljs.core.async :refer [<! chan close! go go-loop put! timeout]]
    [re-frame.core :as rf]
    [re-frame.db :as rf-db]))
 
@@ -111,6 +111,19 @@
     (.preventDefault event)
     ;; Older browsers show the prompt only for a truthy returnValue.
     (set! (.-returnValue event) true)))
+
+(defn settled
+  "Sends the pending batch of the open Map now. Returns a channel that
+   closes once every batch sent so far has an answer, or after
+   `timeout-ms`. A write that changes what the server accepts (archiving a
+   Map) waits on it, so earlier edits are not refused."
+  [timeout-ms]
+  (when-let [{:keys [batcher]} @active]
+    (batch/flush! batcher))
+  (go-loop [waited 0]
+    (when (and (pos? @unanswered) (< waited timeout-ms))
+      (<! (timeout 50))
+      (recur (+ waited 50)))))
 
 (defn stop
   "Tears down the running queue, if any. Sends the pending batch to the

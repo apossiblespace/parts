@@ -38,6 +38,11 @@
    (get-in db [:map :title])))
 
 (rf/reg-sub
+ :map/archived?
+ (fn [db _]
+   (some? (get-in db [:map :archived_at]))))
+
+(rf/reg-sub
  :map/parts
  (fn [db _]
    (get-in db [:map :parts])))

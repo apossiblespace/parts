@@ -50,6 +50,9 @@
     ;; phone too. `app` seeds the flag from `device/phone-primary?`.
     (:phone? db)                        :phone
     (:demo-mode db)                     nil
+    ;; An archived Map is read-only until it is unarchived. Time-travel
+    ;; still works; it only reads.
+    (get-in db [:map :archived_at])     :archived
     ;; A key access, not a require: `state/time-travel` depends on this
     ;; namespace, so the gate reads its subtree directly.
     (get-in db [:time-travel :active?]) :viewing-past

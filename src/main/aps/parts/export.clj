@@ -52,12 +52,12 @@
        vec))
 
 (defn- map-identity
-  "The Map's non-temporal identity for the export: `id` + `created_at` only.
-   `owner_id` / `actor_id` / `deleted_at` are controller metadata, excluded per
-   ADR-0010."
+  "The Map's non-temporal identity for the export: `id`, `created_at` and
+   `archived_at` (nil for an active Map). `owner_id` / `actor_id` /
+   `deleted_at` are controller metadata, excluded per ADR-0010."
   [ds map-id]
   (jdbc/execute-one! ds
-                     ["SELECT id, created_at FROM maps WHERE id = ?::uuid" (str map-id)]
+                     ["SELECT id, created_at, archived_at FROM maps WHERE id = ?::uuid" (str map-id)]
                      {:builder-fn rs/as-unqualified-maps}))
 
 (defn export-map

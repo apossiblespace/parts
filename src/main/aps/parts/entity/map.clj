@@ -196,6 +196,18 @@
           :title (:title result)}
          (merge (dissoc result :id :map_id))))))
 
+(defn set-archived!
+  "Archives the Map `id` when `archived?` is true, and unarchives it
+   otherwise. Archiving an archived Map keeps the first archive time.
+   Archiving is housekeeping: it changes no content and no metadata, so
+   the Map's \"Updated\" time stays. The `maps` audit trigger records
+   `actor-id`. Returns the identity row, or nil for an unknown Map."
+  [id archived? actor-id]
+  (first (db/update! :maps
+                     {:archived_at (when archived? [:coalesce :archived_at [:now]])
+                      :actor_id    (db/->uuid actor-id)}
+                     [:and [:= :id (db/->uuid id)] [:= :deleted_at nil]])))
+
 (defn- delete-impl! [id actor-id tx]
   (mulog/log ::delete-map-start :map-id id)
   (let [uuid-id (db/->uuid id)

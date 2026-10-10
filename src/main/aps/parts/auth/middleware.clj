@@ -33,15 +33,31 @@
   [user-id the-map]
   (= (db/->uuid user-id) (:owner_id the-map)))
 
+(defn- read-request? [request]
+  (#{:get :head} (:request-method request)))
+
 (defn wrap-map-access
   "Middleware for routes scoped to a single Map. The Map must exist and
    be owned by the authenticated user, or the request is rejected as
-   `:not-found` (404)."
+   `:not-found` (404).
+
+   An archived Map is read-only: every request that is not a read is
+   rejected as `:map-archived` (409), except on a route whose data has
+   `:allow-when-archived?` (unarchiving)."
   [handler]
   (fn [request]
     (let [user-id (auth/current-user-id request)
           map-id  (get-in request [:parameters :path :id])
           the-map (parts-map/fetch-identity map-id)]
-      (if (and the-map (owns-map? user-id the-map))
-        (handler request)
-        (throw (ex-info "Map not found" {:type :not-found :id map-id}))))))
+      (cond
+        (not (and the-map (owns-map? user-id the-map)))
+        (throw (ex-info "Map not found" {:type :not-found :id map-id}))
+
+        (and (:archived_at the-map)
+             (not (read-request? request))
+             (not (get-in request [:reitit.core/match :data :allow-when-archived?])))
+        (throw (ex-info "This Map is archived. Unarchive it to make changes."
+                        {:type :map-archived :id map-id}))
+
+        :else
+        (handler request)))))

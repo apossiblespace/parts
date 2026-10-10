@@ -59,10 +59,25 @@
   (rf/->interceptor
    :id :require-not-viewing-past
    :before (fn [context]
-             (if (= :viewing-past (sessions/read-only-reason
-                                   (get-in context [:coeffects :db])))
+             ;; The flag itself, not `read-only-reason`: that returns the
+             ;; first reason, and :archived comes before :viewing-past.
+             (if (get-in context [:coeffects :db :time-travel :active?])
                (do (o/info "handlers.require-not-viewing-past"
                            "dropped event while viewing the past"
+                           (get-in context [:coeffects :event 0]))
+                   (assoc context :queue []))
+               context))))
+
+(def ^:private require-not-archived
+  "The archived Map's backstop for the events `require-editable` does
+   not cover — Session lifecycle, triggers, activations, renaming. Their
+   UI is disabled on an archived Map, and the server refuses them too."
+  (rf/->interceptor
+   :id :require-not-archived
+   :before (fn [context]
+             (if (get-in context [:coeffects :db :map :archived_at])
+               (do (o/info "handlers.require-not-archived"
+                           "dropped event on an archived Map"
                            (get-in context [:coeffects :event 0]))
                    (assoc context :queue []))
                context))))
@@ -589,7 +604,7 @@
 
 (rf/reg-event-fx
  :session/start
- [require-not-phone require-not-viewing-past]
+ [require-not-phone require-not-viewing-past require-not-archived]
  (fn [{:keys [db]} _]
    {:session/create-fx {:map-id (get-in db [:map :id])}}))
 
@@ -610,7 +625,7 @@
 
 (rf/reg-event-fx
  :session/set-trigger
- [require-not-phone]
+ [require-not-phone require-not-archived]
  (fn [{:keys [db]} [_ session-id trigger]]
    {:db                        (sessions/set-trigger db session-id trigger)
     :session/update-trigger-fx {:map-id     (get-in db [:map :id])
@@ -627,7 +642,7 @@
 
 (rf/reg-event-fx
  :session/set-activation
- [require-not-phone]
+ [require-not-phone require-not-archived]
  (fn [{:keys [db]} [_ session-id part-id]]
    {:db                           (sessions/set-activation db session-id part-id)
     :session/update-activation-fx {:map-id     (get-in db [:map :id])
@@ -636,7 +651,7 @@
 
 (rf/reg-event-fx
  :session/delete
- [require-not-phone require-not-viewing-past]
+ [require-not-phone require-not-viewing-past require-not-archived]
  (fn [{:keys [db]} [_ session-id]]
    {:session/delete-fx {:map-id     (get-in db [:map :id])
                         :session-id session-id}}))
@@ -711,9 +726,25 @@
 
 (rf/reg-event-fx
  :map/rename
- [require-not-phone require-not-viewing-past]
+ [require-not-phone require-not-viewing-past require-not-archived]
  (fn [{:keys [db]} [_ new-title]]
    (map-updates/rename-map db new-title)))
+
+(rf/reg-event-fx
+ :map/set-archived
+ [require-not-phone]
+ (fn [_ [_ map-id archived?]]
+   {:map/set-archived-fx {:map-id map-id :archived? archived?}}))
+
+(rf/reg-event-db
+ :map/set-archived-success
+ (fn [db [_ map-id archived-at]]
+   (map-updates/set-archived db map-id archived-at)))
+
+(rf/reg-event-db
+ :map/set-archived-failure
+ (fn [db [_ error]]
+   (assoc-in db [:maps :error] error)))
 
 (rf/reg-event-db
  :map/update-success

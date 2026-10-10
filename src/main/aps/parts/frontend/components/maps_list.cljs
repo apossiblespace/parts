@@ -6,15 +6,16 @@
    the last-update time — all read from the list API's per-map :stats.
    Selecting a card navigates the client-side router to /app/maps/:id."
   (:require
+   ["lucide-react/dist/esm/icons/ellipsis" :default Ellipsis]
    [aps.parts.common.constants :refer [part-colors part-labels
                                        part-toolbar-glyph part-type-order]]
    [aps.parts.common.utils :refer [plural]]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
-   [aps.parts.frontend.components.archive-prototype :as archive-proto]
+   [aps.parts.frontend.components.archive-confirmation :refer [archive-confirmation]]
    [aps.parts.frontend.components.banner :refer [banner]]
+   [aps.parts.frontend.components.maps-list-view :as maps-view]
    [aps.parts.frontend.components.product-updates-view :as product-updates]
-   [aps.parts.frontend.components.prototype-switcher :as proto]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
@@ -28,6 +29,48 @@
    arrive trimmed and lower-cased; a Map with no title matches nothing."
   [q the-map]
   (str/includes? (str/lower-case (or (:title the-map) "")) q))
+
+(defui ^:private view-switch
+  "Active | Archived [n], a macOS-style segmented control. The count is
+   darker on the light (unselected) segment and lighter on the selected
+   one, so it stays readable on both."
+  [{:keys [view on-view archived-count]}]
+  ($ :div {:class "join" :role "tablist" :aria-label "Maps to show"}
+     ($ :button {:role          "tab"
+                 :aria-selected (= view :active)
+                 :class         (str "btn btn-sm join-item" (when (= view :active) " btn-active"))
+                 :on-click      #(on-view :active)}
+        "Active")
+     ($ :button {:role          "tab"
+                 :aria-selected (= view :archived)
+                 :class         (str "btn btn-sm join-item gap-1.5" (when (= view :archived) " btn-active"))
+                 :on-click      #(on-view :archived)}
+        "Archived"
+        ($ :span {:class (str "badge badge-xs border-0 "
+                              (if (= view :archived)
+                                "bg-base-100 text-base-content/70"
+                                "bg-base-content/25 text-base-content"))}
+           archived-count))))
+
+(defui ^:private more-menu
+  "The card's More (⋯) button and its menu, at the end of the card's
+   bottom row, above the card's click area (z-10). The negative margin
+   keeps the 24px button from making the 16px text row taller."
+  [{:keys [archived? on-archive on-unarchive]}]
+  ($ :div {:class "dropdown dropdown-end relative z-10 -my-1 shrink-0"}
+     ($ :div {:tabIndex   0
+              :role       "button"
+              :aria-label "More"
+              :class      "btn btn-xs btn-square bg-base-100 shadow-sm"}
+        ($ Ellipsis {:size 14}))
+     ($ :ul {:tabIndex 0
+             :class    "dropdown-content menu menu-sm bg-base-100 rounded-box shadow-md w-44 p-1 mt-1"}
+        ;; Blur first: daisyUI keeps the dropdown open while it has focus,
+        ;; and Unarchive opens no dialog to take the focus away.
+        ($ :li ($ :a {:on-click (fn []
+                                  (.blur (.-activeElement js/document))
+                                  ((if archived? on-unarchive on-archive)))}
+                  (if archived? "Unarchive Map" "Archive Map…"))))))
 
 (defn- type-count-label
   "\"3 Managers\" / \"1 Exile\" — count + type label, pluralised."
@@ -98,13 +141,15 @@
 
 (defui ^:private map-card
   "One card in the Maps grid: the preview on top, then the title, the
-   part-type strip, and a two-line footer — the latest Session with its
-   anchor date, and the relative last-update time."
-  [{:keys [the-map on-select archived-at menu]}]
-  (let [{:keys [parts_by_type last_session]} (:stats the-map)]
-    ;; PROTOTYPE (archive): the card frame is the wrapper. The button's
-    ;; ::after covers the whole card, so a click anywhere opens the Map;
-    ;; the menu sits above it, in the footer row.
+   part-type strip, the latest Session with its anchor date, and a bottom
+   row with the relative last-update time and the `menu`. An archived
+   Map has a greyed preview and its archive date above the bottom row."
+  [{:keys [the-map on-select menu]}]
+  (let [{:keys [parts_by_type last_session]} (:stats the-map)
+        archived-at                          (:archived_at the-map)]
+    ;; The card frame is the wrapper. The button's ::after covers the
+    ;; whole card, so a click anywhere opens the Map; the menu sits above
+    ;; it, in the bottom row.
     ;; No overflow-hidden here — it would clip the strip's tooltip at the
     ;; card edges. The preview clips its own corners instead.
     ($ :div {:class (str "relative bg-white border border-base-300 rounded-lg "
@@ -173,32 +218,27 @@
       nil)))
 
 (defui maps-list []
-  (let [maps                    (uix.rf/use-subscribe [:maps/list])
-        loading                 (uix.rf/use-subscribe [:maps/loading])
-        [query set-query]       (use-state "")
-        ;; PROTOTYPE (archive): in-memory archive state.
-        [variant set-variant]   (use-state (proto/variant-from-url))
-        proto?                  (#{"D1" "D2" "D3"} variant)
-        [archived set-archived] (use-state {})
-        [view set-view]         (use-state :active)
-        [confirm set-confirm]   (use-state nil)
-        all-maps                maps
-        maps                    (if proto?
-                                  (filter #(= (= view :archived) (contains? archived (:id %))) maps)
-                                  maps)
+  (let [maps                       (uix.rf/use-subscribe [:maps/list])
+        loading                    (uix.rf/use-subscribe [:maps/loading])
+        view                       (maps-view/view (uix.rf/use-subscribe [:router/query-params]))
+        [query set-query]          (use-state "")
+        [archiving set-archiving!] (use-state nil)
+        archived-count             (count (filter :archived_at maps))
+        in-view                    (maps-view/maps-in-view maps view)
         ;; Normalise the query once per render, not once per map.
-        filtered                (let [q (str/lower-case (str/trim query))]
-                                  (if (str/blank? q)
-                                    maps
-                                    (filter (partial title-matches? q) maps)))
-
-        handle-create           (fn []
-                                  (rf/dispatch [:map/create]))
-
-        handle-select           (fn [the-map]
-                                  (rf/dispatch [:router/navigate
-                                                ::router/map
-                                                {:id (:id the-map)}]))]
+        filtered                   (let [q (str/lower-case (str/trim query))]
+                                     (if (str/blank? q)
+                                       in-view
+                                       (filter (partial title-matches? q) in-view)))
+        show-view!                 (fn [v]
+                                     (rf/dispatch [:router/navigate ::router/maps-list nil
+                                                   (when (= v :archived) {:view "archived"})]))
+        handle-create              (fn []
+                                     (rf/dispatch [:map/create]))
+        handle-select              (fn [the-map]
+                                     (rf/dispatch [:router/navigate
+                                                   ::router/map
+                                                   {:id (:id the-map)}]))]
 
     ;; Fetch the list when the route mounts.
     (use-effect
@@ -206,6 +246,16 @@
        (rf/dispatch [:map/fetch-list])
        js/undefined)
      [])
+
+    ;; Unarchiving the last archived Map hides the view switch, so the
+    ;; list goes back to the active view rather than an empty one. Replace,
+    ;; not push: Back must not return to the empty view.
+    (use-effect
+     (fn []
+       (when (and (= view :archived) (seq maps) (zero? archived-count))
+         (rf/dispatch [:router/replace ::router/maps-list]))
+       js/undefined)
+     [view maps archived-count])
 
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
@@ -225,9 +275,12 @@
           ($ :div {:class "flex flex-wrap items-center justify-between gap-3 mb-4"}
              ($ :div {:class "flex items-center gap-3"}
                 ($ :h1 {:class "text-lg font-bold"} "Your Maps")
-                (when (and (= variant "D1") (seq archived))
-                  ($ archive-proto/segmented {:view           view             :on-view set-view
-                                              :archived-count (count archived)})))
+                ;; Shown once a Map is archived: archived Maps leave the
+                ;; grid, and this is where they are.
+                (when (pos? archived-count)
+                  ($ view-switch {:view           view
+                                  :on-view        show-view!
+                                  :archived-count archived-count})))
              ;; w-full below sm gives the input's w-full a real width to
              ;; resolve against — a shrink-wrapped flex parent would make
              ;; the percentage a no-op.
@@ -237,26 +290,15 @@
                      {:class    "btn btn-sm btn-primary"
                       :on-click handle-create}
                      "Create a new Map"))
-                ;; Hide the search until there's a list to filter — pointless
-                ;; chrome on an empty account. Stays put during a background
-                ;; refresh (we have maps), so it doesn't flicker.
-                ;; PROTOTYPE (archive): any Map, active or archived, so switching
-                ;; views never shows or hides the filter.
-                (when (seq all-maps)
+                ;; Hidden on an account with no Maps at all. It depends on
+                ;; every Map, not the view, so switching views never shows
+                ;; or hides it; it stays put during a background refresh.
+                (when (seq maps)
                   ($ :input {:type        "search"
                              :placeholder "Filter by title"
                              :class       "input input-bordered input-sm w-full sm:w-56"
                              :value       query
                              :on-change   #(set-query (.. % -target -value))}))))
-
-          ;; PROTOTYPE (archive): other placements of the view switch.
-          (when (and (= variant "D2") (seq archived))
-            ($ :div {:class "flex justify-center mb-4"}
-               ($ archive-proto/segmented {:view           view             :on-view set-view
-                                           :archived-count (count archived)})))
-          (when (and (= variant "D3") (seq archived))
-            ($ archive-proto/view-tabs {:view           view             :on-view set-view
-                                        :archived-count (count archived)}))
 
           (cond
             ;; Full spinner only on the FIRST load (nothing to show yet). A
@@ -270,6 +312,10 @@
             ($ :p {:class "text-center py-12 text-gray-500"}
                "No Maps yet")
 
+            (and (empty? in-view) (= view :active))
+            ($ :p {:class "text-center py-12 text-gray-500"}
+               "All your Maps are archived.")
+
             (empty? filtered)
             ($ :p {:class "text-center py-12 text-gray-500"}
                "No Maps match \"" query "\"")
@@ -277,29 +323,19 @@
             :else
             ($ :div {:class "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"}
                (for [the-map filtered]
-                 ($ map-card {:key         (:id the-map)
-                              :the-map     the-map
-                              :on-select   handle-select
-                              :archived-at (get archived (:id the-map))
-                              :menu        (when proto?
-                                             ($ archive-proto/more-menu
-                                                {:archived?    (contains? archived (:id the-map))
-                                                 :on-archive   #(set-confirm the-map)
-                                                 :on-unarchive #(set-archived (fn [a]
-                                                                                (let [a (dissoc a (:id the-map))]
-                                                                                  (when (empty? a) (set-view :active))
-                                                                                  a)))}))}))))
+                 ($ map-card {:key       (:id the-map)
+                              :the-map   the-map
+                              :on-select handle-select
+                              :menu      (when-not device/phone-primary?
+                                           ($ more-menu
+                                              {:archived?    (some? (:archived_at the-map))
+                                               :on-archive   #(set-archiving! the-map)
+                                               :on-unarchive #(rf/dispatch [:map/set-archived (:id the-map) false])}))}))))
 
           ($ app-footer)
 
-          (when proto?
-            ($ :<>
-               ($ archive-proto/confirm-archive
-                  {:the-map    confirm
-                   :on-cancel  #(set-confirm nil)
-                   :on-confirm (fn []
-                                 (set-archived #(assoc % (:id confirm) (js/Date.)))
-                                 (set-confirm nil))})
-               ($ proto/prototype-switcher {:variants  archive-proto/list-variants
-                                            :current   variant
-                                            :on-change set-variant})))))))
+          ($ archive-confirmation {:the-map    archiving
+                                   :on-close   #(set-archiving! nil)
+                                   :on-confirm (fn []
+                                                 (rf/dispatch [:map/set-archived (:id archiving) true])
+                                                 (set-archiving! nil))})))))

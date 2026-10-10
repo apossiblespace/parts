@@ -2,6 +2,7 @@
   (:require
    ["@xyflow/react" :refer [Background Controls MiniMap Panel
                             ReactFlow ReactFlowProvider useReactFlow useStore]]
+   ["lucide-react/dist/esm/icons/archive" :default Archive]
    ["lucide-react/dist/esm/icons/chevron-down" :default ChevronDown]
    ["lucide-react/dist/esm/icons/chevron-left" :default ChevronLeft]
    ["lucide-react/dist/esm/icons/chevron-right" :default ChevronRight]
@@ -22,17 +23,16 @@
    [aps.parts.common.utils :refer [plural]]
    [aps.parts.frontend.adapters.reactflow :as adapter]
    [aps.parts.frontend.api.queue :as queue]
-   [aps.parts.frontend.components.archive-prototype :as archive-proto]
+   [aps.parts.frontend.components.archive-confirmation :refer [archive-confirmation]]
    [aps.parts.frontend.components.banner :refer [banner]]
    [aps.parts.frontend.components.body-location :refer [body-location-window]]
+   [aps.parts.frontend.components.confirmation-modal :refer [confirmation-modal]]
    [aps.parts.frontend.components.conversation-window :refer [conversation-window]]
-   [aps.parts.frontend.components.delete-confirmation-modal :refer [delete-confirmation-modal]]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types part-symbols]]
    [aps.parts.frontend.components.notes-window :refer [notes-window]]
-   [aps.parts.frontend.components.prototype-switcher :as proto]
    [aps.parts.frontend.components.relationship-type-dropdown :refer [relationship-type-dropdown]]
    [aps.parts.frontend.components.toolbar.button :refer [button tooltip-content]]
    [aps.parts.frontend.components.toolbar.session-card :refer [trigger-window]]
@@ -348,35 +348,40 @@
 
    Not used in the playground, which renders a mini-logo instead."
   []
-  (let [title                   (uix.rf/use-subscribe [:map/title])
-        map-id                  (uix.rf/use-subscribe [:map/id])
-        the-sessions            (uix.rf/use-subscribe [:map/sessions])
-        active-session          (uix.rf/use-subscribe [:session/active])
-        undoable?               (uix.rf/use-subscribe [:session/undoable?])
-        time-travelling?        (uix.rf/use-subscribe [:time-travel/active?])
-        viewing                 (uix.rf/use-subscribe [:time-travel/viewing])
+  (let [title                      (uix.rf/use-subscribe [:map/title])
+        map-id                     (uix.rf/use-subscribe [:map/id])
+        the-sessions               (uix.rf/use-subscribe [:map/sessions])
+        active-session             (uix.rf/use-subscribe [:session/active])
+        undoable?                  (uix.rf/use-subscribe [:session/undoable?])
+        time-travelling?           (uix.rf/use-subscribe [:time-travel/active?])
+        archived?                  (uix.rf/use-subscribe [:map/archived?])
+        viewing                    (uix.rf/use-subscribe [:time-travel/viewing])
         ;; The widget's Session segment answers "which Session is in
         ;; view" in both modes: the active Session while editing, the
         ;; TARGET Session while time-travelling — it must match the
         ;; position the steppers state, not the lagging shown snapshot.
-        segment-session         (if time-travelling?
-                                  (:session viewing)
-                                  active-session)
+        segment-session            (if time-travelling?
+                                     (:session viewing)
+                                     active-session)
         ;; The caller owns the edit-mode bit; both the title click and the
         ;; Rename menu item flip it true, commit/cancel flip it false.
-        [editing? set-editing!] (use-state false)
+        [editing? set-editing!]    (use-state false)
+        [archiving set-archiving!] (use-state nil)
         ;; Viewing the past: every menu action except the Session PDF
         ;; download is off — disabled, not hidden (the menu keeps its
         ;; geography). `menu-disabled` is only styling and nil'd
         ;; handlers only UX; the `require-not-viewing-past` interceptor
         ;; is the guard of record.
-        menu-item-class         (when time-travelling? "menu-disabled")
-        gated                   (fn [handler]
-                                  (when-not time-travelling? handler))
-        menu-action             (fn [{:keys [icon label on-click]}]
-                                  ($ :li {:class menu-item-class}
-                                     ($ :a {:on-click (gated on-click)}
-                                        icon label)))]
+        menu-item-class            (when time-travelling? "menu-disabled")
+        gated                      (fn [handler]
+                                     (when-not time-travelling? handler))
+        ;; Session actions and Rename change the Map, so an archived Map
+        ;; disables them too; the PDF and the export only read.
+        locked?                    (or time-travelling? archived?)
+        menu-action                (fn [{:keys [icon label on-click]}]
+                                     ($ :li {:class (when locked? "menu-disabled")}
+                                        ($ :a {:on-click (when-not locked? on-click)}
+                                           icon label)))]
     ($ :div {:class "flex gap-2 min-w-0 chrome-item"}
        ($ :div {:class "shadow-xs shrink-0"}
           ($ :a {:href       "/app"
@@ -389,13 +394,13 @@
               :aria-label         "Map name"
               :display-class      (str "btn btn-sm join-item bg-base-100 gap-1.5 "
                                        map-name-width-classes
-                                       (when time-travelling? " cursor-default"))
+                                       (when locked? " cursor-default"))
               :display-text-class map-name-text-class
-              :display-prefix     (when-not (archive-proto/map-proto? (proto/variant-from-url))
-                                    ($ save-status-indicator))
+              ;; An archived Map cannot change, so there is nothing to save.
+              :display-prefix     (when-not archived? ($ save-status-indicator))
               :input-class        "input input-sm join-item w-48"
               :editing?           editing?
-              :edit-on            (if time-travelling? :none :click)
+              :edit-on            (if locked? :none :click)
               :on-edit-start      #(set-editing! true)
               :on-cancel          #(set-editing! false)
               :on-commit          (fn [new-title]
@@ -495,9 +500,20 @@
                                        (close-dropdown!)))}
                       ($ :span {:class "w-4 shrink-0"})
                       "Export map data"))
-                ;; PROTOTYPE (archive)
-                (when (archive-proto/map-proto? (proto/variant-from-url))
-                  ($ :li ($ :a ($ :span {:class "w-4 shrink-0"}) "Unarchive Map"))))))
+                ($ :li {:class menu-item-class}
+                   ($ :a {:on-click (gated
+                                     (fn []
+                                       (close-dropdown!)
+                                       (if archived?
+                                         (rf/dispatch [:map/set-archived map-id false])
+                                         (set-archiving! {:id map-id :title title}))))}
+                      ($ :span {:class "w-4 shrink-0"})
+                      (if archived? "Unarchive Map" "Archive Map…"))))))
+       ($ archive-confirmation {:the-map    archiving
+                                :on-close   #(set-archiving! nil)
+                                :on-confirm (fn []
+                                              (rf/dispatch [:map/set-archived (:id archiving) true])
+                                              (set-archiving! nil))})
        ;; The conversation is a view of the whole Map (All mode, opened at
        ;; the viewed Session), so it opens from here, not the Session card.
        ($ :div {:class "shadow-xs shrink-0"}
@@ -556,8 +572,15 @@
   "The canvas's one overlay-banner slot, shared by phone-banner and
    save-error-banner: centred at the top, above the chrome. `flex w-max`
    overrides the daisyUI alert's full-width grid so the banner hugs its
-   content instead of spanning the canvas."
-  "absolute top-4 left-1/2 -translate-x-1/2 z-50 shadow-lg flex w-max")
+   content instead of spanning the canvas. The top offset comes from
+   `overlay-top`."
+  "absolute left-1/2 -translate-x-1/2 z-50 shadow-lg flex w-max")
+
+(defn- overlay-top
+  "The overlay banners' top offset: below the archived strip (2rem) on an
+   archived Map, so they never cover it."
+  [archived?]
+  (if archived? " top-12" " top-4"))
 
 (def ^:private phone-banner-classes
   (str overlay-banner-classes " max-w-[calc(100%-2rem)]"))
@@ -571,10 +594,11 @@
    produces no saves. Dismissal is plain component state, so the banner
    returns on the next page load."
   []
-  (let [[dismissed? set-dismissed!] (use-state false)]
+  (let [[dismissed? set-dismissed!] (use-state false)
+        archived?                   (uix.rf/use-subscribe [:map/archived?])]
     (when-not dismissed?
       ($ banner {:variant    :info
-                 :class      phone-banner-classes
+                 :class      (str phone-banner-classes (overlay-top archived?))
                  :on-dismiss #(set-dismissed! true)}
          ($ :span {:class "text-sm"}
             "Parts is designed for use on a tablet or computer.")))))
@@ -585,16 +609,26 @@
    the Map is reloaded — the condition persists, so the banner does too
    (reloading replaces `:map`, which clears the flag)."
   []
-  (let [save-error (uix.rf/use-subscribe [:map/save-error])]
+  (let [save-error (uix.rf/use-subscribe [:map/save-error])
+        archived?  (uix.rf/use-subscribe [:map/archived?])]
     (when save-error
       ($ banner {:variant :warning
-                 :class   save-error-banner-classes}
+                 :class   (str save-error-banner-classes (overlay-top archived?))}
          ($ :span {:class "text-sm"}
             "Some recent changes couldn’t be saved — this Map may be out of date.")
          ;; Same sizing trick as the banner's own dismiss button.
          ($ :button {:class    "btn btn-sm whitespace-nowrap self-center -my-1.5"
                      :on-click #(.reload (.-location js/window))}
             "Reload Map")))))
+
+(defui ^:private archived-strip
+  "Across the top of the window on an archived Map. It explains why
+   nothing can change; Unarchive is in the map menu."
+  []
+  ($ :div {:class "h-8 w-full shrink-0 flex items-center justify-center gap-2 bg-stone-700 text-white text-sm"
+           :role  "status"}
+     ($ Archive {:size 14})
+     "This Map is archived and read-only."))
 
 (defui ^:private canvas-empty-state
   "Static empty-state for a Map with no Parts yet (HIG shape: a quiet
@@ -622,6 +656,7 @@
         viewed-ordinal        (:ordinal viewed-session)
         session-badges?       (uix.rf/use-subscribe [:canvas/session-badges?])
         time-travelling?      (uix.rf/use-subscribe [:time-travel/active?])
+        archived?             (uix.rf/use-subscribe [:map/archived?])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
         tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
@@ -1269,19 +1304,13 @@
            (.removeEventListener js/window "blur" on-blur))))
      [set-tool-mode time-travelling? minimal])
 
-    ($ :div {:class (str "map-container"
-                         (when (archive-proto/strip? (proto/variant-from-url)) " flex-col"))
-             ;; PROTOTYPE (archive): the strip takes 2rem; the map view's
-             ;; flex: 1 fills the rest of the window.
-             :style (when (archive-proto/strip? (proto/variant-from-url)) {:height "100dvh"})}
+    ;; An archived Map shows a strip above the map view: the container
+    ;; becomes a window-tall column, and the map view's flex: 1 fills
+    ;; what the strip leaves, so the strip covers nothing.
+    ($ :div {:class (str "map-container" (when archived? " flex-col h-dvh"))}
        ($ save-error-banner)
-       ;; PROTOTYPE (archive)
-       (when (archive-proto/strip? (proto/variant-from-url))
-         ($ archive-proto/archived-strip))
-       (when (archive-proto/map-proto? (proto/variant-from-url))
-         ($ proto/prototype-switcher {:variants  archive-proto/map-variants
-                                      :current   (proto/variant-from-url)
-                                      :on-change #(.reload js/location)}))
+       (when archived?
+         ($ archived-strip))
        ;; Not in the minimal hero demo — that background canvas is
        ;; hidden on small screens anyway, and the headline sits where
        ;; the banner would.
@@ -1308,12 +1337,8 @@
                 ($ :path {:d    "M 0 0 L 10 5 L 0 10 z"
                           :fill "context-stroke"}))))
        ($ :div {:ref               map-view-ref
-                ;; PROTOTYPE (archive)
-                :style             (let [v (proto/variant-from-url)]
-                                     (cond-> {}
-                                       (archive-proto/strip? v) (assoc :minHeight 0)
-                                       (archive-proto/tint? v)  (assoc :backgroundColor archive-proto/tint-color)))
                 :class             (str "map-view"
+                                        (when archived? " min-h-0")
                                         (when minimal " minimal")
                                         (when time-travelling? " time-travelling")
                                         (when connecting? " connecting")
@@ -1560,11 +1585,12 @@
           ($ floating-windows {:kinds window-kinds}))
        (let [{:keys [title body confirm-label]} (when pending-deletes
                                                   (delete-prompt pending-deletes))]
-         ($ delete-confirmation-modal
+         ($ confirmation-modal
             {:show          (some? pending-deletes)
              :title         title
              :body          body
              :confirm-label confirm-label
+             :confirm-class "btn-error"
              :on-confirm    confirm-delete
              :on-close      cancel-delete})))))
 

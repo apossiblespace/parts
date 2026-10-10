@@ -53,4 +53,21 @@
             (handler (request-for owner-uuid))
             (is false "expected wrap-map-access to throw")
             (catch clojure.lang.ExceptionInfo e
-              (is (= :not-found (:type (ex-data e)))))))))))
+              (is (= :not-found (:type (ex-data e)))))))))
+
+    (testing "an archived Map is read-only"
+      (with-redefs [parts-map/fetch-identity (fn [_] (assoc identity-row :archived_at (java.time.OffsetDateTime/now)))]
+        (let [handler (auth-mw/wrap-map-access ok-handler)
+              request (fn [method & [route-data]]
+                        (cond-> (assoc (request-for owner-uuid) :request-method method)
+                          route-data (assoc :reitit.core/match {:data route-data})))]
+          (is (= 200 (:status (handler (request :get)))) "reads still reach the handler")
+          (is (= 200 (:status (handler (request :head)))))
+          (doseq [method [:post :put :delete :patch]]
+            (try
+              (handler (request method))
+              (is false (str "expected " method " to be rejected"))
+              (catch clojure.lang.ExceptionInfo e
+                (is (= :map-archived (:type (ex-data e))) (str method)))))
+          (is (= 200 (:status (handler (request :delete {:allow-when-archived? true}))))
+              "the unarchive route is the one write that gets through"))))))
