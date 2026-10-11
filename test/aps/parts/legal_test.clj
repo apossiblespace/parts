@@ -27,6 +27,11 @@
       (is (not (str/includes? html "javascript:")))
       (is (str/includes? html "Title")))))
 
+(deftest test-render-html-keeps-tables
+  (let [html (legal/render-html "| A | B |\n|---|---|\n| 1 | 2 |")]
+    (is (str/includes? html "<table"))
+    (is (str/includes? html "1</td>"))))
+
 (deftest test-render-text
   (testing "renders headings and paragraphs as plain lines and writes links as text (url)"
     (is (= "Hello world!\n\nThis is a test of the notification (https://gosha.net)"

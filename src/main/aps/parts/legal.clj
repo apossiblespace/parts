@@ -24,11 +24,14 @@
   (into {} (map (juxt :slug :label)) c/legal-documents))
 
 (def ^:private ^PolicyFactory html-policy
-  "Allowlist for rendered legal Markdown: structural blocks, inline formatting,
-   and safe links only. Everything else — script, img, event handlers,
+  "Allowlist for rendered legal Markdown: structural blocks, tables, inline
+   formatting, and safe links only. Everything else — script, img, event handlers,
    javascript: URLs — is stripped, so a compromised or mistaken parts-ops
    cannot inject active content on this origin."
-  (.and (.and Sanitizers/BLOCKS Sanitizers/FORMATTING) Sanitizers/LINKS))
+  (-> Sanitizers/BLOCKS
+      (.and Sanitizers/TABLES)
+      (.and Sanitizers/FORMATTING)
+      (.and Sanitizers/LINKS)))
 
 (defn render-html
   "Render a Markdown string to sanitised HTML (allowlist; raw HTML / script
