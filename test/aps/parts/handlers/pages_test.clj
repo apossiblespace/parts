@@ -1,6 +1,7 @@
 (ns aps.parts.handlers.pages-test
   (:require
    [aps.parts.common.constants :as c]
+   [aps.parts.config :as config]
    [aps.parts.handlers.pages :as pages]
    [clojure.test :refer [deftest is testing]]))
 
@@ -28,3 +29,8 @@
       (is (re-find #"include VAT" body)))
     (testing "the footer links to the pricing section"
       (is (re-find #"href=\"/#pricing\"" body)))))
+
+(deftest test-home-embeds-the-configured-walkthrough
+  (with-redefs [config/walkthrough-video-id (constantly "abcdefghijk")]
+    (is (re-find #"src=\"https://www\.youtube-nocookie\.com/embed/abcdefghijk\"" (render-home)))))
+

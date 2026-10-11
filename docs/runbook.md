@@ -165,9 +165,12 @@ PARTS__MAIL__FROM='Gosha <gosha@ifs.tools>'   # must be on the verified domain
 PARTS__MAIL__REPLY_TO=<personal address>      # optional; personal mail carries it so replies reach a human
 ```
 
-The welcome email links the video walkthrough. To point it at a new video,
-set `PARTS__APP__WALKTHROUGH_URL` and restart the service; no deploy is
-needed. The default is in `resources/parts/config.edn`.
+The homepage embeds the video walkthrough and the welcome email links it.
+To point both at a new video, set `PARTS__APP__WALKTHROUGH_VIDEO_ID` to the
+YouTube video id (the part after `watch?v=`, 11 characters) and restart the
+service; no deploy is needed. Without it, the id in
+`resources/parts/config.edn` applies. If the value is missing or is not a
+YouTube id, the app refuses to start (`:config-error`).
 
 Sending fails loudly (`:config-error`) until `PARTS__MAIL__FROM` is set —
 there is no silent fallback. Bounce/suppression handling is provider-side

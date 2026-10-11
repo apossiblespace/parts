@@ -167,7 +167,7 @@ My name is Gosha, one of the creators of Parts, the IFS parts mapping tool.
 On behalf of the team, welcome, and thank you for signing up!
 
 Before you dive in, you may want to watch our
-[video walkthrough of Parts](" (config/walkthrough-url) "). It shows the basic
+[video walkthrough of Parts](https://www.youtube.com/watch?v=" (config/walkthrough-video-id) "). It shows the basic
 features and how to start building maps for your clients.
 
 Your account already has an Example Map with a first Session, so you can try

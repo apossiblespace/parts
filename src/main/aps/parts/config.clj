@@ -83,11 +83,21 @@
   []
   (l-config/get config :app/base-url))
 
-(defn walkthrough-url
-  "Returns the URL of the video walkthrough of Parts, which the welcome
-   email links (`PARTS__APP__WALKTHROUGH_URL`)."
+(defn walkthrough-video-id
+  "Returns the YouTube id of the video walkthrough of Parts, which the
+   homepage embeds and the welcome email links (`:app/walkthrough-video-id`
+   in config.edn, or PARTS__APP__WALKTHROUGH_VIDEO_ID). Throws when it is
+   missing or not a YouTube id (11 letters, digits, - or _); `server/-main`
+   checks it first, so a bad value stops the app from booting."
   []
-  (l-config/get config :app/walkthrough-url))
+  (let [id (l-config/get config :app/walkthrough-video-id)]
+    (when-not (re-matches #"[A-Za-z0-9_-]{11}" (str id))
+      (throw
+       (ex-info
+        (str "The walkthrough video id must be a YouTube video id (11 characters):"
+             " set :app/walkthrough-video-id in config.edn or PARTS__APP__WALKTHROUGH_VIDEO_ID")
+        {:type :config-error :value id})))
+    id))
 
 (defn app-domain
   "Just the host portion of `base-url`, without scheme, port, or path —
@@ -297,7 +307,7 @@
   #{:env
     :db/type :db/host :db/port :db/name :db/user :db/ssl
     :http/host :http/port :http/protocol
-    :app/base-url :app/walkthrough-url
+    :app/base-url :app/walkthrough-video-id
     :legal/content-dir :render/font-dir
     :repl/socket :repl/port :repl/host
     :console/socket :console/port

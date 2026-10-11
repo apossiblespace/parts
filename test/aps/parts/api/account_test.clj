@@ -401,7 +401,7 @@
 
 (deftest test-welcome-message
   (with-redefs [conf/base-url             (constantly "https://parts.example")
-                conf/walkthrough-url      (constantly "https://video.example/walkthrough")
+                conf/walkthrough-video-id (constantly "abcdefghijk")
                 conf/mail-sender-identity (constantly "Example Ltd · Company no. 123")]
     (let [message              (#'account/welcome-message {:email "jane@example.com" :display_name "Jane"})
           [subtype plain html] (:body message)]
@@ -411,8 +411,8 @@
         (is (= :alternative subtype)))
       (testing "links the configured walkthrough video and the app"
         (is (str/includes? (:content plain)
-                           "video walkthrough of Parts (https://video.example/walkthrough)"))
-        (is (str/includes? (:content html) "href=\"https://video.example/walkthrough\""))
+                           "video walkthrough of Parts (https://www.youtube.com/watch?v=abcdefghijk)"))
+        (is (str/includes? (:content html) "href=\"https://www.youtube.com/watch?v&#61;abcdefghijk\""))
         (is (str/includes? (:content plain) "open Parts (https://parts.example/app)")))
       (testing "ends with the transactional footer"
         (is (str/includes? (:content plain) "This email was sent to jane@example.com about your Parts account."))

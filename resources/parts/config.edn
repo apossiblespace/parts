@@ -1,37 +1,39 @@
-{:db/type "postgresql"
- :db/host "localhost"
- :db/port 5432
- :db/name "parts_dev"
- :db/user "gosha"
- :db/password ""
- :db/ssl false
+{:db/type                  "postgresql"
+ :db/host                  "localhost"
+ :db/port                  5432
+ :db/name                  "parts_dev"
+ :db/user                  "gosha"
+ :db/password              ""
+ :db/ssl                   false
 
- :http/host "localhost"
- :http/port 3000
- :http/protocol "http"
+ :http/host                "localhost"
+ :http/port                3000
+ :http/protocol            "http"
 
  ;; Canonical public origin for links sent to users (e.g. password reset
  ;; links). Overridden per-environment; see prod.edn.
- :app/base-url "http://localhost:3000"
+ :app/base-url             "http://localhost:3000"
 
- ;; The video walkthrough of Parts, linked from the welcome email. The
- ;; operator can change it with PARTS__APP__WALKTHROUGH_URL and a restart.
- :app/walkthrough-url "https://www.youtube.com/watch?v=72YCRfGvcjU"
+ ;; The YouTube id of the video walkthrough of Parts, embedded on the
+ ;; homepage and linked from the welcome email. Override it with
+ ;; PARTS__APP__WALKTHROUGH_VIDEO_ID and a restart. The app does not start
+ ;; without a valid id.
+ :app/walkthrough-video-id "VRRCGIziogc"
 
  ;; 16-byte key that encrypts the auth-session cookie (ADR-0007). Dev
  ;; default only — production MUST override via PARTS__SESSION__KEY with a
  ;; stable 16-byte secret (config/session-key refuses this default in prod).
- :session/key "dev-session-key0"
+ :session/key              "dev-session-key0"
 
  ;; Directory of operator-supplied legal documents (privacy.md, terms.md,
  ;; dpa.md), read at runtime. Unset in dev/CI — pages fall back to the bundled
  ;; resources/legal/*.example.md templates. Production sets
  ;; PARTS__LEGAL__CONTENT_DIR.
- :legal/content-dir nil
+ :legal/content-dir        nil
 
  ;; Directory holding the PDF document fonts (Noto Sans CJK TC, Regular +
  ;; Bold OTF). The Nix dev shell exports PARTS__RENDER__FONT_DIR pointing at
  ;; a pinned derivation; production hosts install the same two files (see
  ;; runbook) and set the variable. No fallback — the render namespaces fail
  ;; fast when it is missing.
- :render/font-dir nil}
+ :render/font-dir          nil}

@@ -1,6 +1,7 @@
 (ns aps.parts.handlers.pages
   (:require
    [aps.parts.auth :as auth]
+   [aps.parts.config :as config]
    [aps.parts.views.layouts :as layouts]
    [aps.parts.views.partials :as partials]
    [hiccup2.core :refer [html]]
@@ -154,7 +155,7 @@
       [:div.container.max-w-5xl.mx-auto.px-4.sm:px-6.lg:px-8
        [:iframe.w-full.rounded-lg.shadow-lg
         {:class           "aspect-[16/10]"
-         :src             "https://www.youtube-nocookie.com/embed/72YCRfGvcjU"
+         :src             (str "https://www.youtube-nocookie.com/embed/" (config/walkthrough-video-id))
          :title           "Parts demonstration video"
          :loading         "lazy"
          :allow           "encrypted-media; fullscreen; picture-in-picture"

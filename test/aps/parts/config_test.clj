@@ -102,3 +102,18 @@
                                              :mail/reply-to "gosha@gosha.net"})]
       (is (= "Gosha <gosha@ifs.tools>" (config/mail-from)))
       (is (= "gosha@gosha.net" (config/mail-reply-to))))))
+
+(deftest test-walkthrough-video-id
+  (testing "a YouTube id is used as given"
+    (with-redefs [l-config/get (fake-config {:app/walkthrough-video-id "abc-DEF_123"})]
+      (is (= "abc-DEF_123" (config/walkthrough-video-id)))))
+  (testing "a missing value or one that is not a YouTube id throws"
+    (doseq [bad [nil "" "https://www.youtube.com/watch?v=abc-DEF_123" "short" "has spaces!"]]
+      (with-redefs [l-config/get (fake-config {:app/walkthrough-video-id bad})]
+        (try
+          (config/walkthrough-video-id)
+          (is false (str "expected a throw for " (pr-str bad)))
+          (catch clojure.lang.ExceptionInfo e
+            (is (= :config-error (:type (ex-data e))) (pr-str bad))
+            (is (re-find #"walkthrough-video-id.*WALKTHROUGH_VIDEO_ID" (ex-message e))
+                "the message names both places the value can come from")))))))
