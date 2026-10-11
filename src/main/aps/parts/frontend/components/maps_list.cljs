@@ -182,7 +182,7 @@
                   (str "Updated " updated)))
              menu)))))
 
-;; Accounts from before 2026-10-10 are not subscribed to Product updates
+;; Accounts from before 2026-10-11 are not subscribed to Product updates
 ;; until the User says yes. The question is a banner here, not a modal, so
 ;; it never interrupts work. It stays until the User answers. See ADR-0020.
 (defui ^:private product-updates-question

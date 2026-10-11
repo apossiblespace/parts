@@ -113,5 +113,5 @@ chose with a banner (Subscribe / No, thanks). It never interrupts as a modal,
 it stays until the User answers, and "No, thanks" is final. While a User is
 subscribed, the choice time is the record of the choice: consent for a yes in
 Parts, the soft opt-in for a kept sign-up box. New accounts keep the pre-ticked
-sign-up box under the soft opt-in (privacy policy 2026-10-10, sections 3 and
+sign-up box under the soft opt-in (privacy policy 2026-10-11, sections 3 and
 11).
