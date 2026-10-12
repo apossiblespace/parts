@@ -48,17 +48,23 @@
      ;; not a price — amounts stay in the shared constants.
      :subscription_plan       (:stripe_plan row)}))
 
+(defn- account-body
+  "The account as the browser sees it: the columns `user/fetch` selects,
+   the good-standing summary under `:standing` (see
+   `billing/account-standing`) and the self-serve billing facts under
+   `:billing` (see `billing-info`). Every account response uses it, so no
+   other column (Stripe ids, deletion timestamps, …) leaves the server."
+  [user-id]
+  (let [user-record (user/fetch user-id)]
+    (assoc user-record
+           :standing (billing/account-standing user-record)
+           :billing  (billing-info user-id))))
+
 (defn get-account
-  "Retrieve own account info, including the account's good-standing summary
-   under `:standing` (see `billing/account-standing`) and the self-serve
-   billing facts under `:billing` (see `billing-info`) for the Account page."
+  "Retrieve own account info (see `account-body`) for the Account page."
   [request]
-  (let [user-id     (auth/current-user-id request)
-        user-record (user/fetch user-id)]
-    (-> (response/response (assoc user-record
-                                  :standing (billing/account-standing user-record)
-                                  :billing  (billing-info user-id)))
-        (response/status 200))))
+  (-> (response/response (account-body (auth/current-user-id request)))
+      (response/status 200)))
 
 (defn update-account
   "Update own account info. Changing the password additionally requires the
@@ -86,14 +92,14 @@
       (throw (ex-info "product_updates must be true or false" {:type :validation})))
     ;; `:product_updates` is not a column. It sets or clears the opt-out
     ;; timestamp, which `user/update!` cannot set to NULL.
-    (let [updated-user (db/with-transaction
-                         (fn [tx]
-                           (let [user (when (or (seq attrs) (not updates?))
-                                        (user/update! user-id attrs tx))]
-                             (when password? (session-store/revoke-for-user! tx user-id))
-                             (if updates?
-                               (user/set-product-updates! user-id (:product_updates body) tx)
-                               user))))]
+    (db/with-transaction
+      (fn [tx]
+        (when (or (seq attrs) (not updates?))
+          (user/update! user-id attrs tx))
+        (when password? (session-store/revoke-for-user! tx user-id))
+        (when updates?
+          (user/set-product-updates! user-id (:product_updates body) tx))))
+    (let [updated-user (account-body user-id)]
       (mulog/log ::update-account-success :user-id user-id)
       (when password? (password-notice/send! user-id (:email updated-user)))
       ;; The transaction deleted this session too. `establish-session` keeps
@@ -229,7 +235,7 @@ Gosha")
                    :email (:email account)
                    :display-name (:display_name account)
                    :map-id map-id)
-        (let [response (-> (response/response (merge account {:map_id map-id}))
+        (let [response (-> (response/response (account-body (:id account)))
                            (response/status 201)
                            (auth/establish-session request (:id account)))]
           (send-welcome! account)

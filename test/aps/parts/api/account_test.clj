@@ -176,6 +176,38 @@
         (is (= 200 (:status response)))
         (is (= "Just A Rename" (:display_name (:body response))))))))
 
+(defn- internal-keys
+  "Keys of an account response that must never leave the server."
+  [body]
+  (filter #(re-find #"^(stripe_|deletion_|password|unsubscribe)" (name %)) (keys body)))
+
+(deftest test-account-responses-are-allowlisted
+  (let [pw   "correct horse battery"
+        user (create-test-user! {:password pw :password_confirmation pw})]
+    (db/update! :users {:stripe_customer_id         "cus_allowlist"
+                        :stripe_subscription_status "active"
+                        :stripe_plan                "monthly"
+                        :deletion_requested_at      [:now]}
+                [:= :id (:id user)])
+    (testing "GET, PATCH and a product-updates PATCH have one shape"
+      (let [get-body (:body (account/get-account {:identity {:sub (:id user)}}))]
+        (is (empty? (internal-keys get-body)))
+        (doseq [body [{:display_name "Renamed"}
+                      {:product_updates true}
+                      {:password         "a new long password" :password_confirmation "a new long password"
+                       :current_password pw}]]
+          (let [patched (:body (account/update-account {:identity {:sub (:id user)} :body-params body}))]
+            (is (empty? (internal-keys patched)) (pr-str body))
+            (is (= (set (keys get-body)) (set (keys patched))) (pr-str body))))))
+    (testing "registration responds with the same shape"
+      (let [body (:body (account/register-account
+                         {:body-params (merge (factory/build-test-user) acceptance)}))]
+        (is (empty? (internal-keys body)))
+        (is (= #{:id :email :display_name :role :paid_through_date :map_id
+                 :product_updates_opted_out_at :product_updates_chosen_at
+                 :standing :billing}
+               (set (keys body))))))))
+
 (deftest test-delete-account
   (testing "does not delete without a confirmation param"
     (let [user         (create-test-user!)
