@@ -768,22 +768,33 @@
 
 (rf/reg-event-fx
  :account/update
- (fn [{:keys [db]} [_ attrs]]
-   {:db                (assoc-in db [:account :update-error] nil)
-    :account/update-fx {:attrs attrs}}))
+ ;; `form` names the form that saved (e.g. :password), so only that form
+ ;; shows the result; nil is the page's own fields.
+ (fn [{:keys [db]} [_ attrs form]]
+   {:db                (-> db
+                           (assoc-in [:account :update-error] nil)
+                           (assoc-in [:account :update] {:form form :status :pending}))
+    :account/update-fx {:attrs attrs :form form}}))
+
+(defn- latest-save?
+  "True when `form` sent the save that is still awaited. A reply to an
+   earlier save by another form must not mark this one saved or failed."
+  [db form]
+  (= form (get-in db [:account :update :form])))
 
 (rf/reg-event-db
  :account/update-success
- (fn [db [_ user]]
-   ;; Merge, don't replace: the PATCH response carries the bare user
-   ;; record, and a replace would drop the server-computed :standing the
-   ;; Account page is also showing.
-   (update-in db [:auth :user] merge user)))
+ (fn [db [_ user form]]
+   ;; The PATCH response has the same shape as GET /api/account.
+   (cond-> (update-in db [:auth :user] merge user)
+     (latest-save? db form) (assoc-in [:account :update :status] :saved))))
 
 (rf/reg-event-db
  :account/update-failure
- (fn [db [_ message]]
-   (assoc-in db [:account :update-error] message)))
+ (fn [db [_ message form]]
+   (cond-> db
+     (latest-save? db form) (-> (assoc-in [:account :update-error] message)
+                                (assoc-in [:account :update :status] :failed)))))
 
 (rf/reg-event-fx
  :billing/start

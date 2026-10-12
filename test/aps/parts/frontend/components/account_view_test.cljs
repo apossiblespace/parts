@@ -1,8 +1,7 @@
 (ns aps.parts.frontend.components.account-view-test
   (:require
    [aps.parts.frontend.components.account-view :refer [billing-view]]
-   [cljs.test :refer-macros [deftest is testing]]
-   [clojure.string :as str]))
+   [cljs.test :refer-macros [deftest is testing]]))
 
 (def ^:private never-paid
   {:status :never-paid :paid_through_date nil :days_remaining nil})
@@ -80,69 +79,57 @@
     (is (= "Subscribe" (:cta (billing-view {:billing  enabled-unused
                                             :standing never-paid}))))))
 
-(deftest billing-view-status-line-test
-  (testing "a live subscription names the next charge — amount from the
-            shared plan constants, date from the paid-through window"
-    (let [{:keys [tone headline body]}
-          (:status-line (billing-view {:billing enabled-subscribed :standing paid}))]
-      (is (= :success tone))
-      (is (= "Subscription active." headline))
-      (is (= " You will be next charged £15 on 29 August 2026." body))))
+(deftest test-billing-view-facts
+  (testing "a live subscription names the plan and the next charge — amount
+            from the shared plan constants, date from the paid-through window"
+    (is (= {:plan         "Monthly · £15/month"
+            :badge        [:success "Active"]
+            :next-payment "£15 on 29 August 2026"}
+           (select-keys (billing-view {:billing enabled-subscribed :standing paid})
+                        [:plan :badge :next-payment]))))
 
   (testing "an unknown plan still names the date, just without an amount"
-    (let [{:keys [body]}
-          (:status-line (billing-view {:billing  (dissoc enabled-subscribed :subscription_plan)
-                                       :standing paid}))]
-      (is (= " You will be next charged on 29 August 2026." body))))
+    (let [view (billing-view {:billing  (dissoc enabled-subscribed :subscription_plan)
+                              :standing paid})]
+      (is (= "Subscription" (:plan view)))
+      (is (= "29 August 2026" (:next-payment view)))))
 
-  (testing "cancel-at-period-end reads will-expire with the way back via
-            the manage button, not the cards"
-    (let [{:keys [tone headline body]}
-          (:status-line (billing-view {:billing enabled-cancelling :standing paid}))]
-      (is (= :warning tone))
-      (is (= "Subscription will expire" headline))
-      (is (str/includes? body "You will not be charged again. Changed your mind?"))
-      (is (str/includes? body "renew your subscription below"))))
+  (testing "cancel-at-period-end says when it ends, never a renewal"
+    (let [view (billing-view {:billing enabled-cancelling :standing paid})]
+      (is (= [:warning "Ending"] (:badge view)))
+      (is (= "29 August 2026" (:ends-on view)))
+      (is (nil? (:next-payment view)))))
 
-  (testing "a paid window with no live subscription reads: will expire,
-            no further charges, resubscribe below — the exact promise"
-    (let [{:keys [tone headline body]}
-          (:status-line (billing-view {:billing enabled-cancelled :standing paid}))]
-      (is (= :warning tone))
-      (is (= "Subscription will expire" headline))
-      (is (= (str " in 29 days (29 August 2026). You will not be charged again."
-                  " If you wish to continue using Parts after 29 August 2026,"
-                  " please resubscribe below.")
-             body))))
+  (testing "no paid-through date yet: no half sentence"
+    (is (nil? (:next-payment (billing-view {:billing  enabled-subscribed
+                                            :standing never-paid})))))
 
-  (testing "a lapsed window reads expired"
-    (let [{:keys [tone headline body]}
-          (:status-line (billing-view {:billing enabled-unused :standing overdue}))]
-      (is (= :error tone))
-      (is (= "Subscription expired" headline))
-      (is (str/starts-with? body " on 1 June 2026. You will not be charged again."))
-      (is (str/includes? body "resubscribe below"))))
+  (testing "a cancelled subscription with paid time left: paid until, no
+            further charges"
+    (is (= {:badge  [:neutral "Cancelled"]
+            :detail "Paid until 29 August 2026. You won't be charged again."}
+           (:status (billing-view {:billing enabled-cancelled :standing paid})))))
+
+  (testing "paid by hand, with no Stripe subscription: no Cancelled badge"
+    (is (= {:badge  nil
+            :detail "Paid until 29 August 2026. You won't be charged again."}
+           (:status (billing-view {:billing enabled-unused :standing paid})))))
+
+  (testing "a lapsed window reads ended"
+    (is (= {:badge [:neutral "Ended"] :detail "Your subscription ended on 1 June 2026."}
+           (:status (billing-view {:billing enabled-unused :standing overdue})))))
 
   (testing "cancelled before anything was paid still explains itself"
-    (let [{:keys [tone headline]}
-          (:status-line (billing-view {:billing enabled-cancelled :standing never-paid}))]
-      (is (= :warning tone))
-      (is (= "Subscription cancelled" headline))))
+    (is (= {:badge [:neutral "Cancelled"] :detail "You won't be charged again."}
+           (:status (billing-view {:billing enabled-cancelled :standing never-paid})))))
 
-  (testing "activating reads finalising"
-    (is (= {:tone :info :headline "Finalising your subscription" :body "…"}
-           (:status-line (billing-view {:billing           enabled-unused
-                                        :standing          never-paid
-                                        :checkout-pending? true})))))
+  (testing "a self-serve-off host gets the same facts"
+    (is (= "Paid until 29 August 2026. You won't be charged again."
+           (get-in (billing-view {:billing self-serve-off :standing paid}) [:status :detail]))))
 
-  (testing "a self-serve-off host gets the facts without the resubscribe
-            invitation — there are no cards to point at"
-    (let [{:keys [headline body]}
-          (:status-line (billing-view {:billing self-serve-off :standing paid}))]
-      (is (= "Subscription will expire" headline))
-      (is (not (str/includes? body "resubscribe")))))
-
-  (testing "nothing to report: no line"
-    (is (nil? (:status-line (billing-view {:billing enabled-unused :standing never-paid}))))
-    (is (nil? (:status-line (billing-view {:billing self-serve-off :standing never-paid}))))
-    (is (nil? (:status-line (billing-view {:billing nil :standing nil}))))))
+  (testing "nothing to report: no status"
+    (is (nil? (:status (billing-view {:billing enabled-unused :standing never-paid}))))
+    (is (nil? (:status (billing-view {:billing self-serve-off :standing never-paid}))))
+    (is (nil? (:status (billing-view {:billing           enabled-unused
+                                      :standing          never-paid
+                                      :checkout-pending? true}))))))

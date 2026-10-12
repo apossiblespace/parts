@@ -86,13 +86,14 @@
 
 (rf/reg-fx
  :account/update-fx
- (fn [{:keys [attrs]}]
+ (fn [{:keys [attrs form]}]
    (go
      (let [resp (<! (api/update-account attrs))]
        (if (= 200 (:status resp))
-         (rf/dispatch [:account/update-success (:body resp)])
+         (rf/dispatch [:account/update-success (:body resp) form])
          (rf/dispatch [:account/update-failure
-                       (error-message resp "Could not update your details")]))))))
+                       (error-message resp "Could not update your details")
+                       form]))))))
 
 (rf/reg-fx
  :billing/session-fx
