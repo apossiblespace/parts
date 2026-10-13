@@ -2,9 +2,7 @@
   "Account page (/app/account). Reachable from the auth menu on the Maps
    list. Each section has its title on the left and a framed group of
    rows on the right: a row has a label (and hint) on the left and its
-   control on the right. Actions that need more input open a sheet.
-   While the page is still being built out, a banner points the user at
-   concierge support for the account changes it cannot make yet."
+   control on the right. Actions that need more input open a sheet."
   (:require
    ["lucide-react/dist/esm/icons/circle-check" :default CircleCheck]
    [aps.parts.common.constants :as c]
@@ -472,15 +470,6 @@
     ($ :div {:class "min-h-screen bg-gray-50 p-4 flex flex-col"}
        ($ :div {:class "max-w-3xl mx-auto w-full flex flex-col flex-1"}
           ($ app-header)
-          ($ banner {:variant :warning :class "mb-4"}
-             ($ :p
-                "This page is still in development. To change your email address, "
-                "for any billing inquiries, or to close your account and delete your "
-                "information, please email us at "
-                ($ :a {:href (str "mailto:" c/support-email)}
-                   c/support-email)
-                "."))
-
           ($ :h1 {:class "text-lg font-bold mb-6"} "Account")
 
           ($ section {:title "Profile"
