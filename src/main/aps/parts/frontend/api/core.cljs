@@ -89,6 +89,12 @@
   [attrs]
   (http/PATCH "/account" attrs))
 
+(defn delete-account
+  "Erase own account. `credentials` is {:email :current_password}; the
+   server refuses without both (CONTEXT.md, \"Account deletion\")."
+  [credentials]
+  (http/POST "/account/delete" credentials))
+
 (defn get-current-user
   "Retrieve the information about the currently signed in user:
 

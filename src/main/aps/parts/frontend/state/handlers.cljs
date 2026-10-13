@@ -797,6 +797,22 @@
                                 (assoc-in [:account :update :status] :failed)))))
 
 (rf/reg-event-fx
+ :account/delete
+ (fn [{:keys [db]} [_ credentials]]
+   {:db                (assoc-in db [:account :delete] {:status :pending})
+    :account/delete-fx {:credentials credentials}}))
+
+(rf/reg-event-db
+ :account/delete-reset
+ (fn [db _]
+   (update db :account dissoc :delete)))
+
+(rf/reg-event-db
+ :account/delete-failure
+ (fn [db [_ message]]
+   (assoc-in db [:account :delete] {:status :failed :error message})))
+
+(rf/reg-event-fx
  :billing/start
  (fn [{:keys [db]} [_ target]]
    ;; `target` is a subscription plan (:monthly / :yearly) or :portal;

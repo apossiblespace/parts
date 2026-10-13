@@ -9,6 +9,7 @@
    ["lucide-react/dist/esm/icons/circle-check" :default CircleCheck]
    [aps.parts.common.constants :as c]
    [aps.parts.common.observe :as o]
+   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.frontend.components.account-view :as account-view]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
@@ -25,13 +26,19 @@
 
 (defui ^:private section
   "A titled section: the title in a fixed left column, then `children` in
-   a frame. `above` and `note` render above and below the frame."
-  [{:keys [title above note children]}]
+   a frame. `above` and `note` render above and below the frame;
+   `danger?` makes the title and frame red."
+  [{:keys [title above note danger? children]}]
   ($ :section {:class "flex flex-col md:flex-row gap-2 md:gap-8 mb-6"}
-     ($ :h2 {:class "text-md font-semibold shrink-0 md:w-40 md:pt-2"} title)
+     ($ :h2 {:class (str "text-md font-semibold shrink-0 md:w-40 md:pt-2"
+                         (when danger? " text-error"))}
+        title)
      ($ :div {:class "flex-1 min-w-0"}
         above
-        ($ :div {:class "rounded-box bg-base-100 border border-base-300 divide-y divide-base-300"}
+        ($ :div {:class (str "rounded-box bg-base-100 border divide-y "
+                             (if danger?
+                               "border-error divide-error/30"
+                               "border-base-300 divide-base-300"))}
            children)
         (when note
           ($ :div {:class "text-xs text-gray-500 mt-2 px-1"} note)))))
@@ -182,6 +189,75 @@
                                       (not= new-pw confirm))}
                (when pending? ($ :span {:class "loading loading-spinner loading-xs"}))
                "Change password"))))))
+
+;;; Deletion
+
+(defn- maps-phrase
+  "What a deletion removes, for the confirmation sheet. `n` is the Map
+   count, nil until the Maps list has loaded."
+  [n]
+  (case n
+    nil "your account and all your Maps"
+    1   "your account and your 1 Map"
+    (str "your account and all " n " of your Maps")))
+
+(defui ^:private delete-form
+  "Confirm the account deletion with the email address and the current
+   password. Offers the data download first."
+  [{:keys [email subscribed? on-close]}]
+  (let [maps                     (uix.rf/use-subscribe [:maps/list])
+        loading?                 (uix.rf/use-subscribe [:maps/loading])
+        deleting                 (uix.rf/use-subscribe [:account/delete])
+        [typed set-typed!]       (use-state "")
+        [password set-password!] (use-state "")
+        pending?                 (= :pending (:status deleting))]
+    ;; Each opening starts without the last attempt's error. The Maps list
+    ;; is loaded on the Maps page; load it here for the count.
+    (use-effect
+     (fn []
+       (rf/dispatch [:account/delete-reset])
+       (rf/dispatch [:map/fetch-list])
+       js/undefined)
+     [])
+    ($ :form {:class     "flex flex-col gap-3 text-sm"
+              :on-submit (fn [^js e]
+                           (.preventDefault e)
+                           (rf/dispatch [:account/delete {:email            typed
+                                                          :current_password password}]))}
+       ($ :p "This permanently deletes "
+          ($ :strong (maps-phrase (when (and (some? maps) (not loading?)) (count maps))))
+          ", including archived Maps, with all their Sessions, notes and conversations.")
+       ;; Only a real subscription is mentioned: naming one the User never
+       ;; had would only worry them.
+       (when subscribed?
+         ($ :p "Your subscription is cancelled straight away, and any paid time left is lost."))
+       ($ :p {:class "font-semibold"} "This cannot be undone.")
+       ($ :div {:class "rounded-box bg-base-200 p-3 flex flex-wrap items-center justify-between gap-2"}
+          ($ :span "Keep a copy of your data first.")
+          ($ download-data-button))
+       ($ :div {:class "flex flex-col gap-1"}
+          ($ :label {:class "fieldset-label" :for "delete-email"}
+             (str "To confirm, type " email))
+          ($ :input {:id           "delete-email"
+                     :type         "email"
+                     :class        "input input-sm w-full"
+                     :autoComplete "off"
+                     :value        typed
+                     :on-change    #(set-typed! (.. % -target -value))}))
+       ($ password-field {:id            "delete-password"
+                          :label         "Current password"
+                          :auto-complete "current-password"
+                          :value         password
+                          :on-change     set-password!})
+       (when (= :failed (:status deleting))
+         ($ :p {:class "text-sm text-error"} (:error deleting)))
+       ($ :div {:class "modal-action flex gap-2 mt-2"}
+          ($ :button {:type "button" :class "btn btn-sm flex-1" :on-click on-close} "Cancel")
+          ($ :button {:type     "submit"
+                      :class    "btn btn-sm btn-error flex-1"
+                      :disabled (or pending? (not= (normalize-email typed) (normalize-email (str email))) (str/blank? password))}
+             (when pending? ($ :span {:class "loading loading-spinner loading-xs"}))
+             "Delete account")))))
 
 ;;; Billing
 
@@ -418,6 +494,15 @@
                      :hint  "Download a copy of all your Maps, archived ones included, and your account details, as a ZIP file."}
                 ($ download-data-button)))
 
+          ($ :hr {:class "border-base-300 mt-8 mb-6"})
+          ($ section {:title "Danger zone" :danger? true}
+             ($ row {:label "Delete account"
+                     :hint  "Permanently delete your account and all your Maps. This cannot be undone."}
+                ($ :button {:class    "btn btn-sm btn-error"
+                            :disabled (nil? user)
+                            :on-click #(set-sheet! :delete)}
+                   "Delete…")))
+
           ($ app-footer))
 
        ($ modal {:show     (= :password sheet)
@@ -425,4 +510,12 @@
                  :on-close #(set-sheet! nil)}
           ;; Mounted only while open, so each opening starts empty.
           (when (= :password sheet)
-            ($ password-form {:email (:email user) :on-close #(set-sheet! nil)}))))))
+            ($ password-form {:email (:email user) :on-close #(set-sheet! nil)})))
+
+       ($ modal {:show     (= :delete sheet)
+                 :title    "Delete account"
+                 :on-close #(set-sheet! nil)}
+          (when (= :delete sheet)
+            ($ delete-form {:email       (:email user)
+                            :subscribed? (get-in user [:billing :subscription_active])
+                            :on-close    #(set-sheet! nil)}))))))

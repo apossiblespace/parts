@@ -5,6 +5,7 @@
    [aps.parts.billing :as billing]
    [aps.parts.common.constants :as c]
    [aps.parts.common.demo :as demo]
+   [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.config :as config]
    [aps.parts.db :as db]
    [aps.parts.email-layout :as layout]
@@ -265,19 +266,59 @@ Gosha")
         (response/header "Content-Disposition"
                          (str "attachment; filename=\"parts-data-" (java.time.LocalDate/now) ".zip\"")))))
 
+(defn- deletion-message
+  "The postal message map of the notice that the account of `email` was
+   deleted. It mentions the subscription only when one was cancelled
+   (`cancelled-subscription?`): naming a subscription the User never had
+   would only worry them. Pure content: `mail/send-system!` adds the
+   sender identity."
+  [email cancelled-subscription?]
+  {:to      email
+   :subject "Your Parts account has been deleted"
+   :body    (layout/alternative
+             (layout/content
+              (str "Hello,
+
+Your Parts account and all its Maps have been deleted, as you asked.
+"
+                   (when cancelled-subscription?
+                     "Your subscription has been cancelled, and you will not be charged again.
+")
+                   "
+If you didn’t delete your account, please email us at
+[" c/support-email "](mailto:" c/support-email ") straight away.
+
+The Parts team")
+              (layout/transactional-footer email)))})
+
+(defn- send-deletion-notice!
+  "Sends the deletion notice to `email` without making the request wait
+   (see `mail/send-async!`). The account is already gone, so the log
+   names no user. Returns the future."
+  [email cancelled-subscription?]
+  (mail/send-async! :account-deleted mail/send-system!
+                    (deletion-message email cancelled-subscription?) nil))
+
 (defn delete-account
-  "Delete own account"
+  "POST /api/account/delete — erase the caller's account now (CONTEXT.md,
+   \"Account deletion\"). The body must carry the account's email address
+   and the current password: a captured session alone cannot delete an
+   account. Both travel in the body, so they never reach a URL or a log.
+   Then the Stripe customer is released and everything is purged
+   (`user/delete!`), the session is dropped, and a notice goes to the
+   address that was deleted, so a deletion by someone else is seen."
   [request]
   (let [user-id (auth/current-user-id request)
-        user    (user/fetch user-id)
-        confirm (get-in request [:query-params "confirm"])]
-    (if user
-      (if (= (:email user) confirm)
-        (do
-          (user/delete! user-id)
-          ;; Drop the caller's auth session — their account no longer exists.
-          (auth/clear-session (response/status 204)))
-        (throw (ex-info "Confirmation needed" {:type :validation})))
-      (do
-        (mulog/log ::update-account-not-found :user-id user-id)
-        (throw (ex-info "User not found" {:type :not-found}))))))
+        body    (:body-params request)
+        email   (:email (user/fetch user-id))]
+    (when-not (= (normalize-email email) (some-> (:email body) str normalize-email))
+      (throw (ex-info "Type the email address of your account to confirm." {:type :validation})))
+    (when-not (auth/current-password-valid? user-id (:current_password body))
+      (throw (ex-info "That password is incorrect. Your account was not deleted." {:type :validation})))
+    (let [;; Read before the erasure releases the Stripe customer.
+          subscribed? (:subscription_active (billing-info user-id))]
+      (user/delete! user-id)
+      (mulog/log ::delete-account :user-id user-id)
+      (send-deletion-notice! email subscribed?))
+    ;; Drop the caller's auth session — their account no longer exists.
+    (auth/clear-session (response/status 204))))

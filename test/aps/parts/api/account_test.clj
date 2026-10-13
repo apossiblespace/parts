@@ -8,7 +8,7 @@
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
-   [aps.parts.helpers.browser :refer [anonymous-session browse sign-in]]
+   [aps.parts.helpers.browser :refer [anonymous-session api browse decode sign-in]]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
                                     with-test-db without-stripe]]
@@ -27,8 +27,9 @@
   "Stops these tests from sending a real welcome email or password-changed
    notice."
   [f]
-  (with-redefs-fn {#'account/send-welcome! (constantly nil)
-                   #'password-notice/send! (constantly nil)}
+  (with-redefs-fn {#'account/send-welcome!         (constantly nil)
+                   #'account/send-deletion-notice! (constantly nil)
+                   #'password-notice/send!         (constantly nil)}
     f))
 
 (use-fixtures :each without-stripe without-account-emails)
@@ -211,28 +212,67 @@
                  :standing :billing}
                (set (keys body))))))))
 
+(defn- user-row [id]
+  (db/query-one (db/sql-format {:select [:id] :from [:users] :where [:= :id id]})))
+
 (deftest test-delete-account
-  (testing "does not delete without a confirmation param"
-    (let [user         (create-test-user!)
-          mock-request {:identity {:sub (:id user)}}]
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
-                            (account/delete-account mock-request)))))
+  (let [pw     "correct horse battery"
+        user   (create-test-user! {:password pw :password_confirmation pw})
+        delete (fn [body] (account/delete-account {:identity {:sub (:id user)} :body-params body}))]
+    (testing "refuses without the account's email address, and deletes nothing"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Type the email address"
+                            (delete {:current_password pw})))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Type the email address"
+                            (delete {:email "someone@else.test" :current_password pw})))
+      (is (some? (user-row (:id user)))))
+    (testing "refuses a wrong or missing password, and deletes nothing"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"That password is incorrect"
+                            (delete {:email (:email user) :current_password "wrong password"})))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"That password is incorrect"
+                            (delete {:email (:email user)})))
+      (is (some? (user-row (:id user)))))
+    (testing "deletes with the email (any case) and the password, and tells the
+              deleted address"
+      (let [notified (atom nil)
+            response (with-redefs-fn {#'account/send-deletion-notice! #(reset! notified [%1 %2])}
+                       #(delete {:email            (str " " (str/upper-case (:email user)) " ")
+                                 :current_password pw}))]
+        (is (= 204 (:status response)))
+        (is (nil? (user-row (:id user))))
+        (is (= [(:email user) false] @notified) "no subscription to mention")))))
 
-  (testing "does not delete with a confirmation param that does not match the email"
-    (let [user         (create-test-user!)
-          mock-request {:identity {:sub (:id user)} :query-params {"confirm" "random"}}]
-      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Confirmation needed"
-                            (account/delete-account mock-request)))))
+(deftest test-deletion-message
+  (let [message @#'account/deletion-message]
+    (testing "names the subscription only when one was cancelled"
+      (is (str/includes? (pr-str (message "a@b.test" true)) "Your subscription has been cancelled"))
+      (is (not (str/includes? (pr-str (message "a@b.test" false)) "Your subscription"))))))
 
-  (testing "deletes the account with a confirmation param"
-    (let [user         (create-test-user!)
-          mock-request {:identity {:sub (:id user)} :query-params {"confirm" (:email user)}}
-          response     (account/delete-account mock-request)
-          db-user      (db/query-one (db/sql-format {:select [:id]
-                                                     :from   [:users]
-                                                     :where  [:= :id (:id user)]}))]
+(deftest test-delete-account-through-the-app
+  (let [app               (server/app)
+        pw                "correct horse battery"
+        user              (create-test-user! {:password pw :password_confirmation pw})
+        [cookie token]    (sign-in app user pw)
+        [refused]         (browse app (api :post "/api/account/delete" token
+                                           {:email (:email user) :current_password "wrong"})
+                                  cookie)
+        [response cookie] (browse app (api :post "/api/account/delete" token
+                                           {:email (:email user) :current_password pw})
+                                  cookie)]
+    (testing "a wrong password says so, Transit-encoded so the SPA can read it,
+              and the account stays (TASK-107)"
+      (is (= 400 (:status refused)))
+      (is (str/starts-with? (get-in refused [:headers "Content-Type"]) "application/transit+json"))
+      (is (= "That password is incorrect. Your account was not deleted."
+             (:error (decode refused)))))
+    (testing "a POST with the credentials in the body deletes the account"
       (is (= 204 (:status response)))
-      (is (= nil db-user)))))
+      (is (nil? (user-row (:id user)))))
+    (testing "the session is gone afterwards"
+      (is (= 401 (:status (first (browse app (api :get "/api/account" token) cookie))))))
+    (testing "the confirmation page is public"
+      (let [[page] (browse app (mock/request :get "/account-deleted") nil)]
+        (is (= 200 (:status page)))
+        (is (str/includes? (str (:body page)) "Your account has been deleted"))))))
 
 ;; TODO: When we allow roles other than "therapist" during registration,
 ;; update this test to verify the role from user-data is respected

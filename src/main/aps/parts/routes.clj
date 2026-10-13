@@ -8,6 +8,7 @@
    [aps.parts.api.sessions :as api.sessions]
    [aps.parts.auth.middleware :as auth-mw]
    [aps.parts.errors :as errors]
+   [aps.parts.handlers.account-deleted :as account-deleted]
    [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
    [aps.parts.handlers.password-reset :as password-reset]
@@ -168,6 +169,13 @@
                                         :handler    unsubscribe/show}
                            :post       {:handler unsubscribe/confirm}}]
 
+   ;; Where the Account page sends a User after deleting their account.
+   ;; Public: the session is already gone.
+   ["/account-deleted" {:middleware [middleware/wrap-csp
+                                     middleware/wrap-html-defaults
+                                     middleware/wrap-html-response]
+                        :get        {:handler account-deleted/show}}]
+
    ;; Legal documents — Privacy Policy, Terms of Service, DPA. Server-rendered
    ;; and public (no auth). Content is operator-supplied at
    ;; runtime (see aps.parts.legal); the repo ships only example templates.
@@ -225,8 +233,13 @@
                    :post       {:handler api.account/register-account}}]
      ["" {:middleware [auth-mw/require-auth]
           :get        {:handler api.account/get-account}
-          :patch      {:handler api.account/update-account}
-          :delete     {:handler api.account/delete-account}}]
+          :patch      {:handler api.account/update-account}}]
+     ;; POST, so the email and password travel in the body. Limited per
+     ;; user: the password check must not be a way to guess passwords.
+     ["/delete" {:middleware [auth-mw/require-auth
+                              (ratelimit/user-limiter :account-delete
+                                                      {:capacity 5 :refill-per-ms (/ 1.0 60000)})]
+                 :post       {:handler api.account/delete-account}}]
      ;; Builds every Map's full history, so each user gets a few per minute.
      ["/export.zip" {:middleware [auth-mw/require-auth
                                   (ratelimit/user-limiter :account-export

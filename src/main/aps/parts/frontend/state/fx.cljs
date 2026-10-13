@@ -96,6 +96,24 @@
                        form]))))))
 
 (rf/reg-fx
+ :account/delete-fx
+ (fn [{:keys [credentials]}]
+   (go
+     (let [resp (<! (api/delete-account credentials))]
+       (if (= 204 (:status resp))
+         ;; A full page load: the account and its session are gone, so no
+         ;; SPA state should survive.
+         (set! (.-location js/window) "/account-deleted")
+         (rf/dispatch [:account/delete-failure
+                       ;; Say what is wrong, so a refusal never reads as a
+                       ;; correct password with a failure behind it.
+                       (case (:status resp)
+                         400 (error-message resp "Check your email address and password.")
+                         429 "Too many attempts. Please wait a minute and try again."
+                         401 "Your session has ended. Please sign in again."
+                         "Something went wrong, and your account was not deleted. Please try again.")]))))))
+
+(rf/reg-fx
  :billing/session-fx
  (fn [{:keys [target]}]
    ;; Success is a full-page redirect — `.-href` assignment, not

@@ -349,6 +349,18 @@
       [:button {:class "btn btn-primary w-full" :type "submit"}
        "Unsubscribe"]])))
 
+(defn account-deleted-content
+  "The page body after a User deleted their account."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "Your account has been deleted"]
+   [:p {:class "text-gray-600 mb-2"}
+    "Your account and all your Maps are gone. We've sent a confirmation to
+     your email address."]
+   [:p {:class "text-gray-600"}
+    "Thank you for using Parts. If you have a moment, we'd like to hear why you
+     left: " (text-link (str "mailto:" c/support-email) c/support-email) "."]))
+
 (defn unsubscribe-unavailable-content
   "The page body for an unsubscribe link with an unknown token."
   []

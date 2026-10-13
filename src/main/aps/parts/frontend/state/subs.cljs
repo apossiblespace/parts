@@ -279,6 +279,11 @@
    (get-in db [:account :update])))
 
 (rf/reg-sub
+ :account/delete
+ (fn [db _]
+   (get-in db [:account :delete])))
+
+(rf/reg-sub
  :account/billing-error
  (fn [db _]
    (get-in db [:account :billing-error])))
