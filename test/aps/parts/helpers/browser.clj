@@ -47,8 +47,9 @@
              (mock/content-type transit))))
 
 (defn decode
-  "The response body as data. Error bodies arrive as plain maps: the
-   exception middleware runs outside the Transit encoding."
+  "The response body as data. A body that is still a plain map never
+   went through the Transit encoding (an error from the middleware
+   around it)."
   [response]
   (let [body (:body response)]
     (if (map? body) body (muuntaja/decode transit body))))

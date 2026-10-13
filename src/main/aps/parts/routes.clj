@@ -7,6 +7,7 @@
    [aps.parts.api.maps :as api.maps]
    [aps.parts.api.sessions :as api.sessions]
    [aps.parts.auth.middleware :as auth-mw]
+   [aps.parts.errors :as errors]
    [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
    [aps.parts.handlers.password-reset :as password-reset]
@@ -195,14 +196,19 @@
    ;; - Session authentication (with some endpoints requiring auth)
    ;; - Security headers appropriate for API endpoints
    ;;
-   ;; It's important for the format-middleware to be called last for proper
-   ;; conversion.
+   ;; It's important for the format-middleware to come after the others for
+   ;; proper conversion. The exception middleware comes after it again (so
+   ;; it runs inside it): a handler's thrown error becomes a {:error …}
+   ;; response that format-middleware then encodes, so the SPA can read
+   ;; the server's message. The router-level copy (server.clj) still
+   ;; catches errors from the HTML routes and the middleware above.
    ["/api" {:middleware [middleware/wrap-api-defaults
                          rrc/coerce-exceptions-middleware
                          rrc/coerce-request-middleware
                          rrc/coerce-response-middleware
                          auth-mw/wrap-session-auth
-                         muuntaja-middleware/format-middleware]
+                         muuntaja-middleware/format-middleware
+                         errors/exception]
             :muuntaja   transit-format
             :coercion   rcs/coercion}
 
