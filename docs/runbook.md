@@ -213,14 +213,14 @@ any clinical detail. For dashboard work this is discipline; in code it is
 an invariant: the checkout payload is a closed allowlist pinned by
 `aps.parts.stripe-test`.
 
-**Erasure releases the Stripe link (TASK-108).** Account deletion — the
-immediate path and the 30-day purge job alike — deletes the linked Stripe
+**Erasure releases the Stripe link (TASK-108).** Account deletion (immediate,
+from the Account page or the operator REPL) deletes the linked Stripe
 Customer *before* the DB purge. Stripe immediately cancels the customer's
 subscriptions (no charge outlives an account) and retains past invoices as
 the financial records it must keep; removing the customer's identity from
 our Stripe account is the extent of the erasure promise there. If Stripe is
-unreachable, the purge is postponed to the next hourly run with the link
-still on record — nothing half-completes. If an account is linked but the
+unreachable, the deletion fails with the link still on record — nothing
+half-completes, and the User (or operator) can try again. If an account is linked but the
 host has no Stripe config, the purge proceeds and logs
 `stripe-link-remains`: an operator work item to delete that customer from
 the dashboard by hand.

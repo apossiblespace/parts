@@ -50,7 +50,8 @@ details.
 **Sending.** A test send goes to the operator with a `[Test]` subject prefix and
 a dummy unsubscribe link. Send-to-all is enabled only for the exact draft (hash
 of kind + subject + body) that was test-sent. Recipients: the Fleet, minus
-accounts pending deletion, minus opted-out Users for Product updates.
+opted-out Users for Product updates. (Accounts pending deletion were left out
+too, until TASK-154.05 made deletion immediate and removed that state.)
 
 **Records.** `operator_emails` (what was sent) and `operator_email_deliveries`
 (one row per recipient, written after SMTP accepts, with any error). The rows

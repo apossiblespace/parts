@@ -125,9 +125,7 @@
 
 (defn- audience-where
   [kind]
-  (cond-> [:and
-           (erasure/exclude-tombstone :users.id)
-           [:= :users.deletion_requested_at nil]]
+  (cond-> [:and (erasure/exclude-tombstone :users.id)]
     (product-update? kind) (conj [:= :users.product_updates_opted_out_at nil]
                                  [:<> :users.product_updates_chosen_at nil])))
 
@@ -135,23 +133,20 @@
 ;; so the count in the page is the number of Users who get the email.
 (defn audience
   "Returns how many Users a new email of `kind` goes to, as
-   `{:users :pending :not-subscribed :recipients}`. Users who are not
+   `{:users :not-subscribed :recipients}`. Users who are not
    subscribed (opted out, or never chose) count only for a Product update."
   [kind]
-  (let [{:keys [users pending not_subscribed recipients]}
+  (let [{:keys [users not_subscribed recipients]}
         (db/query-one
          (db/sql-format
           {:select [[[:count :*] :users]
-                    [(count-where [:<> :users.deletion_requested_at nil]) :pending]
-                    [(count-where [:and [:= :users.deletion_requested_at nil]
-                                   [:or [:<> :users.product_updates_opted_out_at nil]
-                                    [:= :users.product_updates_chosen_at nil]]])
+                    [(count-where [:or [:<> :users.product_updates_opted_out_at nil]
+                                   [:= :users.product_updates_chosen_at nil]])
                      :not_subscribed]
                     [(count-where (audience-where kind)) :recipients]]
            :from   [:users]
            :where  (erasure/exclude-tombstone :users.id)}))]
     {:users          users
-     :pending        pending
      :not-subscribed (if (product-update? kind) not_subscribed 0)
      :recipients     recipients}))
 
@@ -184,7 +179,7 @@
 (defn- still-in-audience?
   "Returns true when the User `user-id` is still in the audience of an
    email of `kind`. A User can leave it during a send by opting out or by
-   asking for deletion."
+   deleting their account."
   [kind user-id]
   (some? (db/query-one
           (db/sql-format

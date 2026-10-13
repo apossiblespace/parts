@@ -193,8 +193,8 @@
 (defn delete-customer-if-present!
   "Delete a Customer, tolerating one that is already gone: true when
    deleted, false when Stripe reports it missing. Anything else throws —
-   the caller's retry mechanism (webhook redelivery, hourly purge run)
-   depends on real failures propagating."
+   the caller's retry (webhook redelivery, or the User or operator trying
+   the deletion again) depends on real failures propagating."
   [stripe-config customer-id]
   (try
     (delete-customer! stripe-config customer-id)

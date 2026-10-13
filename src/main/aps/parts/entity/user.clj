@@ -178,10 +178,8 @@
    pseudonymized to the tombstone UUID rather than deleted, preserving the
    operational trail.
 
-   This is the right-to-erasure path; the deletion-purge job funnels
-   expired soft-deletes through here too, so the release-Stripe-then-purge
-   ordering has one owner. For the user-initiated 30-day soft-delete flow,
-   see `aps.parts.db.erasure/request-deletion!`."
+   This is the right-to-erasure path, and the only one: the release-
+   Stripe-then-purge ordering has one owner."
   [id]
   (let [uuid-id (db/->uuid id)
         user    (db/query-one (db/sql-format

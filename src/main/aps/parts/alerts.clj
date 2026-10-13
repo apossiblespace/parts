@@ -36,10 +36,8 @@
     :aps.parts.errors/batch-failure
     :aps.parts.errors/postgres-exception
     :aps.parts.errors/stripe-failure
-    ;; Erasure-compliance failures (TASK-108): a Stripe-blocked purge
-    ;; silently postpones GDPR erasure hourly; a purge past an unreleasable
+    ;; Erasure-compliance failure (TASK-108): a purge past an unreleasable
     ;; link leaves the log as the only pointer to a still-billable customer.
-    :aps.parts.jobs.deletion-purge/purge-error
     :aps.parts.billing/stripe-link-remains
     ;; A webhook that 500s is a paying customer whose money moved but whose
     ;; account didn't — Stripe retries, but a persistent cause (key scope,

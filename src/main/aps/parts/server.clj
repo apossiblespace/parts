@@ -8,7 +8,6 @@
    [aps.parts.console :as console]
    [aps.parts.db :as db]
    [aps.parts.errors :as errors]
-   [aps.parts.jobs.deletion-purge :as deletion-purge]
    [aps.parts.jobs.session-cleanup :as session-cleanup]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
@@ -205,7 +204,6 @@
           ;; Start server and background processes
           stop-fn          (start-server port)
           stop-console     (start-console)
-          deletion-stop-ch (deletion-purge/schedule!)
           sessions-stop-ch (session-cleanup/schedule!)]
       (println "Parts: Server started on port" port)
 
@@ -217,7 +215,6 @@
       (fn []
         (stop-fn)
         (when stop-console (stop-console))
-        (async/close! deletion-stop-ch)
         (async/close! sessions-stop-ch)
         (when nrepl-server
           (nrepl/stop-server nrepl-server)

@@ -2,11 +2,10 @@
   "Right-to-erasure: account deletion that exempts a single user from the
    no-DELETE invariant on temporal tables.
 
-   Two-phase: `request-deletion!` marks the account, the user can
-   `cancel-deletion!` within 30 days, after which the deletion-purge job
-   hard-deletes everything through `aps.parts.entity.user/delete!` — the
-   path that first releases the account's Stripe link, then calls
-   `purge-account!`. Audit-log entries referencing the deleted user are
+   Deletion is immediate (CONTEXT.md, \"Account deletion\"): the Account
+   page calls `aps.parts.entity.user/delete!`, which first releases the
+   account's Stripe link, then calls `purge-account!`. Audit-log entries
+   referencing the deleted user are
    pseudonymized to a tombstone UUID rather than deleted, preserving
    operational accountability.
 
@@ -24,59 +23,12 @@
    Inserted by migration 20260511000000."
   #uuid "00000000-0000-0000-0000-000000000000")
 
-(def grace-period-days
-  "How long an account stays in deletion-pending state before it's hard-deleted."
-  30)
-
 (defn exclude-tombstone
   "HoneySQL WHERE fragment excluding the tombstone User, matched on `col` —
    `:id` on `users`, `:actor_id` on `audit_log`. One definition of the cast so
-   the fleet/billing reports and the purge sweep can't drift."
+   the fleet, billing and email reports can't drift."
   [col]
   [:not= col [:cast (str tombstone-id) :uuid]])
-
-(defn request-deletion!
-  "Mark the account for deletion. Auth middleware should refuse logins for
-   users with `deletion_requested_at IS NOT NULL`. Idempotent: if already
-   set, leaves the existing timestamp in place."
-  [ds user-id]
-  (mulog/log ::deletion-requested :user-id user-id)
-  (db/update! :users
-              {:deletion_requested_at [:coalesce :deletion_requested_at [:now]]}
-              [:= :id (db/->uuid user-id)]
-              ds))
-
-(defn cancel-deletion!
-  "Clear the deletion-pending state. Allowed only while
-   `deletion_completed_at IS NULL` — once the purge job runs, this is moot."
-  [ds user-id]
-  (mulog/log ::deletion-cancelled :user-id user-id)
-  (db/update! :users
-              {:deletion_requested_at nil}
-              [:and
-               [:= :id (db/->uuid user-id)]
-               [:= :deletion_completed_at nil]]
-              ds))
-
-(defn pending-deletions
-  "Return user-ids whose grace window has expired and are ready to purge.
-   The deletion-purge job iterates this and calls
-   `aps.parts.entity.user/delete!` for each — never `purge-account!`
-   directly, which would skip the Stripe-link release."
-  [ds]
-  (->> (jdbc/execute!
-        ds
-        (db/sql-format
-         {:select [:id]
-          :from   [:users]
-          :where  [:and
-                   [:not= :deletion_requested_at nil]
-                   [:= :deletion_completed_at nil]
-                   [:< :deletion_requested_at
-                    [:- [:now] [:cast (str grace-period-days " days") :interval]]]
-                   (exclude-tombstone :id)]})
-        {:builder-fn rs/as-unqualified-maps})
-       (map :id)))
 
 (defn purge-account!
   "Hard-delete a user account and all data they own.
@@ -101,8 +53,7 @@
         instead.
      6. Pseudonymize any historical `audit_log` rows still attributing
         pre-deletion activity to this user — they survive but are anonymous.
-     7. Mark `deletion_completed_at` (sentinel for log correlation).
-     8. Hard-DELETE the user row.
+     7. Hard-DELETE the user row.
 
    For the v1 owner-only model, every part/relationship in a user's map
    was authored by that same user, so the pseudonymization in step 3 makes
@@ -204,10 +155,6 @@
       (db/update! :audit_log
                   {:actor_id [:cast (str tombstone-id) :uuid]}
                   [:= :actor_id user-uuid]
-                  tx)
-      (db/update! :users
-                  {:deletion_completed_at [:now]}
-                  [:= :id user-uuid]
                   tx)
       (jdbc/execute! tx ["DELETE FROM policy_acceptances WHERE user_id = ?" user-uuid])
       (jdbc/execute! tx ["DELETE FROM operator_email_deliveries WHERE user_id = ?" user-uuid])

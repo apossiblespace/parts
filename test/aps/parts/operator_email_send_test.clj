@@ -2,7 +2,6 @@
   (:require
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
-   [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.user :as user]
    [aps.parts.helpers.utils :refer [create-test-user! with-test-db]]
    [aps.parts.mail :as mail]
@@ -19,16 +18,12 @@
     u))
 
 (defn- users
-  "Creates a subscribed user, an opted-out user and a user pending
-   deletion."
+  "Creates a subscribed user and an opted-out user."
   []
   (let [subscribed (subscriber!)
-        opted-out  (subscriber!)
-        pending    (subscriber!)]
+        opted-out  (subscriber!)]
     (user/set-product-updates! (:id opted-out) false)
-    (binding [*out* (java.io.StringWriter.)]
-      (erasure/request-deletion! db/datasource (:id pending)))
-    {:subscribed subscribed :opted-out opted-out :pending pending}))
+    {:subscribed subscribed :opted-out opted-out}))
 
 (defn- store! [kind]
   (:id (db/insert! :operator_emails {:kind kind :subject "News" :body "Hello"})))
@@ -54,13 +49,13 @@
 
 (deftest test-audience
   (users)
-  (testing "a product update skips pending deletion and users who are not subscribed"
-    (is (= {:users 3 :pending 1 :not-subscribed 1 :recipients 1} (email/audience "product-update"))))
-  (testing "a service notice skips only pending deletion"
-    (is (= {:users 3 :pending 1 :not-subscribed 0 :recipients 2} (email/audience "service-notice"))))
+  (testing "a product update skips users who are not subscribed"
+    (is (= {:users 2 :not-subscribed 1 :recipients 1} (email/audience "product-update"))))
+  (testing "a service notice goes to everyone"
+    (is (= {:users 2 :not-subscribed 0 :recipients 2} (email/audience "service-notice"))))
   (testing "a user who never chose is not subscribed"
     (create-test-user!)
-    (is (= {:users 4 :pending 1 :not-subscribed 2 :recipients 1} (email/audience "product-update")))))
+    (is (= {:users 3 :not-subscribed 2 :recipients 1} (email/audience "product-update")))))
 
 (deftest test-recipients-per-kind
   (let [{:keys [subscribed opted-out]} (users)

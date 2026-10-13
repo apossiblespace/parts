@@ -121,13 +121,10 @@
 (deftest test-fleet-users-and-flags
   (founder!)
   (founder!)
-  (let [pending (create-test-user!)
-        _       (erasure/request-deletion! db/datasource (:id pending))
-        result  (silently #(stats/fleet-stats!))]
-    (testing "total counts every non-tombstone account (pending-deletion included)"
+  (create-test-user!)
+  (let [result (silently #(stats/fleet-stats!))]
+    (testing "total counts every non-tombstone account"
       (is (= 3 (-> result :users :total))))
-    (testing "pending-deletion surfaced separately"
-      (is (= 1 (-> result :users :pending_deletion))))
     (testing "founding-circle count"
       (is (= 2 (:founding_circle result))))))
 

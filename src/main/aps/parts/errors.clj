@@ -26,8 +26,8 @@
    `:stripe-transport`). Unlike `exception-handler` it ignores the
    exception's own message — clients get the fixed wording, not
    \"Stripe API error\" — and it logs `::stripe-failure` (allowlisted in
-   `aps.parts.alerts`): a Stripe failure on the interactive deletion path
-   must reach the operator exactly like the purge job's `::purge-error`."
+   `aps.parts.alerts`): a Stripe failure on the deletion path must reach
+   the operator."
   [message]
   (fn [^Exception e _request]
     (let [{:keys [type status path]} (ex-data e)]

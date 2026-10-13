@@ -146,13 +146,13 @@
 
 (defn- fleet-users
   "Every real account (tombstone excluded), with just the columns the fleet
-   figures need. The fleet is small (concierge launch), so totals, founding,
-   pending and the billing breakdown are all folded from this one pass rather
+   figures need. The fleet is small (concierge launch), so totals, founding
+   and the billing breakdown are all folded from this one pass rather
    than several COUNT queries; the heavier per-entity counts stay in SQL."
   []
   (db/query
    (db/sql-format
-    {:select [:paid_through_date :is_founding_circle :deletion_requested_at
+    {:select [:paid_through_date :is_founding_circle
               :product_updates_opted_out_at :product_updates_chosen_at]
      :from   [:users]
      :where  (erasure/exclude-tombstone :id)})))
@@ -210,8 +210,8 @@
 
 (defn- print-fleet-report
   [{:keys [users active totals founding_circle billing]}]
-  (println (format "Fleet: %d users  (%d pending deletion,  %d founding)"
-                   (:total users) (:pending_deletion users) founding_circle))
+  (println (format "Fleet: %d users  (%d founding)"
+                   (:total users) founding_circle))
   (println (format "  active 24h    %d  (%.1f%%)"
                    (-> active :last_24h :count) (-> active :last_24h :pct)))
   (println (format "  active 7d     %d  (%.1f%%)"
@@ -226,7 +226,7 @@
 (defn fleet
   "Returns the whole fleet at a glance.
 
-     {:users   {:total :pending_deletion}        ; tombstone excluded; pending still counted
+     {:users   {:total}                          ; tombstone excluded
       :active  {:last_24h {:count :pct}           ; distinct actors in a rolling window
                 :last_7d  {:count :pct}
                 :last_30d {:count :pct}}          ; the `user-activity` window
@@ -247,8 +247,7 @@
          active (fn [start]
                   (let [n (active-count start)]
                     {:count n :pct (pct n total)}))]
-     {:users           {:total            total
-                        :pending_deletion (count (filter :deletion_requested_at users))}
+     {:users           {:total total}
       :active          {:last_24h (active (rolling "24 hours"))
                         :last_7d  (active (rolling "7 days"))
                         :last_30d (active (window-start today))}
@@ -338,7 +337,7 @@
    activity of the `activity-days` UTC days that end on `today`.
 
      {:id :email :display_name :created_at :is_founding_circle
-      :pending_deletion <bool>  :product_updates_opted_out <bool>
+      :product_updates_opted_out <bool>
       :billing     {:status :paid_through_date :days_remaining}
       :last_active <OffsetDateTime or nil>   ; latest change, all time
       :active_days #{LocalDate}               ; inside the window only
@@ -360,15 +359,14 @@
                    (db/sql-format
                     {:select [:id :email :display_name :created_at
                               :is_founding_circle :paid_through_date
-                              :deletion_requested_at :product_updates_opted_out_at]
+                              :product_updates_opted_out_at]
                      :from   [:users]
                      :where  (erasure/exclude-tombstone :id)}))]
      (->> users
           (map (fn [{:keys [id] :as u}]
                  (-> (select-keys u [:id :email :display_name :created_at
                                      :is_founding_circle])
-                     (assoc :pending_deletion (some? (:deletion_requested_at u))
-                            :product_updates_opted_out (some? (:product_updates_opted_out_at u))
+                     (assoc :product_updates_opted_out (some? (:product_updates_opted_out_at u))
                             :billing          (billing/account-standing u today)
                             :last_active      (last-at id)
                             :active_days      (get dates id #{})

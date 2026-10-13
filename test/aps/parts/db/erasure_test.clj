@@ -1,8 +1,5 @@
 (ns aps.parts.db.erasure-test
-  "Covers the right-to-erasure lifecycle:
-     - `request-deletion!` marks the account
-     - `cancel-deletion!` reverses it within the window
-     - `pending-deletions` surfaces accounts past the 30-day grace
+  "Covers right-to-erasure:
      - `purge-account!` hard-deletes data + pseudonymizes the audit trail
      - the tombstone user itself is protected"
   (:require
@@ -10,64 +7,12 @@
    [aps.parts.db.bitemporal :as bt]
    [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.session :as session]
-   [aps.parts.helpers.utils :refer [create-test-map! create-test-user!
-                                    expire-deletion-grace! with-test-db]]
+   [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]))
 
 (use-fixtures :each with-test-db)
-
-(defn- fetch-user-row [user-id]
-  (jdbc/execute-one!
-   db/datasource
-   ["SELECT deletion_requested_at, deletion_completed_at FROM users WHERE id = ?::uuid"
-    (str user-id)]
-   {:builder-fn rs/as-unqualified-maps}))
-
-(deftest test-request-deletion-marks-the-account
-  (let [user (create-test-user!)]
-    (testing "before request, no marker is set"
-      (is (nil? (:deletion_requested_at (fetch-user-row (:id user))))))
-
-    (erasure/request-deletion! db/datasource (:id user))
-
-    (testing "after request, deletion_requested_at is populated"
-      (is (some? (:deletion_requested_at (fetch-user-row (:id user))))))
-
-    (testing "completion timestamp stays nil until the purge runs"
-      (is (nil? (:deletion_completed_at (fetch-user-row (:id user))))))))
-
-(deftest test-request-is-idempotent
-  (let [user (create-test-user!)]
-    (erasure/request-deletion! db/datasource (:id user))
-    (let [first-ts (:deletion_requested_at (fetch-user-row (:id user)))]
-      (Thread/sleep 50)
-      (erasure/request-deletion! db/datasource (:id user))
-      (testing "re-requesting deletion does not bump the timestamp"
-        (is (= first-ts (:deletion_requested_at (fetch-user-row (:id user)))))))))
-
-(deftest test-cancel-deletion-clears-the-marker
-  (let [user (create-test-user!)]
-    (erasure/request-deletion! db/datasource (:id user))
-    (is (some? (:deletion_requested_at (fetch-user-row (:id user)))))
-
-    (erasure/cancel-deletion! db/datasource (:id user))
-
-    (testing "cancel nulls deletion_requested_at"
-      (is (nil? (:deletion_requested_at (fetch-user-row (:id user))))))))
-
-(deftest test-pending-deletions-respects-the-grace-window
-  (let [fresh-user (create-test-user!)
-        stale-user (create-test-user!)]
-    (erasure/request-deletion! db/datasource (:id fresh-user))
-    (expire-deletion-grace! (:id stale-user))
-
-    (let [pending (set (erasure/pending-deletions db/datasource))]
-      (testing "the fresh request is still within the window — excluded"
-        (is (not (contains? pending (:id fresh-user)))))
-      (testing "the stale request is past the window — included"
-        (is (contains? pending (:id stale-user)))))))
 
 (deftest test-purge-refuses-while-stripe-linked
   (let [user (create-test-user!)]

@@ -191,8 +191,7 @@
         user (create-test-user! {:password pw :password_confirmation pw})]
     (db/update! :users {:stripe_customer_id         "cus_allowlist"
                         :stripe_subscription_status "active"
-                        :stripe_plan                "monthly"
-                        :deletion_requested_at      [:now]}
+                        :stripe_plan                "monthly"}
                 [:= :id (:id user)])
     (testing "GET, PATCH and a product-updates PATCH have one shape"
       (let [get-body (:body (account/get-account {:identity {:sub (:id user)}}))]

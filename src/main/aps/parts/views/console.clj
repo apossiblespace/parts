@@ -62,7 +62,7 @@
   (let [window (fn [k] (format "%.0f%% of users" (-> active k :pct)))]
     [:div {:class "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-base-300 border border-base-300 rounded-box overflow-hidden"}
      (tile "Users" (:total users)
-           (str founding_circle " founding · " (:pending_deletion users) " pending deletion"))
+           (str founding_circle " founding"))
      (tile "Active 24 h" (-> active :last_24h :count) (window :last_24h))
      (tile "Active 7 d" (-> active :last_7d :count) (window :last_7d))
      (tile "Active 30 d" (-> active :last_30d :count) (window :last_30d))
@@ -73,7 +73,7 @@
                 (:not_asked product_updates) " not asked"))]))
 
 (defn- user-row
-  [today now {:keys [display_name email created_at is_founding_circle pending_deletion
+  [today now {:keys [display_name email created_at is_founding_circle
                      product_updates_opted_out billing last_active active_days counts]}]
   [:tr
    [:td
@@ -81,9 +81,6 @@
      [:span display_name " "
       (when is_founding_circle
         [:span {:class "badge badge-xs badge-ghost" :title "Founding Circle"} "FC"])
-      " "
-      (when pending_deletion
-        [:span {:class "badge badge-xs badge-soft badge-error"} "pending deletion"])
       " "
       (when product_updates_opted_out
         [:span {:class "badge badge-xs badge-outline opacity-60"
@@ -146,12 +143,11 @@
 
 (defn- audience-math
   "The recipient count of step 3, written as a subtraction."
-  [{:keys [users pending not-subscribed recipients]}]
+  [{:keys [users not-subscribed recipients]}]
   (let [line (fn [label k n]
                (list [:span label] [:span [:span {:data-audience k} n]]))]
     [:div {:class "grid grid-cols-[auto_auto] justify-start gap-x-4 text-sm tabular-nums"}
      (line "Users" "users" users)
-     (line "− Pending deletion" "pending" pending)
      (line "− Not subscribed to product updates" "not-subscribed" not-subscribed)
      [:span {:class "font-semibold border-t border-base-300"} "Recipients"]
      [:span {:class "font-semibold border-t border-base-300"}
