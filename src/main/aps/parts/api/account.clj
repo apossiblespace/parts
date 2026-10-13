@@ -14,11 +14,14 @@
    [aps.parts.entity.relationship :as relationship]
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
+   [aps.parts.export :as export]
    [aps.parts.mail :as mail]
    [aps.parts.password-notice :as password-notice]
    [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog]
-   [ring.util.response :as response]))
+   [ring.util.response :as response])
+  (:import
+   (java.io ByteArrayInputStream)))
 
 (defn- billing-info
   "Self-serve billing facts for the Account page, driving its
@@ -250,6 +253,23 @@ Gosha")
                    :error-type (:type (ex-data e))
                    :error-message (.getMessage e))
         (throw e)))))
+
+(defn export-zip
+  "GET /api/account/export.zip — all of the caller's data as one ZIP:
+   the account details and every Map's export (see
+   `export/account-zip`)."
+  [request]
+  (let [user-id (auth/current-user-id request)
+        zip     (export/account-zip db/datasource user-id)]
+    (mulog/log ::export-account :user-id user-id)
+    (-> (response/response (ByteArrayInputStream. zip))
+        (response/status 200)
+        (response/header "Content-Length" (str (alength ^bytes zip)))
+        (response/header "Content-Type" "application/zip")
+        ;; It holds every client's clinical notes: never cache it.
+        (response/header "Cache-Control" "no-store")
+        (response/header "Content-Disposition"
+                         (str "attachment; filename=\"parts-data-" (java.time.LocalDate/now) ".zip\"")))))
 
 (defn delete-account
   "Delete own account"

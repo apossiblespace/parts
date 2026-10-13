@@ -9,7 +9,11 @@
    [aps.parts.entity.session :as session]
    [aps.parts.export :as export]
    [aps.parts.helpers.utils :refer [create-test-map! create-test-user! with-test-db]]
-   [clojure.test :refer [deftest is testing use-fixtures]]))
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [jsonista.core :as json])
+  (:import
+   (java.io ByteArrayInputStream)
+   (java.util.zip ZipInputStream)))
 
 (use-fixtures :each with-test-db)
 
@@ -162,3 +166,73 @@
     (testing "an archived Map exports when it was archived"
       (parts-map/set-archived! (:id the-map) true (:id user))
       (is (some? (:archived_at (:map (export/export-map db/datasource (:id the-map)))))))))
+
+(defn- unzip
+  "ZIP bytes as {entry-name parsed-json}."
+  [bytes]
+  (with-open [zip (ZipInputStream. (ByteArrayInputStream. bytes))]
+    (loop [out {}]
+      (if-let [entry (.getNextEntry zip)]
+        (recur (assoc out (.getName entry)
+                      (json/read-value (String. (.readAllBytes zip) "UTF-8")
+                                       json/keyword-keys-object-mapper)))
+        out))))
+
+(deftest test-account-zip
+  (let [user  (create-test-user!)
+        other (create-test-user!)
+        _     (create-test-map! (:id user) "Anna (2)")
+        a     (create-test-map! (:id user) "Anna")
+        _     (create-test-map! (:id user) "anna")
+        b     (create-test-map! (:id user) "Ben/ny")
+        _     (create-test-map! (:id user) "Client: A?")
+        _     (create-test-map! (:id other) "Not mine")]
+    (parts-map/set-archived! (:id b) true (:id user))
+    (db/insert! :policy_acceptances {:user_id  (:id user)
+                                     :document "privacy"
+                                     :version  "2026-10-11"})
+    (db/update! :users {:stripe_customer_id "cus_zip"                  :stripe_plan "monthly"
+                        :paid_through_date  [:cast "2026-10-31" :date]}
+                [:= :id (:id user)])
+    (let [files (unzip (export/account-zip db/datasource (:id user)))]
+      (testing "one file per Map, archived included, repeated titles numbered
+                without reusing a taken name or differing only in case,
+                unsafe characters stripped, other users' Maps left out"
+        (is (= #{"account.json" "maps/Anna (2).json" "maps/Anna.json" "maps/anna (3).json"
+                 "maps/Benny.json" "maps/Client A.json"}
+               (set (keys files)))))
+      (testing "each Map file is the single-Map export"
+        (is (= (str (:id a)) (get-in files ["maps/Anna.json" :map :id])))
+        (is (= (-> (String. (export/map-json db/datasource (:id a)) "UTF-8")
+                   (json/read-value json/keyword-keys-object-mapper)
+                   (dissoc :exported_at))
+               (dissoc (files "maps/Anna.json") :exported_at)))
+        (is (some? (get-in files ["maps/Benny.json" :map :archived_at]))))
+      (testing "the account file holds the allowlisted details only"
+        (let [account (files "account.json")]
+          (is (= (:email user) (:email account)))
+          (is (= "monthly" (:subscription_plan account)))
+          (is (= "2026-10-31" (:paid_through_date account)) "a DATE stays a plain day")
+          (is (= [["privacy" "2026-10-11"]]
+                 (map (juxt :document :version) (:policy_acceptances account))))
+          (is (contains? account :emails_sent))
+          (is (not-any? #(re-find #"stripe|password|token|deletion|^id$" (name %))
+                        (keys account))))))))
+
+(deftest test-safe-filename
+  (is (= "Client A intake 0310" (export/safe-filename "Client A: intake 03/10")))
+  (is (= 60 (count (export/safe-filename (apply str (repeat 300 "x"))))))
+  (is (= "map" (export/safe-filename "?*<>")))
+  (testing "an emoji at the cut is kept whole or left out, never split"
+    (let [cut (export/safe-filename (str (apply str (repeat 59 "x")) "😀😀"))]
+      (is (= (str (apply str (repeat 59 "x")) "😀") cut))
+      (is (.canEncode (.newEncoder java.nio.charset.StandardCharsets/UTF_8) ^String cut))))
+  (testing "a flag emoji at the cut is kept whole or left out"
+    (is (= (apply str (repeat 59 "x"))
+           (export/safe-filename (str (apply str (repeat 59 "x")) "🇬🇧")))))
+  (is (= "_CON" (export/safe-filename "CON")))
+  (is (= "_Con. Smith" (export/safe-filename "Con. Smith")))
+  (is (= "Anna" (export/safe-filename ".Anna")) "no hidden files")
+  (is (= "abc" (export/safe-filename "a\u202Ebc")) "direction controls go")
+  (is (= "می\u200Cخواهم" (export/safe-filename "می\u200Cخواهم")) "joiners stay")
+  (is (= "map" (export/safe-filename nil))))

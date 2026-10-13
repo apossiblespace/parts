@@ -8,6 +8,7 @@
   (:require
    ["lucide-react/dist/esm/icons/circle-check" :default CircleCheck]
    [aps.parts.common.constants :as c]
+   [aps.parts.common.observe :as o]
    [aps.parts.frontend.components.account-view :as account-view]
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
@@ -45,6 +46,64 @@
         (if for ($ :label {:html-for for :class "block"} label) ($ :p label))
         (when hint ($ :p {:class "text-xs text-gray-500 break-words"} hint)))
      ($ :div {:class "flex items-center gap-2 shrink-0"} children)))
+
+;;; Data download
+
+(defn- download-error
+  "What to tell the user when the ZIP request answers `status` (nil when
+   the request failed without a response)."
+  [status]
+  (case status
+    401 "Your session has ended. Please sign in again, then download your data."
+    429 "Too many download attempts in the last minute. Please wait a minute and try again."
+    (str "We couldn't prepare your download. Please try again, or contact us at "
+         c/support-email ".")))
+
+(defn- save-file!
+  "Hands `blob` to the browser as a download named `file-name`."
+  [blob file-name]
+  (let [url (js/URL.createObjectURL blob)
+        a   (js/document.createElement "a")]
+    (set! (.-href a) url)
+    (set! (.-download a) file-name)
+    ;; Safari starts the download later: keep the link in the page for
+    ;; the click and the URL alive for a minute.
+    (.appendChild js/document.body a)
+    (.click a)
+    (.remove a)
+    (js/setTimeout #(js/URL.revokeObjectURL url) 60000)))
+
+(defui ^:private download-data-button
+  "Downloads the account ZIP. It fetches the file first, so a refused or
+   failed request shows an error instead of saving the error as a ZIP."
+  []
+  (let [[state set-state!] (use-state nil) ;; nil, :pending, or an error message
+        download!          (fn []
+                             (set-state! :pending)
+                             (-> (js/fetch "/api/account/export.zip" #js {:credentials "same-origin"})
+                                 (.then (fn [^js response]
+                                          (if (.-ok response)
+                                            (.then (.blob response)
+                                                   (fn [blob]
+                                                     (save-file! blob
+                                                                 (or (some->> (.get (.-headers response) "Content-Disposition")
+                                                                              (re-find #"filename=\"([^\"]+)\"")
+                                                                              second)
+                                                                     "parts-data.zip"))
+                                                     (o/track "Account data exported" {})
+                                                     (set-state! nil)))
+                                            (set-state! (download-error (.-status response))))))
+                                 (.catch #(set-state! (download-error nil)))))]
+    ($ :div {:class "flex flex-col items-end gap-1"}
+       ($ :button {:type     "button"
+                   :class    "btn btn-sm"
+                   :disabled (= :pending state)
+                   :on-click download!}
+          (when (= :pending state)
+            ($ :span {:class "loading loading-spinner loading-xs"}))
+          "Download")
+       (when (string? state)
+         ($ :p {:class "text-xs text-error text-right max-w-64"} state)))))
 
 ;;; Password
 
@@ -353,6 +412,11 @@
              ($ billing-rows {:view    billing
                               :thanks? checkout-thanks?
                               :pending billing-pending}))
+
+          ($ section {:title "Your data"}
+             ($ row {:label "Download all your data"
+                     :hint  "Download a copy of all your Maps, archived ones included, and your account details, as a ZIP file."}
+                ($ download-data-button)))
 
           ($ app-footer))
 

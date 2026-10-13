@@ -8,14 +8,17 @@
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
+   [aps.parts.helpers.browser :refer [anonymous-session browse sign-in]]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
                                     with-test-db without-stripe]]
    [aps.parts.mail :as mail]
    [aps.parts.password-notice :as password-notice]
+   [aps.parts.server :as server]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]
-   [ring.middleware.session.store :as store]))
+   [ring.middleware.session.store :as store]
+   [ring.mock.request :as mock]))
 
 (use-fixtures :once with-test-db)
 (def ^:private real-send-welcome! @#'account/send-welcome!)
@@ -498,3 +501,25 @@
     (testing "this request gets a new session id, still signed in"
       (is (= {:sub (str (:id user))} (get-in response [:session :identity])))
       (is (:recreate (meta (:session response)))))))
+
+(deftest test-export-zip
+  ;; The Account page fetches it as a plain GET: no Transit, no CSRF header.
+  (let [app      (server/app)
+        pw       "correct horse battery"
+        user     (create-test-user! {:password pw :password_confirmation pw})
+        download (fn [cookie] (first (browse app (mock/request :get "/api/account/export.zip") cookie)))]
+    (testing "needs a signed-in user"
+      (let [[cookie _] (anonymous-session app)]
+        (is (= 401 (:status (download cookie))))))
+    (let [[cookie _] (sign-in app user pw)]
+      (testing "serves the signed-in user's ZIP as a download"
+        (let [response (download cookie)]
+          (is (= 200 (:status response)))
+          (is (= "application/zip" (get-in response [:headers "Content-Type"])))
+          (is (= "no-store" (get-in response [:headers "Cache-Control"])))
+          (is (re-find #"attachment; filename=\"parts-data-\d{4}-\d{2}-\d{2}\.zip\""
+                       (get-in response [:headers "Content-Disposition"])))))
+      (testing "a few downloads a minute, then 429"
+        (download cookie)
+        (download cookie)
+        (is (= 429 (:status (download cookie))))))))

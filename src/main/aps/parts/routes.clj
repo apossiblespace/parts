@@ -220,7 +220,12 @@
      ["" {:middleware [auth-mw/require-auth]
           :get        {:handler api.account/get-account}
           :patch      {:handler api.account/update-account}
-          :delete     {:handler api.account/delete-account}}]]
+          :delete     {:handler api.account/delete-account}}]
+     ;; Builds every Map's full history, so each user gets a few per minute.
+     ["/export.zip" {:middleware [auth-mw/require-auth
+                                  (ratelimit/user-limiter :account-export
+                                                          {:capacity 3 :refill-per-ms (/ 1.0 60000)})]
+                     :get        {:handler api.account/export-zip}}]]
 
     ;; Self-serve billing: both endpoints only mint redirect URLs to
     ;; Stripe-hosted pages, but each mint creates an object on Stripe's

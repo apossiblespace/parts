@@ -139,3 +139,22 @@ Supporting decisions:
 - `audit_log` stays out (data-inventory §1, task-042 note); the "labelled
   access-only section" idea is deferred until the client role introduces a
   third-party actor.
+
+## Addendum — 2026-10-12: account-wide download is now self-service
+
+The rejection of an account-wide "export all my data" above was for day-1:
+the standing promise was per-Map, and the account's own details were a
+hand-fulfilled request. Self-service account deletion (TASK-154) changes
+that: a therapist must be able to take everything before deleting, and
+exporting dozens of Maps one by one is not a real offer.
+
+So the Account page now offers **"Download all your data"**
+(`GET /api/account/export.zip`, `export/account-zip`): a ZIP with one file
+per live Map, archived Maps included, and `account.json` with the account
+details. Each Map file is exactly this ADR's export, so the format and
+`format_version` are unchanged and a future importer reads both the same
+way. Repeated titles get a number ("Anna (2).json"). The account file is an
+allowlist of the user's own columns (data-inventory, `users`); Stripe ids
+and credentials stay out. The ZIP is built in memory, which is fine for
+dozens of Maps per account.
+

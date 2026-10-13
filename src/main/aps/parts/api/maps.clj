@@ -8,10 +8,7 @@
    [aps.parts.render.document :as document]
    [aps.parts.render.pdf :as pdf]
    [aps.parts.render.preview :as preview]
-   [clojure.string :as str]
-   [clojure.walk :as walk]
    [com.brunobonacci.mulog :as mulog]
-   [jsonista.core :as json]
    [ring.util.response :as response])
   (:import
    (java.io ByteArrayInputStream)
@@ -33,17 +30,6 @@
 (defn- not-modified
   [tag]
   {:status 304 :headers {"ETag" tag}})
-
-(defn- safe-filename
-  "Sanitise a user-supplied string for use in a `Content-Disposition`
-   filename. Strips characters that would break the header (`\"`,
-   `\\r`, `\\n`, path separators) and falls back to `map` when the
-   result is empty. Does not handle non-ASCII via RFC 5987 — modern
-   browsers display non-ASCII titles in the URL fallback, which is
-   acceptable for the launch cohort."
-  [s]
-  (let [cleaned (some-> s (str/replace #"[\"\r\n/\\]" "") str/trim)]
-    (if (str/blank? cleaned) "map" cleaned)))
 
 (defn list-maps
   "List all maps for the authenticated user"
@@ -164,26 +150,18 @@
     (-> (response/response {:success true :results results})
         (response/status 200))))
 
-(defn- json-safe
-  "Make export data JSON-friendly: OffsetDateTime endpoints become ISO-8601
-   strings (UUIDs jsonista already renders as strings)."
-  [x]
-  (walk/postwalk
-   (fn [v] (if (instance? java.time.OffsetDateTime v) (str v) v))
-   x))
-
 (defn export-json
   "Export a Map's full valid-time history as a downloadable JSON file — the data
    subject's Art. 15 / 20 copy (ADR-0010). Access gated by `wrap-map-access`, so
    missing / not-owned both 404 before we get here."
   [{:keys [parameters] :as _request}]
   (let [map-id   (get-in parameters [:path :id])
-        filename (str (safe-filename (:title (parts-map/fetch map-id))) ".json")
-        body     (json/write-value-as-string
-                  (json-safe (export/export-map db/datasource map-id)))]
+        filename (str (export/safe-filename (:title (parts-map/fetch map-id))) ".json")
+        body     (ByteArrayInputStream. (export/map-json db/datasource map-id))]
     (-> (response/response body)
         (response/status 200)
         (response/header "Content-Type" "application/json")
+        (response/header "Cache-Control" "no-store")
         (response/header "Content-Disposition"
                          (str "attachment; filename=\"" filename "\"")))))
 
@@ -226,9 +204,9 @@
     (if (and tag (= tag (get headers "if-none-match")))
       (not-modified tag)
       (let [the-map  (parts-map/fetch map-id as-of)
-            filename (safe-filename
-                      (cond-> (:title the-map)
-                        at-session (str " - Session " (:ordinal at-session))))
+            ;; Shorten the title only, so the Session suffix always stays.
+            filename (cond-> (export/safe-filename (:title the-map))
+                       at-session (str " - Session " (:ordinal at-session)))
             bytes    (pdf/svg->pdf
                       (document/render
                        the-map
