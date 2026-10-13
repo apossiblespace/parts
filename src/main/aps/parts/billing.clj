@@ -178,6 +178,22 @@
                     :from   [:users]
                     :where  [:= :id (db/->uuid user-id)]}))))
 
+(defn sync-stripe-email!
+  "After an email change, give the account's Stripe Customer the new
+   address, so receipts follow it. Best effort: the change has already
+   happened, so a Stripe failure (or a host without Stripe) is logged for
+   the operator and does not reach the User."
+  [user-id email]
+  (when-let [customer (:stripe_customer_id (billing-facts user-id))]
+    (if-let [secret-key (config/stripe-secret-key)]
+      (try
+        (stripe/update-customer-email! {:secret-key secret-key} customer email)
+        (mulog/log ::stripe-email-synced :user-id user-id :customer customer)
+        (catch Exception e
+          (mulog/log ::stripe-email-sync-failed :user-id user-id :customer customer
+                     :error-type (:type (ex-data e)) :status (:status (ex-data e)))))
+      (mulog/log ::stripe-email-not-synced :user-id user-id :customer customer))))
+
 (defn release-stripe-customer!
   "Erasure step for an account's Stripe link (TASK-108), run *before* the
    DB purge: delete the linked Stripe Customer, which immediately cancels

@@ -168,7 +168,7 @@
    :product_updates_chosen_at :product_updates_opted_out_at])
 
 (defn- rows [ds query]
-  (jdbc/execute! ds (db/sql-format query) {:builder-fn rs/as-unqualified-maps}))
+  (db/query ds (db/sql-format query)))
 
 (defn- account-details
   "The account's own record, with the legal documents it accepted and

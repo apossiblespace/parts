@@ -112,6 +112,20 @@
        (when (string? state)
          ($ :p {:class "text-xs text-error text-right max-w-64"} state)))))
 
+;;; Sheets
+
+(defui ^:private sheet-buttons
+  "A sheet's Cancel and submit buttons. `class` styles the submit button
+   (btn-primary, btn-error); it shows a spinner while `pending?`."
+  [{:keys [label class pending? disabled on-cancel]}]
+  ($ :div {:class "modal-action flex gap-2 mt-2"}
+     ($ :button {:type "button" :class "btn btn-sm flex-1" :on-click on-cancel} "Cancel")
+     ($ :button {:type     "submit"
+                 :class    (str "btn btn-sm flex-1 " class)
+                 :disabled (or pending? disabled)}
+        (when pending? ($ :span {:class "loading loading-spinner loading-xs"}))
+        label)))
+
 ;;; Password
 
 (defui ^:private password-field [{:keys [id label auto-complete value on-change hint]}]
@@ -181,14 +195,56 @@
            ($ :p {:class "text-sm text-error"} update-error))
          ($ :p {:class "text-xs text-gray-500"}
             "Your other devices will be signed out. We'll email you to confirm the change.")
-         ($ :div {:class "modal-action flex gap-2 mt-2"}
-            ($ :button {:type "button" :class "btn btn-sm flex-1" :on-click on-close} "Cancel")
-            ($ :button {:type     "submit"
-                        :class    "btn btn-sm btn-primary flex-1"
-                        :disabled (or pending? (str/blank? current) (str/blank? new-pw)
-                                      (not= new-pw confirm))}
-               (when pending? ($ :span {:class "loading loading-spinner loading-xs"}))
-               "Change password"))))))
+         ($ sheet-buttons {:label     "Change password"
+                           :class     "btn-primary"
+                           :pending?  pending?
+                           :disabled  (or (str/blank? current) (str/blank? new-pw) (not= new-pw confirm))
+                           :on-cancel on-close})))))
+
+;;; Email change
+
+(defui ^:private email-form
+  "Ask to move the account to a new address. The link goes to the new
+   address; the account keeps `email` until it is used."
+  [{:keys [email on-close]}]
+  (let [change                     (uix.rf/use-subscribe [:account/email-change])
+        [new-email set-new-email!] (use-state "")
+        [password set-password!]   (use-state "")
+        pending?                   (= :pending (:status change))]
+    (if (= :sent (:status change))
+      ($ :div {:class "flex flex-col gap-2 text-sm"}
+         ($ :p "We've sent a confirmation link to " ($ :strong (:new-email change)) ".")
+         ($ :p "Open it within 1 hour to finish the change. Until then, you keep signing in with "
+            ($ :strong email) ".")
+         ($ :div {:class "modal-action mt-4"}
+            ($ :button {:type "button" :class "btn btn-sm btn-primary flex-1" :on-click on-close}
+               "Done")))
+      ($ :form {:class     "flex flex-col gap-3 text-sm"
+                :on-submit (fn [^js e]
+                             (.preventDefault e)
+                             (rf/dispatch [:account/email-change {:new_email        new-email
+                                                                  :current_password password}]))}
+         ($ :p "We will send you a confirmation link to your new address.")
+         ($ :div {:class "flex flex-col gap-1"}
+            ($ :label {:class "fieldset-label" :for "new-email"} "New email address")
+            ($ :input {:id           "new-email"
+                       :type         "email"
+                       :class        "input input-sm w-full"
+                       :autoComplete "email"
+                       :value        new-email
+                       :on-change    #(set-new-email! (.. % -target -value))}))
+         ($ password-field {:id            "email-password"
+                            :label         "Current password"
+                            :auto-complete "current-password"
+                            :value         password
+                            :on-change     set-password!})
+         (when (= :failed (:status change))
+           ($ :p {:class "text-sm text-error"} (:error change)))
+         ($ sheet-buttons {:label     "Send link"
+                           :class     "btn-primary"
+                           :pending?  pending?
+                           :disabled  (or (not (str/includes? new-email "@")) (str/blank? password))
+                           :on-cancel on-close})))))
 
 ;;; Deletion
 
@@ -211,11 +267,9 @@
         [typed set-typed!]       (use-state "")
         [password set-password!] (use-state "")
         pending?                 (= :pending (:status deleting))]
-    ;; Each opening starts without the last attempt's error. The Maps list
-    ;; is loaded on the Maps page; load it here for the count.
+    ;; The Maps list is loaded on the Maps page; load it here for the count.
     (use-effect
      (fn []
-       (rf/dispatch [:account/delete-reset])
        (rf/dispatch [:map/fetch-list])
        js/undefined)
      [])
@@ -251,13 +305,12 @@
                           :on-change     set-password!})
        (when (= :failed (:status deleting))
          ($ :p {:class "text-sm text-error"} (:error deleting)))
-       ($ :div {:class "modal-action flex gap-2 mt-2"}
-          ($ :button {:type "button" :class "btn btn-sm flex-1" :on-click on-close} "Cancel")
-          ($ :button {:type     "submit"
-                      :class    "btn btn-sm btn-error flex-1"
-                      :disabled (or pending? (not= (normalize-email typed) (normalize-email (str email))) (str/blank? password))}
-             (when pending? ($ :span {:class "loading loading-spinner loading-xs"}))
-             "Delete account")))))
+       ($ sheet-buttons {:label     "Delete account"
+                         :class     "btn-error"
+                         :pending?  pending?
+                         :disabled  (or (not= (normalize-email typed) (normalize-email (str email)))
+                                        (str/blank? password))
+                         :on-cancel on-close}))))
 
 ;;; Billing
 
@@ -452,7 +505,15 @@
                       "Save"))))
 
           ($ section {:title "Sign-in"}
-             ($ row {:label "Email" :hint (or (:email user) "…")})
+             ($ row {:label "Email" :hint (or (:email user) "…")}
+                ($ :button {:class    "btn btn-sm"
+                            :disabled (nil? user)
+                            :on-click (fn []
+                                        ;; Sync, so the sheet's first paint has no
+                                        ;; result from the last opening.
+                                        (rf/dispatch-sync [:account/email-change-reset])
+                                        (set-sheet! :email))}
+                   "Change…"))
              ($ row {:label "Password" :hint "••••••••"}
                 ($ :button {:class    "btn btn-sm"
                             :disabled (nil? user)
@@ -500,7 +561,9 @@
                      :hint  "Permanently delete your account and all your Maps. This cannot be undone."}
                 ($ :button {:class    "btn btn-sm btn-error"
                             :disabled (nil? user)
-                            :on-click #(set-sheet! :delete)}
+                            :on-click (fn []
+                                        (rf/dispatch-sync [:account/delete-reset])
+                                        (set-sheet! :delete))}
                    "Delete…")))
 
           ($ app-footer))
@@ -511,6 +574,12 @@
           ;; Mounted only while open, so each opening starts empty.
           (when (= :password sheet)
             ($ password-form {:email (:email user) :on-close #(set-sheet! nil)})))
+
+       ($ modal {:show     (= :email sheet)
+                 :title    "Change email"
+                 :on-close #(set-sheet! nil)}
+          (when (= :email sheet)
+            ($ email-form {:email (:email user) :on-close #(set-sheet! nil)})))
 
        ($ modal {:show     (= :delete sheet)
                  :title    "Delete account"

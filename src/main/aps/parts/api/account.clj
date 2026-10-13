@@ -8,6 +8,7 @@
    [aps.parts.common.utils :refer [normalize-email]]
    [aps.parts.config :as config]
    [aps.parts.db :as db]
+   [aps.parts.email-changes :as email-changes]
    [aps.parts.email-layout :as layout]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.part :as part]
@@ -78,8 +79,8 @@
    input. It is not in `user/allowed-update-fields`, so it never reaches
    the database.
 
-   The email cannot change here: Parts has no way to confirm a new address
-   yet, so an email change is a concierge request."
+   The email cannot change here: a new address must be confirmed first
+   (`request-email-change`)."
   [request]
   (let [user-id   (auth/current-user-id request)
         body      (:body-params request)
@@ -87,7 +88,7 @@
         attrs     (dissoc body :current_password :product_updates)
         password? (some? (:password attrs))]
     (when (contains? body :email)
-      (throw (ex-info (str "To change your email address, please email " c/support-email ".")
+      (throw (ex-info "To change your email address, use Change… next to Email on your Account page."
                       {:type :validation})))
     (when (and (contains? body :password)
                (not (auth/current-password-valid? user-id (:current_password body))))
@@ -265,6 +266,69 @@ Gosha")
         (response/header "Cache-Control" "no-store")
         (response/header "Content-Disposition"
                          (str "attachment; filename=\"parts-data-" (java.time.LocalDate/now) ".zip\"")))))
+
+(defn- email-change-message
+  "The postal message map of the link that confirms an email change. It
+   goes to the NEW address. Pure content: `mail/send-system!` adds the
+   sender identity."
+  [{:keys [new-email url]}]
+  {:to      new-email
+   :subject "Confirm your new email address for Parts"
+   :body    (layout/alternative
+             (layout/content
+              (str "Hello,
+
+Someone asked to use this address for their Parts account. If that was you,
+confirm it with this link:
+
+[Confirm your new email address](" url ")
+
+The link can be used once, and expires in one hour. Until you confirm, the
+account keeps its old address. If you didn’t ask for this, you can ignore
+this email.
+
+The Parts team")
+              (layout/transactional-footer new-email)))})
+
+(defn- email-in-use-message
+  "The email to an address that already has an account, when another
+   account asked to move to it. Only the owner of the address learns that
+   it has an account; the requester gets the usual answer."
+  [new-email]
+  {:to      new-email
+   :subject "Your address was entered on Parts"
+   :body    (layout/alternative
+             (layout/content
+              "Hello,
+
+Someone asked to use this address for their Parts account. This address
+already has its own Parts account, so nothing was changed.
+
+If that was you, sign in with this address instead. If it wasn’t, you can
+ignore this email.
+
+The Parts team"
+              (layout/transactional-footer new-email)))})
+
+(defn request-email-change
+  "POST /api/account/email — start moving the caller's account to
+   `:new_email`. Needs the current password, like a password change. The
+   link goes to the new address (see `aps.parts.email-changes`); the
+   account keeps its old address until it is used."
+  [request]
+  (let [user-id (auth/current-user-id request)
+        body    (:body-params request)]
+    (when-not (auth/current-password-valid? user-id (:current_password body))
+      (throw (ex-info "Current password is incorrect" {:type :validation})))
+    (let [change (email-changes/request! user-id (:new_email body))]
+      (mulog/log ::email-change-requested :user-id user-id)
+      ;; The same answer either way: whether an address has an account is
+      ;; told only to that address.
+      (if (:taken? change)
+        (mail/send-async! :email-in-use mail/send-system! (email-in-use-message (:new-email change)) user-id)
+        (mail/send-async! :email-change-link mail/send-system! (email-change-message change) user-id))
+      (-> (response/response {:new_email (:new-email change)})
+          (response/status 200)))))
 
 (defn- deletion-message
   "The postal message map of the notice that the account of `email` was

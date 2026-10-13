@@ -89,6 +89,12 @@
   [attrs]
   (http/PATCH "/account" attrs))
 
+(defn request-email-change
+  "Ask to move own account to a new address. `body` is {:new_email
+   :current_password}; the server emails a link to the new address."
+  [body]
+  (http/POST "/account/email" body))
+
 (defn delete-account
   "Erase own account. `credentials` is {:email :current_password}; the
    server refuses without both (CONTEXT.md, \"Account deletion\")."

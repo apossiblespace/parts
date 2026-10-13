@@ -1,12 +1,13 @@
 (ns aps.parts.jobs.session-cleanup
-  "Hourly sweep of expired ephemera: auth_sessions and password_resets
-   rows, and idle in-memory rate-limit buckets. Correctness never depends
+  "Hourly sweep of expired ephemera: auth_sessions, password_resets and
+   email_changes rows, and idle in-memory rate-limit buckets. Correctness never depends
    on it (reads filter on expires_at; a full bucket equals a fresh one) —
    it only stops dead entries accumulating. Runs on the shared interval
    scaffold (`aps.parts.jobs.scheduling`)."
   (:require
    [aps.parts.auth.session-store :as session-store]
    [aps.parts.db :as db]
+   [aps.parts.email-changes :as email-changes]
    [aps.parts.jobs.scheduling :as scheduling]
    [aps.parts.password-resets :as password-resets]
    [aps.parts.ratelimit :as ratelimit]
@@ -35,4 +36,5 @@
      (fn []
        (sweep! ::rate-limit-buckets-pruned ratelimit/prune-idle!)
        (sweep! ::sessions-swept #(session-store/delete-expired! db/datasource))
-       (sweep! ::password-resets-swept #(password-resets/delete-expired! db/datasource))))))
+       (sweep! ::password-resets-swept #(password-resets/delete-expired! db/datasource))
+       (sweep! ::email-changes-swept #(email-changes/delete-expired! db/datasource))))))

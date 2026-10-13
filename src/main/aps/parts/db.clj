@@ -88,8 +88,10 @@
   (sql/format sql-map))
 
 (defn query
-  [q]
-  (jdbc/execute! datasource q {:builder-fn rs/as-unqualified-maps}))
+  "Run the formatted query `q` (see `sql-format`) on `ds`, the app
+   datasource by default (or a transaction)."
+  ([q] (query datasource q))
+  ([ds q] (jdbc/execute! ds q {:builder-fn rs/as-unqualified-maps})))
 
 (defn query-one
   [q]

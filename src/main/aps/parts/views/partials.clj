@@ -349,6 +349,47 @@
       [:button {:class "btn btn-primary w-full" :type "submit"}
        "Unsubscribe"]])))
 
+(defn email-change-confirm-content
+  "The page body for a usable email-change link: a button that makes the
+   change (GET never does, because mail scanners open links)."
+  [{:keys [token new-email]}]
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "Confirm your new email address"]
+   [:p {:class "text-gray-600 mb-6"}
+    "Your Parts account will use " [:strong new-email] " from now on."]
+   [:form {:method "post" :action (str "/email-change/" token)}
+    (anti-forgery-field)
+    [:button {:class "btn btn-primary w-full" :type "submit"} "Confirm"]]))
+
+(defn email-change-done-content
+  "The page body after the email address changed."
+  [{:keys [new-email]}]
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "Your email address has been changed"]
+   [:p {:class "text-gray-600 mb-2"}
+    "From now on, sign in with " [:strong new-email] "."]
+   [:p {:class "text-gray-600"} (text-link "/app" "Go to Parts")]))
+
+(defn email-change-taken-content
+  "The page body when another account took the address after the request."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "That address is now in use"]
+   [:p {:class "text-gray-600"}
+    "Another account started using this email address after you asked for the
+     change, so your address has not changed. Choose another address on your "
+    (text-link "/app/account" "Account page") "."]))
+
+(defn email-change-unavailable-content
+  "The page body for any unusable email-change link: unknown, used,
+   replaced by a newer one, or expired. One message for all of them."
+  []
+  (auth-card
+   [:h1 {:class "text-2xl font-bold mb-2"} "This link isn’t available"]
+   [:p {:class "text-gray-600"}
+    "It may have expired, been used already, or been replaced by a newer link.
+     You can ask for a new one on your " (text-link "/app/account" "Account page") "."]))
+
 (defn account-deleted-content
   "The page body after a User deleted their account."
   []

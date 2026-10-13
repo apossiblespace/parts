@@ -5,10 +5,11 @@
    [aps.parts.auth.session-store :as session-store]
    [aps.parts.config :as conf]
    [aps.parts.db :as db]
+   [aps.parts.email-changes :as email-changes]
    [aps.parts.entity.map :as parts-map]
    [aps.parts.entity.session :as session]
    [aps.parts.entity.user :as user]
-   [aps.parts.helpers.browser :refer [anonymous-session api browse decode sign-in]]
+   [aps.parts.helpers.browser :refer [anonymous-session api browse csrf-token decode sign-in]]
    [aps.parts.helpers.test-factory :as factory]
    [aps.parts.helpers.utils :refer [create-test-user! stripe-test-config
                                     with-test-db without-stripe]]
@@ -167,7 +168,7 @@
 
     (testing "an email change is rejected, even with the current password"
       (let [user (mk-user)]
-        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"please email help@ifs.tools"
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"use Change… next to Email"
                               (account/update-account
                                (req user {:email            (str "changed" (:email user))
                                           :current_password pw}))))
@@ -563,3 +564,59 @@
         (download cookie)
         (download cookie)
         (is (= 429 (:status (download cookie))))))))
+
+(deftest test-request-email-change
+  (let [pw      "correct horse battery"
+        user    (create-test-user! {:password pw :password_confirmation pw})
+        sent    (atom [])
+        request (fn [body]
+                  (with-redefs-fn {#'mail/send-async! (fn [purpose _ message _] (swap! sent conj [purpose message]))}
+                    #(account/request-email-change {:identity {:sub (:id user)} :body-params body})))]
+    (testing "needs the current password, and sends nothing without it"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Current password is incorrect"
+                            (request {:new_email "new@example.test" :current_password "wrong"})))
+      (is (empty? @sent)))
+    (testing "sends the link to the new address; the account keeps the old one"
+      (let [response          (request {:new_email "New@Example.test" :current_password pw})
+            [purpose message] (first @sent)]
+        (is (= 200 (:status response)))
+        (is (= {:new_email "new@example.test"} (:body response)))
+        (is (= :email-change-link purpose))
+        (is (= "new@example.test" (:to message)))
+        (is (str/includes? (pr-str (:body message)) "/email-change/"))
+        (is (= (:email user) (:email (user/fetch (:id user)))))))
+    (testing "an address another account uses gets the same answer; only that
+              address is told, and no link is sent"
+      (reset! sent [])
+      (let [other             (create-test-user!)
+            response          (request {:new_email (:email other) :current_password pw})
+            [purpose message] (first @sent)]
+        (is (= 200 (:status response)))
+        (is (= {:new_email (:email other)} (:body response)))
+        (is (= :email-in-use purpose))
+        (is (= (:email other) (:to message)))
+        (is (not (str/includes? (pr-str (:body message)) "/email-change/")))))))
+
+(deftest test-email-change-link-through-the-app
+  (let [app    (server/app)
+        user   (create-test-user!)
+        change (email-changes/request! (:id user) "linked@example.test")
+        path   (str "/email-change/" (:token change))
+        notice (atom nil)]
+    (with-redefs-fn {#'mail/send-async! (fn [purpose _ message _] (reset! notice [purpose (:to message)]))}
+      (fn []
+        (let [[page cookie] (browse app (mock/request :get path) nil)]
+          (testing "opening the link changes nothing: it asks to confirm"
+            (is (= 200 (:status page)))
+            (is (str/includes? (str (:body page)) "linked@example.test"))
+            (is (= (:email user) (:email (user/fetch (:id user))))))
+          (testing "confirming moves the account and tells the old address"
+            (let [[done] (browse app (-> (mock/request :post path)
+                                         (mock/body {"__anti-forgery-token" (csrf-token (str (:body page)))}))
+                                 cookie)]
+              (is (= 200 (:status done)))
+              (is (str/includes? (str (:body done)) "Your email address has been changed"))
+              (is (= "linked@example.test" (:email (user/fetch (:id user)))))
+              (is (= [:email-changed (:email user)] @notice))))
+          (testing "the link works once"
+            (is (= 404 (:status (first (browse app (mock/request :get path) nil)))))))))))

@@ -35,14 +35,14 @@
 
 #?(:clj
    (defn- scrub-link-tokens
-     "Replace the token in any `/invite/<token>`, `/unsubscribe/<token>` or
-      `/reset/<token>` string, such as a request `:uri`. Key-based redaction
-      cannot reach it."
+     "Replace the token in any `/invite/<token>`, `/unsubscribe/<token>`,
+      `/reset/<token>` or `/email-change/<token>` string, such as a request
+      `:uri`. Key-based redaction cannot reach it."
      [v]
      (walk/postwalk
       (fn [node]
         (if (string? node)
-          (cstr/replace node #"(/(?:invite|unsubscribe|reset)/)[^/?\s]+" (str "$1" redacted-placeholder))
+          (cstr/replace node #"(/(?:invite|unsubscribe|reset|email-change)/)[^/?\s]+" (str "$1" redacted-placeholder))
           node))
       v)))
 

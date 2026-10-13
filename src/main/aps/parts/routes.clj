@@ -9,6 +9,7 @@
    [aps.parts.auth.middleware :as auth-mw]
    [aps.parts.errors :as errors]
    [aps.parts.handlers.account-deleted :as account-deleted]
+   [aps.parts.handlers.email-change :as email-change]
    [aps.parts.handlers.legal :as legal]
    [aps.parts.handlers.pages :as pages]
    [aps.parts.handlers.password-reset :as password-reset]
@@ -169,6 +170,16 @@
                                         :handler    unsubscribe/show}
                            :post       {:handler unsubscribe/confirm}}]
 
+   ;; The link that confirms an email change (TASK-154.02). Public: it is
+   ;; often opened on another device; the token is the credential, and the
+   ;; password was checked when the change was asked for.
+   ["/email-change/:token" {:middleware [(ratelimit/limiter :email-change-confirm {})
+                                         middleware/wrap-csp
+                                         middleware/wrap-html-defaults
+                                         middleware/wrap-html-response]
+                            :get        {:handler email-change/show}
+                            :post       {:handler email-change/confirm}}]
+
    ;; Where the Account page sends a User after deleting their account.
    ;; Public: the session is already gone.
    ["/account-deleted" {:middleware [middleware/wrap-csp
@@ -234,6 +245,12 @@
      ["" {:middleware [auth-mw/require-auth]
           :get        {:handler api.account/get-account}
           :patch      {:handler api.account/update-account}}]
+     ;; Limited per user: the password check must not be a way to guess
+     ;; passwords, nor the form a way to send mail to strangers.
+     ["/email" {:middleware [auth-mw/require-auth
+                             (ratelimit/user-limiter :email-change
+                                                     {:capacity 5 :refill-per-ms (/ 1.0 60000)})]
+                :post       {:handler api.account/request-email-change}}]
      ;; POST, so the email and password travel in the body. Limited per
      ;; user: the password check must not be a way to guess passwords.
      ["/delete" {:middleware [auth-mw/require-auth

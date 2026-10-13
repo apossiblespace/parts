@@ -279,6 +279,11 @@
    (get-in db [:account :update])))
 
 (rf/reg-sub
+ :account/email-change
+ (fn [db _]
+   (get-in db [:account :email-change])))
+
+(rf/reg-sub
  :account/delete
  (fn [db _]
    (get-in db [:account :delete])))

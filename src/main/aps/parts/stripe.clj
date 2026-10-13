@@ -177,6 +177,12 @@
   [stripe-config customer-id]
   (request! stripe-config :delete (str "/v1/customers/" customer-id) nil))
 
+(defn update-customer-email!
+  "Set a Customer's email, so Stripe's receipts follow an account's email
+   change (TASK-154.02)."
+  [stripe-config customer-id email]
+  (request! stripe-config :post (str "/v1/customers/" customer-id) {:email email}))
+
 (defn- not-found?
   "True when `e` is this namespace's error for a 404. Private: callers
    express already-gone tolerance through `delete-customer-if-present!`."

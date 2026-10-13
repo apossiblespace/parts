@@ -797,6 +797,22 @@
                                 (assoc-in [:account :update :status] :failed)))))
 
 (rf/reg-event-fx
+ :account/email-change
+ (fn [{:keys [db]} [_ body]]
+   {:db                      (assoc-in db [:account :email-change] {:status :pending})
+    :account/email-change-fx {:body body}}))
+
+(rf/reg-event-db
+ :account/email-change-result
+ (fn [db [_ result]]
+   (assoc-in db [:account :email-change] result)))
+
+(rf/reg-event-db
+ :account/email-change-reset
+ (fn [db _]
+   (update db :account dissoc :email-change)))
+
+(rf/reg-event-fx
  :account/delete
  (fn [{:keys [db]} [_ credentials]]
    {:db                (assoc-in db [:account :delete] {:status :pending})

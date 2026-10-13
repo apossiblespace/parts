@@ -96,6 +96,21 @@
                        form]))))))
 
 (rf/reg-fx
+ :account/email-change-fx
+ (fn [{:keys [body]}]
+   (go
+     (let [resp (<! (api/request-email-change body))]
+       (rf/dispatch [:account/email-change-result
+                     (if (= 200 (:status resp))
+                       {:status :sent :new-email (get-in resp [:body :new_email])}
+                       {:status :failed
+                        :error  (case (:status resp)
+                                  400 (error-message resp "Check the address and your password.")
+                                  429 "Too many attempts. Please wait a minute and try again."
+                                  401 "Your session has ended. Please sign in again."
+                                  "Something went wrong, and no link was sent. Please try again.")})])))))
+
+(rf/reg-fx
  :account/delete-fx
  (fn [{:keys [credentials]}]
    (go
