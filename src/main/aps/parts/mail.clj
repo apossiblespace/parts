@@ -81,3 +81,21 @@
   [message]
   (let [from (conf/mail-system-from)]
     (send! (cond-> message from (assoc :from from)))))
+
+(defn send-async!
+  "Sends `message` with `send-fn` (`send-personal!` or `send-system!`) on
+   another thread, so the request does not wait for the relay. A failed
+   send is logged and never reaches the caller. The log names `purpose`
+   (e.g. `:welcome`) and `user-id`, and only the class of a failure: a
+   relay error can quote the recipient. Returns the future, which yields
+   nil."
+  [purpose send-fn message user-id]
+  (future
+    (try
+      (send-fn message)
+      (mulog/log ::async-sent :purpose purpose :user-id user-id)
+      (catch Throwable e
+        (mulog/log ::async-failed :purpose purpose :user-id user-id
+                   :error-class (.getName (class e)))))
+    nil))
+

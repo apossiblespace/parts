@@ -205,16 +205,10 @@ Gosha")
               (layout/transactional-footer email)))})
 
 (defn- send-welcome!
-  "Sends the welcome email to `account` on another thread, so the signup
-   does not wait for the mail relay. A failed send is logged and does not
-   reach the signup. Returns the future."
+  "Sends the welcome email to `account` without making the signup wait
+   (see `mail/send-async!`). Returns the future."
   [account]
-  (future
-    (try
-      (mail/send-personal! (welcome-message account))
-      (mulog/log ::welcome-email-sent :user-id (:id account))
-      (catch Throwable e
-        (mulog/log ::welcome-email-failed :user-id (:id account) :error (ex-message e))))))
+  (mail/send-async! :welcome mail/send-personal! (welcome-message account) (:id account)))
 
 (defn register-account
   "Register a new user (role hardcoded to 'therapist'), provision their starter

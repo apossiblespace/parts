@@ -6,8 +6,7 @@
   (:require
    [aps.parts.common.constants :as c]
    [aps.parts.email-layout :as layout]
-   [aps.parts.mail :as mail]
-   [com.brunobonacci.mulog :as mulog])
+   [aps.parts.mail :as mail])
   (:import
    (java.time Instant ZoneOffset)
    (java.time.format DateTimeFormatter)
@@ -42,14 +41,7 @@ The Parts team")
 
 (defn send!
   "Sends the notice to `email`, the address of the User `user-id`, for a
-   password change now. It sends on another thread, so the request does
-   not wait for the mail relay. A failed send is logged and does not reach
-   the caller. Returns the future."
+   password change now, without making the request wait (see
+   `mail/send-async!`). Returns the future."
   [user-id email]
-  (let [at (Instant/now)]
-    (future
-      (try
-        (mail/send-system! (message email at))
-        (mulog/log ::sent :user-id user-id)
-        (catch Throwable e
-          (mulog/log ::failed :user-id user-id :error (ex-message e)))))))
+  (mail/send-async! :password-changed mail/send-system! (message email (Instant/now)) user-id))
