@@ -43,6 +43,48 @@
       (is (= {:status :never-paid :paid_through_date nil :days_remaining nil}
              (billing/account-standing {:paid_through_date nil} today))))))
 
+(deftest entitlement-test
+  (let [start  (LocalDate/parse "2026-11-18")
+        at     (fn [created] (java.sql.Timestamp/from (java.time.Instant/parse created)))
+        beta   {:created_at (at "2026-08-01T09:00:00Z")}
+        reason (fn [row today] (:reason (billing/entitlement row start (LocalDate/parse today))))]
+    (testing "before the payment start date every account can edit"
+      (is (= {:can_edit true :reason :trial :trial_ends_on "2026-11-18" :payment_failing false}
+             (billing/entitlement beta start (LocalDate/parse "2026-11-17")))))
+
+    (testing "a beta account's trial ends on the start date, its last free day"
+      (is (= :trial (reason beta "2026-11-18")))
+      (is (= :lapsed (reason beta "2026-11-19"))))
+
+    (testing "an account created near the start date still gets 30 days"
+      (let [late {:created_at (at "2026-11-10T23:30:00Z")}]
+        (is (= "2026-12-10" (:trial_ends_on (billing/entitlement late start start))))
+        (is (= :trial (reason late "2026-12-10")))
+        (is (= :lapsed (reason late "2026-12-11")))))
+
+    (testing "a live subscription can edit, whatever the trial"
+      (doseq [status ["active" "trialing" "canceling" "past_due"]]
+        (is (= :subscribed (reason (assoc beta :stripe_subscription_status status) "2027-03-01"))
+            status)))
+
+    (testing "paid time left can edit; the day after it ends, the account lapses"
+      (let [paid (assoc beta :stripe_subscription_status "canceled" :paid_through_date "2027-02-01")]
+        (is (= :paid (reason paid "2027-02-01")))
+        (is (= :lapsed (reason paid "2027-02-02")))))
+
+    (testing "unpaid (Stripe stopped retrying) lapses, and the payment is failing"
+      (is (= {:can_edit false :reason :lapsed :trial_ends_on "2026-11-18" :payment_failing true}
+             (billing/entitlement (assoc beta :stripe_subscription_status "unpaid")
+                                  start (LocalDate/parse "2027-03-01")))))
+
+    (testing "past due still edits, and tells the account the payment is failing"
+      (is (:payment_failing (billing/entitlement (assoc beta :stripe_subscription_status "past_due")
+                                                 start (LocalDate/parse "2027-03-01")))))
+
+    (testing "without a payment start date no account needs to pay"
+      (is (= {:can_edit true :reason :not-required :trial_ends_on nil :payment_failing false}
+             (billing/entitlement beta nil (LocalDate/parse "2030-01-01")))))))
+
 (deftest set-paid-through!-test
   (testing "an explicit ISO date string is recorded on the account"
     (create-test-user! {:email "explicit@example.com"})

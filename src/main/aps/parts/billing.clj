@@ -13,9 +13,8 @@
    writer of `paid_through_date`. The REPL helpers below are operator
    *adjustment* tools — goodwill extensions, corrections, and the
    abuse-response claw-back — not a parallel billing lane (the concierge
-   hand-invoicing workflow was retired 2026-07-31). Standing is
-   *recorded* here, not *enforced* — gating access on standing is left to
-   a later task.
+   hand-invoicing workflow was retired 2026-07-31). `entitlement` decides
+   whether an account can edit (ADR-0021).
 
    Operator adjustments (production REPL):
 
@@ -34,7 +33,7 @@
    [aps.parts.stripe :as stripe]
    [com.brunobonacci.mulog :as mulog])
   (:import
-   (java.time LocalDate)
+   (java.time LocalDate ZoneOffset)
    (java.time.temporal ChronoUnit)))
 
 (defn- ->local-date
@@ -78,14 +77,64 @@
    reinterpreting it as an instant. Founding-circle is intentionally not
    considered, mirroring `standing`.
 
-   The single-arity form reads `today` from the system clock, like the
-   operator helpers; the two-arity form takes `today` for testability."
-  ([row] (account-standing row (LocalDate/now)))
+   The single-arity form reads `today` as a UTC date, like `entitlement`;
+   the two-arity form takes `today` for testability."
+  ([row] (account-standing row (LocalDate/now ZoneOffset/UTC)))
   ([row today]
    (let [d (->local-date (:paid_through_date row))]
      {:status            (standing (:paid_through_date row) today)
       :paid_through_date (some-> d str)
       :days_remaining    (some->> d (.between ChronoUnit/DAYS today))})))
+
+(def ^:private trial-days 30)
+
+(def ^:private editing-statuses
+  "The live subscription statuses that keep editing on: all except
+   `unpaid`, which Stripe sets when it stops retrying a failed payment."
+  (disj stripe/live-subscription-statuses "unpaid"))
+
+(defn- trial-ends-on
+  "The last day of an account's free trial: 30 days after the account was
+   created, but never before the payment start date `start`."
+  [created-at ^LocalDate start]
+  (let [ends (.plusDays (LocalDate/ofInstant (db/->instant created-at) ZoneOffset/UTC)
+                        trial-days)]
+    (if (.isBefore ends start) start ends)))
+
+(defn entitlement
+  "Whether an account can edit, and why (ADR-0021). `row` carries
+   `:created_at`, `:stripe_subscription_status` and `:paid_through_date`
+   (see `billing-facts`). Returns:
+
+     {:can_edit        true | false
+      :reason          :subscribed | :paid | :trial | :not-required | :lapsed
+      :trial_ends_on   \"YYYY-MM-DD\" or nil
+      :payment_failing true while Stripe cannot take a payment}
+
+   The first reason that applies wins, so a subscriber still in the trial
+   reads :subscribed. Without a payment start date
+   (`config/payment-start-date`) no account needs to pay: the reason is
+   :not-required and there is no trial end. Days are UTC days.
+
+   The single-arity form reads the start date from config and today from
+   the clock; the three-arity form takes both, for tests. A start date
+   never runs without self-serve billing (`config/assert-billing-config!`
+   refuses to boot), so no account becomes read-only with no way to pay."
+  ([row] (entitlement row (config/payment-start-date) (LocalDate/now ZoneOffset/UTC)))
+  ([row ^LocalDate start ^LocalDate today]
+   (let [status          (:stripe_subscription_status row)
+         ^LocalDate paid (->local-date (:paid_through_date row))
+         ^LocalDate ends (when start (trial-ends-on (:created_at row) start))
+         reason          (cond
+                           (contains? editing-statuses status)   :subscribed
+                           (and paid (not (.isBefore paid today))) :paid
+                           (nil? start)                          :not-required
+                           (not (.isBefore ends today))          :trial
+                           :else                                 :lapsed)]
+     {:can_edit        (not= :lapsed reason)
+      :reason          reason
+      :trial_ends_on   (some-> ends str)
+      :payment_failing (contains? #{"past_due" "unpaid"} status)})))
 
 (defn- ->status-line
   "Operator-facing billing summary for a user `row` as of `today`. Carries
@@ -166,15 +215,15 @@
 
 (defn billing-facts
   "The billing columns the API layer reads for an account — checkout
-   guard, portal lookup, and the Account page's `:billing` booleans all
-   go through this one projection. Returns nil when no account has that
-   `user-id`."
+   guard, portal lookup, the Account page's `:billing` booleans and
+   `entitlement` all go through this one projection. Returns nil when no
+   account has that `user-id`."
   [user-id]
   (coerce-paid-through
    (db/query-one
     (db/sql-format {:select [:email :stripe_customer_id
                              :stripe_subscription_status :stripe_plan
-                             :paid_through_date]
+                             :paid_through_date :created_at]
                     :from   [:users]
                     :where  [:= :id (db/->uuid user-id)]}))))
 

@@ -26,18 +26,18 @@
    (java.io ByteArrayInputStream)))
 
 (defn- billing-info
-  "Self-serve billing facts for the Account page, driving its
-   subscribe-vs-manage choice. Only booleans leave the server; the raw
-   customer id and status string have no business in the client.
+  "Self-serve billing facts for the Account page, from the account's
+   `billing/billing-facts` `facts`, driving its subscribe-vs-manage
+   choice. Only booleans leave the server; the raw customer id and status
+   string have no business in the client.
 
    Everything is false when Stripe isn't configured — a subscriber on a
    host whose Stripe env was removed must not be offered a manage button
-   that can only fail (and the concierge-only host skips the extra query
-   entirely). A live status implies a linked customer — the two are only
-   ever written together — so no separate portal flag is needed."
-  [user-id]
+   that can only fail. A live status implies a linked customer — the two
+   are only ever written together — so no separate portal flag is needed."
+  [facts]
   (let [enabled? (some? (config/stripe-config))
-        row      (when enabled? (billing/billing-facts user-id))]
+        row      (when enabled? facts)]
     {:self_serve_enabled      enabled?
      :subscription_active     (contains? stripe/live-subscription-statuses
                                          (:stripe_subscription_status row))
@@ -56,14 +56,18 @@
 (defn- account-body
   "The account as the browser sees it: the columns `user/fetch` selects,
    the good-standing summary under `:standing` (see
-   `billing/account-standing`) and the self-serve billing facts under
-   `:billing` (see `billing-info`). Every account response uses it, so no
-   other column (Stripe ids, deletion timestamps, …) leaves the server."
+   `billing/account-standing`), the self-serve billing facts under
+   `:billing` (see `billing-info`) and whether it can edit under
+   `:entitlement` (see `billing/entitlement`). Every account response
+   uses it, so no other column (Stripe ids, deletion timestamps, …) leaves
+   the server."
   [user-id]
-  (let [user-record (user/fetch user-id)]
+  (let [user-record (user/fetch user-id)
+        facts       (billing/billing-facts user-id)]
     (assoc user-record
-           :standing (billing/account-standing user-record)
-           :billing  (billing-info user-id))))
+           :standing    (billing/account-standing user-record)
+           :billing     (billing-info facts)
+           :entitlement (billing/entitlement facts))))
 
 (defn get-account
   "Retrieve own account info (see `account-body`) for the Account page."
@@ -380,7 +384,7 @@ The Parts team")
     (when-not (auth/current-password-valid? user-id (:current_password body))
       (throw (ex-info "That password is incorrect. Your account was not deleted." {:type :validation})))
     (let [;; Read before the erasure releases the Stripe customer.
-          subscribed? (:subscription_active (billing-info user-id))]
+          subscribed? (:subscription_active (billing-info (billing/billing-facts user-id)))]
       (user/delete! user-id)
       (mulog/log ::delete-account :user-id user-id)
       (send-deletion-notice! email subscribed?))

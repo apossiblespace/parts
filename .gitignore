@@ -10,7 +10,9 @@
 !.mise.toml
 !pom.xml
 !dev/
-!docs/adr
+!docs/
+docs/*
+!docs/adr/
 !src/
 !test/
 # Don't ignore resources

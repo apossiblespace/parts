@@ -117,3 +117,32 @@
             (is (= :config-error (:type (ex-data e))) (pr-str bad))
             (is (re-find #"walkthrough-video-id.*WALKTHROUGH_VIDEO_ID" (ex-message e))
                 "the message names both places the value can come from")))))))
+
+(deftest test-payment-start-date
+  (testing "unset means nil; an ISO date is parsed"
+    (with-redefs [l-config/get (fake-config {})]
+      (is (nil? (config/payment-start-date))))
+    (with-redefs [l-config/get (fake-config {:billing/payment-start-date "2026-11-18"})]
+      (is (= (java.time.LocalDate/parse "2026-11-18") (config/payment-start-date)))))
+  (testing "a value that is not a date throws a config error that names the key"
+    (with-redefs [l-config/get (fake-config {:billing/payment-start-date "18/11/2026"})]
+      (try
+        (config/payment-start-date)
+        (is false "expected a throw")
+        (catch clojure.lang.ExceptionInfo e
+          (is (= :config-error (:type (ex-data e))))
+          (is (re-find #"payment-start-date.*PAYMENT_START_DATE" (ex-message e))))))))
+
+(deftest test-assert-billing-config!
+  (testing "a payment start date without the Stripe config refuses to boot"
+    (with-redefs [config/payment-start-date (constantly (java.time.LocalDate/parse "2026-11-18"))
+                  config/stripe-config      (constantly nil)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"PAYMENT_START_DATE"
+                            (config/assert-billing-config!)))))
+  (testing "both set, or no start date, boots"
+    (with-redefs [config/payment-start-date (constantly (java.time.LocalDate/parse "2026-11-18"))
+                  config/stripe-config      (constantly {:secret-key "rk"})]
+      (is (nil? (config/assert-billing-config!))))
+    (with-redefs [config/payment-start-date (constantly nil)
+                  config/stripe-config      (constantly nil)]
+      (is (nil? (config/assert-billing-config!))))))

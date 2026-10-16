@@ -183,9 +183,11 @@
    function."
   [& args]
   ;; Refuse to boot on a missing or invalid walkthrough video id rather than
-  ;; serve a broken homepage and welcome email. First, before any side
-  ;; effect (migrations, sockets, publishers).
+  ;; serve a broken homepage and welcome email, or on a payment start date
+  ;; that is not a date or has no billing behind it. First, before any
+  ;; side effect (migrations, sockets, publishers).
   (conf/walkthrough-video-id)
+  (conf/assert-billing-config!)
   (let [port         (conf/http-port)
         stop-log-pub (start-log-publisher)]
     ;; Set up global logging context. `version` is the build-stamped git hash

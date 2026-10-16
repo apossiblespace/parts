@@ -166,6 +166,25 @@
                        (l-config/get config :mail/from)
                        (:user smtp))))))
 
+(defn payment-start-date
+  "The day payment becomes required (ADR-0021), as a LocalDate, or nil
+   when unset: then no account ever needs to pay, so an instance without
+   billing keeps working. `:billing/payment-start-date` in config.edn, or
+   PARTS__BILLING__PAYMENT_START_DATE, as an ISO date (2026-11-18).
+   Throws when the value is not a date; `server/-main` checks it first.
+   Self-serve billing must also be configured (`stripe-config`), or the
+   date has no effect (see `billing/entitlement`)."
+  []
+  (when-let [v (l-config/get config :billing/payment-start-date)]
+    (try
+      (java.time.LocalDate/parse (str v))
+      (catch java.time.format.DateTimeParseException _
+        (throw
+         (ex-info
+          (str "The payment start date must be an ISO date (2026-11-18):"
+               " set :billing/payment-start-date in config.edn or PARTS__BILLING__PAYMENT_START_DATE")
+          {:type :config-error :value v}))))))
+
 (defn stripe-secret-key
   "Just the Stripe API secret (`PARTS__STRIPE__SECRET_KEY`), independent
    of the full self-serve set below: erasure must release a linked
@@ -197,6 +216,19 @@
        :webhook-secret webhook-secret
        :prices         {:monthly price-monthly
                         :yearly  price-yearly}})))
+
+(defn assert-billing-config!
+  "Throw when a payment start date is set but self-serve billing is not
+   configured: nobody could subscribe, so the start date would have no
+   effect (see `billing/entitlement`) and payment would silently never
+   start. `server/-main` checks it at boot."
+  []
+  (when (and (payment-start-date) (nil? (stripe-config)))
+    (throw
+     (ex-info
+      (str "A payment start date is set, but self-serve billing is not configured:"
+           " set all four PARTS__STRIPE__* values, or unset PARTS__BILLING__PAYMENT_START_DATE")
+      {:type :config-error}))))
 
 (defn mail-from
   "The From for transactional mail (`PARTS__MAIL__FROM`), e.g.
@@ -309,6 +341,7 @@
     :http/host :http/port :http/protocol
     :app/base-url :app/walkthrough-video-id
     :legal/content-dir :render/font-dir
+    :billing/payment-start-date
     :repl/socket :repl/port :repl/host
     :console/socket :console/port
     :mail/sender-identity

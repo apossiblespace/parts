@@ -63,8 +63,21 @@
                                              :subscription_active     false
                                              :subscription_cancelled  false
                                              :subscription_cancelling false
-                                             :subscription_plan       nil}} (:body response)))
+                                             :subscription_plan       nil}
+              ;; Test env sets no payment start date.
+              :entitlement                  {:can_edit        true
+                                             :reason          :not-required
+                                             :trial_ends_on   nil
+                                             :payment_failing false}} (:body response)))
       (is (not (contains? response :password_hash)))))
+
+  (testing "carries the trial end once a payment start date and Stripe are set"
+    (let [user (create-test-user!)
+          ent  #(:entitlement (:body (account/get-account {:identity {:sub (:id user)}})))]
+      (with-redefs [conf/payment-start-date (constantly (java.time.LocalDate/parse "2099-01-01"))]
+        (with-redefs [conf/stripe-config (constantly stripe-test-config)]
+          (is (= {:can_edit true :reason :trial :trial_ends_on "2099-01-01" :payment_failing false}
+                 (ent)))))))
 
   (testing "reports the portal usable and the subscription live once Stripe
             is configured and the account is linked with an active status"
@@ -209,7 +222,7 @@
         (is (empty? (internal-keys body)))
         (is (= #{:id :email :display_name :role :paid_through_date :map_id
                  :product_updates_opted_out_at :product_updates_chosen_at
-                 :standing :billing}
+                 :standing :billing :entitlement}
                (set (keys body))))))))
 
 (defn- user-row [id]

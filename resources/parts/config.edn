@@ -36,4 +36,9 @@
  ;; a pinned derivation; production hosts install the same two files (see
  ;; runbook) and set the variable. No fallback — the render namespaces fail
  ;; fast when it is missing.
- :render/font-dir          nil}
+ :render/font-dir          nil
+
+ ;; The day payment becomes required (ADR-0021), as an ISO date string.
+ ;; Unset: no account ever needs to pay. Production sets
+ ;; PARTS__BILLING__PAYMENT_START_DATE.
+ :billing/payment-start-date nil}
