@@ -333,7 +333,7 @@
 (defui ^:private billing-rows
   "The Billing frame's rows for the view-model `view` (see
    `account-view/billing-view`)."
-  [{:keys [view thanks? pending]}]
+  [{:keys [view thanks? pending slow?]}]
   (let [{:keys [action cta status]} view]
     (case action
       :loading
@@ -355,9 +355,15 @@
             ($ billing-button {:label "Manage subscription" :target :portal :pending pending})))
 
       :activating
-      ($ :div {:class "flex items-center gap-3 px-4 py-4 text-sm"}
-         ($ :span {:class "loading loading-spinner loading-sm"})
-         "Finalising your subscription…")
+      ($ :div {:class "px-4 py-4 text-sm"}
+         ($ :div {:class "flex items-center gap-3"}
+            ($ :span {:class "loading loading-spinner loading-sm"})
+            "Finalising your subscription…")
+         (when slow?
+           ($ :p {:class "mt-2 text-gray-500"}
+              "This is taking longer than usual. If it does not finish in a few minutes, please "
+              ($ :a {:class "link" :href (str "mailto:" c/support-email)} "contact us")
+              ".")))
 
       ($ :<>
          (when status
@@ -419,12 +425,16 @@
        js/undefined)
      [])
     ;; Returning from a completed Stripe Checkout lands on
-    ;; /app/account?checkout=success. Latch a thank-you locally, then drop
-    ;; the param from the URL so a reload or bookmark doesn't re-thank.
+    ;; /app/account?checkout=success&session_id=…. Latch a thank-you
+    ;; locally, ask the server to settle the session (the webhook may be
+    ;; late or failing), then drop the params from the URL so a reload or
+    ;; bookmark doesn't re-thank.
     (use-effect
      (fn []
        (when (= "success" (:checkout query-params))
          (set-checkout-thanks! true)
+         (when-let [session-id (:session_id query-params)]
+           (rf/dispatch [:billing/sync-checkout session-id]))
          (rf/dispatch [:router/replace ::router/account]))
        js/undefined)
      [query-params])
@@ -537,7 +547,9 @@
                                 ($ group-note))}
              ($ billing-rows {:view    billing
                               :thanks? checkout-thanks?
-                              :pending billing-pending}))
+                              :pending billing-pending
+                              ;; The fast polls (about 30 s) are over.
+                              :slow?   (>= poll-count 12)}))
 
           ($ section {:title "Your data"}
              ($ row {:label "Download all your data"

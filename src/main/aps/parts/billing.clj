@@ -197,21 +197,57 @@
                        plan (assoc :stripe_plan plan))
                      [:= :stripe_customer_id customer])))
 
+(defn customer-linked?
+  "True when an account is linked to the Stripe `customer`."
+  [customer]
+  (some? (db/query-one (db/sql-format {:select [1]
+                                       :from   [:users]
+                                       :where  [:= :stripe_customer_id customer]}))))
+
+(defn- clear-link!
+  "Clear the Stripe link columns of the accounts matching `where`.
+   Paid-through stays: time already paid for is kept."
+  [where]
+  (db/update! :users
+              {:stripe_customer_id         nil
+               :stripe_subscription_status nil
+               :stripe_plan                nil}
+              where))
+
+(defn unlink-customer!
+  "Clear the Stripe link of the account linked to `customer` — the
+   customer was deleted on Stripe's side, so the next checkout must start
+   a new one. Returns the updated row, or nil when no account is linked."
+  [customer]
+  (first (clear-link! [:= :stripe_customer_id customer])))
+
 (defn record-checkout!
   "One atomic row move for a completed self-serve Checkout: link the
    Stripe customer, record the subscription status, and — when the paid
    period's end is known — extend paid-through, monotonically like every
    other paid-through move. Returns the updated row (`:paid_through_date`
-   as a LocalDate), or nil when no account has that `user-id`."
+   as a LocalDate), or nil when no account has that `user-id`.
+
+   The row carries `:newly-linked?`: true only for the one call that
+   linked an unlinked account. The webhook and the return-from-Checkout
+   sync can apply one session at the same moment; the row lock on the
+   conditional update lets exactly one of them see the account unlinked."
   [user-id customer status plan period-end]
-  (coerce-paid-through
-   (first (db/update! :users
-                      (cond-> {:stripe_customer_id         customer
-                               :stripe_subscription_status status
-                               :stripe_plan                plan}
-                        period-end (merge (extend-paid-through-set
-                                           (->local-date period-end))))
-                      [:= :id (db/->uuid user-id)]))))
+  (db/with-transaction
+    (fn [tx]
+      (let [id     (db/->uuid user-id)
+            linked (first (db/update! :users {:stripe_customer_id customer}
+                                      [:and [:= :id id] [:= :stripe_customer_id nil]] tx))]
+        (some-> (first (db/update! :users
+                                   (cond-> {:stripe_customer_id         customer
+                                            :stripe_subscription_status status
+                                            :stripe_plan                plan}
+                                     period-end (merge (extend-paid-through-set
+                                                        (->local-date period-end))))
+                                   [:= :id id]
+                                   tx))
+                coerce-paid-through
+                (assoc :newly-linked? (some? linked)))))))
 
 (defn billing-facts
   "The billing columns the API layer reads for an account — checkout
@@ -271,11 +307,7 @@
                  :customer customer))
     ;; Clearing the columns is what arms `erasure/purge-account!`'s
     ;; refuse-while-linked guard; a Stripe throw above leaves them set.
-    (db/update! :users
-                {:stripe_customer_id         nil
-                 :stripe_subscription_status nil
-                 :stripe_plan                nil}
-                [:= :id (db/->uuid user-id)])
+    (clear-link! [:= :id (db/->uuid user-id)])
     nil))
 
 (defn set-paid-through!

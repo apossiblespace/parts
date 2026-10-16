@@ -108,7 +108,8 @@
            ;; Requires an active registration in Stripe Tax settings
            :automatic_tax          {:enabled true}
            :integration_identifier "parts-selfserve-mkwzqhtr"
-           :success_url            (str base-url "/app/account?checkout=success")
+           ;; Checkout fills in {CHECKOUT_SESSION_ID} on redirect.
+           :success_url            (str base-url "/app/account?checkout=success&session_id={CHECKOUT_SESSION_ID}")
            :cancel_url             (str base-url "/app/account")}
     customer       (assoc :customer customer)
     (not customer) (assoc :customer_email email)
@@ -172,6 +173,16 @@
   [stripe-config subscription-id]
   (request! stripe-config :get (str "/v1/subscriptions/" subscription-id) nil))
 
+(defn list-subscriptions!
+  "Every subscription of a Customer, whatever its status (up to 10 —
+   an account has one, two at most while a resubscribe overlaps). The
+   subscription webhook reads the customer's current state from this,
+   not from the event, because Stripe does not deliver events in order."
+  [stripe-config customer-id]
+  (request! stripe-config :get
+            (str "/v1/subscriptions?" (form-encode {:customer customer-id :status "all" :limit 10}))
+            nil))
+
 (defn delete-customer!
   "Delete a Customer. Stripe immediately cancels the customer's active
    subscriptions and removes their identity from the account's customer
@@ -207,6 +218,21 @@
       (if (not-found? e)
         false
         (throw e)))))
+
+(defn get-checkout-session!
+  "Fetch a Checkout Session by id — how the Account page settles a
+   checkout on return, without waiting for the webhook. `session-id` comes
+   from the browser, so anything that is not a Checkout Session id is
+   refused before it reaches the URL path. nil when Stripe has no such
+   session — a browser can send any id, and that is not an upstream
+   failure."
+  [stripe-config session-id]
+  (when-not (and (string? session-id) (re-matches #"cs_[A-Za-z0-9_]{1,250}" session-id))
+    (throw (ex-info "Not a Checkout Session id" {:type :validation})))
+  (try
+    (request! stripe-config :get (str "/v1/checkout/sessions/" session-id) nil)
+    (catch clojure.lang.ExceptionInfo e
+      (when-not (not-found? e) (throw e)))))
 
 (defn create-checkout-session!
   "Create a Checkout Session; returns the session (`:url` is the hosted

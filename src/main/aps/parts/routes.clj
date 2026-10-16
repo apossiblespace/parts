@@ -263,9 +263,10 @@
                                                           {:capacity 3 :refill-per-ms (/ 1.0 60000)})]
                      :get        {:handler api.account/export-zip}}]]
 
-    ;; Self-serve billing: both endpoints only mint redirect URLs to
-    ;; Stripe-hosted pages, but each mint creates an object on Stripe's
-    ;; side — hence the per-user limiter.
+    ;; Self-serve billing: two endpoints mint redirect URLs to
+    ;; Stripe-hosted pages, and each mint creates an object on Stripe's
+    ;; side; the third reads a session from Stripe on return from
+    ;; Checkout. Hence the per-user limiters.
     ["/billing" {:middleware [auth-mw/require-auth]}
      ["/checkout-session" {:post {:middleware [(ratelimit/user-limiter
                                                 :checkout-session
@@ -274,7 +275,11 @@
      ["/portal-session" {:post {:middleware [(ratelimit/user-limiter
                                               :portal-session
                                               {:capacity 10 :refill-per-ms (/ 1.0 60000)})]
-                                :handler    api.billing/create-portal-session}}]]
+                                :handler    api.billing/create-portal-session}}]
+     ["/checkout-sync" {:post {:middleware [(ratelimit/user-limiter
+                                             :checkout-sync
+                                             {:capacity 10 :refill-per-ms (/ 1.0 60000)})]
+                               :handler    api.billing/sync-checkout-session}}]]
 
     ["/maps" {:middleware [auth-mw/require-auth]}
      ;; Write limits are per-user (session identity), far above any real

@@ -838,6 +838,11 @@
                             (assoc-in [:account :billing-pending] target))
     :billing/session-fx {:target target}}))
 
+(rf/reg-event-fx
+ :billing/sync-checkout
+ (fn [_ [_ session-id]]
+   {:billing/sync-fx {:session-id session-id}}))
+
 (rf/reg-event-db
  :billing/settled
  (fn [db [_ message]]

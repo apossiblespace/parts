@@ -1,12 +1,13 @@
 (ns aps.parts.api.billing
   "Self-serve subscription endpoints (TASK-046).
 
-   Three handlers: two authenticated session-creators that redirect the
-   browser to Stripe's hosted pages, and the webhook that turns Stripe
-   events into billing-column moves — all through `aps.parts.billing`,
-   which owns the storage; this namespace holds only the policy (which
-   event means which move). Standing stays *recorded*, not *enforced*: a
-   lapse never locks anyone out here.
+   Four handlers: two authenticated session-creators that redirect the
+   browser to Stripe's hosted pages, the webhook that turns Stripe events
+   into billing-column moves, and the return-from-Checkout sync that
+   applies a completed session without waiting for the webhook — all
+   through `aps.parts.billing`, which owns the storage; this namespace
+   holds only the policy (which event means which move). Standing stays
+   *recorded*, not *enforced*: a lapse never locks anyone out here.
 
    Everything stays off until `config/stripe-config` is fully set — a
    host with no Stripe env simply has no billing.
@@ -221,7 +222,16 @@
    status, and extend paid-through to the subscription's real period end —
    one atomic row move. Fetching the subscription from Stripe can fail;
    the throw 500s the webhook and Stripe's redelivery retries the whole
-   application.
+   application. Two callers: the webhook, and `sync-checkout-session` when
+   the User comes back from Checkout. Both can run for one session; every
+   step is idempotent.
+
+   Paid-through moves only when the session's `payment_status` is
+   \"paid\". A delayed debit (Bacs, SEPA) completes the session while the
+   money is still on its way, and `invoice.paid` extends paid-through once
+   it arrives. A resubscribe with a carried paid window has nothing to pay
+   yet (\"no_payment_required\"): its trialing status already keeps it
+   editing.
 
    Sessions without a recognised plan in metadata (not created by
    `create-checkout-session`) are ignored. A session whose account is
@@ -230,15 +240,16 @@
    flowing to the first subscription; the conflict is logged for the
    operator to refund and cancel the duplicate. A session whose account
    no longer exists goes to `release-orphaned-customer!`."
-  [stripe-config {:keys [customer subscription client_reference_id metadata]}]
+  [stripe-config {:keys [customer subscription client_reference_id metadata payment_status]}]
   (let [plan    (some-> (:plan metadata) keyword plans)
         user-id (when (string? client_reference_id) (parse-uuid client_reference_id))
         ours?   (and plan user-id)
         row     (when ours? (billing/billing-facts user-id))]
     (if row
       (let [sub        (stripe/get-subscription! stripe-config subscription)
-            period-end (latest-epoch->date
-                        (keep :current_period_end (get-in sub [:items :data])))]
+            period-end (when (= "paid" payment_status)
+                         (latest-epoch->date
+                          (keep :current_period_end (get-in sub [:items :data]))))]
         (if (and (:stripe_customer_id row)
                  (not= customer (:stripe_customer_id row)))
           (do (when period-end
@@ -246,12 +257,12 @@
               (mulog/log ::customer-link-conflict
                          :user-id user-id
                          :incoming-customer customer))
-          (do (billing/record-checkout! user-id customer (effective-status sub) (name plan) period-end)
-              ;; Only the account's first linkage is thanked: a webhook
-              ;; redelivery, or a resubscribe under the existing link,
-              ;; must not re-thank.
-              (when-not (:stripe_customer_id row)
-                (send-thank-you! (:email row) plan))))
+          ;; Only the account's first linkage is thanked: a webhook
+          ;; redelivery, the sync racing the webhook, or a resubscribe
+          ;; under the existing link must not re-thank.
+          (when (:newly-linked? (billing/record-checkout! user-id customer (effective-status sub)
+                                                          (name plan) period-end))
+            (send-thank-you! (:email row) plan)))
         (mulog/log ::checkout-completed
                    :user-id user-id :plan plan
                    :subscription-status (:status sub)
@@ -287,19 +298,47 @@
   (some (fn [[plan id]] (when (= id price-id) (name plan)))
         (:prices stripe-config)))
 
+(def ^:private status-rank
+  "Which of a customer's subscriptions decides the account's standing:
+   one that charges, then one Stripe is still collecting, then the rest."
+  {"active" 0 "trialing" 0 "past_due" 1 "unpaid" 2})
+
+(defn- deciding-subscription
+  "The subscription that decides the account's standing, of `subs`: the
+   best-ranked status, the newest on a tie. A cancelled subscription next
+   to a live one never wins."
+  [subs]
+  (first (sort-by (juxt #(status-rank (:status %) 3) #(- (or (:created %) 0))) subs)))
+
 (defn- handle-subscription-change!
   "Keep `stripe_subscription_status` (and the plan, on switches) current
-   for a linked account. The deleted event carries status \"canceled\",
-   so cancellation flows through the same overwrite — and the Account
-   page re-offers subscribing. Never touches paid_through_date:
-   cancelling doesn't retract time already paid for."
-  [stripe-config {:keys [customer items] :as subscription}]
-  (let [status (effective-status subscription)
-        plan   (price->plan stripe-config (get-in items [:data 0 :price :id]))]
-    (if (and customer (billing/record-subscription-status! customer status plan))
+   for a linked account. The event only says that something changed: the
+   status recorded is the customer's subscriptions as Stripe has them now
+   (`deciding-subscription`). Stripe does not deliver events in order, so
+   a late retry of an old event must not overwrite a newer state — nor
+   one subscription's cancellation hide another that still charges.
+   Cancellation flows through the same overwrite, and the Account page
+   re-offers subscribing. Never touches paid_through_date: cancelling
+   doesn't retract time already paid for."
+  [stripe-config {:keys [customer]}]
+  (if-let [sub (when (and customer (billing/customer-linked? customer))
+                 (deciding-subscription
+                  (:data (stripe/list-subscriptions! stripe-config customer))))]
+    (let [status (effective-status sub)
+          plan   (price->plan stripe-config (get-in sub [:items :data 0 :price :id]))]
+      (billing/record-subscription-status! customer status plan)
       (mulog/log ::subscription-status-updated
-                 :customer customer :status status :plan plan)
-      (mulog/log ::subscription-event-ignored :customer customer))))
+                 :customer customer :status status :plan plan))
+    (mulog/log ::subscription-event-ignored :customer customer)))
+
+(defn- handle-customer-deleted!
+  "A Stripe customer was deleted outside the erasure path (for example,
+   in the Dashboard). Clear the account's link, so its next checkout
+   starts a new customer instead of failing on the deleted one."
+  [{customer :id}]
+  (if (and customer (billing/unlink-customer! customer))
+    (mulog/log ::customer-unlinked :customer customer)
+    (mulog/log ::customer-deleted-ignored :customer customer)))
 
 (defn- handle-event! [stripe-config {:keys [type data]}]
   (case type
@@ -314,7 +353,34 @@
      "customer.subscription.deleted")
     (handle-subscription-change! stripe-config (:object data))
 
+    "customer.deleted"
+    (handle-customer-deleted! (:object data))
+
     (mulog/log ::event-unhandled :event-type type)))
+
+(defn sync-checkout-session
+  "Settle a completed Checkout when the User comes back from it, so the
+   account does not depend on the webhook alone (Stripe recommends both).
+   The browser sends the session id from the success URL; the session is
+   read from Stripe and applied only when it is complete, belongs to the
+   caller, and is less than a day old (a Checkout lives 24 hours). The
+   age limit matters: applying a session reads the subscription's current
+   period, so replaying an old session after a failed renewal would grant
+   a period nobody paid for. Any other session answers 404, whether it
+   exists or not."
+  [request]
+  (let [stripe-config (stripe-config!)
+        user-id       (auth/current-user-id request)
+        session       (stripe/get-checkout-session! stripe-config
+                                                    (get-in request [:body-params :session_id]))
+        now           (quot (System/currentTimeMillis) 1000)]
+    (when-not (and (= (str user-id) (:client_reference_id session))
+                   (= "complete" (:status session))
+                   (< (- now (:created session 0)) 86400))
+      (throw (ex-info "No such checkout" {:type :not-found})))
+    (handle-checkout-completed! stripe-config session)
+    (mulog/log ::checkout-synced :user-id user-id)
+    (response/status 204)))
 
 (defn- raw-body
   "The request body exactly as received — the bytes Stripe signed."

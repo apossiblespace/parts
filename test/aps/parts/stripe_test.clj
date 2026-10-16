@@ -62,8 +62,10 @@
       (is (= "00000000-0000-0000-0000-000000000001" (:client_reference_id params)))
       (is (= "therapist@example.com" (:customer_email params))))
 
-    (testing "success and cancel URLs land on the SPA account page"
-      (is (= "https://parts.test/app/account?checkout=success" (:success_url params)))
+    (testing "success and cancel URLs land on the SPA account page; the
+              success URL carries Checkout's session-id placeholder"
+      (is (= "https://parts.test/app/account?checkout=success&session_id={CHECKOUT_SESSION_ID}"
+             (:success_url params)))
       (is (= "https://parts.test/app/account" (:cancel_url params))))
 
     ;; TASK-046 / task-009 AC#9: "no client data reaches Stripe" is a code
@@ -129,6 +131,14 @@
       (is (= {:customer   "cus_123"
               :return_url "https://parts.test/app/account"}
              params)))))
+
+(deftest get-checkout-session!-test
+  (testing "an id from the browser that is not a Checkout Session id never
+            reaches the request path"
+    (doseq [bad [nil "" "cs_" "../v1/customers" "cs_abc/../../v1/charges" "pi_123" 42]]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Not a Checkout Session id"
+                            (stripe/get-checkout-session! {:secret-key "rk_test"} bad))
+          (pr-str bad)))))
 
 (deftest valid-signature?-test
   (let [secret  "whsec_test_secret"

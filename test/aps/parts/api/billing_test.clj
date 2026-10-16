@@ -51,12 +51,14 @@
 (defn- checkout-json
   "A checkout.session.completed payload for `user`, as our sessions look:
    client_reference_id + metadata plan."
-  [user & {:keys [customer plan] :or {customer "cus_test" plan "monthly"}}]
+  [user & {:keys [customer plan payment-status]
+           :or   {customer "cus_test" plan "monthly" payment-status "paid"}}]
   (event-json "checkout.session.completed"
               {:id                  "cs_1"
                :customer            customer
                :subscription        "sub_test"
                :client_reference_id (some-> user :id str)
+               :payment_status      payment-status
                :metadata            (if plan {:plan plan} {})}))
 
 (defn- billing-row [email]
@@ -69,11 +71,25 @@
 (defn- paid-through [email]
   (some-> (:paid_through_date (billing-row email)) .toLocalDate))
 
+(defn- echo-subscription-list
+  "A stub for `stripe/list-subscriptions!`: Stripe's current state is the
+   subscription the event `payload` carries — the in-order case."
+  [payload]
+  (let [object (get-in (json/read-value payload json/keyword-keys-object-mapper)
+                       [:data :object])]
+    (fn [_cfg _customer] {:data (if (:status object) [object] [])})))
+
 (defn- post-webhook
   ([request] (post-webhook request (subscription-fetch)))
   ([request sub-fetch]
-   (with-redefs [conf/stripe-config       (constantly stripe-config)
-                 stripe/get-subscription! sub-fetch]
+   (let [payload (slurp (:body request))]
+     (post-webhook (assoc request :body (java.io.ByteArrayInputStream. (.getBytes payload "UTF-8")))
+                   sub-fetch
+                   (echo-subscription-list payload))))
+  ([request sub-fetch sub-list]
+   (with-redefs [conf/stripe-config         (constantly stripe-config)
+                 stripe/get-subscription!   sub-fetch
+                 stripe/list-subscriptions! sub-list]
      (billing-api/webhook request))))
 
 (deftest webhook-rejects-unverified-requests-test
@@ -499,3 +515,150 @@
       (testing "ends with the transactional footer"
         (is (str/includes? (:content plain) "This email was sent to buyer@example.com about your Parts account."))
         (is (str/includes? (:content html) "Example Ltd · Company no. 123"))))))
+
+(deftest webhook-subscription-order-test
+  (testing "an out-of-order event records Stripe's current status, not the
+            event's old snapshot"
+    (let [user (create-test-user! {:email "late-event@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_late" :stripe_subscription_status "active"}
+                  [:= :id (:id user)])
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.updated"
+                                 {:id "sub_l" :customer "cus_late" :status "past_due"}))
+                    (subscription-fetch)
+                    (fn [_ _] {:data [{:id "sub_l" :status "active" :created 1}]}))
+      (is (= "active" (:stripe_subscription_status (billing-row "late-event@example.com"))))))
+
+  (testing "an old subscription's late cancellation does not hide the new
+            one that still charges"
+    (let [user (create-test-user! {:email "resubscribed@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_overlap" :stripe_subscription_status "active"}
+                  [:= :id (:id user)])
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.deleted"
+                                 {:id "sub_old" :customer "cus_overlap" :status "canceled"}))
+                    (subscription-fetch)
+                    (fn [_ _] {:data [{:id "sub_old" :status "canceled" :created 1}
+                                      {:id "sub_new" :status "active" :created 2}]}))
+      (is (= "active" (:stripe_subscription_status (billing-row "resubscribed@example.com"))))))
+
+  (testing "the newest subscription decides when none charges"
+    (let [user (create-test-user! {:email "two-ended@example.com"})]
+      (db/update! :users {:stripe_customer_id "cus_ended"} [:= :id (:id user)])
+      (post-webhook (webhook-request
+                     (event-json "customer.subscription.deleted"
+                                 {:id "sub_b" :customer "cus_ended" :status "canceled"}))
+                    (subscription-fetch)
+                    (fn [_ _] {:data [{:id "sub_a" :status "incomplete_expired" :created 1}
+                                      {:id "sub_b" :status "canceled" :created 2}]}))
+      (is (= "canceled" (:stripe_subscription_status (billing-row "two-ended@example.com"))))))
+
+  (testing "an event for an unlinked customer never calls Stripe"
+    (is (= 200 (:status (post-webhook
+                         (webhook-request
+                          (event-json "customer.subscription.deleted"
+                                      {:id "sub_x" :customer "cus_erased" :status "canceled"}))
+                         (subscription-fetch)
+                         (fn [_ _] (throw (ex-info "must not be called" {})))))))))
+
+(deftest webhook-customer-deleted-test
+  (testing "a customer deleted in the Dashboard is unlinked; paid time stays"
+    (let [user (create-test-user! {:email "dash-deleted@example.com"})]
+      (db/update! :users {:stripe_customer_id         "cus_dash"
+                          :stripe_subscription_status "canceled"
+                          :stripe_plan                "monthly"
+                          :paid_through_date          period-end-date}
+                  [:= :id (:id user)])
+      (is (= 200 (:status (post-webhook
+                           (webhook-request (event-json "customer.deleted" {:id "cus_dash"}))))))
+      (let [row (billing-row "dash-deleted@example.com")]
+        (is (nil? (:stripe_customer_id row)))
+        (is (nil? (:stripe_subscription_status row)))
+        (is (nil? (:stripe_plan row)))
+        (is (= period-end-date (paid-through "dash-deleted@example.com"))))))
+
+  (testing "an unknown customer is acknowledged and ignored"
+    (is (= 200 (:status (post-webhook
+                         (webhook-request (event-json "customer.deleted" {:id "cus_unknown"}))))))))
+
+(deftest webhook-checkout-delayed-payment-test
+  (testing "a checkout whose payment is still processing links the account
+            but grants no paid time until invoice.paid"
+    (let [user (create-test-user! {:email "bacs@example.com"})]
+      (post-webhook (webhook-request (checkout-json user :customer "cus_bacs"
+                                                    :payment-status "unpaid")))
+      (let [row (billing-row "bacs@example.com")]
+        (is (= "cus_bacs" (:stripe_customer_id row)))
+        (is (= "active" (:stripe_subscription_status row)))
+        (is (nil? (paid-through "bacs@example.com")))))))
+
+(defn- sync-call!
+  "Run sync-checkout-session for `user` with the session `session`
+   returned by Stripe."
+  [user session]
+  (with-redefs [conf/stripe-config           (constantly stripe-config)
+                stripe/get-subscription!     (subscription-fetch)
+                stripe/get-checkout-session! (fn [_cfg _id] session)
+                mail/send!                   identity]
+    (billing-api/sync-checkout-session {:identity    {:sub (str (:id user))}
+                                        :body-params {:session_id "cs_test_1"}})))
+
+(deftest sync-checkout-session-test
+  (let [session (fn [user & {:as overrides}]
+                  (merge {:id                  "cs_test_1"
+                          :status              "complete"
+                          :payment_status      "paid"
+                          :customer            "cus_sync"
+                          :subscription        "sub_test"
+                          :client_reference_id (str (:id user))
+                          :created             (quot (System/currentTimeMillis) 1000)
+                          :metadata            {:plan "monthly"}}
+                         overrides))]
+    (testing "a completed session of the caller links the account at once,
+              without waiting for the webhook"
+      (let [user (create-test-user! {:email "sync@example.com"})]
+        (is (= 204 (:status (sync-call! user (session user)))))
+        (let [row (billing-row "sync@example.com")]
+          (is (= "cus_sync" (:stripe_customer_id row)))
+          (is (= "active" (:stripe_subscription_status row)))
+          (is (= period-end-date (paid-through "sync@example.com"))))))
+
+    (testing "another account's session is refused and changes nothing"
+      (let [owner    (create-test-user! {:email "sync-owner@example.com"})
+            intruder (create-test-user! {:email "sync-intruder@example.com"})]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No such checkout"
+                              (sync-call! intruder (session owner :customer "cus_owner"))))
+        (is (nil? (:stripe_customer_id (billing-row "sync-intruder@example.com"))))
+        (is (nil? (:stripe_customer_id (billing-row "sync-owner@example.com"))))))
+
+    (testing "a session older than a day is refused: replaying it after a
+              failed renewal would grant an unpaid period"
+      (let [user (create-test-user! {:email "sync-replay@example.com"})]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No such checkout"
+                              (sync-call! user (session user :created (- (quot (System/currentTimeMillis) 1000)
+                                                                         (* 40 86400))))))
+        (is (nil? (:stripe_customer_id (billing-row "sync-replay@example.com"))))))
+
+    (testing "a session Stripe does not know is a 404, not an upstream failure"
+      (let [user (create-test-user! {:email "sync-unknown@example.com"})]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No such checkout"
+                              (sync-call! user nil)))))
+
+    (testing "a sync after the webhook already linked the account does not
+              thank again"
+      (let [user  (create-test-user! {:email "sync-after-hook@example.com"})
+            sends (atom 0)]
+        (with-redefs [mail/send! (fn [m] (swap! sends inc) m)]
+          (post-webhook (webhook-request (checkout-json user :customer "cus_hook_first")))
+          (with-redefs [conf/stripe-config           (constantly stripe-config)
+                        stripe/get-subscription!     (subscription-fetch)
+                        stripe/get-checkout-session! (fn [_ _] (session user :customer "cus_hook_first"))]
+            (billing-api/sync-checkout-session {:identity    {:sub (str (:id user))}
+                                                :body-params {:session_id "cs_test_1"}})))
+        (is (= 1 @sends))))
+
+    (testing "a session that is not complete is refused"
+      (let [user (create-test-user! {:email "sync-open@example.com"})]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No such checkout"
+                              (sync-call! user (session user :status "open"))))
+        (is (nil? (:stripe_customer_id (billing-row "sync-open@example.com"))))))))

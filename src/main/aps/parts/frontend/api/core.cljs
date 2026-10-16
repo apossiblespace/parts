@@ -118,6 +118,12 @@
   [plan]
   (http/POST "/billing/checkout-session" {:plan plan}))
 
+(defn sync-checkout-session
+  "Settle the completed Checkout `session-id` on return from Stripe, in
+   case the webhook has not arrived yet. A 204 means it is applied."
+  [session-id]
+  (http/POST "/billing/checkout-sync" {:session_id session-id}))
+
 (defn create-portal-session
   "Open the Stripe Customer Portal for the signed-in account. A 200
    carries {:url …} — the hosted management page to send the browser to."

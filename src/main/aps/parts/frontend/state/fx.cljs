@@ -147,6 +147,15 @@
                                              "Could not open the billing page"
                                              "Could not start the checkout"))]))))))
 
+(rf/reg-fx
+ :billing/sync-fx
+ (fn [{:keys [session-id]}]
+   ;; Whatever the answer, re-read the account: on success it is now
+   ;; subscribed; on failure the page keeps polling for the webhook.
+   (go
+     (<! (api/sync-checkout-session session-id))
+     (rf/dispatch [:auth/check-auth]))))
+
 ;; -- Sessions (ADR-0014) ----------------------------------------------------
 ;; HTTP-only: Sessions exist for authenticated Maps; demo Maps are exempt
 ;; from the Session model, so these effects never fire in the playground.

@@ -192,8 +192,12 @@ checkout 500ing and retrying). The webhook keeps `paid_through_date` and
 `stripe_subscription_status` current.
 The production webhook endpoint must be pinned to the latest Stripe API
 version (the account default is 2018-era) and subscribed to
-`checkout.session.completed`, `invoice.paid`, and the three
-`customer.subscription.*` events.
+`checkout.session.completed`, `invoice.paid`, the three
+`customer.subscription.*` events, and `customer.deleted` (it unlinks an
+account whose customer was deleted in the Dashboard). Subscription events
+re-read the customer's subscriptions from Stripe (Subscriptions: Read), and
+the Account page settles a completed Checkout on return by reading the
+session (Checkout Sessions: Write covers the read).
 
 **Operator adjustments** — from the production REPL: `(billing-status!)`
 for standing, `(set-paid-through! email "2027-05-22")` for a goodwill
