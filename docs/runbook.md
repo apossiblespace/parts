@@ -199,6 +199,21 @@ re-read the customer's subscriptions from Stripe (Subscriptions: Read), and
 the Account page settles a completed Checkout on return by reading the
 session (Checkout Sessions: Write covers the read).
 
+**Failed payments** (Dashboard → Billing → Revenue recovery → Retries;
+decided 2026-10-17; set it in live mode). Cards use Smart Retries, up to
+4 times within 1 week. After the first failed renewal the subscription
+stays `past_due`, and the User keeps editing: Stripe's retry window is
+the grace period (ADR-0021). The window is short on purpose: a renewal
+that never gets paid has had editing for free until the last retry, so a
+longer window (3 weeks recovers a few more cards) gives away more. If all
+retries fail, Stripe **cancels the subscription** and leaves the invoice
+overdue; the account then lapses
+when its paid-through date passes, and can subscribe again at once. Keep
+"cancel the subscription": "mark as unpaid" leaves a User read-only with
+checkout refused, and "leave past due" keeps editing on for good. A
+change here applies only to future retries. Never pause collection on a
+subscription: it stays `active`, so editing stays on.
+
 **Operator adjustments** — from the production REPL: `(billing-status!)`
 for standing, `(set-paid-through! email "2027-05-22")` for a goodwill
 extension or correction, `(clear-paid-through! email)` to reset. The
