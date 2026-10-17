@@ -155,6 +155,11 @@
      :map-archived
      (exception-handler "This Map is archived." 409)
 
+     ;; A write from a lapsed account (ADR-0021). The user-facing text is
+     ;; the message of the ex-info (`auth.middleware/wrap-editing-allowed`).
+     :account-lapsed
+     (exception-handler "Your account is read-only." 402)
+
      ;; db/->uuid on a malformed id — client input, not a server fault.
      :invalid-uuid
      (exception-handler "Invalid identifier" 400)

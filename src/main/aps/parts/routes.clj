@@ -281,7 +281,8 @@
                                              {:capacity 10 :refill-per-ms (/ 1.0 60000)})]
                                :handler    api.billing/sync-checkout-session}}]]
 
-    ["/maps" {:middleware [auth-mw/require-auth]}
+    ;; A lapsed account reads but cannot write here (ADR-0021).
+    ["/maps" {:middleware [auth-mw/require-auth auth-mw/wrap-editing-allowed]}
      ;; Write limits are per-user (session identity), far above any real
      ;; editing pace: 20 burst + 1/min for map creation, 120 burst + 1/s
      ;; sustained for change batches (the SPA debounces at 2s).
@@ -301,10 +302,11 @@
            ;; Disabled: deleting a Map is not a feature Parts provides at the
            ;; moment. The handler is kept for possible future use.
            #_#_:delete {:handler api.maps/delete-map}}]
-      ;; The one write an archived Map accepts (see `wrap-map-access`).
-      ["/archive" {:allow-when-archived? true
-                   :put                  {:handler api.maps/set-archived}
-                   :delete               {:handler api.maps/set-archived}}]
+      ;; The one write an archived Map or a lapsed account accepts (see
+      ;; `wrap-map-access` and `wrap-editing-allowed`).
+      ["/archive" {:allow-when-read-only? true
+                   :put                   {:handler api.maps/set-archived}
+                   :delete                {:handler api.maps/set-archived}}]
       ["/preview.svg" {:get {:handler api.maps/preview-svg}}]
       ["/render.pdf"  {:get {:parameters {:query {(ds/opt :at) string?}}
                              :handler    api.maps/render-pdf}}]

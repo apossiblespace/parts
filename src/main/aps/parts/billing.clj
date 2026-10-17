@@ -263,6 +263,14 @@
                     :from   [:users]
                     :where  [:= :id (db/->uuid user-id)]}))))
 
+(defn can-edit?
+  "True when the account `user-id` may change Map content (see
+   `entitlement`). Without a payment start date every account can, so the
+   account is not read at all. False for an account that does not exist."
+  [user-id]
+  (or (nil? (config/payment-start-date))
+      (boolean (some-> (billing-facts user-id) entitlement :can_edit))))
+
 (defn sync-stripe-email!
   "After an email change, give the account's Stripe Customer the new
    address, so receipts follow it. Best effort: the change has already

@@ -1,6 +1,7 @@
 (ns aps.parts.auth.middleware-test
   (:require
    [aps.parts.auth.middleware :as auth-mw]
+   [aps.parts.billing :as billing]
    [aps.parts.entity.map :as parts-map]
    [clojure.test :refer [deftest is testing]]))
 
@@ -69,5 +70,28 @@
               (is false (str "expected " method " to be rejected"))
               (catch clojure.lang.ExceptionInfo e
                 (is (= :map-archived (:type (ex-data e))) (str method)))))
-          (is (= 200 (:status (handler (request :delete {:allow-when-archived? true}))))
+          (is (= 200 (:status (handler (request :delete {:allow-when-read-only? true}))))
               "the unarchive route is the one write that gets through"))))))
+
+(deftest test-wrap-editing-allowed
+  (let [ok-handler (fn [_] {:status 200})
+        request    (fn [method & [route-data]]
+                     (cond-> {:request-method method :identity {:sub (str (random-uuid))}}
+                       route-data (assoc :reitit.core/match {:data route-data})))]
+    (testing "a lapsed account reads, archives, and nothing else"
+      (with-redefs [billing/can-edit? (constantly false)]
+        (let [handler (auth-mw/wrap-editing-allowed ok-handler)]
+          (is (= 200 (:status (handler (request :get)))))
+          (is (= 200 (:status (handler (request :head)))))
+          (is (= 200 (:status (handler (request :options)))))
+          (doseq [method [:post :put :delete :patch]]
+            (try
+              (handler (request method))
+              (is false (str "expected " method " to be rejected"))
+              (catch clojure.lang.ExceptionInfo e
+                (is (= :account-lapsed (:type (ex-data e))) (str method))
+                (is (re-find #"read-only" (ex-message e)) (str method)))))
+          (is (= 200 (:status (handler (request :put {:allow-when-read-only? true}))))))))
+    (testing "an account that can edit writes"
+      (with-redefs [billing/can-edit? (constantly true)]
+        (is (= 200 (:status ((auth-mw/wrap-editing-allowed ok-handler) (request :post)))))))))
