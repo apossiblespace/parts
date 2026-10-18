@@ -20,14 +20,15 @@
     (when (seq selected-relationships)
       ($ :div {:class "tools relationships-tools"}
          ($ header {:title "Selected relationships" :count relationship-count})
-         ($ :fieldset {:disabled (not editable?)}
-            ($ :section {:class "selected-relationships"}
-               (map
-                (fn [relationship]
-                  ($ relationship-form {:key          (str (:id relationship) "-" relationship-count "-" epoch)
-                                        :relationship relationship
-                                        :collapsed    multiple-relationships
-                                        :on-save      (fn [id updated-attrs]
-                                                        (rf/dispatch [:map/relationship-update id updated-attrs]))
-                                        :on-delete    on-delete}))
-                selected-relationships)))))))
+         ;; See parts-tools: each form disables only its editing controls.
+         ($ :section {:class "selected-relationships"}
+            (map
+             (fn [relationship]
+               ($ relationship-form {:key          (str (:id relationship) "-" relationship-count "-" epoch)
+                                     :relationship relationship
+                                     :collapsed    multiple-relationships
+                                     :read-only?   (not editable?)
+                                     :on-save      (fn [id updated-attrs]
+                                                     (rf/dispatch [:map/relationship-update id updated-attrs]))
+                                     :on-delete    (when editable? on-delete)}))
+             selected-relationships))))))

@@ -21,17 +21,17 @@
     (when (seq selected-parts)
       ($ :div {:class "tools parts-tools"}
          ($ header {:title "Selected parts" :count part-count})
-         ;; A disabled fieldset greys out every input inside the forms —
-         ;; the read-only canvas still shows a Part's details (reading is
-         ;; the point), it just refuses edits.
-         ($ :fieldset {:disabled (not editable?)}
-            ($ :section {:class "selected-parts"}
-               (map
-                (fn [part]
-                  ($ part-form {:key       (str (:id part) "-" part-count "-" epoch)
-                                :part      part
-                                :collapsed multiple-parts
-                                :on-save   (fn [id updated-attrs]
-                                             (rf/dispatch [:map/part-update id updated-attrs]))
-                                :on-delete on-delete}))
-                selected-parts)))))))
+         ;; The read-only canvas still shows a Part's details (reading is
+         ;; the point) and opens its windows; each form disables only its
+         ;; editing controls.
+         ($ :section {:class "selected-parts"}
+            (map
+             (fn [part]
+               ($ part-form {:key        (str (:id part) "-" part-count "-" epoch)
+                             :part       part
+                             :collapsed  multiple-parts
+                             :read-only? (not editable?)
+                             :on-save    (fn [id updated-attrs]
+                                           (rf/dispatch [:map/part-update id updated-attrs]))
+                             :on-delete  (when editable? on-delete)}))
+             selected-parts))))))

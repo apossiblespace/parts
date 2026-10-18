@@ -67,8 +67,10 @@
    - on-save: Callback function (id, form-data) on each commit
    - on-delete: Callback function (id) — asks for the part's deletion
      (confirmation included, same flow as the Delete key)
-   - collapsed: Whether the form should start collapsed"
-  [{:keys [part on-save on-delete collapsed]}]
+   - collapsed: Whether the form should start collapsed
+   - read-only?: The canvas refuses edits: the fields are disabled, but
+     the notes, conversation and body location windows still open"
+  [{:keys [part on-save on-delete collapsed read-only?]}]
   (let [{:keys [id type label notes unburdened color_tag body_location]}
         part
 
@@ -107,42 +109,46 @@
                                    :delete-label "Delete part"})
        (when-not collapsed?
          ($ :div
-            ($ :label {:class "fieldset-label"} "Type:")
-            ($ :select {:class    "select select-sm mb-1"
-                        :value    (:type values)
-                        :onChange #(commit-field! :type (.. % -target -value))}
-               (->> part-type-order
-                    (map (fn [k]
-                           ($ :option {:key k :value k}
-                              (get-in part-labels [k :label]))))))
+            ;; A disabled fieldset disables every control inside it, so it
+            ;; holds only the editing controls; the window buttons below
+            ;; stay usable on a read-only canvas.
+            ($ :fieldset {:class "contents" :disabled read-only?}
+               ($ :label {:class "fieldset-label"} "Type:")
+               ($ :select {:class    "select select-sm mb-1"
+                           :value    (:type values)
+                           :onChange #(commit-field! :type (.. % -target -value))}
+                  (->> part-type-order
+                       (map (fn [k]
+                              ($ :option {:key k :value k}
+                                 (get-in part-labels [k :label]))))))
 
-            ($ :label {:class "fieldset-label"} "Label:")
-            ($ :input {:class     "input input-sm mb-1"
-                       :type      "text"
-                       :value     (:label values)
-                       :onChange  #(update-field :label (.. % -target -value))
-                       :on-blur   text-blur
-                       :onKeyDown (text-keys :label :blur-on-enter? true)})
+               ($ :label {:class "fieldset-label"} "Label:")
+               ($ :input {:class     "input input-sm mb-1"
+                          :type      "text"
+                          :value     (:label values)
+                          :onChange  #(update-field :label (.. % -target -value))
+                          :on-blur   text-blur
+                          :onKeyDown (text-keys :label :blur-on-enter? true)})
 
-            ($ color-tag-picker {:part-id   id
-                                 :value     (:color_tag values)
-                                 :on-change #(commit-field! :color_tag %)})
+               ($ color-tag-picker {:part-id   id
+                                    :value     (:color_tag values)
+                                    :on-change #(commit-field! :color_tag %)})
 
-            ($ :label {:class "fieldset-label"} "Burden:")
-            ($ :label
-               {:class "label text-sm text-base-content mt1 mb-2 cursor-pointer"}
-               ($ :input {:type     "checkbox"
-                          :class    "checkbox checkbox-xs"
-                          :checked  (:unburdened values)
-                          :onChange #(commit-field! :unburdened
-                                                    (.. % -target -checked))})
-               "Unburdened?")
+               ($ :label {:class "fieldset-label"} "Burden:")
+               ($ :label
+                  {:class "label text-sm text-base-content mt1 mb-2 cursor-pointer"}
+                  ($ :input {:type     "checkbox"
+                             :class    "checkbox checkbox-xs"
+                             :checked  (:unburdened values)
+                             :onChange #(commit-field! :unburdened
+                                                       (.. % -target -checked))})
+                  "Unburdened?"))
 
             ($ form/notes-header {:disabled? (not notes-scope?)})
             ($ :textarea {:max-length max-text-length
                           :class      "textarea textarea-sm mb-1"
                           :value      (:notes values)
-                          :disabled   notes-in-window?
+                          :disabled   (or read-only? notes-in-window?)
                           :title      (when notes-in-window?
                                         "Editing in the notes window")
                           :onChange   #(update-field :notes
@@ -155,6 +161,7 @@
               ($ :<>
                  ($ conversation-preview {:part part})
                  ($ location-field
-                    {:location body_location
-                     :on-open  #(rf/dispatch
-                                 [:window/open :body-location])}))))))))
+                    {:location   body_location
+                     :read-only? read-only?
+                     :on-open    #(rf/dispatch
+                                   [:window/open :body-location])}))))))))

@@ -39,12 +39,13 @@
          (rf/dispatch [:window/close :notes])))
      [entity])
     ;; Delete a stale draft, or it returns when the notes (often "") go
-    ;; back to the value it started from.
+    ;; back to the value it started from. Only while editable: time travel
+    ;; shows past notes, which would make today's draft look stale.
     (use-effect
      (fn []
-       (when (and stored (nil? draft))
+       (when (and editable? stored (nil? draft))
          (rf/dispatch [:window/clear-draft :notes entity-id])))
-     [stored draft entity-id])
+     [editable? stored draft entity-id])
     ;; Focus the textarea once it exists, caret at the end.
     (use-effect
      (fn []
@@ -60,23 +61,28 @@
                                          (:label entity)
                                          (str (:label (names (:source_id entity))) " → "
                                               (:label (names (:target_id entity))))))}
-         (if editable?
-           ($ :<>
-              ($ :textarea {:max-length  max-text-length
-                            :ref         text-ref
-                            :class       "floating-window-text"
-                            :aria-label  "Notes"
-                            :value       text
-                            :on-change   #(rf/dispatch [:window/set-draft :notes entity-id
-                                                        {:base saved :text (.. % -target -value)}])
-                            :on-key-down (fn [^js e]
-                                           (when (and dirty?
-                                                      (= "Enter" (.-key e))
-                                                      (or (.-metaKey e) (.-ctrlKey e)))
-                                             (save!)))})
-              ($ window-actions {:dirty?    dirty?
-                                 :on-save   save!
-                                 :on-cancel cancel!}))
-           (if (seq saved)
-             ($ :p {:class "text-sm whitespace-pre-wrap"} saved)
-             ($ :p {:class "text-sm text-base-content/50 italic"} "No notes")))))))
+         ;; Read-only shows the same text area (padding, scrolling), not
+         ;; editable, with no Save or Cancel. The ref (and so the focus
+         ;; effect) is for editing only.
+         ($ :textarea {:max-length  max-text-length
+                       :ref         (when editable? text-ref)
+                       :class       "floating-window-text"
+                       :aria-label  "Notes"
+                       :read-only   (not editable?)
+                       :placeholder (when-not editable? "No notes")
+                       :value       (if editable? text saved)
+                       :on-change   (when editable?
+                                      #(rf/dispatch [:window/set-draft :notes entity-id
+                                                     {:base saved :text (.. % -target -value)}]))
+                       ;; A draft can outlive edit mode (Close keeps it), so
+                       ;; read-only must not offer the save key at all.
+                       :on-key-down (when editable?
+                                      (fn [^js e]
+                                        (when (and dirty?
+                                                   (= "Enter" (.-key e))
+                                                   (or (.-metaKey e) (.-ctrlKey e)))
+                                          (save!))))})
+         (when editable?
+           ($ window-actions {:dirty?    dirty?
+                              :on-save   save!
+                              :on-cancel cancel!}))))))

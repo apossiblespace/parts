@@ -92,15 +92,16 @@
 (defui location-field
   "Body-location section of the Part form: a small read-only preview plus a
    button; both open the body-location window via `on-open`. The window
-   saves on its own, so this field has no value to commit."
-  [{:keys [location on-open]}]
+   saves on its own, so this field has no value to commit. `read-only?`
+   makes the button View."
+  [{:keys [location on-open read-only?]}]
   ($ :div {:class "mt-1"}
      ($ :div {:class "flex items-center justify-between"}
         ($ :label {:class "fieldset-label"} "Body location:")
         ($ :button {:type     "button"
                     :class    "btn btn-xs"
                     :on-click on-open}
-           (if location "Edit" "Add")))
+           (cond read-only? "View" location "Edit" :else "Add")))
      (when location
        ($ location-preview {:location location
                             :on-open  on-open}))))
@@ -118,7 +119,8 @@
         part-id   (:id part)
         draft     (uix.rf/use-subscribe [:ui/window-draft :body-location part-id])
         saved     (:body_location part)
-        location  (if draft (:location draft) saved)
+        ;; Read-only shows what is saved, never an unsaved draft pin.
+        location  (if (and editable? draft) (:location draft) saved)
         dirty?    (and (some? draft) (not= location saved))
         place!    (fn [loc]
                     (rf/dispatch [:window/set-draft :body-location part-id {:location loc}]))
