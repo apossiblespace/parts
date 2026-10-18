@@ -5,6 +5,7 @@
    control on the right. Actions that need more input open a sheet."
   (:require
    ["lucide-react/dist/esm/icons/circle-check" :default CircleCheck]
+   ["lucide-react/dist/esm/icons/lock" :default Lock]
    [aps.parts.common.constants :as c]
    [aps.parts.common.observe :as o]
    [aps.parts.common.utils :refer [normalize-email]]
@@ -12,8 +13,10 @@
    [aps.parts.frontend.components.app-footer :refer [app-footer]]
    [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.components.banner :refer [banner]]
+   [aps.parts.frontend.components.entitlement-view :as entitlement-view]
    [aps.parts.frontend.components.inline-edit :as inline-edit]
    [aps.parts.frontend.components.modal :refer [modal]]
+   [aps.parts.frontend.copy.billing :as copy]
    [aps.parts.frontend.router :as router]
    [clojure.string :as str]
    [re-frame.core :as rf]
@@ -330,63 +333,108 @@
        ($ :span {:class "loading loading-spinner loading-xs"}))
      label))
 
+(defn- plan-hint
+  "A plan's price and what sets it apart (every plan has all features)."
+  [{:keys [price cadence features]}]
+  (str/join " · " (cons (str price cadence) (remove #{"All features"} features))))
+
+(defui ^:private trial-row
+  "The free trial's days left as a bar (ADR-0021)."
+  [{:keys [days-left ends-on]}]
+  ($ :div {:class "px-4 py-3 text-sm"}
+     ($ :div {:class "flex justify-between gap-4"}
+        ($ :span copy/trial-label)
+        ($ :span {:class "text-gray-500"}
+           (copy/trial-days-left days-left)))
+     ($ :progress {:class (str "progress w-full mt-2 "
+                               (if (<= days-left entitlement-view/trial-reminder-days)
+                                 "progress-warning"
+                                 "progress-success"))
+                   :value (max 0 (- c/trial-days days-left))
+                   :max   c/trial-days})
+     ($ :p {:class "text-xs text-gray-500 mt-1"}
+        (copy/trial-ends-on ends-on))))
+
+(defui ^:private lapsed-plans
+  "A read-only account (ADR-0021): why, what still works, and the plans."
+  [{:keys [headline cta pending]}]
+  ($ :div {:class "px-4 py-6 text-center"}
+     ($ Lock {:size 20 :class "mx-auto text-gray-500"})
+     ($ :p {:class "font-semibold mt-2"} headline)
+     ($ :p {:class "text-sm text-gray-600 mt-1"} copy/lapsed-body)
+     ($ :div {:class "grid sm:grid-cols-2 gap-3 mt-4 text-left"}
+        (for [{:keys [plan title primary?] :as p} c/subscription-plans]
+          ($ :div {:key (name plan) :class "rounded-box border border-base-300 p-3 flex flex-col gap-2"}
+             ($ :div
+                ($ :p {:class "font-semibold"} title)
+                ($ :p {:class "text-xs text-gray-500"} (plan-hint p)))
+             ($ billing-button {:label cta :target plan :primary? primary? :pending pending}))))))
+
 (defui ^:private billing-rows
   "The Billing frame's rows for the view-model `view` (see
    `account-view/billing-view`)."
-  [{:keys [view thanks? pending slow?]}]
+  [{:keys [view user thanks? pending slow?]}]
   (let [{:keys [action cta status]} view]
     (case action
       :loading
-      ($ :p {:class "px-4 py-3 text-sm text-gray-400"} "Checking…")
+      ($ :p {:class "px-4 py-3 text-sm text-gray-400"} copy/checking)
 
       (:manage :cancelling)
       ($ :<>
          (when thanks?
            ($ :p {:class "flex items-center gap-2 px-4 py-3 text-sm text-success"}
               ($ CircleCheck {:class "h-4 w-4 shrink-0"})
-              "Thank you for subscribing!"))
-         ($ row {:label "Plan" :muted? true}
+              copy/thanks))
+         ($ row {:label copy/plan-label :muted? true}
             (:plan view)
             ($ badge {:badge (:badge view)}))
          (if (= :cancelling action)
-           (when (:ends-on view) ($ row {:label "Ends on" :muted? true} (:ends-on view)))
-           (when (:next-payment view) ($ row {:label "Next payment" :muted? true} (:next-payment view))))
-         ($ row {:label "Change plan, update your card, or cancel." :muted? true}
-            ($ billing-button {:label "Manage subscription" :target :portal :pending pending})))
+           (when (:ends-on view) ($ row {:label copy/ends-on-label :muted? true} (:ends-on view)))
+           (when (:next-payment view) ($ row {:label copy/next-payment-label :muted? true} (:next-payment view))))
+         (if (:payment-failed? view)
+           ($ row {:label copy/payment-failed
+                   :hint  copy/payment-failed-body}
+              ($ billing-button {:label copy/manage-subscription :target :portal :primary? true :pending pending}))
+           ($ row {:label copy/manage-hint :muted? true}
+              ($ billing-button {:label copy/manage-subscription :target :portal :pending pending}))))
 
       :activating
       ($ :div {:class "px-4 py-4 text-sm"}
          ($ :div {:class "flex items-center gap-3"}
             ($ :span {:class "loading loading-spinner loading-sm"})
-            "Finalising your subscription…")
+            copy/finalising)
          (when slow?
            ($ :p {:class "mt-2 text-gray-500"}
-              "This is taking longer than usual. If it does not finish in a few minutes, please "
-              ($ :a {:class "link" :href (str "mailto:" c/support-email)} "contact us")
+              copy/finalising-slow
+              ($ :a {:class "link" :href (str "mailto:" c/support-email)} copy/contact-us)
               ".")))
 
-      ($ :<>
-         (when status
-           ($ row {:label (:detail status) :muted? true}
-              ($ badge {:badge (:badge status)})))
-         (when-not (= :none action)
-           (for [{:keys [plan title price cadence features primary?]} c/subscription-plans]
-             ($ row {:key   (name plan)
-                     :label title
-                     ;; Every plan has all features; show only what sets it apart.
-                     :hint  (str/join " · " (cons (str price cadence)
-                                                  (remove #{"All features"} features)))}
-                ($ billing-button {:label    cta
-                                   :target   plan
-                                   :primary? primary?
-                                   :pending  pending}))))))))
+      (if (:lapsed? view)
+        ($ lapsed-plans {:headline (entitlement-view/lapse-headline user)
+                         :cta      cta
+                         :pending  pending})
+        ($ :<>
+           (when-let [trial (:trial view)]
+             ($ trial-row trial))
+           (when status
+             ($ row {:label (:detail status) :muted? true}
+                ($ badge {:badge (:badge status)})))
+           (when-not (= :none action)
+             (for [{:keys [plan title primary?] :as p} c/subscription-plans]
+               ($ row {:key   (name plan)
+                       :label title
+                       :hint  (plan-hint p)}
+                  ($ billing-button {:label    cta
+                                     :target   plan
+                                     :primary? primary?
+                                     :pending  pending})))))))))
 
 (defui ^:private group-note []
-  ($ :p "Individual plans are valid for a single practitioner. For a group practice, please "
+  ($ :p copy/group-note
      ($ :a {:class "link"
             :href  (str "mailto:" c/support-email "?subject="
-                        (js/encodeURIComponent "Group practice billing"))}
-        "contact us")
+                        (js/encodeURIComponent copy/group-subject))}
+        copy/contact-us)
      "."))
 
 ;;; Page
@@ -406,6 +454,8 @@
         {:keys [action] :as billing}            (account-view/billing-view
                                                  {:billing           (:billing user)
                                                   :standing          standing
+                                                  :entitlement       (:entitlement user)
+                                                  :today             (entitlement-view/today)
                                                   :checkout-pending? checkout-thanks?})
         [draft set-draft!]                      (use-state (or display-name ""))
         commit                                  (inline-edit/commit-value draft display-name
@@ -537,15 +587,16 @@
                                               :product-updates])})))
 
           ($ section {:title "Billing"
-                      :above (when (#{:subscribe :resubscribe} action)
+                      ;; Only while no payment is needed at all (ADR-0021).
+                      :above (when (:beta-banner? billing)
                                ($ banner {:variant :info :class "mb-2"}
-                                  ($ :p "A subscription is not required to use Parts while in beta. "
-                                     "Subscribing now supports continued development.")))
+                                  ($ :p copy/beta-banner)))
                       :note  ($ :<>
                                 (when billing-error
                                   ($ :p {:class "text-error mb-1"} billing-error))
                                 ($ group-note))}
              ($ billing-rows {:view    billing
+                              :user    user
                               :thanks? checkout-thanks?
                               :pending billing-pending
                               ;; The fast polls (about 30 s) are over.

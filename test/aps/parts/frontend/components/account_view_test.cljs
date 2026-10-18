@@ -42,17 +42,18 @@
     (is (= :subscribe (:action (billing-view {:billing  enabled-unused
                                               :standing never-paid})))))
 
-  (testing "any paid or lapsed window without a live subscription is the
-            resubscribe state — regardless of how the cancellation was
-            recorded, it must never read as simply active over the cards"
+  (testing "a cancelled subscription is the resubscribe state"
     (is (= :resubscribe (:action (billing-view {:billing  enabled-cancelled
                                                 :standing paid}))))
-    (is (= :resubscribe (:action (billing-view {:billing  enabled-unused
-                                                :standing paid}))))
-    (is (= :resubscribe (:action (billing-view {:billing  enabled-unused
-                                                :standing overdue}))))
     (is (= :resubscribe (:action (billing-view {:billing  enabled-cancelled
                                                 :standing never-paid})))))
+
+  (testing "time paid by hand, never a subscription, is offered Subscribe —
+            nothing to resubscribe to"
+    (is (= :subscribe (:action (billing-view {:billing  enabled-unused
+                                              :standing paid}))))
+    (is (= :subscribe (:action (billing-view {:billing  enabled-unused
+                                              :standing overdue})))))
 
   (testing "a host with self-serve off offers nothing"
     (is (= :none (:action (billing-view {:billing  self-serve-off
@@ -107,24 +108,26 @@
   (testing "a cancelled subscription with paid time left: paid until, no
             further charges"
     (is (= {:badge  [:neutral "Cancelled"]
-            :detail "Paid until 29 August 2026. You won't be charged again."}
+            :detail "Paid until 29 August 2026. You won’t be charged again."}
            (:status (billing-view {:billing enabled-cancelled :standing paid})))))
 
   (testing "paid by hand, with no Stripe subscription: no Cancelled badge"
     (is (= {:badge  nil
-            :detail "Paid until 29 August 2026. You won't be charged again."}
+            :detail "Paid until 29 August 2026. You won’t be charged again."}
            (:status (billing-view {:billing enabled-unused :standing paid})))))
 
-  (testing "a lapsed window reads ended"
+  (testing "a lapsed window reads ended, naming what ended"
     (is (= {:badge [:neutral "Ended"] :detail "Your subscription ended on 1 June 2026."}
+           (:status (billing-view {:billing enabled-cancelled :standing overdue}))))
+    (is (= {:badge [:neutral "Ended"] :detail "Your paid time ended on 1 June 2026."}
            (:status (billing-view {:billing enabled-unused :standing overdue})))))
 
   (testing "cancelled before anything was paid still explains itself"
-    (is (= {:badge [:neutral "Cancelled"] :detail "You won't be charged again."}
+    (is (= {:badge [:neutral "Cancelled"] :detail "You won’t be charged again."}
            (:status (billing-view {:billing enabled-cancelled :standing never-paid})))))
 
   (testing "a self-serve-off host gets the same facts"
-    (is (= "Paid until 29 August 2026. You won't be charged again."
+    (is (= "Paid until 29 August 2026. You won’t be charged again."
            (get-in (billing-view {:billing self-serve-off :standing paid}) [:status :detail]))))
 
   (testing "nothing to report: no status"
@@ -133,3 +136,53 @@
     (is (nil? (:status (billing-view {:billing           enabled-unused
                                       :standing          never-paid
                                       :checkout-pending? true}))))))
+
+(deftest test-billing-view-entitlement
+  (let [today "2026-11-11"]
+    (testing "a failing payment replaces Active and the next payment"
+      (let [view (billing-view {:billing     enabled-subscribed
+                                :standing    paid
+                                :entitlement {:can_edit true :reason :subscribed :payment_failing true}})]
+        (is (= [:warning "Payment failed"] (:badge view)))
+        (is (:payment-failed? view))
+        (is (nil? (:next-payment view)))))
+
+    (testing "the free trial: days left and the end date"
+      (is (= {:days-left 7 :ends-on "18 November 2026"}
+             (:trial (billing-view {:billing     enabled-unused
+                                    :standing    never-paid
+                                    :today       today
+                                    :entitlement {:can_edit true :reason :trial :trial_ends_on "2026-11-18"}})))))
+
+    (testing "a stale trial past its last day reads 0 days, never negative"
+      (is (= 0 (get-in (billing-view {:billing     enabled-unused
+                                      :standing    never-paid
+                                      :today       "2026-11-20"
+                                      :entitlement {:can_edit true :reason :trial :trial_ends_on "2026-11-18"}})
+                       [:trial :days-left]))))
+
+    (testing "read-only: the section shows the lapsed message and the plans"
+      (let [view (billing-view {:billing     enabled-cancelled
+                                :standing    overdue
+                                :today       today
+                                :entitlement {:can_edit false :reason :lapsed}})]
+        (is (:lapsed? view))
+        (is (= "Resubscribe" (:cta view)))))
+
+    (testing "the beta banner only while no payment is needed at all"
+      (is (:beta-banner? (billing-view {:billing     enabled-unused
+                                        :standing    never-paid
+                                        :entitlement {:can_edit true :reason :not-required}})))
+      (is (not (:beta-banner? (billing-view {:billing     enabled-unused
+                                             :standing    never-paid
+                                             :today       today
+                                             :entitlement {:can_edit      true         :reason :trial
+                                                           :trial_ends_on "2026-11-18"}})))))
+
+    (testing "a live subscription carries no trial or lapse facts"
+      (let [view (billing-view {:billing     enabled-subscribed
+                                :standing    paid
+                                :today       today
+                                :entitlement {:can_edit true :reason :subscribed}})]
+        (is (nil? (:trial view)))
+        (is (nil? (:lapsed? view)))))))

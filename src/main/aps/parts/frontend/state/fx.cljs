@@ -31,7 +31,10 @@
          ;; Clear playground data when existing user logs in
          (utils/clear-playground-data)
          ;; Login sets the session cookie; the response body is the user.
-         (rf/dispatch [:auth/set-user (:body resp)]))
+         ;; The account record (`:entitlement`, `:billing`) comes from
+         ;; GET /api/account.
+         (rf/dispatch [:auth/set-user (:body resp)])
+         (rf/dispatch [:auth/check-auth]))
        (when callback
          (callback resp))))))
 

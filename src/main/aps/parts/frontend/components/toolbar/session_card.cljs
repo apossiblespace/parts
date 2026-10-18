@@ -37,9 +37,10 @@
   []
   (let [session    (uix.rf/use-subscribe [:canvas/viewed-session])
         past?      (uix.rf/use-subscribe [:time-travel/active?])
-        archived?  (uix.rf/use-subscribe [:map/archived?])
-        ;; Read-only while viewing the past, and on an archived Map.
-        read-only? (or past? archived?)
+        locked?    (uix.rf/use-subscribe [:map/locked?])
+        ;; Read-only while viewing the past, on an archived Map, and for a
+        ;; lapsed account.
+        read-only? (or past? locked?)
         session-id (:id session)
         saved      (or (:trigger session) "")
         draft      (uix.rf/use-subscribe [:ui/window-draft :trigger session-id])
@@ -64,27 +65,30 @@
                  :title (str "Session " (:ordinal session) ", "
                              (dates/format-date dates/medium-date-format
                                                 (:anchor_valid_at session)))}
-         (if read-only?
-           (if (seq saved)
-             ($ :p {:class "text-sm whitespace-pre-wrap"} saved)
-             ($ :p {:class "text-sm text-base-content/50 italic"}
-                "No trigger recorded"))
-           ($ :<>
-              ($ :textarea {:ref         text-ref
-                            :class       "floating-window-text"
-                            :aria-label  "Session trigger"
-                            :placeholder "e.g. a conflict at work"
-                            :value       text
-                            :on-change   #(rf/dispatch [:window/set-draft :trigger session-id
-                                                        (.. % -target -value)])
-                            :on-key-down (fn [^js e]
-                                           (when (and dirty?
-                                                      (= "Enter" (.-key e))
-                                                      (or (.-metaKey e) (.-ctrlKey e)))
-                                             (save!)))})
-              ($ window-actions {:dirty?    dirty?
-                                 :on-save   save!
-                                 :on-cancel cancel!})))))))
+         ;; Read-only shows the same text area (padding, scrolling), not
+         ;; editable, with no Save or Cancel. The ref (and so the focus
+         ;; effect) is for editing only.
+         ($ :textarea {:ref         (when-not read-only? text-ref)
+                       :class       "floating-window-text"
+                       :aria-label  "Session trigger"
+                       :read-only   read-only?
+                       :placeholder (if read-only? "No trigger recorded" "e.g. a conflict at work")
+                       :value       (if read-only? saved text)
+                       :on-change   (when-not read-only?
+                                      #(rf/dispatch [:window/set-draft :trigger session-id
+                                                     (.. % -target -value)]))
+                       ;; A draft can outlive edit mode (Close keeps it), so
+                       ;; read-only must not offer the save key at all.
+                       :on-key-down (when-not read-only?
+                                      (fn [^js e]
+                                        (when (and dirty?
+                                                   (= "Enter" (.-key e))
+                                                   (or (.-metaKey e) (.-ctrlKey e)))
+                                          (save!))))})
+         (when-not read-only?
+           ($ window-actions {:dirty?    dirty?
+                              :on-save   save!
+                              :on-cancel cancel!}))))))
 
 (defui ^:private trigger-preview
   "Truncated trigger text; the see-more disclosure sits inline at the
@@ -144,7 +148,7 @@
   (let [the-sessions   (uix.rf/use-subscribe [:map/sessions])
         active         (uix.rf/use-subscribe [:session/active])
         travelling?    (uix.rf/use-subscribe [:time-travel/active?])
-        archived?      (uix.rf/use-subscribe [:map/archived?])
+        locked?        (uix.rf/use-subscribe [:map/locked?])
         viewing        (uix.rf/use-subscribe [:time-travel/viewing])
         ;; The activation row rides the same seams as the canvas
         ;; marker — the SHOWN Session joined against the Parts on
@@ -160,7 +164,7 @@
         has-trigger?   (seq (:trigger session))
         ;; The band-height compensation (-my-1) keeps this card's header
         ;; the same height as the button-less bands of the other cards.
-        edit-button    (when (and active (not travelling?) (not archived?))
+        edit-button    (when (and active (not travelling?) (not locked?))
                          ($ :button
                             {:class      "btn btn-xs -my-1"
                              :aria-label (if has-trigger?
@@ -182,7 +186,7 @@
             (when viewed-session
               ($ activation-row {:session    viewed-session
                                  :parts      part-options
-                                 :read-only? (or travelling? archived?)}))
+                                 :read-only? (or travelling? locked?)}))
             (for [msg (remove nil? [error tt-error])]
               ($ :p {:key   msg
                      :class "text-error text-xs"

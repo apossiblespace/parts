@@ -11,6 +11,7 @@
    ["lucide-react/dist/esm/icons/file-pen-line" :default FilePenLine]
    ["lucide-react/dist/esm/icons/hand" :default Hand]
    ["lucide-react/dist/esm/icons/history" :default History]
+   ["lucide-react/dist/esm/icons/lock" :default Lock]
    ["lucide-react/dist/esm/icons/messages-square" :default MessagesSquare]
    ["lucide-react/dist/esm/icons/mouse-pointer-2" :default MousePointer2]
    ["lucide-react/dist/esm/icons/plus" :default Plus]
@@ -30,6 +31,7 @@
    [aps.parts.frontend.components.conversation-window :refer [conversation-window]]
    [aps.parts.frontend.components.dropdown :refer [close-dropdown!]]
    [aps.parts.frontend.components.edges :refer [edge-types PartsConnectionLine]]
+   [aps.parts.frontend.components.entitlement-view :as entitlement-view]
    [aps.parts.frontend.components.inline-text-field :refer [inline-text-field]]
    [aps.parts.frontend.components.nodes :refer [node-types part-symbols]]
    [aps.parts.frontend.components.notes-window :refer [notes-window]]
@@ -38,6 +40,7 @@
    [aps.parts.frontend.components.toolbar.session-card :refer [trigger-window]]
    [aps.parts.frontend.components.toolbar.sidebar :refer [sidebar]]
    [aps.parts.frontend.components.window :refer [floating-windows]]
+   [aps.parts.frontend.copy.billing :as copy]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.state.time-travel :as time-travel]
@@ -355,6 +358,7 @@
         undoable?                  (uix.rf/use-subscribe [:session/undoable?])
         time-travelling?           (uix.rf/use-subscribe [:time-travel/active?])
         archived?                  (uix.rf/use-subscribe [:map/archived?])
+        map-locked?                (uix.rf/use-subscribe [:map/locked?])
         viewing                    (uix.rf/use-subscribe [:time-travel/viewing])
         ;; The widget's Session segment answers "which Session is in
         ;; view" in both modes: the active Session while editing, the
@@ -376,8 +380,9 @@
         gated                      (fn [handler]
                                      (when-not time-travelling? handler))
         ;; Session actions and Rename change the Map, so an archived Map
-        ;; disables them too; the PDF and the export only read.
-        locked?                    (or time-travelling? archived?)
+        ;; or a lapsed account disables them too; the PDF and the export
+        ;; only read.
+        locked?                    (or time-travelling? map-locked?)
         menu-action                (fn [{:keys [icon label on-click]}]
                                      ($ :li {:class (when locked? "menu-disabled")}
                                         ($ :a {:on-click (when-not locked? on-click)}
@@ -396,8 +401,8 @@
                                        map-name-width-classes
                                        (when locked? " cursor-default"))
               :display-text-class map-name-text-class
-              ;; An archived Map cannot change, so there is nothing to save.
-              :display-prefix     (when-not archived? ($ save-status-indicator))
+              ;; A read-only Map cannot change, so there is nothing to save.
+              :display-prefix     (when-not map-locked? ($ save-status-indicator))
               :input-class        "input input-sm join-item w-48"
               :editing?           editing?
               :edit-on            (if locked? :none :click)
@@ -577,10 +582,10 @@
   "absolute left-1/2 -translate-x-1/2 z-50 shadow-lg flex w-max")
 
 (defn- overlay-top
-  "The overlay banners' top offset: below the archived strip (2rem) on an
-   archived Map, so they never cover it."
-  [archived?]
-  (if archived? " top-12" " top-4"))
+  "The overlay banners' top offset: below the read-only strip (2rem) on
+   an archived Map or for a lapsed account, so they never cover it."
+  [strip?]
+  (if strip? " top-12" " top-4"))
 
 (def ^:private phone-banner-classes
   (str overlay-banner-classes " max-w-[calc(100%-2rem)]"))
@@ -595,10 +600,10 @@
    returns on the next page load."
   []
   (let [[dismissed? set-dismissed!] (use-state false)
-        archived?                   (uix.rf/use-subscribe [:map/archived?])]
+        strip?                      (uix.rf/use-subscribe [:map/locked?])]
     (when-not dismissed?
       ($ banner {:variant    :info
-                 :class      (str phone-banner-classes (overlay-top archived?))
+                 :class      (str phone-banner-classes (overlay-top strip?))
                  :on-dismiss #(set-dismissed! true)}
          ($ :span {:class "text-sm"}
             "Parts is designed for use on a tablet or computer.")))))
@@ -610,10 +615,10 @@
    (reloading replaces `:map`, which clears the flag)."
   []
   (let [save-error (uix.rf/use-subscribe [:map/save-error])
-        archived?  (uix.rf/use-subscribe [:map/archived?])]
+        strip?     (uix.rf/use-subscribe [:map/locked?])]
     (when save-error
       ($ banner {:variant :warning
-                 :class   (str save-error-banner-classes (overlay-top archived?))}
+                 :class   (str save-error-banner-classes (overlay-top strip?))}
          ($ :span {:class "text-sm"}
             "Some recent changes couldn’t be saved — this Map may be out of date.")
          ;; Same sizing trick as the banner's own dismiss button.
@@ -629,6 +634,24 @@
            :role  "status"}
      ($ Archive {:size 14})
      "This Map is archived and read-only."))
+
+(defui ^:private lapsed-strip
+  "Across the top of the window when the account has lapsed (ADR-0021),
+   in the archived strip's style. It says why nothing can change, and
+   whether the last change was refused. An archived Map shows only its
+   own strip: archiving does not depend on payment."
+  []
+  (let [user     (uix.rf/use-subscribe [:auth/user])
+        refused? (uix.rf/use-subscribe [:map/save-refused?])]
+    ($ :div {:class "h-8 w-full shrink-0 flex items-center justify-center gap-2 bg-stone-700 text-white text-sm"
+             :role  "status"}
+       ($ Lock {:size 14})
+       (if refused?
+         (entitlement-view/refused-headline user)
+         (str (entitlement-view/lapse-headline user) " " copy/map-read-only))
+       ($ :button {:class    "btn btn-xs ml-2"
+                   :on-click #(rf/dispatch [:router/navigate :aps.parts.frontend.router/account])}
+          copy/subscribe))))
 
 (defui ^:private canvas-empty-state
   "Static empty-state for a Map with no Parts yet (HIG shape: a quiet
@@ -657,6 +680,8 @@
         session-badges?       (uix.rf/use-subscribe [:canvas/session-badges?])
         time-travelling?      (uix.rf/use-subscribe [:time-travel/active?])
         archived?             (uix.rf/use-subscribe [:map/archived?])
+        lapsed?               (uix.rf/use-subscribe [:account/lapsed?])
+        strip?                (uix.rf/use-subscribe [:map/locked?])
         selected-node-ids     (uix.rf/use-subscribe [:ui/selected-node-ids])
         selected-edge-ids     (uix.rf/use-subscribe [:ui/selected-edge-ids])
         tool-mode             (uix.rf/use-subscribe [:ui/tool-mode])
@@ -1304,13 +1329,15 @@
            (.removeEventListener js/window "blur" on-blur))))
      [set-tool-mode time-travelling? minimal])
 
-    ;; An archived Map shows a strip above the map view: the container
-    ;; becomes a window-tall column, and the map view's flex: 1 fills
-    ;; what the strip leaves, so the strip covers nothing.
-    ($ :div {:class (str "map-container" (when archived? " flex-col h-dvh"))}
+    ;; A read-only Map (archived, or the account has lapsed) shows a strip
+    ;; above the map view: the container becomes a window-tall column, and
+    ;; the map view's flex: 1 fills what the strip leaves, so the strip
+    ;; covers nothing.
+    ($ :div {:class (str "map-container" (when strip? " flex-col h-dvh"))}
        ($ save-error-banner)
-       (when archived?
-         ($ archived-strip))
+       (cond
+         archived? ($ archived-strip)
+         lapsed?   ($ lapsed-strip))
        ;; Not in the minimal hero demo — that background canvas is
        ;; hidden on small screens anyway, and the headline sits where
        ;; the banner would.
@@ -1338,7 +1365,7 @@
                           :fill "context-stroke"}))))
        ($ :div {:ref               map-view-ref
                 :class             (str "map-view"
-                                        (when archived? " min-h-0")
+                                        (when strip? " min-h-0")
                                         (when minimal " minimal")
                                         (when time-travelling? " time-travelling")
                                         (when connecting? " connecting")

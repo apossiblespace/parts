@@ -53,6 +53,10 @@
     ;; An archived Map is read-only until it is unarchived. Time-travel
     ;; still works; it only reads.
     (get-in db [:map :archived_at])     :archived
+    ;; A lapsed account (ADR-0021) reads but cannot write. The account
+    ;; record must say so (`false`), so a page still loading it is not
+    ;; read-only; the server refuses the write either way.
+    (false? (get-in db [:auth :user :entitlement :can_edit])) :lapsed
     ;; A key access, not a require: `state/time-travel` depends on this
     ;; namespace, so the gate reads its subtree directly.
     (get-in db [:time-travel :active?]) :viewing-past

@@ -27,6 +27,7 @@
    months. A deliberate claw-back (refund, abuse) is the explicit
    two-step `clear-paid-through!` then `set-paid-through!`."
   (:require
+   [aps.parts.common.constants :as c]
    [aps.parts.config :as config]
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
@@ -86,8 +87,6 @@
       :paid_through_date (some-> d str)
       :days_remaining    (some->> d (.between ChronoUnit/DAYS today))})))
 
-(def ^:private trial-days 30)
-
 (def ^:private editing-statuses
   "The live subscription statuses that keep editing on: all except
    `unpaid`, which Stripe sets when it stops retrying a failed payment."
@@ -98,7 +97,7 @@
    created, but never before the payment start date `start`."
   [created-at ^LocalDate start]
   (let [ends (.plusDays (LocalDate/ofInstant (db/->instant created-at) ZoneOffset/UTC)
-                        trial-days)]
+                        c/trial-days)]
     (if (.isBefore ends start) start ends)))
 
 (defn entitlement

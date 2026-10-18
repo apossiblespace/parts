@@ -25,9 +25,9 @@
 (defonce ^:private unanswered (atom 0))
 
 (defn- land!
-  "Waits for the `result` channel of a batch and reports the result to the
-   UI."
-  [result]
+  "Waits for the `result` channel of a batch for `map-id` and reports the
+   result to the UI."
+  [map-id result]
   (rf/dispatch [:save-status/flush-started])
   (go
     (let [response (<! result)]
@@ -42,7 +42,7 @@
       ;; longer matches what's stored — that must never be silent.
       ;; (`:map/save-error` also drives the indicator's red state.)
       (when-not (:success response)
-        (rf/dispatch [:map/batch-failed])))))
+        (rf/dispatch (if (:refused? response) [:map/batch-refused map-id] [:map/batch-failed]))))))
 
 (defn- consume!
   "Posts each batch from `batches` to the backend of `map-id`, one at a
@@ -54,7 +54,8 @@
   [map-id batches]
   (go-loop []
     (when-let [{:keys [sent events]} (<! batches)]
-      (<! (land! (or sent
+      (<! (land! map-id
+                 (or sent
                      (process-batched-changes (storage-registry/get-backend)
                                               map-id events))))
       (recur))))

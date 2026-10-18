@@ -14,8 +14,10 @@
    [aps.parts.frontend.components.app-header :refer [app-header]]
    [aps.parts.frontend.components.archive-confirmation :refer [archive-confirmation]]
    [aps.parts.frontend.components.banner :refer [banner]]
+   [aps.parts.frontend.components.entitlement-view :as entitlement-view]
    [aps.parts.frontend.components.maps-list-view :as maps-view]
    [aps.parts.frontend.components.product-updates-view :as product-updates]
+   [aps.parts.frontend.copy.billing :as copy]
    [aps.parts.frontend.dates :as dates]
    [aps.parts.frontend.device :as device]
    [aps.parts.frontend.router :as router]
@@ -217,8 +219,44 @@
 
       nil)))
 
+(defui ^:private plan-banner
+  "The trial and payment notice (ADR-0021): the trial's last
+   `trial-reminder-days`, a failing payment, or a read-only account."
+  []
+  (let [user                            (uix.rf/use-subscribe [:auth/user])
+        {:keys [kind headline] :as hit} (entitlement-view/list-notice user (entitlement-view/today))
+        subscribe!                      #(rf/dispatch [:router/navigate ::router/account])
+        content                         (fn [title body button]
+                                          ($ :div {:class "flex flex-1 flex-wrap items-center gap-x-3 gap-y-2"}
+                                             ($ :p {:class "flex-1 min-w-48"}
+                                                ($ :span {:class "font-bold"} title) " " body)
+                                             button))]
+    (when hit
+      (case kind
+        :lapsed
+        ($ banner {:variant :warning :class "mb-4"}
+           (content headline
+                    copy/lapsed-body
+                    ($ :button {:class "btn btn-sm btn-primary" :on-click subscribe!} copy/subscribe)))
+
+        :payment-failed
+        ($ banner {:variant :warning :class "mb-4"}
+           (content copy/payment-failed
+                    copy/payment-failed-body
+                    ;; To the Account page, which shows the failure and
+                    ;; opens the portal (with its error handling).
+                    ($ :button {:class "btn btn-sm btn-primary" :on-click subscribe!}
+                       copy/update-card)))
+
+        :trial-ending
+        ($ banner {:variant :info :class "mb-4"}
+           (content (copy/trial-ends (:when hit))
+                    copy/trial-ending-body
+                    ($ :button {:class "btn btn-sm btn-primary" :on-click subscribe!} copy/subscribe)))))))
+
 (defui maps-list []
   (let [maps                       (uix.rf/use-subscribe [:maps/list])
+        lapsed?                    (uix.rf/use-subscribe [:account/lapsed?])
         loading                    (uix.rf/use-subscribe [:maps/loading])
         view                       (maps-view/view (uix.rf/use-subscribe [:router/query-params]))
         [query set-query]          (use-state "")
@@ -270,6 +308,7 @@
             ($ banner {:variant :warning :class "mb-4"}
                ($ :p "To create and edit Maps, use a tablet or computer.")))
 
+          ($ plan-banner)
           ($ product-updates-question)
 
           ($ :div {:class "flex flex-wrap items-center justify-between gap-3 mb-4"}
@@ -285,7 +324,8 @@
              ;; resolve against — a shrink-wrapped flex parent would make
              ;; the percentage a no-op.
              ($ :div {:class "flex flex-wrap items-center gap-2 w-full sm:w-auto"}
-                (when-not device/phone-primary?
+                ;; A lapsed account cannot create Maps; the banner above says why.
+                (when-not (or device/phone-primary? lapsed?)
                   ($ :button
                      {:class    "btn btn-sm btn-primary"
                       :on-click handle-create}

@@ -4,22 +4,8 @@
    the `account` component is a thin shell over `billing-view`."
   (:require
    [aps.parts.common.constants :as c]
-   [clojure.string :as str]))
-
-(def ^:private month-names
-  ["January" "February" "March" "April" "May" "June" "July"
-   "August" "September" "October" "November" "December"])
-
-(defn- fmt-iso-date
-  "Render an ISO `YYYY-MM-DD` string as e.g. `8 July 2026` by splitting the
-   string — never via `js/Date`, so a date-only value can't drift a day
-   across timezones. Returns nil for anything that doesn't parse."
-  [iso]
-  (when iso
-    (let [[y m d] (str/split iso #"-")
-          mi      (when m (dec (js/parseInt m 10)))]
-      (when (and y mi d (<= 0 mi 11))
-        (str (js/parseInt d 10) " " (nth month-names mi) " " y)))))
+   [aps.parts.frontend.components.entitlement-view :as entitlement-view]
+   [aps.parts.frontend.copy.billing :as copy]))
 
 (defn- plan-for
   "The shared plan entry for a Stripe plan word (\"monthly\"), or nil."
@@ -32,28 +18,34 @@
    `:status` — a badge and one sentence about past paid time — above the
    plan rows. A badge is `[tone label]`, tone :success, :warning or
    :neutral. An account paid by hand, with no Stripe subscription, gets
-   no \"Cancelled\" badge: nothing was cancelled."
-  [action billing {:keys [status paid_through_date]}]
+   no \"Cancelled\" badge: nothing was cancelled. A failing payment
+   (Stripe is retrying) replaces Active and the next payment."
+  [action billing {:keys [status paid_through_date]} payment-failing?]
   (let [plan    (plan-for (:subscription_plan billing))
-        through (fmt-iso-date paid_through_date)
-        named   (if plan (str (:title plan) " · " (:price plan) (:cadence plan)) "Subscription")]
+        through (entitlement-view/long-date paid_through_date)
+        named   (if plan (str (:title plan) " · " (:price plan) (:cadence plan)) copy/subscription-fallback)]
     (case action
-      :manage     {:plan         named
-                   :badge        [:success "Active"]
-                   :next-payment (when through
-                                   (if plan (str (:price plan) " on " through) through))}
+      :manage     (if payment-failing?
+                    {:plan            named
+                     :badge           [:warning copy/badge-payment-failed]
+                     :payment-failed? true}
+                    {:plan         named
+                     :badge        [:success copy/badge-active]
+                     :next-payment (when through
+                                     (if plan (copy/next-payment (:price plan) through) through))})
       :cancelling {:plan    named
-                   :badge   [:warning "Ending"]
+                   :badge   [:warning copy/badge-ending]
                    :ends-on through}
-      (:resubscribe :none)
-      (let [badge (when (:subscription_cancelled billing) [:neutral "Cancelled"])]
+      (:subscribe :resubscribe :none)
+      (let [badge (when (:subscription_cancelled billing) [:neutral copy/badge-cancelled])]
         (case status
           :paid    {:status {:badge  badge
-                             :detail (str "Paid until " through ". You won't be charged again.")}}
-          :overdue {:status {:badge  [:neutral "Ended"]
-                             :detail (str "Your subscription ended on " through ".")}}
+                             :detail (copy/paid-until through)}}
+          :overdue {:status {:badge  [:neutral copy/badge-ended]
+                             :detail (copy/ended-on (if badge copy/subscription-subject copy/paid-time-subject)
+                                                    through)}}
           (when badge
-            {:status {:badge badge :detail "You won't be charged again."}})))
+            {:status {:badge badge :detail copy/not-charged-again}})))
       nil)))
 
 (defn billing-view
@@ -71,36 +63,49 @@
      Subscribe would contradict the payment that just went through, and
      Manage would mint a portal session the backend still refuses. The
      page polls until the server reports the subscription live.
-   - `:resubscribe` — no live subscription but there is history to
-     explain (cancelled, or a paid/lapsed window): a status row says what
-     happened and the plan buttons read Resubscribe
+   - `:resubscribe` — a subscription was cancelled: a status row says
+     what happened and the plan buttons read Resubscribe
    - `:subscribe` — self-serve is enabled and there's nothing to explain
    - `:none` — self-serve is off
 
    The facts for the rows are merged in (see `facts`); `:cta` is the
-   plan buttons' label."
-  [{:keys [billing standing checkout-pending?]}]
+   plan buttons' label. From the `entitlement` (ADR-0021), on the
+   subscribe states: `:lapsed?` (read-only: the section shows one message
+   and the plans), `:trial` {:days-left :ends-on} during the free trial,
+   and `:beta-banner?` when no payment is needed at all. `today` is a UTC
+   ISO date."
+  [{:keys [billing standing entitlement checkout-pending? today]}]
   (if (nil? billing)
     {:action :loading}
-    (let [history? (or (:subscription_cancelled billing)
-                       (contains? #{:paid :overdue} (:status standing)))
-          action   (cond
-                     ;; Pending cancellation outranks plain active: the page
-                     ;; must not promise a renewal that will never come.
-                     (:subscription_cancelling billing) :cancelling
+    (let [action (cond
+                   ;; Pending cancellation outranks plain active: the page
+                   ;; must not promise a renewal that will never come.
+                   (:subscription_cancelling billing) :cancelling
 
-                     ;; A live status implies a linked customer — the server
-                     ;; only ever writes the two together.
-                     (:subscription_active billing) :manage
+                   ;; A live status implies a linked customer — the server
+                   ;; only ever writes the two together.
+                   (:subscription_active billing) :manage
 
-                     (and checkout-pending?
-                          (:self_serve_enabled billing)) :activating
+                   (and checkout-pending?
+                        (:self_serve_enabled billing)) :activating
 
-                     (and history?
-                          (:self_serve_enabled billing)) :resubscribe
+                   (and (:subscription_cancelled billing)
+                        (:self_serve_enabled billing)) :resubscribe
 
-                     (:self_serve_enabled billing) :subscribe
-                     :else                         :none)]
+                   (:self_serve_enabled billing) :subscribe
+                   :else                         :none)]
       (merge {:action action
-              :cta    (if (= :resubscribe action) "Resubscribe" "Subscribe")}
-             (facts action billing standing)))))
+              :cta    (if (= :resubscribe action) copy/resubscribe copy/subscribe)}
+             (facts action billing standing (:payment_failing entitlement))
+             (when (#{:subscribe :resubscribe} action)
+               (let [{:keys [reason can_edit trial_ends_on]} entitlement]
+                 (cond
+                   (false? can_edit)
+                   {:lapsed? true}
+
+                   (and (= :trial reason) trial_ends_on today)
+                   {:trial {:days-left (max 0 (entitlement-view/days-left trial_ends_on today))
+                            :ends-on   (entitlement-view/long-date trial_ends_on)}}
+
+                   (= :not-required reason)
+                   {:beta-banner? true})))))))

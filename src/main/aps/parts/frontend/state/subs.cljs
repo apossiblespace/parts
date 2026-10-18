@@ -53,6 +53,25 @@
    (get-in db [:map :relationships])))
 
 (rf/reg-sub
+ :account/lapsed?
+ (fn [db _]
+   (false? (get-in db [:auth :user :entitlement :can_edit]))))
+
+(rf/reg-sub
+ :map/locked?
+ ;; Nothing on the Map can change: it is archived, or the account has
+ ;; lapsed (ADR-0021). Both show a strip above the map view.
+ :<- [:map/archived?]
+ :<- [:account/lapsed?]
+ (fn [[archived? lapsed?] _]
+   (or archived? lapsed?)))
+
+(rf/reg-sub
+ :map/save-refused?
+ (fn [db _]
+   (boolean (get-in db [:map :save-refused]))))
+
+(rf/reg-sub
  :map/save-error
  (fn [db _]
    (boolean (get-in db [:map :save-error]))))

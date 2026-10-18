@@ -68,16 +68,18 @@
                    (assoc context :queue []))
                context))))
 
-(def ^:private require-not-archived
-  "The archived Map's backstop for the events `require-editable` does
-   not cover — Session lifecycle, triggers, activations, renaming. Their
-   UI is disabled on an archived Map, and the server refuses them too."
+(def ^:private require-not-read-only
+  "The backstop for the events `require-editable` does not cover —
+   Session lifecycle, triggers, activations, renaming — on an archived
+   Map or for a lapsed account (ADR-0021). Their UI is disabled in both
+   cases, and the server refuses them too."
   (rf/->interceptor
-   :id :require-not-archived
+   :id :require-not-read-only
    :before (fn [context]
-             (if (get-in context [:coeffects :db :map :archived_at])
-               (do (o/info "handlers.require-not-archived"
-                           "dropped event on an archived Map"
+             (if (#{:archived :lapsed} (sessions/read-only-reason
+                                        (get-in context [:coeffects :db])))
+               (do (o/info "handlers.require-not-read-only"
+                           "dropped event on a read-only Map"
                            (get-in context [:coeffects :event 0]))
                    (assoc context :queue []))
                context))))
@@ -604,7 +606,7 @@
 
 (rf/reg-event-fx
  :session/start
- [require-not-phone require-not-viewing-past require-not-archived]
+ [require-not-phone require-not-viewing-past require-not-read-only]
  (fn [{:keys [db]} _]
    {:session/create-fx {:map-id (get-in db [:map :id])}}))
 
@@ -625,7 +627,7 @@
 
 (rf/reg-event-fx
  :session/set-trigger
- [require-not-phone require-not-archived]
+ [require-not-phone require-not-read-only]
  (fn [{:keys [db]} [_ session-id trigger]]
    {:db                        (sessions/set-trigger db session-id trigger)
     :session/update-trigger-fx {:map-id     (get-in db [:map :id])
@@ -642,7 +644,7 @@
 
 (rf/reg-event-fx
  :session/set-activation
- [require-not-phone require-not-archived]
+ [require-not-phone require-not-read-only]
  (fn [{:keys [db]} [_ session-id part-id]]
    {:db                           (sessions/set-activation db session-id part-id)
     :session/update-activation-fx {:map-id     (get-in db [:map :id])
@@ -651,7 +653,7 @@
 
 (rf/reg-event-fx
  :session/delete
- [require-not-phone require-not-viewing-past require-not-archived]
+ [require-not-phone require-not-viewing-past require-not-read-only]
  (fn [{:keys [db]} [_ session-id]]
    {:session/delete-fx {:map-id     (get-in db [:map :id])
                         :session-id session-id}}))
@@ -726,7 +728,7 @@
 
 (rf/reg-event-fx
  :map/rename
- [require-not-phone require-not-viewing-past require-not-archived]
+ [require-not-phone require-not-viewing-past require-not-read-only]
  (fn [{:keys [db]} [_ new-title]]
    (map-updates/rename-map db new-title)))
 
@@ -760,6 +762,16 @@
  :map/batch-failed
  (fn [db _]
    (map-updates/mark-batch-failed db)))
+
+(rf/reg-event-db
+ :map/batch-refused
+ (fn [db [_ map-id]]
+   ;; The server refused a batch for `map-id` because the account has
+   ;; lapsed (ADR-0021). Trust it: the Map turns read-only at once, and if
+   ;; that Map is still open its strip says the last change was not saved.
+   ;; A page reload reads the account again.
+   (cond-> (assoc-in db [:auth :user :entitlement :can_edit] false)
+     (= map-id (get-in db [:map :id])) (assoc-in [:map :save-refused] true))))
 
 (rf/reg-event-db
  :auth/set-user

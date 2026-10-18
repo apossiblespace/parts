@@ -79,8 +79,11 @@
       (o/debug "http-backend.process-batch" "processing batch for map" map-id
                "changes:" (count batch))
       (let [response (<! (http/POST (str "/maps/" map-id "/changes") batch))]
-        (if (= 200 (:status response))
-          (:body response)
+        (case (:status response)
+          200 (:body response)
+          ;; The account has lapsed (ADR-0021): not a failure to report,
+          ;; the Map just became read-only.
+          402 {:success false :refused? true}
           (do
             (o/error "http-backend.process-batch" "failed to process batch" map-id response)
             nil)))))
@@ -91,9 +94,9 @@
     (when-let [response (http/POST-keepalive (str "/maps/" map-id "/changes") batch)]
       (go
         (let [{:keys [status]} (<! response)]
-          (when-not (= 200 status)
+          (when-not (#{200 402} status)
             (o/error "http-backend.send-now" "failed to process batch" map-id status))
-          {:success (= 200 status)})))))
+          {:success (= 200 status) :refused? (= 402 status)})))))
 
 (defn create-http-backend
   "Creates a new HTTP API storage backend instance."

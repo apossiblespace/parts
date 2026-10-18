@@ -80,6 +80,18 @@
   (testing "an unarchived Map is editable again"
     (is (nil? (sessions/read-only-reason {:map {:id "m" :sessions [s1] :archived_at nil}})))))
 
+(deftest test-lapsed-read-only
+  (let [lapsed {:auth {:user {:entitlement {:can_edit false}}}}]
+    (testing "a lapsed account makes the Map read-only (ADR-0021)"
+      (is (= :lapsed (sessions/read-only-reason (assoc lapsed :map {:id "m" :sessions [s1]})))))
+    (testing "an archived Map reports the archive, not the lapse"
+      (is (= :archived (sessions/read-only-reason
+                        (assoc lapsed :map {:id "m" :sessions [s1] :archived_at "2026-10-10"})))))
+    (testing "an account record still loading is not read-only"
+      (is (nil? (sessions/read-only-reason {:auth {:user nil} :map {:id "m" :sessions [s1]}}))))
+    (testing "demo Maps are never lapsed"
+      (is (nil? (sessions/read-only-reason (assoc lapsed :demo-mode true :map {:id "m"})))))))
+
 (deftest add-session-test
   (testing "a started Session appends and becomes the active one"
     (let [db (sessions/add-session {:map {:id "m" :sessions [s1]}} s2)]

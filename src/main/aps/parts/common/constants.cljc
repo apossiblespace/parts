@@ -173,6 +173,12 @@
   "Hint under `product-updates-label`."
   "News about new features. You can change this on your Account page.")
 
+(def trial-days
+  "The free trial's length in days (ADR-0021). The server counts the
+   trial from the account's creation; the Billing section draws the last
+   `trial-days` as a bar."
+  30)
+
 (def subscription-plans
   "The self-serve subscription plans, in display order — annual first,
    because pricing decision 6 steers to annual. The one definition both
