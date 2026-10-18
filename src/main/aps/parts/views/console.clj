@@ -1,6 +1,8 @@
 (ns aps.parts.views.console
-  "HTML of the Operator console page. `aps.parts.console` calls it with
-   figures from `aps.parts.stats` and with the email draft.
+  "HTML of the Operator console pages: the Stats tab (growth charts and the
+   Users table), the Emails tab (compose and the sent list) and the page of
+   one sent email. `aps.parts.console` calls it with figures from
+   `aps.parts.stats` and with the email draft.
 
    The stats show counts and timestamps only. They never show Map titles
    or other Map content. See 'Operator console' in `CONTEXT.md`.
@@ -10,11 +12,13 @@
   (:require
    [aps.parts.stats :as stats]
    [aps.parts.views.partials :as partials]
+   [clojure.string :as str]
    [hiccup2.core :refer [html raw]]
    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]])
   (:import
    (java.time Duration LocalDate OffsetDateTime ZoneOffset)
-   (java.time.format DateTimeFormatter)))
+   (java.time.format DateTimeFormatter)
+   (java.util Locale)))
 
 ;;; Formatting
 
@@ -49,28 +53,6 @@
                    "h-3 rounded-[1px] bg-base-300")}])])
 
 ;;; Stats
-
-(defn- tile
-  [label value detail]
-  [:div {:class "bg-base-100 px-3 py-2 flex flex-col min-w-0"}
-   [:span {:class "text-xs font-semibold uppercase tracking-wide opacity-60"} label]
-   [:span {:class "text-2xl font-semibold tabular-nums"} value]
-   [:span {:class "text-xs opacity-60 tabular-nums"} detail]])
-
-(defn- tiles
-  [{:keys [users active billing founding_circle product_updates]}]
-  (let [window (fn [k] (format "%.0f%% of users" (-> active k :pct)))]
-    [:div {:class "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-base-300 border border-base-300 rounded-box overflow-hidden"}
-     (tile "Users" (:total users)
-           (str founding_circle " founding"))
-     (tile "Active 24 h" (-> active :last_24h :count) (window :last_24h))
-     (tile "Active 7 d" (-> active :last_7d :count) (window :last_7d))
-     (tile "Active 30 d" (-> active :last_30d :count) (window :last_30d))
-     (tile "Paid" (:paid billing)
-           (str (:overdue billing) " overdue · " (:never_paid billing) " never paid"))
-     (tile "Product updates" (:subscribed product_updates)
-           (str (:opted_out product_updates) " opted out · "
-                (:not_asked product_updates) " not asked"))]))
 
 (defn- user-row
   [today now {:keys [display_name email created_at is_founding_circle
@@ -119,27 +101,157 @@
       [:th {:class "text-right" :title "Changes in the last 30 days"} "Conv. Δ"]]]
     [:tbody (for [u users] (user-row today now u))]]])
 
-(defn- stats-section
-  [{:keys [fleet] :as data}]
-  (let [{:keys [users active billing]} fleet]
-    [:details {:class "bg-base-100 border border-base-300 rounded-box"}
-     [:summary {:class "cursor-pointer px-4 py-3 flex flex-wrap gap-x-4 items-baseline tabular-nums"}
-      [:h2 {:class "font-semibold mr-auto"} "Stats"]
-      [:span (:total users) " users"]
-      [:span (-> active :last_7d :count) " active 7 d"]
-      [:span (-> active :last_30d :count) " active 30 d"]
-      [:span {:class "opacity-60"} (:overdue billing) " overdue"]]
-     [:div {:class "border-t border-base-300 p-4 flex flex-col gap-4"}
-      (tiles fleet)
-      (users-table data)
-      [:p {:class "text-xs opacity-60"}
-       "Δ is the number of changes in the last 30 UTC days. Activity counts "
-       "changes only, not visits. The console shows counts and timestamps only."]]]))
+(def ranges
+  "The chart ranges of the Stats tab: query value, label and days."
+  [["30d" "30 days" 30] ["3m" "3 months" 91] ["6m" "6 months" 182] ["1y" "1 year" 365]])
+
+(def ^:private short-date (DateTimeFormatter/ofPattern "d MMM" Locale/ENGLISH))
+
+(defn- nice-ceiling
+  "Returns a round number at or above `x`, for the top of the y-axis."
+  [x]
+  (let [x (max 1 x)
+        p (Math/pow 10 (Math/floor (Math/log10 x)))]
+    (long (* p (some #(when (>= (* % p) x) %) [1 2 2.5 5 10])))))
+
+(defn- chart
+  "An inline SVG line chart of `points` ({:date :value}, oldest first, a
+   nil value where there is no data). A dashed line marks `estimated-to`,
+   the first day that is not a back-filled estimate. The last point is
+   today, which is not over yet, so it is drawn lighter."
+  [points estimated-to]
+  (let [w       300
+        h       90
+        pad-x   4
+        pad-t   14
+        pad-b   16
+        n       (count points)
+        top     (nice-ceiling (reduce max 0 (keep :value points)))
+        num     #(str (/ (Math/round (* 10.0 %)) 10.0))
+        x       #(num (+ pad-x (* (- w pad-x pad-x) (/ % (max 1 (dec n))))))
+        y       #(num (- h pad-b (* (- h pad-t pad-b) (/ % top))))
+        known   (keep-indexed (fn [i p] (when (:value p) [i p])) points)
+        est-i   (some (fn [[i p]] (when (= estimated-to (:date p)) i)) known)
+        [li lp] (last known)
+        label   (fn [attrs text]
+                  [:text (merge {:font-size 9 :fill "currentColor" :fill-opacity 0.5} attrs) text])]
+    [:svg {:viewBox (str "0 0 " w " " h) :class "w-full h-auto block text-primary-content" :role "img"}
+     [:line {:x1             pad-x
+             :x2             (- w pad-x)
+             :y1             (y 0)
+             :y2             (y 0)
+             :stroke         "currentColor"
+             :stroke-opacity 0.15}]
+     (label {:x pad-x :y 10} (str top))
+     (label {:x pad-x :y (- h 3)} (.format short-date ^LocalDate (:date (first points))))
+     (label {:x (- w pad-x) :y (- h 3) :text-anchor "end"} "today")
+     (when est-i
+       [:line {:x1               (x est-i)
+               :x2               (x est-i)
+               :y1               pad-t
+               :y2               (y 0)
+               :stroke           "currentColor"
+               :stroke-opacity   0.25
+               :stroke-dasharray "2 2"}
+        [:title (str "Estimated before " (.format short-date ^LocalDate estimated-to))]])
+     ;; One line for each run of days with data, so a gap stays a gap.
+     (for [run   (partition-by (comp nil? :value second) (map-indexed vector points))
+           :when (:value (second (first run)))]
+       [:polyline {:points          (str/join " " (for [[i p] run] (str (x i) "," (y (:value p)))))
+                   :fill            "none"
+                   :stroke          "currentColor"
+                   :stroke-width    1.5
+                   :stroke-linejoin "round"
+                   :stroke-linecap  "round"}])
+     ;; An invisible circle on each day shows the value on hover.
+     (for [[i p] known]
+       [:circle {:cx (x i) :cy (y (:value p)) :r 3 :fill "transparent"}
+        [:title (str (.format short-date ^LocalDate (:date p)) ": " (:value p))]])
+     (when lp
+       [:circle {:cx (x li) :cy (y (:value lp)) :r 2.5 :fill "currentColor" :fill-opacity 0.4}])]))
+
+(defn- change-line
+  "The change over the points that have data, as \"+12 since 18 Sep\"."
+  [points]
+  (let [known (filter :value points)]
+    (if (< (count known) 2)
+      "no history yet"
+      (let [d     (- (:value (last known)) (:value (first known)))
+            since (str " since " (.format short-date ^LocalDate (:date (first known))))]
+        (cond (pos? d) (str "+" d since)
+              (neg? d) (str d since)
+              :else    "no change")))))
+
+(defn- metrics
+  "One `[history-key label live-value detail]` for each chart of `fleet`."
+  [{:keys [users active founding_circle product_updates subscribers payment_failing]}]
+  (let [share #(format "%.0f%% of users" (-> active % :pct))]
+    [[:users "Users" (:total users) (str founding_circle " founding")]
+     [:active_day "Active today" (-> active :today :count) (share :today)]
+     [:active_7d "Active 7 d" (-> active :last_7d :count) (share :last_7d)]
+     [:active_30d "Active 30 d" (-> active :last_30d :count) (share :last_30d)]
+     [:subscribers "Subscribers" subscribers (str payment_failing " payment failing")]
+     [:product_updates "Product updates" (:subscribed product_updates)
+      (str (:opted_out product_updates) " opted out · " (:not_asked product_updates) " not asked")]]))
+
+(defn- card
+  [label live detail points estimated-to]
+  [:div {:class "bg-base-100 border border-base-300 rounded-box p-3 flex flex-col gap-1 min-w-0"}
+   [:div {:class "flex items-baseline justify-between gap-2"}
+    [:span {:class "text-xs font-semibold uppercase tracking-wide opacity-60"} label]
+    [:span {:class "text-xs opacity-60 tabular-nums"} (change-line points)]]
+   [:span {:class "text-2xl font-semibold tabular-nums"} live]
+   (chart points estimated-to)
+   [:span {:class "text-xs opacity-60 tabular-nums"} detail]])
+
+(defn- estimated-to
+  "The first day of `history` with snapshot counts after a day without
+   them: the end of the back-filled estimates. nil when the range shows no
+   such change."
+  [history]
+  (some (fn [[a b]] (when (and (nil? (:subscribers a)) (:subscribers b)) (:day b)))
+        (partition 2 1 history)))
+
+(defn- growth
+  [{:keys [fleet history days ^LocalDate today] range-key :range}]
+  (let [by-day (into {} (map (juxt :day identity)) history)
+        dates  (map #(.minusDays today %) (range (dec days) -1 -1))
+        est    (estimated-to history)]
+    [:section {:class "flex flex-col gap-3"}
+     [:div {:class "flex flex-wrap items-center justify-between gap-3"}
+      [:h2 {:class "font-semibold"} "Growth"]
+      [:div {:class "join"}
+       (for [[k label] ranges]
+         [:a {:class (str "btn btn-sm join-item" (when (= k range-key) " btn-active"))
+              :href  (str "/stats?range=" k)}
+          label])]]
+     [:div {:class "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"}
+      (for [[k label live detail] (metrics fleet)]
+        (card label live detail
+              (for [d dates]
+                {:date d :value (if (= d today) live (get-in by-day [d k]))})
+              est))]
+     [:p {:class "text-xs opacity-60"}
+      "Each point is the count at the end of a UTC day; today is not over yet. "
+      "Hover a line for the value of a day. Before the dashed line, Users and Active "
+      "are estimates: they leave out deleted accounts. Subscribers and Product updates "
+      "start at the dashed line."]]))
+
+(defn- stats-tab
+  [data]
+  (list
+   (growth data)
+   [:section {:class "flex flex-col gap-2"}
+    [:h2 {:class "font-semibold"} "Users"]
+    (users-table data)
+    [:p {:class "text-xs opacity-60"}
+     "Δ is the number of changes in the last 30 UTC days. Activity counts "
+     "changes only, not visits. The console shows counts and timestamps only."]]))
 
 ;;; Email
 
 (def ^:private kind-names
-  {"product-update" "Product update" "service-notice" "Service notice"})
+  {"service-notice" "Service notice" "product-update" "Product update"})
 
 (defn- audience-math
   "The recipient count of step 3, written as a subtraction."
@@ -191,7 +303,7 @@
    [:h2 {:class "font-semibold"} "Send an email"]
    (when error
      [:div {:role "alert" :class "alert alert-error alert-soft text-sm"} error])
-   [:form {:id "composer" :method "post" :action "/test" :class "flex flex-col gap-6"}
+   [:form {:id "composer" :method "post" :action "/emails/test" :class "flex flex-col gap-6"}
     [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}]
     ;; Enter in a text field submits with the first submit button. This
     ;; button is disabled, so Enter in the subject does not send a test.
@@ -236,7 +348,7 @@
           [:div
            [:button {:type       "submit"
                      :id         "send-button"
-                     :formaction "/send"
+                     :formaction "/emails/send"
                      :class      "btn btn-sm btn-primary"
                      :disabled   (or sending (not identity) (not (:tested? status)))}
             "Send to " [:span {:data-audience "recipients"} (:recipients audience)] " Users"]]
@@ -291,28 +403,44 @@
                          [:span {:data-progress "total"} total] " · "
                          [:span {:data-progress "failed"} failed] " failed")
           :stopped (list [:b "Stopped"] " at " done " of " total " · "
-                         [:a {:href "#sent" :class "link"} "Resume in the Sent list"])
+                         [:a {:href "/emails#sent" :class "link"} "Resume in the Sent list"])
           :done    (list [:b "Sent"] " to " (:sent email) " of " total
                          (when (pos? failed) (str " · " failed " failed"))))]
        (progress-bar email "h-1")])))
 
-(defn- resume-form
-  [id label disabled?]
-  [:form {:method "post" :action (str "/sends/" id "/resume")}
+(defn- post-button
+  "A one-button form that posts to `action`."
+  [action label attrs]
+  [:form {:method "post" :action action}
    [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}]
-   [:button {:type "submit" :class "btn btn-xs" :disabled disabled?} label]])
+   [:button (merge {:type "submit" :class "btn btn-xs"} attrs) label]])
+
+(defn- email-action
+  "Resume or Retry for `email`, or a badge of its state."
+  [sending? {:keys [id state retryable]}]
+  (let [resume #(post-button (str "/emails/sent/" id "/resume") % {:disabled sending?})]
+    (case state
+      :sending [:span {:class "badge badge-sm badge-ghost"} "sending"]
+      :stopped (resume "Resume")
+      :done    (if (pos? retryable)
+                 (resume "Retry failed")
+                 [:span {:class "badge badge-sm badge-soft badge-success"} "done"]))))
+
+(defn- failure-list
+  [failures]
+  (when (seq failures)
+    [:details {:class "text-xs mt-1"}
+     [:summary {:class "cursor-pointer opacity-70"} (count failures) " failed addresses"]
+     [:ul {:class "list-disc pl-5"}
+      (for [{:keys [email error]} failures]
+        [:li email " · " [:span {:class "opacity-70"} error]])]]))
 
 (defn- sent-row
-  [sending? {:keys [id kind subject created_at state sent failed total failures retryable] :as email}]
+  [sending? {:keys [id kind subject created_at state sent failed total failures] :as email}]
   [:tr {:class (when (= state :sending) "bg-warning/10")}
    [:td {:class "whitespace-normal"}
-    subject
-    (when (seq failures)
-      [:details {:class "text-xs mt-1"}
-       [:summary {:class "cursor-pointer opacity-70"} (count failures) " failed addresses"]
-       [:ul {:class "list-disc pl-5"}
-        (for [{:keys [email error]} failures]
-          [:li email " · " [:span {:class "opacity-70"} error]])]])]
+    [:a {:class "link link-hover" :href (str "/emails/sent/" id)} subject]
+    (failure-list failures)]
    [:td {:class "opacity-70"} (kind-names kind)]
    [:td {:class "opacity-70"} (utc-time created_at)]
    [:td (if (= state :sending)
@@ -324,12 +452,7 @@
           (= state :sending) [:span {:data-progress "failed"} failed]
           (pos? failed)      [:span {:class "badge badge-sm badge-soft badge-error"} failed " failed"]
           :else              "—")]
-   [:td (case state
-          :sending [:span {:class "badge badge-sm badge-ghost"} "sending"]
-          :stopped (resume-form id "Resume" sending?)
-          :done    (if (pos? retryable)
-                     (resume-form id "Retry failed" sending?)
-                     [:span {:class "badge badge-sm badge-soft badge-success"} "done"]))]])
+   [:td (email-action sending? email)]])
 
 (defn- sent-section
   [{:keys [sent sending]}]
@@ -341,20 +464,52 @@
        [:thead [:tr [:th "Subject"] [:th "Kind"] [:th "Started (UTC)"] [:th "Sent"] [:th "Failed"] [:th]]]
        [:tbody (for [email sent] (sent-row (some? sending) email))]]]]))
 
+(defn- sent-email
+  "The page body of one sent email: its facts, the email as it looks with
+   today's layout, and its Markdown source."
+  [{:keys [email preview sending]}]
+  (let [{:keys [id kind subject body created_at completed_at sent failed total failures]} email]
+    [:section {:class "flex flex-col gap-4"}
+     [:a {:href "/emails" :class "link link-hover text-sm"} "← Emails"]
+     [:div {:class "flex flex-wrap items-center justify-between gap-3"}
+      [:h2 {:class "font-semibold text-lg"} subject]
+      [:div {:class "flex items-center gap-2"}
+       (email-action (some? sending) email)
+       (post-button (str "/emails/sent/" id "/draft") "Use as draft" {})]]
+     [:p {:class "text-sm opacity-70 tabular-nums"}
+      (kind-names kind) " · started " (utc-time created_at)
+      (when completed_at (str " · finished " (utc-time completed_at)))
+      " · sent to " sent " of " total
+      (when (pos? failed) (str " · " failed " failed"))]
+     (failure-list failures)
+     [:iframe {:title   "The sent email"
+               :sandbox ""
+               :srcdoc  (:html preview)
+               :class   "w-full h-[32rem] bg-white border border-base-300 rounded-box"}]
+     [:details {:class "bg-base-100 border border-base-300 rounded-box"}
+      [:summary {:class "cursor-pointer px-3 py-2 text-sm"} "Markdown source"]
+      [:pre {:class "border-t border-base-300 p-3 text-sm whitespace-pre-wrap"} body]]]))
+
 ;;; Page
 
-(defn page
-  "The console page for `data`.
+(defn- tabs
+  "The Stats / Emails control. While an email sends, the Emails tab shows
+   its progress, and `data-sending` tells `console.js` to poll."
+  [current sending]
+  (let [tab (fn [k href label & more]
+              [:a {:class (str "btn btn-sm join-item gap-1.5" (when (= k current) " btn-active"))
+                   :href  href}
+               label more])]
+    [:nav {:class "join ml-auto" :aria-label "Console"}
+     (tab :stats "/stats" "Stats")
+     (tab :emails "/emails" "Emails"
+          (when-let [{:keys [id sent failed total]} sending]
+            [:span {:class "badge badge-xs badge-soft badge-info tabular-nums" :data-sending (str id)}
+             "Sending " [:span {:data-progress "done"} (+ sent failed)]
+             " of " [:span {:data-progress "total"} total]]))]))
 
-     {:fleet    <stats/fleet>  :users   <stats/user-activity>
-      :env      <environment>  :today   <LocalDate>  :now <OffsetDateTime>
-      :draft    {:kind :subject :body}  :preview {:text :html}
-      :status   {:tested? :text}        :operator <test address or nil>
-      :audience <operator-email/audience> :sent <operator-email/sent-emails>
-      :sending  <the summary in :sent that is sending, or nil>
-      :identity <the company line, or nil>
-      :error    <message or nil>}"
-  [{:keys [env] :as data}]
+(defn- layout
+  [{:keys [env tab sending] :as data} & content]
   (str
    (html
     (raw "<!DOCTYPE html>")
@@ -367,14 +522,44 @@
       [:link {:rel "stylesheet" :href (partials/asset-url "/css/style.css")}]
       [:script {:src (partials/asset-url "/console.js") :defer true}]]
      [:body {:class "bg-base-200 text-base-content min-h-screen"}
-      (banner data)
+      (when (= tab :emails) (banner data))
       [:header {:class "bg-base-100 border-b border-base-300 px-4 py-2 flex flex-wrap items-center gap-3"}
        [:span {:class "font-bold"} "Parts " [:span {:class "font-normal opacity-60"} "Operator console"]]
        [:span {:class (if (= env :prod)
                         "badge badge-sm badge-soft badge-error font-semibold"
                         "badge badge-sm badge-ghost")}
-        (name env)]]
+        (name env)]
+       (tabs tab sending)]
       [:main {:class "max-w-6xl mx-auto px-4 py-6 flex flex-col gap-6"}
-       (stats-section data)
-       (email-section data)
-       (sent-section data)]]])))
+       content]]])))
+
+(defn stats-page
+  "The Stats tab.
+
+     {:fleet   <stats/fleet>   :users <stats/user-activity>
+      :history <stats/history> :range <key of `ranges`> :days <its days>
+      :env     <environment>   :today <LocalDate> :now <OffsetDateTime>
+      :sending <operator-email/current-send>}"
+  [data]
+  (layout (assoc data :tab :stats) (stats-tab data)))
+
+(defn emails-page
+  "The Emails tab.
+
+     {:env      <environment>  :now <OffsetDateTime>
+      :draft    {:kind :subject :body}  :preview {:text :html}
+      :status   {:tested? :text}        :operator <test address or nil>
+      :audience <operator-email/audience> :sent <operator-email/sent-emails>
+      :sending  <the summary in :sent that is sending, or nil>
+      :identity <the company line, or nil>
+      :error    <message or nil>}"
+  [data]
+  (layout (assoc data :tab :emails)
+          (email-section data)
+          (sent-section data)))
+
+(defn sent-email-page
+  "The page of one sent email: `emails-page` data with `:email` (a summary
+   of `:sent` with its `:body`) and its `:preview`."
+  [data]
+  (layout (assoc data :tab :emails) (sent-email data)))

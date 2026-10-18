@@ -9,6 +9,7 @@
    [aps.parts.db :as db]
    [aps.parts.errors :as errors]
    [aps.parts.jobs.session-cleanup :as session-cleanup]
+   [aps.parts.jobs.stats-snapshot :as stats-snapshot]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
    [aps.parts.version :as version]
@@ -206,7 +207,8 @@
           ;; Start server and background processes
           stop-fn          (start-server port)
           stop-console     (start-console)
-          sessions-stop-ch (session-cleanup/schedule!)]
+          sessions-stop-ch (session-cleanup/schedule!)
+          stats-stop-ch    (stats-snapshot/schedule!)]
       (println "Parts: Server started on port" port)
 
       ;; Print configuration on startup
@@ -218,6 +220,7 @@
         (stop-fn)
         (when stop-console (stop-console))
         (async/close! sessions-stop-ch)
+        (async/close! stats-stop-ch)
         (when nrepl-server
           (nrepl/stop-server nrepl-server)
           (println "nREPL server stopped"))

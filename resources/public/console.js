@@ -1,6 +1,6 @@
 /* Live email preview for the Operator console (ADR-0020).
  *
- * While the operator types, this file posts the composer form to /preview
+ * While the operator types, this file posts the composer form to /emails/preview
  * and shows the result. The server builds the preview with the same
  * function that builds the sent email, so the preview is the email.
  *
@@ -12,8 +12,8 @@
  *   [data-audience] the recipient counts of step 3, by kind
  *   #send-button    enabled only for the tested draft
  *
- * While an email sends, the banner carries data-sending. The script then
- * polls /sends/current every second and updates [data-progress] and
+ * While an email sends, the banner and the Emails tab carry data-sending. The script then
+ * polls /emails/current every second and updates [data-progress] and
  * [data-bar]. When the send ends it reloads the page once, so the server
  * renders the final state.
  */
@@ -36,7 +36,7 @@
 
   async function poll() {
     try {
-      const response = await fetch("/sends/current");
+      const response = await fetch("/emails/current");
       if (!response.ok) return;
       const data = await response.json();
       if (data.state !== "sending" || data.id !== live.dataset.sending) {
@@ -78,7 +78,7 @@
   async function refresh() {
     const request = ++latest;
     try {
-      const response = await fetch("/preview", {
+      const response = await fetch("/emails/preview", {
         method: "POST",
         body: new URLSearchParams(new FormData(form)),
       });

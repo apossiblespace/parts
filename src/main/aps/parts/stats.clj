@@ -33,9 +33,10 @@
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
    [aps.parts.db.erasure :as erasure]
+   [aps.parts.stripe :as stripe]
    [honey.sql.pg-ops])
   (:import
-   (java.time LocalDate ZoneOffset)
+   (java.time LocalDate OffsetDateTime ZoneOffset)
    (java.util UUID)))
 
 ;; -- Per-user --------------------------------------------------------------
@@ -152,7 +153,7 @@
   []
   (db/query
    (db/sql-format
-    {:select [:paid_through_date :is_founding_circle
+    {:select [:paid_through_date :is_founding_circle :stripe_subscription_status
               :product_updates_opted_out_at :product_updates_chosen_at]
      :from   [:users]
      :where  (erasure/exclude-tombstone :id)})))
@@ -172,33 +173,49 @@
    `user-activity` and of the 30-day figure of `fleet`."
   30)
 
+(defn- day-start
+  "Returns the first instant of the UTC day `day`."
+  [^LocalDate day]
+  (-> day .atStartOfDay (.atOffset ZoneOffset/UTC)))
+
 (defn- window-start
-  "Returns the first instant of the activity window that ends on `today`."
-  [^LocalDate today]
-  (-> today (.minusDays (dec activity-days)) .atStartOfDay (.atOffset ZoneOffset/UTC)))
+  "Returns the first instant of the `days` UTC days that end on `today`."
+  ([today] (window-start today activity-days))
+  ([^LocalDate today days]
+   (day-start (.minusDays today (dec days)))))
 
 (defn- in-window
-  [start]
+  "Changes from `start`, up to `end` when given, tombstone excluded."
+  [start & [end]]
   [:and
    [:>= :occurred_at start]
+   (when end [:< :occurred_at end])
    (erasure/exclude-tombstone :actor_id)])
-
-(defn- rolling
-  "Returns a HoneySQL expression for the instant `interval` before now.
-   `interval` is a Postgres interval literal body, such as \"7 days\"."
-  [interval]
-  [:- [:now] [:cast interval :interval]])
 
 (defn- active-count
   "Returns the number of distinct Users, tombstone excluded, with a change
-   at or after `start`."
-  [start]
+   at or after `start`, and before `end` when given."
+  [start & [end]]
   (-> (db/query-one
        (db/sql-format
         {:select [[[:count [:distinct :actor_id]] :c]]
          :from   [:audit_log]
-         :where  (in-window start)}))
+         :where  (in-window start end)}))
       :c))
+
+(def ^:private subscriber-statuses
+  "The subscription statuses of a Subscriber: a live subscription that
+   Stripe still collects. `unpaid` is out, because Stripe stopped retrying."
+  (disj stripe/live-subscription-statuses "unpaid"))
+
+(defn- subscriber-count [users]
+  (count (filter (comp subscriber-statuses :stripe_subscription_status) users)))
+
+(defn- product-updates
+  [users]
+  (let [out   (count (filter :product_updates_opted_out_at users))
+        asked (count (filter :product_updates_chosen_at users))]
+    {:subscribed (- asked out) :opted_out out :not_asked (- (count users) asked)}))
 
 (defn- pct
   "`count` as a percentage of `total`, rounded to one decimal. 0.0 when the
@@ -212,8 +229,8 @@
   [{:keys [users active totals founding_circle billing]}]
   (println (format "Fleet: %d users  (%d founding)"
                    (:total users) founding_circle))
-  (println (format "  active 24h    %d  (%.1f%%)"
-                   (-> active :last_24h :count) (-> active :last_24h :pct)))
+  (println (format "  active today  %d  (%.1f%%)"
+                   (-> active :today :count) (-> active :today :pct)))
   (println (format "  active 7d     %d  (%.1f%%)"
                    (-> active :last_7d :count) (-> active :last_7d :pct)))
   (println (format "  active 30d    %d  (%.1f%%)"
@@ -227,19 +244,21 @@
   "Returns the whole fleet at a glance.
 
      {:users   {:total}                          ; tombstone excluded
-      :active  {:last_24h {:count :pct}           ; distinct actors in a rolling window
-                :last_7d  {:count :pct}
+      :active  {:today    {:count :pct}           ; distinct actors in whole UTC days
+                :last_7d  {:count :pct}           ; that end on `today`
                 :last_30d {:count :pct}}          ; the `user-activity` window
       :totals  {:maps :parts :relationships}      ; current rows across all owners
       :founding_circle <n>
       :product_updates {:subscribed :opted_out :not_asked}
+      :subscribers <n>                            ; live subscription, not unpaid
+      :payment_failing <n>                        ; past_due or unpaid
       :billing {:paid :overdue :never_paid}}      ; reuses billing/account-standing
 
    'Active' means *made a change* in the window (see CONTEXT.md, 'Active
    user') — edits, not app opens. Purged accounts have no `users` row and
    their past activity is re-attributed to the tombstone, so they fall out
-   of every figure automatically. `today` is the UTC date that the 30-day
-   window and the billing standing use."
+   of every figure automatically. `today` is the UTC date that the
+   windows and the billing standing use."
   ([] (fleet (LocalDate/now ZoneOffset/UTC)))
   ([^LocalDate today]
    (let [users  (fleet-users)
@@ -248,22 +267,113 @@
                   (let [n (active-count start)]
                     {:count n :pct (pct n total)}))]
      {:users           {:total total}
-      :active          {:last_24h (active (rolling "24 hours"))
-                        :last_7d  (active (rolling "7 days"))
+      :active          {:today    (active (window-start today 1))
+                        :last_7d  (active (window-start today 7))
                         :last_30d (active (window-start today))}
       :totals          {:maps          (count-maps nil)
                         :parts         (bt/count-current db/datasource :parts)
                         :relationships (bt/count-current db/datasource :relationships)}
       :founding_circle (count (filter :is_founding_circle users))
-      :product_updates (let [out   (count (filter :product_updates_opted_out_at users))
-                             asked (count (filter :product_updates_chosen_at users))]
-                         {:subscribed (- asked out) :opted_out out :not_asked (- total asked)})
+      :product_updates (product-updates users)
+      :subscribers     (subscriber-count users)
+      :payment_failing (count (filter (comp #{"past_due" "unpaid"} :stripe_subscription_status)
+                                      users))
       :billing         (billing-breakdown users today)})))
 
 (defn fleet-stats!
   "Prints the `fleet` report and returns it."
   []
   (doto (fleet) print-fleet-report))
+
+;;; Daily history
+
+(defn- ->date [^java.sql.Date d] (some-> d .toLocalDate))
+
+(defn- utc-date [^java.sql.Timestamp ts]
+  (some-> ts .toInstant (.atOffset ZoneOffset/UTC) .toLocalDate))
+
+(defn- day-counts
+  "Returns the `stats_daily` counts that `users.created_at` and `audit_log`
+   give for any past `day`. They are low by the erased accounts, because
+   erasure deletes the account row and moves its changes to the tombstone."
+  [^LocalDate day]
+  (let [end    (day-start (.plusDays day 1))
+        active #(active-count (window-start day %) end)]
+    {:day        day
+     :users      (-> (db/query-one
+                      (db/sql-format
+                       {:select [[[:count :*] :c]]
+                        :from   [:users]
+                        :where  [:and (erasure/exclude-tombstone :id) [:< :created_at end]]}))
+                     :c)
+     :active_day (active 1)
+     :active_7d  (active 7)
+     :active_30d (active activity-days)}))
+
+(defn- snapshot-counts
+  "Returns the `stats_daily` counts that only the present state gives: the
+   state at the end of `day` when the job runs early on the next day."
+  [day]
+  (let [users (fleet-users)]
+    {:subscribers     (subscriber-count users)
+     :product_updates (:subscribed (product-updates users))
+     :paid            (:paid (billing-breakdown users day))}))
+
+(defn- first-day
+  "Returns the day after the last `stats_daily` row or, with no rows, the
+   day of the first account. nil with no accounts."
+  []
+  (if-let [last-day (->date (:d (db/query-one
+                                 (db/sql-format {:select [[[:max :day] :d]]
+                                                 :from   [:stats_daily]}))))]
+    (.plusDays last-day 1)
+    (utc-date (:t (db/query-one
+                   (db/sql-format {:select [[[:min :created_at] :t]]
+                                   :from   [:users]
+                                   :where  (erasure/exclude-tombstone :id)}))))))
+
+(def ^:private snapshot-hours
+  "A run in the first hours of a UTC day writes the snapshot counts of the
+   day before. The hourly job always runs in this window while the server
+   is up; a later run, after a deploy or downtime, would record the
+   present state as yesterday's."
+  2)
+
+(defn snapshot!
+  "Writes a `stats_daily` row for each day from `first-day` to the day
+   before `today` (UTC). With `fresh?`, the last of those days also gets
+   the snapshot counts; the days before it are a back-fill, or days when
+   the server was down. Returns the number of rows written: none on a
+   second call on the same day."
+  ([] (let [now (OffsetDateTime/now ZoneOffset/UTC)]
+        (snapshot! (.toLocalDate now) (< (.getHour now) snapshot-hours))))
+  ([^LocalDate today fresh?]
+   (let [yesterday (.minusDays today 1)
+         days      (when-let [d (first-day)]
+                     (take-while #(not (.isAfter ^LocalDate % yesterday))
+                                 (iterate #(.plusDays ^LocalDate % 1) d)))]
+     (reduce + (for [day days]
+                 (-> (db/query
+                      (db/sql-format
+                       {:insert-into :stats_daily
+                        :values      [(cond-> (day-counts day)
+                                        (and fresh? (= day yesterday)) (merge (snapshot-counts day)))]
+                        :on-conflict [:day]
+                        :do-nothing  true}))
+                     first
+                     :next.jdbc/update-count))))))
+
+(defn history
+  "Returns the `stats_daily` rows from the UTC date `from`, oldest first,
+   with `:day` as a `LocalDate`."
+  [^LocalDate from]
+  (->> (db/query
+        (db/sql-format
+         {:select   [:*]
+          :from     [:stats_daily]
+          :where    [:>= :day from]
+          :order-by [:day]}))
+       (map #(update % :day ->date))))
 
 ;;; Per-user activity
 

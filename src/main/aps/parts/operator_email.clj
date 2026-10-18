@@ -314,7 +314,7 @@
   []
   (db/query
    (db/sql-format
-    {:select    [:e.id :e.kind :e.subject :e.created_at :e.completed_at
+    {:select    [:e.id :e.kind :e.subject :e.body :e.created_at :e.completed_at
                  [[:count :d.sent_at] :sent]
                  [(count-where [:and [:<> :d.error nil] [:= :d.sent_at nil]]) :failed]]
      :from      [[:operator_emails :e]]

@@ -128,31 +128,6 @@
     (testing "founding-circle count"
       (is (= 2 (:founding_circle result))))))
 
-(deftest test-fleet-active-windows
-  (let [u1  (create-test-user!)
-        u2  (create-test-user!)
-        u3  (create-test-user!)
-        now (OffsetDateTime/now)]
-    ;; u1 active twice within 24h (DISTINCT must collapse to one)
-    (audit! (:id u1) (.minusHours now 2))
-    (audit! (:id u1) (.minusHours now 5))
-    ;; u2 active within 7d but not 24h
-    (audit! (:id u2) (.minusDays now 3))
-    ;; u3 active outside both windows
-    (audit! (:id u3) (.minusDays now 10))
-    ;; tombstone activity must never count
-    (audit! erasure/tombstone-id (.minusHours now 1))
-    (let [result (silently #(stats/fleet-stats!))]
-      (testing "active in last 24h: distinct actors, tombstone excluded"
-        (is (= 1 (-> result :active :last_24h :count)))
-        (is (= 33.3 (-> result :active :last_24h :pct))))
-      (testing "active in last 7d"
-        (is (= 2 (-> result :active :last_7d :count)))
-        (is (= 66.7 (-> result :active :last_7d :pct))))
-      (testing "active in last 30d"
-        (is (= 3 (-> result :active :last_30d :count)))
-        (is (= 100.0 (-> result :active :last_30d :pct)))))))
-
 ;;; user-activity
 
 (def ^:private today
@@ -212,6 +187,23 @@
       (testing "returns no row content"
         (is (not (re-find #"clinical" (pr-str row))))))))
 
+(deftest test-fleet-active-windows
+  (let [u1 (create-test-user!)
+        u2 (create-test-user!)
+        u3 (create-test-user!)]
+    (change! (:id u1) 0 "parts" "U" (random-uuid))
+    (change! (:id u1) 0 "parts" "U" (random-uuid))
+    (change! (:id u2) 6 "parts" "U" (random-uuid))
+    (change! (:id u3) 7 "parts" "U" (random-uuid))
+    (change! erasure/tombstone-id 0 "parts" "U" (random-uuid))
+    (let [{:keys [active]} (stats/fleet today)]
+      (testing "active today: distinct actors in the utc day, tombstone excluded"
+        (is (= {:count 1 :pct 33.3} (:today active))))
+      (testing "active 7 d: the 7 whole utc days that end today"
+        (is (= {:count 2 :pct 66.7} (:last_7d active))))
+      (testing "active 30 d"
+        (is (= {:count 3 :pct 100.0} (:last_30d active)))))))
+
 (deftest test-fleet-30-days-is-the-activity-window
   (let [inside  (create-test-user!)
         outside (create-test-user!)]
@@ -262,8 +254,8 @@
   (testing "only the tombstone exists: zero totals, no division by zero"
     (let [result (silently #(stats/fleet-stats!))]
       (is (= 0 (-> result :users :total)))
-      (is (= 0 (-> result :active :last_24h :count)))
-      (is (= 0.0 (-> result :active :last_24h :pct))))))
+      (is (= 0 (-> result :active :today :count)))
+      (is (= 0.0 (-> result :active :today :pct))))))
 
 (deftest test-product-updates-figures
   (let [out (create-test-user!)
@@ -277,3 +269,53 @@
       (is (= {(:id out) true (:id sub) false}
              (-> (into {} (map (juxt :id :product_updates_opted_out)) (stats/user-activity today))
                  (select-keys [(:id out) (:id sub)])))))))
+
+;;; Daily history
+
+(defn- created! [user days-ago]
+  (db/update! :users {:created_at (at-noon days-ago)} [:= :id (:id user)]))
+
+(deftest test-snapshot-definitions
+  (let [early (create-test-user!)
+        late  (create-test-user!)]
+    (created! early 3)
+    (created! late 1)
+    (change! (:id early) 10 "parts" "U" (random-uuid))
+    (change! (:id early) 2 "parts" "U" (random-uuid))
+    (change! (:id early) 1 "parts" "U" (random-uuid))
+    (change! (:id late) 1 "parts" "U" (random-uuid))
+    (change! erasure/tombstone-id 1 "parts" "U" (random-uuid))
+    (db/update! :users {:stripe_subscription_status "active"} [:= :id (:id late)])
+    (db/update! :users {:stripe_subscription_status "unpaid"} [:= :id (:id early)])
+    (user/set-product-updates! (:id early) true)
+    (silently #(billing/set-paid-through! (:email late) "2099-01-01"))
+    (testing "writes one row for each day from the first account to yesterday"
+      (is (= 3 (stats/snapshot! today true))))
+    (let [rows (stats/history (.minusDays today 30))
+          row  (fn [days-ago] (some #(when (= (.minusDays today days-ago) (:day %)) %) rows))]
+      (testing "counts the users created by the end of each day"
+        (is (= [1 1 2] (map :users rows))))
+      (testing "counts distinct actors in the day, 7 and 30 days, tombstone excluded"
+        (is (= [0 1 2] (map :active_day rows)))
+        (is (= [0 1 2] (map :active_7d rows)))
+        (is (= [1 1 2] (map :active_30d rows))))
+      (testing "back-filled days have no snapshot counts"
+        (is (every? nil? (map :subscribers (butlast rows)))))
+      (testing "yesterday has the snapshot counts; unpaid is not a subscriber"
+        (is (= {:subscribers 1 :product_updates 1 :paid 1}
+               (select-keys (row 1) [:subscribers :product_updates :paid])))))
+    (testing "fleet counts the same subscribers, and unpaid as payment failing"
+      (is (= [1 1] ((juxt :subscribers :payment_failing) (stats/fleet today)))))
+    (testing "a second run on the same day writes nothing"
+      (is (= 0 (stats/snapshot! today true))))
+    (testing "the next day writes one row"
+      (is (= 1 (stats/snapshot! (.plusDays today 1) true))))))
+
+(deftest test-snapshot-late-in-the-day
+  (created! (create-test-user!) 2)
+  (testing "a run late in the day leaves out the snapshot counts"
+    (is (= 2 (stats/snapshot! today false)))
+    (is (every? nil? (map :subscribers (stats/history (.minusDays today 30)))))))
+
+(deftest test-snapshot-with-no-accounts
+  (is (= 0 (stats/snapshot! today true))))

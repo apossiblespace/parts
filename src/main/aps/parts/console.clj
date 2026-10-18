@@ -81,7 +81,7 @@
 
 ;;; Email draft
 
-(def ^:private empty-draft {:kind "product-update" :subject "" :body ""})
+(def ^:private empty-draft {:kind "service-notice" :subject "" :body ""})
 
 (defn- lf
   [s]
@@ -95,7 +95,9 @@
    breaks."
   [request]
   (let [{:strs [kind subject body]} (:form-params request)]
-    {:kind    (if (operator-email/kinds kind) kind (:kind empty-draft))
+    ;; A post without a valid kind gets the narrower audience: only Users
+    ;; who chose Product updates.
+    {:kind    (if (operator-email/kinds kind) kind "product-update")
      ;; A subject is one header line, so line breaks become spaces.
      :subject (str/replace (lf subject) #"\s*\n\s*" " ")
      :body    (lf body)}))
@@ -125,27 +127,61 @@
 
 ;;; Pages
 
-(defn- page
+(defn- stats-page
   [request]
-  (let [today (LocalDate/now ZoneOffset/UTC)
-        draft (or (:draft (composer request)) empty-draft)
-        sent  (operator-email/sent-emails)]
-    {:status 200
-     :body   (views/page
-              {:fleet    (stats/fleet today)
-               :users    (stats/user-activity today)
-               :today    today
-               :now      (OffsetDateTime/now ZoneOffset/UTC)
-               :env      (conf/get-environment)
-               :draft    draft
-               :preview  (operator-email/preview draft)
-               :status   (test-status (composer request) draft)
-               :operator (conf/mail-reply-to)
-               :audience (operator-email/audience (:kind draft))
-               :sent     sent
-               :sending  (some #(when (= :sending (:state %)) %) sent)
-               :identity (conf/mail-sender-identity)
-               :error    (get-in request [:flash :error])})}))
+  (let [today              (LocalDate/now ZoneOffset/UTC)
+        [range-key _ days] (or (some #(when (= (first %) (get-in request [:query-params "range"])) %)
+                                     views/ranges)
+                               (first views/ranges))]
+    (response/response
+     (views/stats-page
+      {:fleet   (stats/fleet today)
+       :users   (stats/user-activity today)
+       :history (stats/history (.minusDays today (dec days)))
+       :range   range-key
+       :days    days
+       :today   today
+       :now     (OffsetDateTime/now ZoneOffset/UTC)
+       :env     (conf/get-environment)
+       :sending (operator-email/current-send)}))))
+
+(defn- email-data
+  "The data that every page of the Emails tab shows."
+  []
+  (let [sent (operator-email/sent-emails)]
+    {:now     (OffsetDateTime/now ZoneOffset/UTC)
+     :env     (conf/get-environment)
+     :sent    sent
+     :sending (some #(when (= :sending (:state %)) %) sent)}))
+
+(defn- emails-page
+  [request]
+  (let [draft (or (:draft (composer request)) empty-draft)]
+    (response/response
+     (views/emails-page
+      (merge (email-data)
+             {:draft    draft
+              :preview  (operator-email/preview draft)
+              :status   (test-status (composer request) draft)
+              :operator (conf/mail-reply-to)
+              :audience (operator-email/audience (:kind draft))
+              :identity (conf/mail-sender-identity)
+              :error    (get-in request [:flash :error])})))))
+
+(defn- sent-email
+  "Returns the summary in `sent` of the email whose id is in the path, or
+   nil."
+  [request sent]
+  (let [id (parse-uuid (get-in request [:path-params :id] ""))]
+    (some #(when (= id (:id %)) %) sent)))
+
+(defn- sent-email-page
+  [request]
+  (let [data  (email-data)
+        email (sent-email request (:sent data))]
+    (if email
+      (response/response (views/sent-email-page (assoc data :email email :preview (operator-email/preview email))))
+      (response/not-found "No such email."))))
 
 ;; Each preview also stores the draft, so a reload of the page keeps it.
 (defn- preview
@@ -163,7 +199,7 @@
      :session (assoc-in (:session request) [:composer :draft] draft)}))
 
 (defn- redirect-home [session flash]
-  (cond-> (-> (response/redirect "/") (response/status 303) (assoc :session session))
+  (cond-> (-> (response/redirect "/emails") (response/status 303) (assoc :session session))
     flash (assoc :flash flash)))
 
 (defn- send-test
@@ -221,18 +257,33 @@
                (select-keys send [:id :subject :sent :failed :total :state])
                {:state :idle}))})
 
+;; The draft keeps the kind, subject and body of the sent email. A send
+;; still needs a test of this exact draft, as for any other draft.
+(defn- use-as-draft
+  [request]
+  (if-let [email (sent-email request (operator-email/sent-emails))]
+    (redirect-home (-> (:session request)
+                       (assoc-in [:composer :draft] (select-keys email [:kind :subject :body])))
+                   nil)
+    (response/not-found "No such email.")))
+
 ;;; Handler
 
 (defn handler
   "Returns the Ring handler of the Operator console."
   []
   (-> (ring/ring-handler
-       (ring/router [["/" {:get #'page}]
-                     ["/preview" {:post #'preview}]
-                     ["/test" {:post #'send-test}]
-                     ["/send" {:post #'send-to-users}]
-                     ["/sends/current" {:get #'current-send}]
-                     ["/sends/:id/resume" {:post #'resume-send}]]
+       (ring/router [["/" {:get (constantly (response/redirect "/stats"))}]
+                     ["/stats" {:get #'stats-page}]
+                     ["/emails"
+                      ["" {:get #'emails-page}]
+                      ["/preview" {:post #'preview}]
+                      ["/test" {:post #'send-test}]
+                      ["/send" {:post #'send-to-users}]
+                      ["/current" {:get #'current-send}]
+                      ["/sent/:id" {:get #'sent-email-page}]
+                      ["/sent/:id/resume" {:post #'resume-send}]
+                      ["/sent/:id/draft" {:post #'use-as-draft}]]]
                     {:data {:middleware [errors/exception]}})
        (ring/create-default-handler))
       wrap-content-type
