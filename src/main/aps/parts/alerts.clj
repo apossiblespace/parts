@@ -47,9 +47,12 @@
     :aps.parts.api.billing/webhook-error
     :aps.parts.api.billing/customer-link-conflict
     :aps.parts.api.billing/invoice-unmatched
-    ;; Not an error: a new account. The operator wants to know who signed up
-    ;; (email and display name) without watching the log.
-    :aps.parts.api.account/signup})
+    ;; Not errors: a new account, and a deleted one. The operator wants to
+    ;; know who signed up (email and display name) without watching the log,
+    ;; and that an account was deleted — by user id only: the account is
+    ;; erased, and the 30-day backups hold its details if ever needed.
+    :aps.parts.api.account/signup
+    :aps.parts.api.account/delete-account})
 
 (defn event-signature
   "A stable cooldown key for an event. Prefers a non-value discriminator —

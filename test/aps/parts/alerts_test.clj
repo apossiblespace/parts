@@ -175,3 +175,8 @@
                                      :display-name     "New Person"})]
       (is (str/includes? body "new@x.com"))
       (is (str/includes? body "New Person")))))
+
+(deftest alert-decision-delete-account-test
+  (testing "a deleted account alerts the operator"
+    (is (:send? (alerts/alert-decision
+                 {} (ev :aps.parts.api.account/delete-account 1000 :user-id "u1") cooldown)))))
