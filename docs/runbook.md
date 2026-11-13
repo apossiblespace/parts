@@ -214,6 +214,16 @@ checkout refused, and "leave past due" keeps editing on for good. A
 change here applies only to future retries. Never pause collection on a
 subscription: it stays `active`, so editing stays on.
 
+**Trial reminders** (`aps.parts.trial-reminders`, hourly, only while
+`PARTS__BILLING__PAYMENT_START_DATE` is set). An account in its Free trial
+gets "ends on <date>" from 7 days before the end. An account created on or
+after the start date also gets "has ended" on its first read-only day.
+Each goes late, up to 7 days, after downtime, and only once per account
+(`trial_reminders` table). A failed send logs `::send-failed` and retries
+next hour. To see who got what: `SELECT u.email, r.kind, r.sent_at FROM
+trial_reminders r JOIN users u ON u.id = r.user_id ORDER BY r.sent_at;`.
+They come from `:mail/from` with the operator's Reply-To.
+
 **Operator adjustments** — from the production REPL: `(billing-status!)`
 for standing, `(set-paid-through! email "2027-05-22")` for a goodwill
 extension or correction, `(clear-paid-through! email)` to reset. The

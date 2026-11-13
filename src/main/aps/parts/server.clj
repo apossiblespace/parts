@@ -10,6 +10,7 @@
    [aps.parts.errors :as errors]
    [aps.parts.jobs.session-cleanup :as session-cleanup]
    [aps.parts.jobs.stats-snapshot :as stats-snapshot]
+   [aps.parts.jobs.trial-reminders :as trial-reminders]
    [aps.parts.middleware :as middleware]
    [aps.parts.routes :as r]
    [aps.parts.version :as version]
@@ -202,13 +203,14 @@
     (db/init-db)
 
     ;; Start nREPL server if configured
-    (let [stop-alert-pub   (start-alert-publisher)
-          nrepl-server     (start-nrepl)
+    (let [stop-alert-pub    (start-alert-publisher)
+          nrepl-server      (start-nrepl)
           ;; Start server and background processes
-          stop-fn          (start-server port)
-          stop-console     (start-console)
-          sessions-stop-ch (session-cleanup/schedule!)
-          stats-stop-ch    (stats-snapshot/schedule!)]
+          stop-fn           (start-server port)
+          stop-console      (start-console)
+          sessions-stop-ch  (session-cleanup/schedule!)
+          stats-stop-ch     (stats-snapshot/schedule!)
+          reminders-stop-ch (trial-reminders/schedule!)]
       (println "Parts: Server started on port" port)
 
       ;; Print configuration on startup
@@ -221,6 +223,7 @@
         (when stop-console (stop-console))
         (async/close! sessions-stop-ch)
         (async/close! stats-stop-ch)
+        (async/close! reminders-stop-ch)
         (when nrepl-server
           (nrepl/stop-server nrepl-server)
           (println "nREPL server stopped"))

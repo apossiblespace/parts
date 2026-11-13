@@ -262,6 +262,17 @@
                     :from   [:users]
                     :where  [:= :id (db/->uuid user-id)]}))))
 
+(defn every-billing-facts
+  "Returns the `billing-facts` of every account except the tombstone User.
+   Each row also has the `:id` of the account."
+  []
+  (map coerce-paid-through
+       (db/query
+        (db/sql-format {:select [:id :email :stripe_subscription_status
+                                 :paid_through_date :created_at]
+                        :from   [:users]
+                        :where  (erasure/exclude-tombstone :id)}))))
+
 (defn can-edit?
   "True when the account `user-id` may change Map content (see
    `entitlement`). Without a payment start date every account can, so the

@@ -64,9 +64,10 @@ comps are set by hand on the paid-through date.
 
 - One predicate (`can-edit?`) drives the server guard, the Map strip, the Maps
   list banner and the Billing section.
-- Trial reminders are ours to send (a daily job, 7 days before and on the last
-  day; beta accounts only the 7-day one). Failed payments rely on Stripe's
-  customer emails.
+- Trial reminders are ours to send (an hourly job, 7 days before the end and on
+  the first read-only day, because the last trial day is still an editing day;
+  beta accounts only the 7-day one). Failed payments rely on Stripe's customer
+  emails.
 - The Terms say read-only concretely and no longer list non-payment as a reason
   to suspend an account, so the policy cannot quietly become a lock-out later
   without a Terms change.
