@@ -502,7 +502,7 @@
         (is (= :alternative subtype)))
       (testing "keeps the wording and links the account page"
         (doseq [sentence ["Thank you for subscribing to Parts and for supporting the development! It means a great deal to us."
-                          "Your monthly subscription is active, and it simply carries on when Parts launches."
+                          "Your monthly subscription is active. You can update your payment details or cancel at any time from your account page:"
                           "Stripe emails your receipt for each payment separately."
                           "If you have any questions at all, or any feedback about Parts, just reply to this email."]]
           (is (str/includes? (:content plain) sentence))
