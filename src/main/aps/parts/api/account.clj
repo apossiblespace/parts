@@ -191,13 +191,9 @@ and create a map for each of your clients.
 
 ---
 
-**Please note:** Parts is currently in beta, and is free to use during this time.
-You can purchase an optional subscription to help support development (see
-the Account page), but it is not required to use all the features at the
-moment.
-
-I will email you two weeks before we start requiring payment to continue using
-Parts.
+**Please note:** Your account starts with a " c/trial-days "-day free trial, and no card
+is needed. To keep editing your Maps after the trial, subscribe on your Account
+page. I will email you a week before your trial ends.
 
 ---
 

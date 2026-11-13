@@ -85,9 +85,6 @@
           ;; the logo image) to zero width when space runs out.
           ($ :a {:href "/app" :class "shrink-0"}
              ($ :img {:class "w-32 sm:w-40" :src "/images/parts-logo-horizontal.svg"}))
-          ($ :span
-             {:class "badge badge-sm badge-soft"}
-             "Beta")
           (when-not device/phone-primary?
             ($ :nav {:class "ml-6 flex items-center gap-6"}
                (for [[label route-name] nav-links]

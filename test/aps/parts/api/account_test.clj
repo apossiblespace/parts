@@ -502,6 +502,9 @@
                            "video walkthrough of Parts (https://www.youtube.com/watch?v=abcdefghijk)"))
         (is (str/includes? (:content html) "href=\"https://www.youtube.com/watch?v&#61;abcdefghijk\""))
         (is (str/includes? (:content plain) "open Parts (https://parts.example/app)")))
+      (testing "offers the free trial and does not mention the beta"
+        (is (str/includes? (:content plain) "30-day free trial"))
+        (is (not (str/includes? (:content plain) "beta"))))
       (testing "ends with the transactional footer"
         (is (str/includes? (:content plain) "This email was sent to jane@example.com about your Parts account."))
         (is (str/includes? (:content html) "Example Ltd · Company no. 123")))))
