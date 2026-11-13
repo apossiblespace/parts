@@ -169,14 +169,15 @@
                     :aria-hidden     "true"}
               [:path {:d "M20 6 9 17l-5-5"}]]
              [:span feature]])]]])]
-    [:div.text-center.mt-8
+    [:p.text-lg.text-center.mt-10 c/trial-offer]
+    [:div.text-center.mt-4
      [:a.btn.btn-primary.btn-lg
       {:href                  "/app/signup"
        :data-analytics        "Create Account Click"
        :data-analytics-source "homepage-pricing"}
       "Create an account"]]
     [:p.text-center.text-sm.text-gray-600.mt-8
-     "Prices include VAT where applicable. Cancel at any time; access continues to the end of the period you’ve paid for. Pick a plan after you sign up."]]])
+     "Prices include VAT where applicable. Cancel at any time; access continues to the end of the period you’ve paid for. Pick a plan any time before your trial ends."]]])
 
 (defn footer
   "Site footer"

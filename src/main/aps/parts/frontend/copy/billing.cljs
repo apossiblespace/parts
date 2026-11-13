@@ -69,7 +69,7 @@
 (def subscribe "Subscribe")
 (def resubscribe "Resubscribe")
 (def manage-subscription "Manage subscription")
-(def manage-hint "Change plan, update your card, or cancel.")
+(def manage-hint "Update your card or cancel.")
 (def plan-label "Plan")
 (def next-payment-label "Next payment")
 (def ends-on-label "Ends on")

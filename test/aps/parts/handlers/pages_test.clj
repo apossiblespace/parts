@@ -25,6 +25,8 @@
         (is (.contains body title))
         (is (.contains body price))
         (is (.contains body cadence))))
+    (testing "the free trial is offered"
+      (is (.contains body c/trial-offer)))
     (testing "the VAT-inclusive note is present"
       (is (re-find #"include VAT" body)))
     (testing "the footer links to the pricing section"

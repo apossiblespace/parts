@@ -179,6 +179,11 @@
    `trial-days` as a bar."
   30)
 
+(def trial-offer
+  "The line that tells a visitor about the free trial, on the homepage and
+   the sign-up screen."
+  (str trial-days "-day free trial. No card needed."))
+
 (def subscription-plans
   "The self-serve subscription plans, in display order — annual first,
    because pricing decision 6 steers to annual. The one definition both

@@ -7,6 +7,7 @@
    `mode` is :login or :signup, decided by the SPA root from the current
    route. Each view links to the other."
   (:require
+   [aps.parts.common.constants :as constants]
    [aps.parts.frontend.components.login-form :refer [login-form]]
    [aps.parts.frontend.components.signup-form :refer [signup-form]]
    [uix.core :refer [defui $]]))
@@ -18,8 +19,10 @@
           ($ :div {:class "card-body"}
              ($ :a {:href "/" :class "flex justify-center mb-4"}
                 ($ :img {:class "w-40" :src "/images/parts-logo-horizontal.svg"}))
-             ($ :h1 {:class "text-lg font-bold text-center mb-4"}
+             ($ :h1 {:class (str "text-lg font-bold text-center " (if signup? "mb-1" "mb-4"))}
                 (if signup? "Create an account" "Log in"))
+             (when signup?
+               ($ :p {:class "text-sm text-center opacity-60 mb-4"} constants/trial-offer))
              (if signup?
                ($ signup-form {})
                ($ login-form {}))
