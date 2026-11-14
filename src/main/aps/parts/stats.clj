@@ -30,6 +30,7 @@
    See 'Operator console' in `CONTEXT.md`."
   (:require
    [aps.parts.billing :as billing]
+   [aps.parts.config :as config]
    [aps.parts.db :as db]
    [aps.parts.db.bitemporal :as bt]
    [aps.parts.db.erasure :as erasure]
@@ -154,6 +155,7 @@
   (db/query
    (db/sql-format
     {:select [:paid_through_date :is_founding_circle :stripe_subscription_status
+              :stripe_customer_id :stripe_plan :created_at
               :product_updates_opted_out_at :product_updates_chosen_at]
      :from   [:users]
      :where  (erasure/exclude-tombstone :id)})))
@@ -167,6 +169,19 @@
     {:paid       (get f :paid 0)
      :overdue    (get f :overdue 0)
      :never_paid (get f :never-paid 0)}))
+
+(def ^:private standing-kinds
+  [:trial :subscribed :payment-failing :paid :comp :lapsed :free])
+
+(defn- standing-breakdown
+  "Returns the number of `users` of each `billing/operator-standing` kind on
+   `today`, and `:trial-ending`, the trials with 7 days or fewer left."
+  [users start today]
+  (let [standings (map #(billing/operator-standing % start today) users)
+        f         (frequencies (map :kind standings))]
+    (assoc (into {} (map (juxt identity #(get f % 0))) standing-kinds)
+           :trial-ending (count (filter #(and (= :trial (:kind %)) (<= (:days %) 7))
+                                        standings)))))
 
 (def activity-days
   "Number of UTC calendar days, today included, in the activity window of
@@ -226,7 +241,7 @@
     (/ (Math/round (* (/ count (double total)) 1000.0)) 10.0)))
 
 (defn- print-fleet-report
-  [{:keys [users active totals founding_circle billing]}]
+  [{:keys [users active totals founding_circle billing standing]}]
   (println (format "Fleet: %d users  (%d founding)"
                    (:total users) founding_circle))
   (println (format "  active today  %d  (%.1f%%)"
@@ -238,7 +253,11 @@
   (println (format "  totals        maps %d   parts %d   relationships %d"
                    (:maps totals) (:parts totals) (:relationships totals)))
   (println (format "  billing       paid %d   overdue %d   never-paid %d"
-                   (:paid billing) (:overdue billing) (:never_paid billing))))
+                   (:paid billing) (:overdue billing) (:never_paid billing)))
+  (println (format "  standing      trial %d (%d ending)   subscribed %d (%d failing)   paid %d   comp %d   lapsed %d"
+                   (:trial standing) (:trial-ending standing) (:subscribed standing)
+                   (:payment-failing standing) (:paid standing) (:comp standing)
+                   (:lapsed standing))))
 
 (defn fleet
   "Returns the whole fleet at a glance.
@@ -252,7 +271,9 @@
       :product_updates {:subscribed :opted_out :not_asked}
       :subscribers <n>                            ; live subscription, not unpaid
       :payment_failing <n>                        ; past_due or unpaid
-      :billing {:paid :overdue :never_paid}}      ; reuses billing/account-standing
+      :billing {:paid :overdue :never_paid}       ; billing/account-standing
+      :standing {:trial :subscribed :payment-failing :paid :comp
+                 :lapsed :free :trial-ending}}     ; billing/operator-standing
 
    'Active' means *made a change* in the window (see CONTEXT.md, 'Active
    user') — edits, not app opens. Purged accounts have no `users` row and
@@ -278,7 +299,8 @@
       :subscribers     (subscriber-count users)
       :payment_failing (count (filter (comp #{"past_due" "unpaid"} :stripe_subscription_status)
                                       users))
-      :billing         (billing-breakdown users today)})))
+      :billing         (billing-breakdown users today)
+      :standing        (standing-breakdown users (config/payment-start-date) today)})))
 
 (defn fleet-stats!
   "Prints the `fleet` report and returns it."
@@ -448,7 +470,7 @@
 
      {:id :email :display_name :created_at :is_founding_circle
       :product_updates_opted_out <bool>
-      :billing     {:status :paid_through_date :days_remaining}
+      :standing    {:kind ...}                ; billing/operator-standing
       :last_active <OffsetDateTime or nil>   ; latest change, all time
       :active_days #{LocalDate}               ; inside the window only
       :counts      {:maps :sessions                ; current, all time
@@ -465,10 +487,12 @@
                                    :join [:maps [:= :maps.id :sessions.map_id]]})
          zeroes   {:maps_edited   0 :sessions_started     0 :parts 0
                    :relationships 0 :conversation_entries 0}
+         pay-from (config/payment-start-date)
          users    (db/query
                    (db/sql-format
                     {:select [:id :email :display_name :created_at
                               :is_founding_circle :paid_through_date
+                              :stripe_subscription_status :stripe_customer_id :stripe_plan
                               :product_updates_opted_out_at]
                      :from   [:users]
                      :where  (erasure/exclude-tombstone :id)}))]
@@ -477,7 +501,7 @@
                  (-> (select-keys u [:id :email :display_name :created_at
                                      :is_founding_circle])
                      (assoc :product_updates_opted_out (some? (:product_updates_opted_out_at u))
-                            :billing          (billing/account-standing u today)
+                            :standing         (billing/operator-standing u pay-from today)
                             :last_active      (last-at id)
                             :active_days      (get dates id #{})
                             :counts           (merge zeroes

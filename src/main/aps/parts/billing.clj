@@ -135,6 +135,40 @@
       :trial_ends_on   (some-> ends str)
       :payment_failing (contains? #{"past_due" "unpaid"} status)})))
 
+(defn- later [^LocalDate a ^LocalDate b]
+  (if (and b (.isAfter b a)) b a))
+
+(defn operator-standing
+  "Returns the standing of an account for the Operator console. `row` has
+   the keys of `billing-facts`. The result has `:kind`, and the keys that
+   belong to it:
+
+     :trial           {:days}   days left, 0 on the last day
+     :subscribed      {:days :plan}   days to the end of the paid period
+     :payment-failing {:days :plan}
+     :paid            {:days}   paid time left after a subscription
+     :comp            {:days}   paid time given by hand, with no Stripe link
+     :lapsed          {:since}  the first read-only day
+     :free            {}        no payment start date
+
+   A `:comp` account has paid time and no Stripe customer. An account that
+   Stripe unlinked after a deleted customer therefore also reads `:comp`."
+  ([row] (operator-standing row (config/payment-start-date) (LocalDate/now ZoneOffset/UTC)))
+  ([row start ^LocalDate today]
+   (let [{:keys [reason trial_ends_on payment_failing]} (entitlement row start today)
+         ^LocalDate paid                                (->local-date (:paid_through_date row))
+         ends                                           (some-> trial_ends_on LocalDate/parse)
+         days                                           #(.between ChronoUnit/DAYS today %)]
+     (case reason
+       :subscribed   {:kind (if payment_failing :payment-failing :subscribed)
+                      :plan (:stripe_plan row)
+                      :days (some-> paid days)}
+       :paid         {:kind (if (:stripe_customer_id row) :paid :comp)
+                      :days (days paid)}
+       :trial        {:kind :trial :days (days ends)}
+       :lapsed       {:kind :lapsed :since (.plusDays ^LocalDate (later ends paid) 1)}
+       :not-required {:kind :free}))))
+
 (defn- ->status-line
   "Operator-facing billing summary for a user `row` as of `today`. Carries
    only billing fields — never the password hash or other account data."

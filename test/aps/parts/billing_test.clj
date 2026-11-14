@@ -43,6 +43,32 @@
       (is (= {:status :never-paid :paid_through_date nil :days_remaining nil}
              (billing/account-standing {:paid_through_date nil} today))))))
 
+(deftest standing-test
+  (let [start    (LocalDate/parse "2026-11-18")
+        beta     {:created_at (java.sql.Timestamp/from (java.time.Instant/parse "2026-08-01T09:00:00Z"))}
+        standing (fn [row today] (billing/operator-standing row start (LocalDate/parse today)))]
+    (testing "a trial counts the days to its last day"
+      (is (= {:kind :trial :days 5} (standing beta "2026-11-13")))
+      (is (= {:kind :trial :days 0} (standing beta "2026-11-18"))))
+    (testing "a subscriber counts the days to the end of the paid period"
+      (is (= {:kind :subscribed :plan "yearly" :days 10}
+             (standing (assoc beta :stripe_subscription_status "active" :stripe_plan "yearly"
+                              :paid_through_date "2026-12-01")
+                       "2026-11-21"))))
+    (testing "a past due subscription reads payment failing"
+      (is (= :payment-failing
+             (:kind (standing (assoc beta :stripe_subscription_status "past_due") "2026-12-01")))))
+    (testing "paid time reads paid with a Stripe link and comp without one"
+      (let [paid (assoc beta :paid_through_date "2026-12-31")]
+        (is (= {:kind :paid :days 30} (standing (assoc paid :stripe_customer_id "cus_1") "2026-12-01")))
+        (is (= {:kind :comp :days 30} (standing paid "2026-12-01")))))
+    (testing "a lapsed account gives its first read-only day"
+      (is (= {:kind :lapsed :since (LocalDate/parse "2026-11-19")} (standing beta "2026-12-01")))
+      (is (= {:kind :lapsed :since (LocalDate/parse "2026-12-11")}
+             (standing (assoc beta :paid_through_date "2026-12-10") "2026-12-20"))))
+    (testing "without a payment start date every account is free"
+      (is (= {:kind :free} (billing/operator-standing beta nil (LocalDate/parse "2026-11-13")))))))
+
 (deftest entitlement-test
   (let [start  (LocalDate/parse "2026-11-18")
         at     (fn [created] (java.sql.Timestamp/from (java.time.Instant/parse created)))

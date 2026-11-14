@@ -1,6 +1,7 @@
 (ns aps.parts.stats-test
   (:require
    [aps.parts.billing :as billing]
+   [aps.parts.config :as config]
    [aps.parts.db :as db]
    [aps.parts.db.erasure :as erasure]
    [aps.parts.entity.map :as emap]
@@ -239,6 +240,22 @@
         result (silently #(stats/fleet-stats!))]
     (testing "fleet totals sum current rows across all owners"
       (is (= {:maps 2 :parts 3 :relationships 1} (:totals result))))))
+
+(deftest test-fleet-standing-breakdown
+  (let [today (LocalDate/parse "2026-11-13")
+        trial (create-test-user!)
+        comp  (create-test-user!)]
+    (db/update! :users {:created_at (java.sql.Timestamp/valueOf "2026-08-01 09:00:00")}
+                [:in :id [(:id trial) (:id comp)]])
+    (silently #(billing/set-paid-through! (:email comp) "2027-01-01"))
+    (with-redefs [config/payment-start-date (constantly (LocalDate/parse "2026-11-18"))]
+      (testing "counts each standing kind and the trials that end within 7 days"
+        (is (= {:trial 1 :trial-ending 1 :comp 1 :subscribed 0 :payment-failing 0
+                :paid  0 :lapsed       0 :free 0}
+               (:standing (stats/fleet today)))))
+      (testing "each user row carries its standing"
+        (is (= #{{:kind :trial :days 5} {:kind :comp :days 49}}
+               (set (map :standing (stats/user-activity today)))))))))
 
 (deftest test-fleet-billing-breakdown
   (create-test-user!)                                   ; never-paid

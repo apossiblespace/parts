@@ -58,7 +58,13 @@
   (create-test-user! {:email "jane@example.com" :display_name "Jane Example"})
   (let [body (:body ((console/handler) (mock/request :get "/stats")))]
     (testing "lists the users with their email"
-      (is (str/includes? body "jane@example.com")))))
+      (is (str/includes? body "jane@example.com"))))
+  (with-redefs [conf/payment-start-date (constantly (java.time.LocalDate/parse "2026-11-18"))]
+    (let [body (:body ((console/handler) (mock/request :get "/stats")))]
+      (testing "shows the standing of each user and the counts above the table"
+        (is (str/includes? body ">Standing<"))
+        (is (str/includes? body ">trial<"))
+        (is (str/includes? body "Trial 1 ("))))))
 
 (deftest test-root-redirects-to-stats
   (let [response ((console/handler) (mock/request :get "/"))]

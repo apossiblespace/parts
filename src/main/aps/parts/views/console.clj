@@ -34,12 +34,27 @@
         (< minutes (* 24 60)) (str (quot minutes 60) " h ago")
         :else                 (str (quot minutes (* 24 60)) " d ago")))))
 
-(defn- billing-badge
-  [{:keys [status]}]
-  (case status
-    :paid       [:span.badge.badge-sm.badge-soft.badge-success "paid"]
-    :overdue    [:span.badge.badge-sm.badge-soft.badge-warning "overdue"]
-    :never-paid [:span.badge.badge-sm.badge-ghost "never paid"]))
+(def ^:private short-date (DateTimeFormatter/ofPattern "d MMM" Locale/ENGLISH))
+
+(defn- days-left [days]
+  (if (zero? days) "last day" (str days " d left")))
+
+(defn- standing-badge
+  "Returns the badge and the time left of a `billing/operator-standing`."
+  [{:keys [kind days plan since]}]
+  (let [badge (fn [cls label] [:span {:class (str "badge badge-sm badge-soft " cls)} label])
+        time  (fn [text] [:span {:class "ml-1 opacity-70"} text])]
+    (case kind
+      :trial           (list (badge (if (<= days 7) "badge-warning" "badge-info") "trial")
+                             (time (days-left days)))
+      :subscribed      (list (badge "badge-success" (str "subscribed" (when plan (str " · " plan))))
+                             (when days (time (days-left days))))
+      :payment-failing (badge "badge-error" "payment failing")
+      :paid            (list (badge "badge-success" "paid") (time (days-left days)))
+      :comp            (list (badge "badge-accent" "comp") (time (days-left days)))
+      :lapsed          (list (badge "badge-error" "lapsed")
+                             (time (str "since " (.format short-date ^LocalDate since))))
+      :free            [:span.badge.badge-sm.badge-ghost "free"])))
 
 (defn- day-strip
   "A row of one cell for each day of the activity window, oldest first.
@@ -56,7 +71,7 @@
 
 (defn- user-row
   [today now {:keys [display_name email created_at is_founding_circle
-                     product_updates_opted_out billing last_active active_days counts]}]
+                     product_updates_opted_out standing last_active active_days counts]}]
   [:tr
    [:td
     [:div {:class "flex flex-col"}
@@ -71,7 +86,7 @@
      [:span {:class "text-xs opacity-60"} email]]]
    [:td {:class "opacity-70"}
     (str (-> ^java.sql.Timestamp created_at .toInstant (.atOffset ZoneOffset/UTC) .toLocalDate))]
-   [:td (billing-badge billing)]
+   [:td (standing-badge standing)]
    [:td (ago now last_active)]
    [:td {:class "text-right whitespace-nowrap"}
     (day-strip today active_days) " " [:b (count active_days)]]
@@ -89,7 +104,7 @@
      [:tr
       [:th "User"]
       [:th "Signed up"]
-      [:th "Billing"]
+      [:th "Standing"]
       [:th "Last active"]
       [:th {:class "text-right"} "Active days, 30 d"]
       [:th {:class "text-right" :title "Current Maps / Maps changed in the last 30 days"}
@@ -104,8 +119,6 @@
 (def ranges
   "The chart ranges of the Stats tab: query value, label and days."
   [["30d" "30 days" 30] ["3m" "3 months" 91] ["6m" "6 months" 182] ["1y" "1 year" 365]])
-
-(def ^:private short-date (DateTimeFormatter/ofPattern "d MMM" Locale/ENGLISH))
 
 (defn- nice-ceiling
   "Returns a round number at or above `x`, for the top of the y-axis."
@@ -237,12 +250,26 @@
       "are estimates: they leave out deleted accounts. Subscribers and Product updates "
       "start at the dashed line."]]))
 
+(defn- standing-summary
+  "Returns the line of `billing/operator-standing` counts above the Users
+   table."
+  [{:keys [trial trial-ending subscribed payment-failing paid comp lapsed free]}]
+  [:p {:class "text-sm opacity-70 tabular-nums"}
+   (str/join " · " (cond-> [(str "Trial " trial " (" trial-ending " ending in 7 d)")
+                            (str "Subscribed " subscribed)
+                            (str "Payment failing " payment-failing)
+                            (str "Paid " paid)
+                            (str "Comp " comp)
+                            (str "Lapsed " lapsed)]
+                     (pos? free) (conj (str "Free " free))))])
+
 (defn- stats-tab
   [data]
   (list
    (growth data)
    [:section {:class "flex flex-col gap-2"}
     [:h2 {:class "font-semibold"} "Users"]
+    (standing-summary (:standing (:fleet data)))
     (users-table data)
     [:p {:class "text-xs opacity-60"}
      "Δ is the number of changes in the last 30 UTC days. Activity counts "
