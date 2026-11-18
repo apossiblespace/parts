@@ -195,7 +195,7 @@
               :src   "/images/parts-logo-mini.svg"}]]
       [:p
        {:class "mt-4 text-gray-600"}
-       "Open-source IFS part mapping solution"]]
+       "Open-source IFS™ part mapping solution"]]
      [:div
       [:h3 {:class "font-semibold text-gray-900 mb-4"} "Quick Links"]
       [:ul
@@ -224,12 +224,14 @@
            label]])]]]
     [:div
      {:class
-      "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center"}
-     [:p
-      "© 2026 "
-      [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]
-      ", company number 11617016."
-      [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]
+      "mt-12 pt-8 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-top"}
+     [:div
+      [:p
+       "© 2026 "
+       [:a {:href "https://a.possible.space"} "A Possible Space Ltd."]
+       ", company number 11617016."
+       [:span {:class "text-gray-400 ml-1"} "Made with ❤️ in London, U.K."]]
+      [:p {:class "text-xs text-gray-400 mt-2"} "IFS™ and Internal Family Systems™ are trademarks of The IFS Institute. Parts is not affiliated with or endorsed by The IFS Institute."]]
      [:p
       [:span {:class "badge badge-xs text-gray-300 font-mono"} (version/current)]]]]])
 

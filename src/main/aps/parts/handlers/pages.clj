@@ -87,7 +87,7 @@
        [:h3 {:class ["my-8" "text-xl" "lg:-ml-3"]}
         [:span {:class highlight}
          [:strong.font-bold "Parts"]
-         " is a mapping tool for IFS practitioners to keep track of, visualise, and explore the relationships between their clients’ parts, across sessions."]]
+         " is a mapping tool for IFS™ practitioners to keep track of, visualise, and explore the relationships between their clients’ parts, across sessions."]]
        [:div {:class ["grid" "grid-cols-1" "sm:grid-cols-2" "gap-2"
                       "max-w-lg" "pointer-events-auto"]}
         [:a.btn.btn-primary.btn-lg.hover:bg-opacity-90.transform.hover:scale-105.transition.duration-200
@@ -186,7 +186,7 @@
          [:div.ml-6
           [:h3.text-xl.font-semibold "Ting-yi Lai"]
           [:p.text-gray-600.mt-1
-           "IFS Level 1 trained art psychotherapist, focusing on trauma."]
+           "IFS™ Level 1 trained art psychotherapist, focusing on trauma."]
           [:div.mt-2
            [:a.text-ifs-yellow
             {:href "https://tingyilai.com"}

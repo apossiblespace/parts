@@ -9,7 +9,7 @@
 
 ## About
 
-[Parts](https://parts.ifs.tools) is a toolkit for therapists working with the [Internal Family Systems model](https://en.wikipedia.org/wiki/Internal_Family_Systems_Model). It provides a tool for easy, collaborative parts mapping, which can be used to facilitate conversations with clients during sessions.
+[Parts](https://parts.ifs.tools) is a toolkit for therapists working with the [Internal Family Systems™ model](https://en.wikipedia.org/wiki/Internal_Family_Systems_Model). It provides a tool for easy, collaborative parts mapping, which can be used to facilitate conversations with clients during sessions.
 
 ## Development
 
@@ -78,8 +78,10 @@ make test && make deploy
 
 ## License
 
-Copyright © 2025 Gosha Tcherednitchenko / A Possible Space Ltd
+Copyright © 2024-2026 Gosha Tcherednitchenko / A Possible Space Ltd
 
 [The GNU General Public License v3](https://www.gnu.org/licenses/gpl.html)
 
 [badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
+
+IFS™ and Internal Family Systems™ are trademarks of The IFS Institute. Parts is not affiliated with or endorsed by The IFS Institute.
