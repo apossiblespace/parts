@@ -32,6 +32,15 @@
     (testing "the footer links to the pricing section"
       (is (re-find #"href=\"/#pricing\"" body)))))
 
+(deftest test-home-data-safety-section
+  (let [body (render-home)]
+    (testing "the section sits between the features and the walkthrough video"
+      (is (< (.indexOf body "id=\"features\"")
+             (.indexOf body "id=\"data-safety\"")
+             (.indexOf body "youtube-nocookie"))))
+    (testing "the section links to the Privacy Policy"
+      (is (re-find #"href=\"/privacy\"[^>]*>privacy policy</a>" body)))))
+
 (deftest test-home-embeds-the-configured-walkthrough
   (with-redefs [config/walkthrough-video-id (constantly "abcdefghijk")]
     (is (re-find #"src=\"https://www\.youtube-nocookie\.com/embed/abcdefghijk\"" (render-home)))))

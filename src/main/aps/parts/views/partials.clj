@@ -27,7 +27,7 @@
   []
   [:input {:type "hidden" :name "__anti-forgery-token" :value *anti-forgery-token*}])
 
-(defn- text-link
+(defn text-link
   "An inline underlined text link in the house style."
   [href label]
   [:a {:href href :class "underline underline-offset-4 hover:text-ifs-green"}
