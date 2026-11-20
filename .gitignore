@@ -41,9 +41,9 @@ resources/parts/version.txt
 !shadow-cljs.edn
 !package.json
 !pnpm-lock.yaml
+!pnpm-workspace.yaml
 !tailwind.config.js
 !postcss.config.mjs
-!.npmrc
 
 # ------------------------
 # Include Git & CI workflow

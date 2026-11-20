@@ -47,7 +47,7 @@
             cljfmt
 
             # JavaScript tools
-            nodejs_20
+            nodejs_24
             pnpm
 
             # Database
