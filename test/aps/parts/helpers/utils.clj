@@ -77,6 +77,7 @@
 (defn with-test-db
   [f]
   (let [ds (setup-test-db)]
+    (truncate-all-tables ds)
     (try
       (f)
       (finally

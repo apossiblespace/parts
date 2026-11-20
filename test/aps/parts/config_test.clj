@@ -48,7 +48,8 @@
 
 (deftest test-smtp-config
   (testing "returns nil when SMTP env is unconfigured — mail and alerting stay off by default"
-    (is (nil? (config/smtp-config))))
+    (with-redefs [l-config/get (fake-config {})]
+      (is (nil? (config/smtp-config)))))
   (testing "relay credentials only — no alert recipient required (TASK-014 split)"
     (with-redefs [l-config/get (fake-config relay-env)]
       (is (= {:host "smtp.tem.scw.cloud"
@@ -62,7 +63,8 @@
 
 (deftest test-alert-config
   (testing "nil without relay credentials"
-    (is (nil? (config/alert-config))))
+    (with-redefs [l-config/get (fake-config {})]
+      (is (nil? (config/alert-config)))))
   (testing "nil without a recipient — creds alone don't switch alerting on"
     (with-redefs [l-config/get (fake-config relay-env)]
       (is (nil? (config/alert-config)))))
@@ -95,8 +97,9 @@
 
 (deftest test-mail-from-and-reply-to
   (testing "nil when unconfigured — the mail layer refuses to send without a sender"
-    (is (nil? (config/mail-from)))
-    (is (nil? (config/mail-reply-to))))
+    (with-redefs [l-config/get (fake-config {})]
+      (is (nil? (config/mail-from)))
+      (is (nil? (config/mail-reply-to)))))
   (testing "read from :mail/from and :mail/reply-to (PARTS__MAIL__*)"
     (with-redefs [l-config/get (fake-config {:mail/from     "Gosha <gosha@ifs.tools>"
                                              :mail/reply-to "gosha@gosha.net"})]
